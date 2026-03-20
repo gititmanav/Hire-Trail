@@ -1,0 +1,12 @@
+{
+    "name": "hiretrail",
+    "version": "1.0.0",
+    "private": true,
+    "scripts": {
+      "install-all": "cd backend && npm install && cd ../frontend && npm install",
+      "build": "cd frontend && npm run build",
+      "start": "cd backend && node server.js",
+      "render-build": "npm run install-all && npm run build"
+    },
+    "license": "MIT"
+  }

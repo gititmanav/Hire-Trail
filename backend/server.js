@@ -26,6 +26,7 @@ const PORT = process.env.PORT || 5050;
 // Body parsing
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+app.set("trust proxy", 1);
 
 // Session config — stored in MongoDB
 app.use(
@@ -39,11 +40,12 @@ app.use(
       collectionName: "sessions",
       ttl: 24 * 60 * 60, // 1 day
     }),
+    proxy: process.env.NODE_ENV === "production",
     cookie: {
       maxAge: 24 * 60 * 60 * 1000,
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      sameSite: "lax",
     },
   })
 );
