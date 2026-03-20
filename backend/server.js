@@ -31,6 +31,7 @@ app.set("trust proxy", 1);
 // Session config — stored in MongoDB
 app.use(
   session({
+    // Security: fallback secret means sessions are forgeable if SESSION_SECRET env var is unset in production; throw an error instead of silently defaulting
     secret: process.env.SESSION_SECRET || "hiretrail-dev-secret",
     resave: false,
     saveUninitialized: false,
@@ -65,7 +66,8 @@ app.use("/api/analytics", analyticsRoutes);
 // Serve React build in production
 const clientBuildPath = join(__dirname, "..", "frontend", "dist");
 app.use(express.static(clientBuildPath));
-app.get("*", (req, res) => {
+// TODO [Bug]: mistyped API paths (e.g. /api/applicaitons) fall through here and receive 200 HTML instead of 404 JSON; add a guard: if (req.path.startsWith('/api/')) return res.status(404).json({ error: 'Not found' })
+app.get("*", (_req, res) => {
   res.sendFile(join(clientBuildPath, "index.html"));
 });
 
