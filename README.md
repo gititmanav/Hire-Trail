@@ -1,6 +1,7 @@
 # HireTrail — Internship & Job Application Command Center
 
 ![HireTrail Screenshot](screenshot.png)
+![HireTrail Screenshot](screenshot2.png)
 
 ## Authors
 
