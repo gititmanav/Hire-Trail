@@ -113,12 +113,25 @@ router.get(
 );
 
 // Google OAuth — callback
-router.get(
-  "/google/callback",
-  passport.authenticate("google", { failureRedirect: "/login" }),
-  (req, res) => {
-    res.redirect(process.env.CLIENT_URL || "http://localhost:5173");
-  }
-);
+// Google OAuth — callback
+router.get("/google/callback", (req, res, next) => {
+  passport.authenticate("google", (err, user) => {
+    if (err || !user) {
+      console.error("Google OAuth error:", err);
+      return res.redirect(
+        (process.env.CLIENT_URL || "http://localhost:5173") + "/login"
+      );
+    }
+    req.login(user, (loginErr) => {
+      if (loginErr) {
+        console.error("Google login error:", loginErr);
+        return res.redirect(
+          (process.env.CLIENT_URL || "http://localhost:5173") + "/login"
+        );
+      }
+      return res.redirect(process.env.CLIENT_URL || "http://localhost:5173");
+    });
+  })(req, res, next);
+});
 
 export default router;
