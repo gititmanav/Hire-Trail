@@ -5,6 +5,8 @@ import { exportToCSV } from "../../utils/csv.ts";
 import ImportModal from "../../components/ImportModal/ImportModal.tsx";
 import { SkeletonTable, SkeletonStats } from "../../components/Skeleton/Skeleton.tsx";
 import type { Application, Resume, Stage, ApplicationFormData, Pagination, SortConfig } from "../../types";
+import ConfirmModal from "../../components/ConfirmModal/ConfirmModal.tsx";
+import { useConfirm } from "../../hooks/useConfirm.ts";
 
 const STAGES: Stage[] = ["Applied", "OA", "Interview", "Offer", "Rejected"];
 const badgeCls: Record<Stage, string> = { Applied: "bg-accent-light text-accent-dark", OA: "bg-warning-light text-yellow-800", Interview: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300", Offer: "bg-success-light text-emerald-800", Rejected: "bg-danger-light text-red-800" };
@@ -76,6 +78,7 @@ export default function Applications() {
   const [page, setPage] = useState(1);
   const [pag, setPag] = useState<Pagination>({ page: 1, limit: 25, total: 0, pages: 0 });
   const [sort, setSort] = useState<SortConfig>({ field: "createdAt", order: "desc" });
+  const { confirm: confirmDelete, confirmState, handleConfirm: onConfirm, handleCancel: onCancel } = useConfirm();
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   // Debounce search — 300ms
@@ -111,7 +114,7 @@ export default function Applications() {
     setModal(false); setEditing(null); await fetchData();
   };
 
-  const handleDelete = async (id: string) => { if (!confirm("Delete this application?")) return; await applicationsAPI.delete(id); toast.success("Deleted"); await fetchData(); };
+  const handleDelete = async (id: string) => { const ok = await confirmDelete("This application will be permanently deleted.", { title: "Delete application?", confirmLabel: "Delete" }); if (!ok) return; await applicationsAPI.delete(id); toast.success("Deleted"); await fetchData(); };
   const toggleSort = (field: string) => { setSort((s) => ({ field, order: s.field === field && s.order === "desc" ? "asc" : "desc" })); setPage(1); };
 
   // Client-side stage filter on server-returned data
@@ -192,6 +195,7 @@ export default function Applications() {
 
       {modal && <Modal app={editing} resumes={resumes} onSave={handleSave} onClose={() => { setModal(false); setEditing(null); }} />}
       {importModal && <ImportModal onClose={() => setImportModal(false)} onImported={fetchData} />}
+      {confirmState.open && <ConfirmModal title={confirmState.title} message={confirmState.message} confirmLabel={confirmState.confirmLabel} danger={confirmState.danger} onConfirm={onConfirm} onCancel={onCancel} />}
     </div>
   );
 }

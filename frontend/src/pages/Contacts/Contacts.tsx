@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, FormEvent } from "react";
 import toast from "react-hot-toast";
 import { contactsAPI } from "../../utils/api.ts";
 import { SkeletonCard } from "../../components/Skeleton/Skeleton.tsx";
+import ConfirmModal from "../../components/ConfirmModal/ConfirmModal.tsx";
+import { useConfirm } from "../../hooks/useConfirm.ts";
 import type { Contact, ContactFormData, Pagination } from "../../types";
 
 const SOURCES = ["Cold email", "Referral", "Career fair", "LinkedIn", "Professor intro", "Alumni network", "Other"];
@@ -58,6 +60,7 @@ export default function Contacts() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pag, setPag] = useState<Pagination>({ page: 1, limit: 20, total: 0, pages: 0 });
+  const { confirm: confirmDelete, confirmState, handleConfirm: onConfirm, handleCancel: onCancel } = useConfirm();
 
   const fetchContacts = useCallback(async () => {
     try {
@@ -74,7 +77,13 @@ export default function Contacts() {
     else { await contactsAPI.create(d); toast.success("Added"); }
     setModal(false); setEditing(null); await fetchContacts();
   };
-  const del = async (id: string) => { if (!confirm("Delete this contact?")) return; await contactsAPI.delete(id); toast.success("Deleted"); await fetchContacts(); };
+  const handleDelete = async (id: string) => {
+    const ok = await confirmDelete("This contact will be permanently deleted.", { title: "Delete contact?", confirmLabel: "Delete" });
+    if (!ok) return;
+    await contactsAPI.delete(id);
+    toast.success("Deleted");
+    await fetchContacts();
+  };
 
   const filtered = contacts.filter((c) => !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.company.toLowerCase().includes(search.toLowerCase()));
 
@@ -101,7 +110,7 @@ export default function Contacts() {
                   <div className="flex-1 min-w-0"><h3 className="text-[15px] font-semibold text-gray-900 dark:text-white">{c.name}</h3><p className="text-[13px] text-gray-500 dark:text-gray-400">{c.role ? `${c.role} at ` : ""}{c.company}</p></div>
                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button className={btnIcon} onClick={() => { setEditing(c); setModal(true); }}><svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M8.5 2.5l3 3L4.5 12.5H1.5v-3z" /></svg></button>
-                    <button className={`${btnIcon} !text-danger`} onClick={() => del(c._id)}><svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="2,4 12,4" /><path d="M5 4V2.5a.5.5 0 01.5-.5h3a.5.5 0 01.5.5V4" /><path d="M3 4l.75 8.5a1 1 0 001 .5h4.5a1 1 0 001-.5L11 4" /></svg></button>
+                    <button className={`${btnIcon} !text-danger`} onClick={() => handleDelete(c._id)}><svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="2,4 12,4" /><path d="M5 4V2.5a.5.5 0 01.5-.5h3a.5.5 0 01.5.5V4" /><path d="M3 4l.75 8.5a1 1 0 001 .5h4.5a1 1 0 001-.5L11 4" /></svg></button>
                   </div>
                 </div>
                 {c.connectionSource && <span className="inline-block text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 px-2 py-0.5 rounded-full mb-1 w-fit">{c.connectionSource}</span>}
@@ -116,6 +125,16 @@ export default function Contacts() {
       )}
 
       {modal && <Modal contact={editing} onSave={save} onClose={() => { setModal(false); setEditing(null); }} />}
+      {confirmState.open && (
+        <ConfirmModal
+          title={confirmState.title}
+          message={confirmState.message}
+          confirmLabel={confirmState.confirmLabel}
+          danger={confirmState.danger}
+          onConfirm={onConfirm}
+          onCancel={onCancel}
+        />
+      )}
     </div>
   );
 }

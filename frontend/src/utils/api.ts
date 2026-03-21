@@ -67,8 +67,18 @@ export const contactsAPI = {
 };
 
 export const deadlinesAPI = {
-  getAll: (params?: { page?: number; limit?: number }) =>
-    api.get<PaginatedResponse<Deadline>>("/deadlines", { params }).then((r) => r.data),
+  getAll: (params?: {
+    page?: number;
+    limit?: number;
+    status?: "all" | "upcoming" | "overdue" | "completed";
+  }) =>
+    api
+      .get<
+        PaginatedResponse<Deadline> & {
+          counts?: { upcoming: number; overdue: number; completed: number };
+        }
+      >("/deadlines", { params })
+      .then((r) => r.data),
   getOne: (id: string) => api.get<Deadline>(`/deadlines/${id}`).then((r) => r.data),
   create: (data: DeadlineFormData) => api.post<Deadline>("/deadlines", data).then((r) => r.data),
   update: (id: string, data: Partial<DeadlineFormData & { completed: boolean }>) => api.put<Deadline>(`/deadlines/${id}`, data).then((r) => r.data),

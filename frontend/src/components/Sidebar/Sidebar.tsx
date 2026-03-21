@@ -19,15 +19,15 @@ export default function Sidebar({ collapsed, onToggle }: Props) {
       <div className={`flex items-center min-h-[60px] px-4 ${collapsed ? "justify-center" : "justify-between"}`}>
         {!collapsed && (
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-white/10 p-1 flex items-center justify-center">
-              <img src="/logo.png" alt="HireTrail" className="w-full h-full object-contain" />
+            <div className="w-9 h-9 rounded-lg bg-white p-1 flex items-center justify-center shrink-0">
+              <img src="/logo.svg" alt="HireTrail" className="w-full h-full object-contain" />
             </div>
             <span className="text-[17px] font-semibold text-white whitespace-nowrap">HireTrail</span>
           </div>
         )}
         {collapsed && (
-          <div className="w-9 h-9 rounded-lg bg-white/10 p-1.5 flex items-center justify-center">
-            <img src="/logo.png" alt="H" className="w-full h-full object-contain" />
+          <div className="w-9 h-9 rounded-lg bg-white p-1 flex items-center justify-center">
+            <img src="/logo.svg" alt="H" className="w-full h-full object-contain" />
           </div>
         )}
         {!collapsed && (
@@ -41,7 +41,6 @@ export default function Sidebar({ collapsed, onToggle }: Props) {
           </button>
         )}
       </div>
-
       <nav className={`flex-1 flex flex-col gap-0.5 overflow-y-auto ${collapsed ? "px-1 items-center" : "px-2"}`}>
         {nav.map((item) => (
           <NavLink key={item.to} to={item.to} end={item.to === "/"} title={collapsed ? item.label : undefined}
@@ -51,13 +50,8 @@ export default function Sidebar({ collapsed, onToggle }: Props) {
           </NavLink>
         ))}
       </nav>
-
       <div className="px-4 py-3 border-t border-sidebar-hover">
-        {collapsed ? (
-          <div className="flex justify-center"><div className="w-5 h-5 rounded bg-white/10 p-0.5"><img src="/logo.png" alt="H" className="w-full h-full object-contain opacity-50" /></div></div>
-        ) : (
-          <p className="text-[11px] text-sidebar-text/50">HireTrail v3.0</p>
-        )}
+        <p className={`text-[11px] text-sidebar-text/50 ${collapsed ? "text-center" : ""}`}>{collapsed ? "v3" : "HireTrail v3.0"}</p>
       </div>
     </aside>
   );

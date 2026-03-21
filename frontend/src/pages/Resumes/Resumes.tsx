@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useRef, FormEvent } from "react";
 import toast from "react-hot-toast";
 import { resumesAPI } from "../../utils/api.ts";
 import { SkeletonCard } from "../../components/Skeleton/Skeleton.tsx";
+import ConfirmModal from "../../components/ConfirmModal/ConfirmModal.tsx";
+import { useConfirm } from "../../hooks/useConfirm.ts";
 import type { Resume } from "../../types";
 
 const fmt = (d: string) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -90,6 +92,7 @@ export default function Resumes() {
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState<Resume | null>(null);
+  const { confirm: confirmDelete, confirmState, handleConfirm: onConfirm, handleCancel: onCancel } = useConfirm();
 
   const fetchResumes = useCallback(async () => { try { setResumes(await resumesAPI.getAll()); } catch {} finally { setLoading(false); } }, []);
   useEffect(() => { fetchResumes(); }, [fetchResumes]);
@@ -105,7 +108,13 @@ export default function Resumes() {
     setModal(false); setEditing(null); await fetchResumes();
   };
 
-  const del = async (id: string) => { if (!confirm("Delete this resume?")) return; await resumesAPI.delete(id); toast.success("Deleted"); await fetchResumes(); };
+  const handleDelete = async (id: string) => {
+    const ok = await confirmDelete("This resume will be permanently deleted.", { title: "Delete resume?", confirmLabel: "Delete" });
+    if (!ok) return;
+    await resumesAPI.delete(id);
+    toast.success("Deleted");
+    await fetchResumes();
+  };
 
   if (loading) return <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">{[1, 2, 3].map((i) => <SkeletonCard key={i} />)}</div>;
 
@@ -132,7 +141,7 @@ export default function Resumes() {
                 </div>
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button onClick={() => { setEditing(r); setModal(true); }} className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-600 text-gray-400 hover:text-accent hover:border-accent transition-colors"><svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M8.5 2.5l3 3L4.5 12.5H1.5v-3z"/></svg></button>
-                  <button onClick={() => del(r._id)} className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-600 text-gray-400 hover:text-danger hover:border-danger transition-colors"><svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="2,4 12,4"/><path d="M5 4V2.5a.5.5 0 01.5-.5h3a.5.5 0 01.5.5V4"/><path d="M3 4l.75 8.5a1 1 0 001 .5h4.5a1 1 0 001-.5L11 4"/></svg></button>
+                  <button onClick={() => handleDelete(r._id)} className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-600 text-gray-400 hover:text-danger hover:border-danger transition-colors"><svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="2,4 12,4"/><path d="M5 4V2.5a.5.5 0 01.5-.5h3a.5.5 0 01.5.5V4"/><path d="M3 4l.75 8.5a1 1 0 001 .5h4.5a1 1 0 001-.5L11 4"/></svg></button>
                 </div>
               </div>
 
@@ -158,6 +167,16 @@ export default function Resumes() {
       )}
 
       {modal && <Modal resume={editing} onSave={save} onClose={() => { setModal(false); setEditing(null); }} />}
+      {confirmState.open && (
+        <ConfirmModal
+          title={confirmState.title}
+          message={confirmState.message}
+          confirmLabel={confirmState.confirmLabel}
+          danger={confirmState.danger}
+          onConfirm={onConfirm}
+          onCancel={onCancel}
+        />
+      )}
     </div>
   );
 }

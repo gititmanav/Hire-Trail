@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, FormEvent } from "react";
 import toast from "react-hot-toast";
 import { deadlinesAPI, applicationsAPI } from "../../utils/api.ts";
 import { SkeletonTable } from "../../components/Skeleton/Skeleton.tsx";
+import ConfirmModal from "../../components/ConfirmModal/ConfirmModal.tsx";
+import { useConfirm } from "../../hooks/useConfirm.ts";
 import type { Deadline, Application, DeadlineFormData, Pagination } from "../../types";
 
 const TYPES = ["OA due date", "Follow-up reminder", "Interview prep", "Offer decision", "Thank you note", "Other"];
@@ -66,13 +68,21 @@ export default function Deadlines() {
   const [filter, setFilter] = useState("upcoming");
   const [page, setPage] = useState(1);
   const [pag, setPag] = useState<Pagination>({ page: 1, limit: 20, total: 0, pages: 0 });
+  const [tabCounts, setTabCounts] = useState({ upcoming: 0, overdue: 0, completed: 0 });
+  const { confirm: confirmDelete, confirmState, handleConfirm: onConfirm, handleCancel: onCancel } = useConfirm();
 
   const fetchData = useCallback(async () => {
     try {
-      const [d, a] = await Promise.all([deadlinesAPI.getAll({ page, limit: 20 }), applicationsAPI.getAll({ limit: 999 })]);
-      setDeadlines(d.data); setPag(d.pagination); setApps(a.data);
+      const [d, a] = await Promise.all([
+        deadlinesAPI.getAll({ page, limit: 20, status: filter as "all" | "upcoming" | "overdue" | "completed" }),
+        applicationsAPI.getAll({ limit: 999 }),
+      ]);
+      setDeadlines(d.data);
+      setPag(d.pagination);
+      setApps(a.data);
+      if (d.counts) setTabCounts(d.counts);
     } catch {} finally { setLoading(false); }
-  }, [page]);
+  }, [page, filter]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -82,20 +92,18 @@ export default function Deadlines() {
     setModal(false); setEditing(null); await fetchData();
   };
   const toggle = async (d: Deadline) => { await deadlinesAPI.update(d._id, { completed: !d.completed }); toast.success(d.completed ? "Marked incomplete" : "Marked complete"); await fetchData(); };
-  const del = async (id: string) => { if (!confirm("Delete this deadline?")) return; await deadlinesAPI.delete(id); toast.success("Deleted"); await fetchData(); };
+  const handleDelete = async (id: string) => {
+    const ok = await confirmDelete("This deadline will be permanently deleted.", { title: "Delete deadline?", confirmLabel: "Delete" });
+    if (!ok) return;
+    await deadlinesAPI.delete(id);
+    toast.success("Deleted");
+    await fetchData();
+  };
   const appLabel = (id: string | null) => { if (!id) return null; const a = apps.find((x) => x._id === id); return a ? `${a.company} — ${a.role}` : null; };
 
-  const now = new Date();
-  const filtered = deadlines.filter((d) => {
-    if (filter === "upcoming") return !d.completed && new Date(d.dueDate) >= now;
-    if (filter === "overdue") return !d.completed && new Date(d.dueDate) < now;
-    if (filter === "completed") return d.completed;
-    return true;
-  });
-
-  const uc = deadlines.filter((d) => !d.completed && new Date(d.dueDate) >= now).length;
-  const oc = deadlines.filter((d) => !d.completed && new Date(d.dueDate) < now).length;
-  const cc = deadlines.filter((d) => d.completed).length;
+  const uc = tabCounts.upcoming;
+  const oc = tabCounts.overdue;
+  const cc = tabCounts.completed;
 
   if (loading) return <SkeletonTable rows={6} />;
 
@@ -106,15 +114,15 @@ export default function Deadlines() {
       {/* Sticky tab bar */}
       <div className="sticky top-[57px] z-20 bg-page/95 dark:bg-gray-900/95 backdrop-blur-sm -mx-8 px-8 flex gap-1 border-b border-gray-200 dark:border-gray-700 mb-4">
         {([["upcoming", "Upcoming", uc], ["overdue", "Overdue", oc], ["completed", "Completed", cc], ["all", "All", 0]] as [string, string, number][]).map(([k, l, c]) => (
-          <button key={k} onClick={() => setFilter(k)} className={`inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${filter === k ? "text-accent border-accent" : "text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-200"}`}>{l}{c > 0 && <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-full ${k === "overdue" ? "bg-danger-light text-danger" : "bg-gray-100 dark:bg-gray-700 text-gray-400"}`}>{c}</span>}</button>
+          <button key={k} onClick={() => { setPage(1); setFilter(k); }} className={`inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${filter === k ? "text-accent border-accent" : "text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-200"}`}>{l}{c > 0 && <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-full ${k === "overdue" ? "bg-danger-light text-danger" : "bg-gray-100 dark:bg-gray-700 text-gray-400"}`}>{c}</span>}</button>
         ))}
       </div>
 
-      {filtered.length === 0 ? (
+      {deadlines.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-12 text-center text-gray-400"><h3 className="font-medium text-gray-500 mb-1">{filter === "upcoming" ? "No upcoming deadlines" : filter === "overdue" ? "No overdue deadlines" : filter === "completed" ? "No completed deadlines" : "No deadlines yet"}</h3><p className="text-sm">{filter === "upcoming" ? "You're all caught up!" : "Add deadlines to stay on track"}</p></div>
       ) : (
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl divide-y divide-gray-100 dark:divide-gray-700">
-          {filtered.map((d) => (
+          {deadlines.map((d) => (
             <div key={d._id} className={`flex items-center gap-3 px-5 py-3 group ${d.completed ? "opacity-50" : ""}`}>
               <button onClick={() => toggle(d)} className={`w-[22px] h-[22px] rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${d.completed ? "bg-success border-success text-white" : "border-gray-300 dark:border-gray-500 hover:border-accent"}`}>
                 {d.completed && <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="2,6 5,9 10,3" /></svg>}
@@ -130,7 +138,7 @@ export default function Deadlines() {
               </div>
               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button className={btnIcon} onClick={() => { setEditing(d); setModal(true); }}><svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M8.5 2.5l3 3L4.5 12.5H1.5v-3z" /></svg></button>
-                <button className={`${btnIcon} !text-danger`} onClick={() => del(d._id)}><svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="2,4 12,4" /><path d="M5 4V2.5a.5.5 0 01.5-.5h3a.5.5 0 01.5.5V4" /><path d="M3 4l.75 8.5a1 1 0 001 .5h4.5a1 1 0 001-.5L11 4" /></svg></button>
+                <button className={`${btnIcon} !text-danger`} onClick={() => handleDelete(d._id)}><svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="2,4 12,4" /><path d="M5 4V2.5a.5.5 0 01.5-.5h3a.5.5 0 01.5.5V4" /><path d="M3 4l.75 8.5a1 1 0 001 .5h4.5a1 1 0 001-.5L11 4" /></svg></button>
               </div>
             </div>
           ))}
@@ -139,6 +147,16 @@ export default function Deadlines() {
       )}
 
       {modal && <Modal deadline={editing} applications={apps} onSave={save} onClose={() => { setModal(false); setEditing(null); }} />}
+      {confirmState.open && (
+        <ConfirmModal
+          title={confirmState.title}
+          message={confirmState.message}
+          confirmLabel={confirmState.confirmLabel}
+          danger={confirmState.danger}
+          onConfirm={onConfirm}
+          onCancel={onCancel}
+        />
+      )}
     </div>
   );
 }

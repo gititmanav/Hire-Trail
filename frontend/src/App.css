@@ -8,6 +8,24 @@
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes fade-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes scale-in { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
+@keyframes fadeSlideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Onboarding wiggle for first-time users */
+@keyframes onboard-resize {
+  0% { transform: scaleX(1); }
+  20% { transform: scaleX(1.03); }
+  40% { transform: scaleX(1); }
+  100% { transform: scaleX(1); }
+}
+@keyframes onboard-move {
+  0% { transform: translateX(0); }
+  30% { transform: translateX(12px); }
+  60% { transform: translateX(0); }
+  100% { transform: translateX(0); }
+}
+.onboard-hint {
+  animation: onboard-resize 1s ease-in-out 0.5s, onboard-move 1s ease-in-out 1.8s;
+}
 
 .spinner { @apply flex items-center justify-center p-10; }
 .spinner::after { content: ""; @apply w-8 h-8 border-[3px] border-gray-200 dark:border-gray-700 rounded-full; border-top-color: theme('colors.accent.DEFAULT'); animation: spin 0.6s linear infinite; }
@@ -16,7 +34,6 @@
 .fade-up { animation: fade-up 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
 .line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 
-/* ── Premium Card ── */
 .card-premium {
   @apply bg-white dark:bg-gray-800 rounded-xl overflow-hidden transition-all duration-200;
   box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06);
@@ -25,7 +42,6 @@
 .dark .card-premium { box-shadow: 0 1px 3px rgba(0,0,0,0.2), 0 1px 2px rgba(0,0,0,0.12); border-color: rgba(255,255,255,0.06); }
 .card-premium:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04); transform: translateY(-1px); }
 
-/* ── Buttons — flat, no gradients ── */
 .btn-accent {
   @apply inline-flex items-center gap-1.5 px-4 py-2 text-white text-sm font-medium rounded-lg transition-all duration-150;
   @apply bg-accent hover:bg-accent-hover active:bg-accent-dark;
@@ -41,14 +57,12 @@
 }
 .btn-secondary:hover { @apply bg-gray-50 dark:bg-gray-700; box-shadow: 0 2px 4px rgba(0,0,0,0.06); }
 
-/* ── Glass Header ── */
 .glass-header {
   @apply sticky top-0 z-30 border-b;
   background: rgba(255,255,255,0.72); backdrop-filter: blur(16px) saturate(180%); -webkit-backdrop-filter: blur(16px) saturate(180%); border-color: rgba(0,0,0,0.06);
 }
 .dark .glass-header { background: rgba(17,24,39,0.72); border-color: rgba(255,255,255,0.06); }
 
-/* ── Input ── */
 .input-premium {
   @apply w-full px-3 py-2 text-sm rounded-lg transition-all duration-150;
   @apply bg-white dark:bg-gray-700/80 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white;
@@ -56,12 +70,11 @@
   box-shadow: 0 1px 2px rgba(0,0,0,0.04);
 }
 
-/* ── Scrollbar ── */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { @apply bg-transparent; }
 ::-webkit-scrollbar-thumb { @apply bg-gray-300 dark:bg-gray-600 rounded-full; }
 
-/* ── react-grid-layout ── */
+/* react-grid-layout */
 .react-grid-layout { position: relative; }
 .react-grid-item { transition: all 200ms ease; transition-property: left, top, width, height; }
 .react-grid-item.cssTransforms { transition-property: transform, width, height; }
@@ -72,10 +85,7 @@
 .dark .react-grid-item > .react-resizable-handle::after { border-right-color: rgba(255,255,255,0.12); border-bottom-color: rgba(255,255,255,0.12); }
 .react-grid-item.react-grid-placeholder { background: rgba(55,138,221,0.08); border: 2px dashed rgba(55,138,221,0.25); border-radius: 12px; }
 
-/* ── Unlocked: entire card is draggable — hand cursor everywhere ── */
 .dashboard-unlocked .react-grid-item { cursor: grab; }
 .dashboard-unlocked .react-grid-item:active { cursor: grabbing; }
-
-/* ── Locked: no drag, no resize ── */
 .dashboard-locked .react-grid-item > .react-resizable-handle { display: none !important; }
 .dashboard-locked .react-grid-item { cursor: default; }

@@ -11,26 +11,53 @@ import { NotFoundError } from "../errors/AppError.js";
 const router = Router();
 router.use(ensureAuth);
 
-// GET all — supports pagination
+// GET all — supports pagination and status filter (must filter before skip/limit)
 router.get("/", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = getUser(req);
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
     const skip = (page - 1) * limit;
+    const status = (req.query.status as string) || "all";
+    const now = new Date();
 
-    const [deadlines, total] = await Promise.all([
-      Deadline.find({ userId: user._id })
-        .sort({ dueDate: 1 })
+    const base = { userId: user._id };
+    let query: Record<string, unknown> = { ...base };
+    if (status === "upcoming") {
+      query = { ...base, completed: false, dueDate: { $gte: now } };
+    } else if (status === "overdue") {
+      query = { ...base, completed: false, dueDate: { $lt: now } };
+    } else if (status === "completed") {
+      query = { ...base, completed: true };
+    }
+
+    let sort: Record<string, 1 | -1> = { dueDate: 1 };
+    if (status === "completed") sort = { dueDate: -1 };
+
+    const [deadlines, total, upcoming, overdue, completed] = await Promise.all([
+      Deadline.find(query)
+        .sort(sort)
         .skip(skip)
         .limit(limit)
         .lean(),
-      Deadline.countDocuments({ userId: user._id }),
+      Deadline.countDocuments(query),
+      Deadline.countDocuments({
+        ...base,
+        completed: false,
+        dueDate: { $gte: now },
+      }),
+      Deadline.countDocuments({
+        ...base,
+        completed: false,
+        dueDate: { $lt: now },
+      }),
+      Deadline.countDocuments({ ...base, completed: true }),
     ]);
 
     res.json({
       data: deadlines,
       pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+      counts: { upcoming, overdue, completed },
     });
   } catch (err) {
     next(err);

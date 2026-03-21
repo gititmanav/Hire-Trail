@@ -17,6 +17,7 @@ import type { Application, Deadline, Resume, AnalyticsData } from "../../types";
 import "react-grid-layout/css/styles.css";
 
 const RGL = WidthProvider(Responsive);
+const ONBOARD_KEY = "hiretrail-onboarded";
 
 export default function Dashboard() {
   const [stats, setStats] = useState<AnalyticsData | null>(null);
@@ -25,7 +26,21 @@ export default function Dashboard() {
   const [resumes, setResumes] = useState<Resume[]>([]);
   const [loading, setLoading] = useState(true);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const { layout, visible, locked, onLayoutChange, toggleWidget, toggleLock, resetLayout } = useWidgetLayout();
+
+  // Check if first-time user
+  useEffect(() => {
+    if (!localStorage.getItem(ONBOARD_KEY)) {
+      setShowOnboarding(true);
+      // Mark as onboarded after animation plays
+      const timer = setTimeout(() => {
+        localStorage.setItem(ONBOARD_KEY, "true");
+        setShowOnboarding(false);
+      }, 3500);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -36,23 +51,12 @@ export default function Dashboard() {
           deadlinesAPI.getAll({ limit: 100 }),
           resumesAPI.getAll(),
         ]);
-        setStats(a);
-        setApps(ap.data);
-        setResumes(r);
-
-        // Upcoming deadlines: NOT completed AND dueDate is today or later
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const upcoming = dl.data
-          .filter((d) => {
-            if (d.completed) return false;
-            const due = new Date(d.dueDate);
-            due.setHours(0, 0, 0, 0);
-            return due.getTime() >= today.getTime();
-          })
-          .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
-          .slice(0, 8);
-        setDeadlines(upcoming);
+        setStats(a); setApps(ap.data); setResumes(r);
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        setDeadlines(
+          dl.data.filter((d) => { if (d.completed) return false; const due = new Date(d.dueDate); due.setHours(0, 0, 0, 0); return due.getTime() >= today.getTime(); })
+            .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()).slice(0, 8)
+        );
       } catch {} finally { setLoading(false); }
     })();
   }, []);
@@ -78,6 +82,16 @@ export default function Dashboard() {
 
   return (
     <div className="fade-up">
+      {/* Onboarding tooltip for first-time users */}
+      {showOnboarding && !locked && (
+        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white px-5 py-3 rounded-xl shadow-xl text-sm font-medium animate-in" style={{ animation: "fadeSlideUp 0.4s ease-out, fadeSlideUp 0.4s ease-out 3s reverse forwards" }}>
+          <div className="flex items-center gap-2">
+            <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="text-accent"><path d="M14 2H6a2 2 0 00-2 2v16l5-3 5 3V4a2 2 0 00-2-2z"/></svg>
+            Tip: You can drag and resize these widgets!
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">Dashboard</h1>
         <div className="flex items-center gap-2">
@@ -97,20 +111,9 @@ export default function Dashboard() {
       </div>
 
       <div className={locked ? "dashboard-locked" : "dashboard-unlocked"}>
-        <RGL
-          className="dashboard-grid"
-          layouts={{ lg: layout }}
-          breakpoints={{ lg: 1024, md: 768, sm: 480 }}
-          cols={{ lg: 12, md: 8, sm: 4 }}
-          rowHeight={50}
-          onLayoutChange={(nl) => onLayoutChange(nl)}
-          isDraggable={!locked}
-          isResizable={!locked}
-          margin={[16, 16]}
-          containerPadding={[0, 0]}
-        >
-          {layout.filter((l) => visible[l.i]).map((l) => (
-            <div key={l.i}>
+        <RGL className="dashboard-grid" layouts={{ lg: layout }} breakpoints={{ lg: 1024, md: 768, sm: 480 }} cols={{ lg: 12, md: 8, sm: 4 }} rowHeight={50} onLayoutChange={(nl) => onLayoutChange(nl)} isDraggable={!locked} isResizable={!locked} margin={[16, 16]} containerPadding={[0, 0]}>
+          {layout.filter((l) => visible[l.i]).map((l, idx) => (
+            <div key={l.i} className={showOnboarding && idx === 0 ? "onboard-hint" : ""}>
               <div className="card-premium h-full flex flex-col">
                 {l.i !== "stats" && (
                   <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 dark:border-gray-700/50">
