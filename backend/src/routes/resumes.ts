@@ -17,9 +17,9 @@ async function uploadToCloudinary(buffer: Buffer, originalName: string, userId: 
     const stream = cloudinary.uploader.upload_stream(
       {
         folder: `hiretrail/${userId}/resumes`,
-        resource_type: "raw",
-        public_id: `${Date.now()}-${originalName.replace(/[^a-zA-Z0-9.-]/g, "_")}`,
-        format: "pdf",
+        resource_type: "image",
+        access_mode: "public",
+        public_id: `${Date.now()}-${originalName.replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9._-]/g, "_")}`,
       },
       (error, result) => {
         if (error || !result) return reject(error || new Error("Upload failed"));
@@ -34,7 +34,7 @@ async function deleteFromCloudinary(publicId: string): Promise<void> {
   if (!publicId) return;
   try {
     const { cloudinary } = await import("../config/cloudinary.js");
-    await cloudinary.uploader.destroy(publicId, { resource_type: "raw" });
+    await cloudinary.uploader.destroy(publicId, { resource_type: "image" });
   } catch (err) {
     console.error("Cloudinary delete error:", err);
   }

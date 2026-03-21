@@ -16,12 +16,15 @@ import Profile from "./pages/Profile/Profile.tsx";
 import { authAPI } from "./utils/api.ts";
 import { useTheme } from "./hooks/useTheme.ts";
 import type { User } from "./types";
+import { JobSearchContext, defaultState } from "./hooks/useJobSearchState.ts";
+import type { JobSearchState } from "./hooks/useJobSearchState.ts";
 
-export const ThemeContext = createContext<{ dark: boolean; toggle: (e?: React.MouseEvent) => void }>({ dark: false, toggle: () => {} });
+export const ThemeContext = createContext<{ dark: boolean; toggle: (e?: React.MouseEvent) => void }>({ dark: false, toggle: () => { } });
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [jobSearchState, setJobSearchState] = useState<JobSearchState>(defaultState);
   const theme = useTheme();
 
   const checkAuth = useCallback(async () => {
@@ -33,23 +36,27 @@ function App() {
 
   return (
     <ThemeContext.Provider value={theme}>
-      <Routes>
-        <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login onLogin={setUser} />} />
-        <Route path="/register" element={user ? <Navigate to="/" replace /> : <Register onLogin={setUser} />} />
-        <Route element={<ProtectedRoute user={user}><Layout user={user!} onLogout={async () => { try { await authAPI.logout(); } catch {} setUser(null); }} /></ProtectedRoute>}>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/applications" element={<Applications />} />
-          <Route path="/kanban" element={<Kanban />} />
-          <Route path="/jobs" element={<JobSearch />} />
-          <Route path="/resumes" element={<Resumes />} />
-          <Route path="/contacts" element={<Contacts />} />
-          <Route path="/deadlines" element={<Deadlines />} />
-          <Route path="/import-export" element={<ImportExport />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/settings" element={<Profile />} />
-        </Route>
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <JobSearchContext.Provider value={{ state: jobSearchState, setState: setJobSearchState }}>
+
+        <Routes>
+          <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login onLogin={setUser} />} />
+          <Route path="/register" element={user ? <Navigate to="/" replace /> : <Register onLogin={setUser} />} />
+          <Route element={<ProtectedRoute user={user}><Layout user={user!} onLogout={async () => { try { await authAPI.logout(); } catch { } setUser(null); }} /></ProtectedRoute>}>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/applications" element={<Applications />} />
+            <Route path="/kanban" element={<Kanban />} />
+            <Route path="/jobs" element={<JobSearch />} />
+            <Route path="/resumes" element={<Resumes />} />
+            <Route path="/contacts" element={<Contacts />} />
+            <Route path="/deadlines" element={<Deadlines />} />
+            <Route path="/import-export" element={<ImportExport />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/settings" element={<Profile />} />
+          </Route>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </JobSearchContext.Provider>
+
     </ThemeContext.Provider>
   );
 }

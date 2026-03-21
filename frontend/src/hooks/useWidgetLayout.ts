@@ -18,15 +18,16 @@ export const ALL_WIDGETS: WidgetConfig[] = [
   { id: "deadlines", type: "deadlines", title: "Upcoming Deadlines" },
 ];
 
+// Default layout: swapped conversion with pie+resume-perf
 const DEFAULT_LAYOUT: Layout[] = [
   { i: "stats", x: 0, y: 0, w: 12, h: 2, minW: 6, minH: 2 },
   { i: "recent-apps", x: 0, y: 2, w: 7, h: 6, minW: 4, minH: 4 },
   { i: "deadlines", x: 7, y: 2, w: 5, h: 6, minW: 3, minH: 4 },
   { i: "funnel", x: 0, y: 8, w: 6, h: 6, minW: 4, minH: 5 },
-  { i: "conversion", x: 6, y: 8, w: 6, h: 6, minW: 4, minH: 5 },
+  { i: "pie", x: 6, y: 8, w: 3, h: 6, minW: 3, minH: 5 },
+  { i: "resume-perf", x: 9, y: 8, w: 3, h: 6, minW: 3, minH: 5 },
   { i: "trend", x: 0, y: 14, w: 6, h: 6, minW: 4, minH: 5 },
-  { i: "pie", x: 6, y: 14, w: 3, h: 6, minW: 3, minH: 5 },
-  { i: "resume-perf", x: 9, y: 14, w: 3, h: 6, minW: 3, minH: 5 },
+  { i: "conversion", x: 6, y: 14, w: 6, h: 6, minW: 4, minH: 5 },
 ];
 
 function loadLayout(): Layout[] {
@@ -51,16 +52,12 @@ export function useWidgetLayout() {
   const [locked, setLocked] = useState(loadLocked);
 
   const onLayoutChange = useCallback((newLayout: Layout[]) => {
-    // Merge: keep positions for visible widgets, preserve hidden widget positions
     setLayout((prev) => {
       const merged = prev.map((item) => {
         const updated = newLayout.find((n) => n.i === item.i);
         return updated ? { ...item, ...updated } : item;
       });
-      // Add any new items from newLayout not in prev
-      newLayout.forEach((n) => {
-        if (!merged.find((m) => m.i === n.i)) merged.push(n);
-      });
+      newLayout.forEach((n) => { if (!merged.find((m) => m.i === n.i)) merged.push(n); });
       localStorage.setItem(SK, JSON.stringify(merged));
       return merged;
     });
@@ -70,15 +67,12 @@ export function useWidgetLayout() {
     setVisible((prev) => {
       const next = { ...prev, [id]: !prev[id] };
       localStorage.setItem(SV, JSON.stringify(next));
-
-      // If toggling ON and no layout entry exists, add a default one at the bottom
       if (next[id]) {
         setLayout((prevLayout) => {
           const exists = prevLayout.find((l) => l.i === id);
           if (exists) return prevLayout;
           const defaultItem = DEFAULT_LAYOUT.find((d) => d.i === id);
           if (!defaultItem) return prevLayout;
-          // Place at bottom
           const maxY = prevLayout.reduce((max, l) => Math.max(max, l.y + l.h), 0);
           const newItem = { ...defaultItem, y: maxY };
           const updated = [...prevLayout, newItem];
@@ -91,11 +85,7 @@ export function useWidgetLayout() {
   }, []);
 
   const toggleLock = useCallback(() => {
-    setLocked((prev) => {
-      const next = !prev;
-      localStorage.setItem(SL, String(next));
-      return next;
-    });
+    setLocked((prev) => { const next = !prev; localStorage.setItem(SL, String(next)); return next; });
   }, []);
 
   const resetLayout = useCallback(() => {
@@ -107,8 +97,5 @@ export function useWidgetLayout() {
     localStorage.setItem(SV, JSON.stringify(d));
   }, []);
 
-  // Only return layout items that are visible
-  const activeLayout = layout.filter((l) => visible[l.i]);
-
-  return { layout: activeLayout, fullLayout: layout, visible, locked, onLayoutChange, toggleWidget, toggleLock, resetLayout };
+  return { layout: layout.filter((l) => visible[l.i]), fullLayout: layout, visible, locked, onLayoutChange, toggleWidget, toggleLock, resetLayout };
 }

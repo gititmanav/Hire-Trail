@@ -39,15 +39,20 @@ export default function Dashboard() {
         setStats(a);
         setApps(ap.data);
         setResumes(r);
-        // Filter upcoming: not completed AND dueDate >= today
-        const now = new Date();
-        now.setHours(0, 0, 0, 0);
-        setDeadlines(
-          dl.data
-            .filter((d) => !d.completed && new Date(d.dueDate) >= now)
-            .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
-            .slice(0, 8)
-        );
+
+        // Upcoming deadlines: NOT completed AND dueDate is today or later
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const upcoming = dl.data
+          .filter((d) => {
+            if (d.completed) return false;
+            const due = new Date(d.dueDate);
+            due.setHours(0, 0, 0, 0);
+            return due.getTime() >= today.getTime();
+          })
+          .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+          .slice(0, 8);
+        setDeadlines(upcoming);
       } catch {} finally { setLoading(false); }
     })();
   }, []);
@@ -92,12 +97,23 @@ export default function Dashboard() {
       </div>
 
       <div className={locked ? "dashboard-locked" : "dashboard-unlocked"}>
-        <RGL className="dashboard-grid" layouts={{ lg: layout }} breakpoints={{ lg: 1024, md: 768, sm: 480 }} cols={{ lg: 12, md: 8, sm: 4 }} rowHeight={50} onLayoutChange={(nl) => onLayoutChange(nl)} isDraggable={!locked} isResizable={!locked} draggableHandle=".widget-drag-handle" margin={[16, 16]} containerPadding={[0, 0]}>
+        <RGL
+          className="dashboard-grid"
+          layouts={{ lg: layout }}
+          breakpoints={{ lg: 1024, md: 768, sm: 480 }}
+          cols={{ lg: 12, md: 8, sm: 4 }}
+          rowHeight={50}
+          onLayoutChange={(nl) => onLayoutChange(nl)}
+          isDraggable={!locked}
+          isResizable={!locked}
+          margin={[16, 16]}
+          containerPadding={[0, 0]}
+        >
           {layout.filter((l) => visible[l.i]).map((l) => (
             <div key={l.i}>
               <div className="card-premium h-full flex flex-col">
                 {l.i !== "stats" && (
-                  <div className={`widget-drag-handle flex items-center justify-between px-4 py-2.5 border-b border-gray-100 dark:border-gray-700/50`}>
+                  <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 dark:border-gray-700/50">
                     <h3 className="text-[13px] font-semibold text-gray-900 dark:text-white">{title(l.i)}</h3>
                   </div>
                 )}

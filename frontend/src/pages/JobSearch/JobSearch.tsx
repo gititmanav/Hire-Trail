@@ -2,6 +2,7 @@ import { useState, useCallback, FormEvent } from "react";
 import toast from "react-hot-toast";
 import axios from "axios";
 import { applicationsAPI } from "../../utils/api.ts";
+import { useJobSearch } from "../../hooks/useJobSearchState.ts";
 
 interface Job {
   id: string; title: string; company: string; companyLogo: string | null;
@@ -18,41 +19,42 @@ const DATE_OPTIONS = [
 ];
 
 export default function JobSearch() {
-  const [query, setQuery] = useState("software engineer intern");
-  const [location, setLocation] = useState("");
-  const [remote, setRemote] = useState(false);
-  const [datePosted, setDatePosted] = useState("all");
-  const [jobs, setJobs] = useState<Job[]>([]);
+  const { state: s, setState: setS } = useJobSearch();
   const [loading, setLoading] = useState(false);
-  const [searched, setSearched] = useState(false);
-  const [page, setPage] = useState(1);
-  const [total, setTotal] = useState(0);
-  const [expanded, setExpanded] = useState<string | null>(null);
-  const [tracking, setTracking] = useState<Set<string>>(new Set());
+
+  const update = (patch: Partial<typeof s>) => setS((prev) => ({ ...prev, ...patch }));
 
   const search = useCallback(async (p = 1) => {
     setLoading(true);
-    setSearched(true);
     try {
       const res = await axios.get("/api/jobs/search", {
-        params: { query, location, remote: remote ? "true" : undefined, datePosted, page: p },
+        params: {
+          query: s.query,
+          location: s.location,
+          remote: s.remote ? "true" : undefined,
+          datePosted: s.datePosted,
+          page: p,
+        },
       });
-      setJobs(res.data.jobs);
-      setTotal(res.data.total);
-      setPage(p);
+      update({
+        jobs: res.data.jobs,
+        total: res.data.total,
+        page: p,
+        searched: true,
+      });
     } catch (err: any) {
       const msg = err.response?.data?.error || "Search failed";
       toast.error(msg);
     } finally {
       setLoading(false);
     }
-  }, [query, location, remote, datePosted]);
+  }, [s.query, s.location, s.remote, s.datePosted]);
 
   const handleSubmit = (e: FormEvent) => { e.preventDefault(); search(1); };
 
   const trackJob = async (job: Job) => {
     try {
-      setTracking((prev) => new Set(prev).add(job.id));
+      update({ tracking: new Set(s.tracking).add(job.id) });
       await applicationsAPI.create({
         company: job.company,
         role: job.title,
@@ -63,7 +65,9 @@ export default function JobSearch() {
       });
       toast.success(`Tracking ${job.company} — ${job.title}`);
     } catch {
-      setTracking((prev) => { const n = new Set(prev); n.delete(job.id); return n; });
+      const reverted = new Set(s.tracking);
+      reverted.delete(job.id);
+      update({ tracking: reverted });
     }
   };
 
@@ -89,11 +93,11 @@ export default function JobSearch() {
         <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-3 mb-3">
           <div>
             <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Job title or keyword</label>
-            <input className="input-premium" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="e.g. Software Engineer Intern" required />
+            <input className="input-premium" value={s.query} onChange={(e) => update({ query: e.target.value })} placeholder="e.g. Software Engineer Intern" required />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Location</label>
-            <input className="input-premium" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. Boston, MA" />
+            <input className="input-premium" value={s.location} onChange={(e) => update({ location: e.target.value })} placeholder="e.g. Boston, MA" />
           </div>
           <div className="flex items-end">
             <button type="submit" disabled={loading} className="btn-accent w-full md:w-auto justify-center h-[38px]">
@@ -108,41 +112,39 @@ export default function JobSearch() {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          {/* Remote toggle */}
-          <button type="button" onClick={() => setRemote(!remote)} className={`inline-flex items-center gap-1.5 px-3 py-1 text-[13px] font-medium rounded-full border transition-all ${remote ? "bg-accent-light border-accent text-accent-dark dark:bg-accent/20 dark:border-accent dark:text-accent" : "bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-500 hover:border-accent"}`}>
+          <button type="button" onClick={() => update({ remote: !s.remote })} className={`inline-flex items-center gap-1.5 px-3 py-1 text-[13px] font-medium rounded-full border transition-all ${s.remote ? "bg-accent-light border-accent text-accent-dark dark:bg-accent/20 dark:border-accent dark:text-accent" : "bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-500 hover:border-accent"}`}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="3" width="20" height="14" rx="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" /></svg>
             Remote only
           </button>
-
-          {/* Date posted */}
           {DATE_OPTIONS.map((opt) => (
-            <button key={opt.value} type="button" onClick={() => setDatePosted(opt.value)} className={`px-3 py-1 text-[13px] font-medium rounded-full border transition-all ${datePosted === opt.value ? "bg-accent-light border-accent text-accent-dark dark:bg-accent/20 dark:border-accent dark:text-accent" : "bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-500 hover:border-accent"}`}>
+            <button key={opt.value} type="button" onClick={() => update({ datePosted: opt.value })} className={`px-3 py-1 text-[13px] font-medium rounded-full border transition-all ${s.datePosted === opt.value ? "bg-accent-light border-accent text-accent-dark dark:bg-accent/20 dark:border-accent dark:text-accent" : "bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-500 hover:border-accent"}`}>
               {opt.label}
             </button>
           ))}
         </div>
       </form>
 
-      {/* Results */}
+      {/* Loading state */}
       {loading && (
         <div className="space-y-3">{[1, 2, 3].map((i) => <div key={i} className="card-premium p-5 animate-pulse"><div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-3" /><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mb-2" /><div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-2/3" /></div>)}</div>
       )}
 
-      {!loading && searched && jobs.length === 0 && (
+      {/* No results */}
+      {!loading && s.searched && s.jobs.length === 0 && (
         <div className="card-premium p-12 text-center"><h3 className="font-medium text-gray-500 dark:text-gray-400 mb-1">No jobs found</h3><p className="text-sm text-gray-400">Try different keywords or broaden your filters</p></div>
       )}
 
-      {!loading && jobs.length > 0 && (
+      {/* Results */}
+      {!loading && s.jobs.length > 0 && (
         <>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
-            {total > 10 ? `Showing ${jobs.length} of ${total}+ results` : `${jobs.length} results`}
+            {s.total > 10 ? `Showing ${s.jobs.length} of ${s.total}+ results` : `${s.jobs.length} results`}
           </p>
           <div className="space-y-3">
-            {jobs.map((job) => (
+            {s.jobs.map((job: Job) => (
               <div key={job.id} className="card-premium overflow-visible">
                 <div className="p-5">
                   <div className="flex items-start gap-3">
-                    {/* Company logo or fallback */}
                     {job.companyLogo ? (
                       <img src={job.companyLogo} alt="" className="w-10 h-10 rounded-lg object-contain bg-gray-50 dark:bg-gray-700 shrink-0" />
                     ) : (
@@ -173,10 +175,10 @@ export default function JobSearch() {
                       )}
                       <button
                         onClick={() => trackJob(job)}
-                        disabled={tracking.has(job.id)}
-                        className={`!py-1.5 !px-3 !text-xs ${tracking.has(job.id) ? "btn-secondary !text-success !border-success" : "btn-accent"}`}
+                        disabled={s.tracking.has(job.id)}
+                        className={`!py-1.5 !px-3 !text-xs ${s.tracking.has(job.id) ? "btn-secondary !text-success !border-success" : "btn-accent"}`}
                       >
-                        {tracking.has(job.id) ? (
+                        {s.tracking.has(job.id) ? (
                           <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20,6 9,17 4,12" /></svg>Tracked</>
                         ) : (
                           <><svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="6" y1="1" x2="6" y2="11" /><line x1="1" y1="6" x2="11" y2="6" /></svg>Track</>
@@ -185,13 +187,12 @@ export default function JobSearch() {
                     </div>
                   </div>
 
-                  {/* Expandable description */}
                   <div className="mt-3">
                     <p className="text-[13px] text-gray-500 dark:text-gray-400 leading-relaxed">
-                      {expanded === job.id ? job.fullDescription : job.description}
+                      {s.expanded === job.id ? job.fullDescription : job.description}
                       {job.fullDescription.length > 500 && (
-                        <button onClick={() => setExpanded(expanded === job.id ? null : job.id)} className="text-accent hover:underline ml-1 text-[13px]">
-                          {expanded === job.id ? "Show less" : "...Read more"}
+                        <button onClick={() => update({ expanded: s.expanded === job.id ? null : job.id })} className="text-accent hover:underline ml-1 text-[13px]">
+                          {s.expanded === job.id ? "Show less" : "...Read more"}
                         </button>
                       )}
                     </p>
@@ -203,10 +204,9 @@ export default function JobSearch() {
             ))}
           </div>
 
-          {/* Load more */}
-          {jobs.length >= 10 && (
+          {s.jobs.length >= 10 && (
             <div className="flex justify-center mt-6">
-              <button onClick={() => search(page + 1)} disabled={loading} className="btn-secondary">
+              <button onClick={() => search(s.page + 1)} disabled={loading} className="btn-secondary">
                 Load more results
               </button>
             </div>
@@ -215,7 +215,7 @@ export default function JobSearch() {
       )}
 
       {/* Empty state before first search */}
-      {!searched && !loading && (
+      {!s.searched && !loading && (
         <div className="card-premium p-12 text-center">
           <svg className="mx-auto mb-4 text-gray-300 dark:text-gray-600" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
           <h3 className="text-base font-medium text-gray-500 dark:text-gray-400 mb-1">Search for jobs</h3>

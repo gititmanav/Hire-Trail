@@ -17,19 +17,48 @@ export default function Sidebar({ collapsed, onToggle }: Props) {
   return (
     <aside className={`fixed top-0 left-0 bottom-0 bg-sidebar-bg flex flex-col z-50 transition-all duration-200 ${collapsed ? "w-16" : "w-60"}`}>
       <div className={`flex items-center min-h-[60px] px-4 ${collapsed ? "justify-center" : "justify-between"}`}>
-        {!collapsed && (<div className="flex items-center gap-2.5"><div className="w-8 h-8 bg-gradient-to-br from-accent to-blue-600 rounded-md flex items-center justify-center text-white font-bold text-sm shadow-sm">H</div><span className="text-[17px] font-semibold text-white whitespace-nowrap">HireTrail</span></div>)}
-        <button onClick={onToggle} className="text-sidebar-text hover:text-white hover:bg-sidebar-hover p-1.5 rounded-md transition-colors"><svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><line x1="3" y1="4" x2="15" y2="4"/><line x1="3" y1="9" x2={collapsed?"15":"11"} y2="9"/><line x1="3" y1="14" x2="15" y2="14"/></svg></button>
+        {!collapsed && (
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-white/10 p-1 flex items-center justify-center">
+              <img src="/logo.png" alt="HireTrail" className="w-full h-full object-contain" />
+            </div>
+            <span className="text-[17px] font-semibold text-white whitespace-nowrap">HireTrail</span>
+          </div>
+        )}
+        {collapsed && (
+          <div className="w-9 h-9 rounded-lg bg-white/10 p-1.5 flex items-center justify-center">
+            <img src="/logo.png" alt="H" className="w-full h-full object-contain" />
+          </div>
+        )}
+        {!collapsed && (
+          <button onClick={onToggle} className="text-sidebar-text hover:text-white hover:bg-sidebar-hover p-1.5 rounded-md transition-colors">
+            <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><line x1="3" y1="4" x2="15" y2="4"/><line x1="3" y1="9" x2="11" y2="9"/><line x1="3" y1="14" x2="15" y2="14"/></svg>
+          </button>
+        )}
+        {collapsed && (
+          <button onClick={onToggle} className="absolute top-[18px] right-[-12px] w-6 h-6 bg-sidebar-bg border border-sidebar-hover rounded-full flex items-center justify-center text-sidebar-text hover:text-white transition-colors">
+            <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="4,2 8,6 4,10"/></svg>
+          </button>
+        )}
       </div>
+
       <nav className={`flex-1 flex flex-col gap-0.5 overflow-y-auto ${collapsed ? "px-1 items-center" : "px-2"}`}>
         {nav.map((item) => (
           <NavLink key={item.to} to={item.to} end={item.to === "/"} title={collapsed ? item.label : undefined}
-            className={({ isActive }) => `flex items-center gap-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${collapsed ? "justify-center w-11 h-11 p-0" : "px-3 py-2"} ${isActive ? "bg-gradient-to-r from-sidebar-active to-sidebar-active/80 text-white shadow-sm" : "text-sidebar-text hover:bg-sidebar-hover hover:text-white"}`}>
+            className={({ isActive }) => `flex items-center gap-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${collapsed ? "justify-center w-11 h-11 p-0" : "px-3 py-2"} ${isActive ? "bg-sidebar-active text-white" : "text-sidebar-text hover:bg-sidebar-hover hover:text-white"}`}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d={item.d}/></svg>
             {!collapsed && <span>{item.label}</span>}
           </NavLink>
         ))}
       </nav>
-      <div className="px-4 py-3 border-t border-sidebar-hover">{collapsed ? <div className="flex justify-center"><div className="w-6 h-6 bg-accent/20 rounded flex items-center justify-center text-accent text-[10px] font-bold">H</div></div> : <p className="text-[11px] text-sidebar-text/50">HireTrail v3.0</p>}</div>
+
+      <div className="px-4 py-3 border-t border-sidebar-hover">
+        {collapsed ? (
+          <div className="flex justify-center"><div className="w-5 h-5 rounded bg-white/10 p-0.5"><img src="/logo.png" alt="H" className="w-full h-full object-contain opacity-50" /></div></div>
+        ) : (
+          <p className="text-[11px] text-sidebar-text/50">HireTrail v3.0</p>
+        )}
+      </div>
     </aside>
   );
 }
