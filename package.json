@@ -1,12 +1,15 @@
 {
-    "name": "hiretrail",
-    "version": "1.0.0",
-    "private": true,
-    "scripts": {
-      "install-all": "cd backend && npm install && cd ../frontend && npm install --include=dev",
-      "build": "cd frontend && npm run build",
-      "start": "cd backend && node server.js",
-      "render-build": "npm run install-all && npm run build"
-    },
-    "license": "MIT"
-  }
+  "name": "hiretrail",
+  "version": "2.0.0",
+  "private": true,
+  "scripts": {
+    "install-all": "cd backend && npm install --include=dev && cd ../frontend && npm install --include=dev",
+    "build": "cd frontend && npm run build",
+    "start": "cd backend && node dist/server.js",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "seed": "cd backend && npm run seed",
+    "render-build": "npm run install-all && cd backend && npm run build && cd ../frontend && npm run build"
+  },
+  "license": "MIT"
+}
