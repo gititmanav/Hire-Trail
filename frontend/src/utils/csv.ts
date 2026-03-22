@@ -39,7 +39,7 @@ export function exportToCSV(applications: Application[], filename = "hiretrail-a
 
 /**
  * Parse CSV file into application rows
- * Returns { data, errors } — errors contain row-level issues
+ * Returns parsed rows plus per-row error strings.
  */
 export function parseCSV(
   file: File

@@ -1,3 +1,4 @@
+/** Client entry: React 18 root, router, global toast host. */
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";

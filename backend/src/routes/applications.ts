@@ -8,7 +8,7 @@ import { NotFoundError, ValidationError } from "../errors/AppError.js";
 const router = Router();
 router.use(ensureAuth);
 
-// GET all — pagination + sorting + server-side search
+// GET list: pagination, sort, server-side search
 router.get("/", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = getUser(req);

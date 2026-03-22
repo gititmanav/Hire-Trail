@@ -1,3 +1,4 @@
+/** User document: local password and/or Google OAuth; password hash stripped in `toJSON`. */
 import mongoose, { Schema, Document } from "mongoose";
 import bcrypt from "bcrypt";
 
@@ -42,26 +43,24 @@ const userSchema = new Schema<IUser>(
     timestamps: true,
     toJSON: {
       transform(_doc, ret) {
-        delete ret.password;
-        delete ret.__v;
-        return ret;
+        const out = ret as Record<string, unknown>;
+        delete out.password;
+        delete out.__v;
+        return out;
       },
     },
   }
 );
 
-// Index for lookups
 userSchema.index({ email: 1 });
 userSchema.index({ googleId: 1 }, { sparse: true });
 
-// Hash password before saving
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password") || !this.password) return next();
   this.password = await bcrypt.hash(this.password, 10);
   next();
 });
 
-// Compare password method
 userSchema.methods.comparePassword = async function (
   candidate: string
 ): Promise<boolean> {

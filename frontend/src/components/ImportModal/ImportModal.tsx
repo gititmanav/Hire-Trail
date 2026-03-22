@@ -142,7 +142,6 @@ export default function ImportModal({ onClose, onImported }: Props) {
               </div>
             </div>
 
-            {/* Preview table */}
             <div className="max-h-[300px] overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg mb-4">
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-gray-50 dark:bg-gray-700">

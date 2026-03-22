@@ -1,3 +1,4 @@
+/** Promise-based confirm dialog state for destructive actions (paired with `ConfirmModal`). */
 import { useState, useCallback } from "react";
 
 interface ConfirmState {

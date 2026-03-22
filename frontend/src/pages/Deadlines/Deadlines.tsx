@@ -1,3 +1,4 @@
+/** Deadlines filtered server-side by status tab; linked to applications when set. */
 import { useState, useEffect, useCallback, FormEvent } from "react";
 import toast from "react-hot-toast";
 import { deadlinesAPI, applicationsAPI } from "../../utils/api.ts";
@@ -109,9 +110,8 @@ export default function Deadlines() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6"><h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Deadlines</h1><button onClick={() => { setEditing(null); setModal(true); }} className="inline-flex items-center gap-1.5 px-4 py-2 bg-accent hover:bg-accent-hover text-white text-sm font-medium rounded-lg"><svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="8" y1="3" x2="8" y2="13" /><line x1="3" y1="8" x2="13" y2="8" /></svg>Add deadline</button></div>
+      <div className="flex items-center justify-between mb-6"><h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Deadlines</h1><button onClick={() => { setEditing(null); setModal(true); }} className="inline-flex items-center gap-1.5 px-4 py-2 bg-accent hover:bg-accent-hover text-white text-sm font-medium rounded-lg"><svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="8" y1="3" x2="8" y2="13" /><line x1="3" y1="8" x2="13" y2="8" /></svg>Add deadline</button>      </div>
 
-      {/* Sticky tab bar */}
       <div className="sticky top-[57px] z-20 bg-page/95 dark:bg-gray-900/95 backdrop-blur-sm -mx-8 px-8 flex gap-1 border-b border-gray-200 dark:border-gray-700 mb-4">
         {([["upcoming", "Upcoming", uc], ["overdue", "Overdue", oc], ["completed", "Completed", cc], ["all", "All", 0]] as [string, string, number][]).map(([k, l, c]) => (
           <button key={k} onClick={() => { setPage(1); setFilter(k); }} className={`inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${filter === k ? "text-accent border-accent" : "text-gray-500 dark:text-gray-400 border-transparent hover:text-gray-700 dark:hover:text-gray-200"}`}>{l}{c > 0 && <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-full ${k === "overdue" ? "bg-danger-light text-danger" : "bg-gray-100 dark:bg-gray-700 text-gray-400"}`}>{c}</span>}</button>

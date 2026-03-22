@@ -1,3 +1,4 @@
+/** Redirects guests to /login; children render only when `user` is set. */
 import { Navigate } from "react-router-dom";
 import type { ReactNode } from "react";
 import type { User } from "../../types";

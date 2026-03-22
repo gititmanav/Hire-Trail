@@ -1,3 +1,6 @@
+/**
+ * `dark` class on `<html>`, persisted in localStorage; toggle uses a clip-path circle reveal.
+ */
 import { useState, useEffect, useCallback, useRef } from "react";
 
 export function useTheme() {
@@ -28,7 +31,6 @@ export function useTheme() {
       Math.max(y, window.innerHeight - y)
     );
 
-    // Create overlay
     const overlay = document.createElement("div");
     overlay.style.cssText = `
       position: fixed; inset: 0; z-index: 9999; pointer-events: none;
@@ -38,12 +40,10 @@ export function useTheme() {
     `;
     document.body.appendChild(overlay);
 
-    // Trigger animation
     requestAnimationFrame(() => {
       overlay.style.clipPath = `circle(${endRadius}px at ${x}px ${y}px)`;
     });
 
-    // After animation, toggle theme and remove overlay
     setTimeout(() => {
       setDark((d) => !d);
       setTimeout(() => {

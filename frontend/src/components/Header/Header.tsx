@@ -1,3 +1,4 @@
+/** Top bar: theme toggle, user menu, optional job-search affordances. */
 import { useState, useRef, useEffect, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import { ThemeContext } from "../../App.tsx";

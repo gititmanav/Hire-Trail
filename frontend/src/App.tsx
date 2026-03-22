@@ -1,3 +1,6 @@
+/**
+ * Root router: session bootstrap, protected shell, job-search UI state, theme context.
+ */
 import { useState, useEffect, useCallback, createContext } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import Layout from "./components/Layout/Layout.tsx";

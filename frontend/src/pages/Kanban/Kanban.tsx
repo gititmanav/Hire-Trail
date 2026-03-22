@@ -1,3 +1,6 @@
+/**
+ * Stage columns with @dnd-kit drag/drop; stage updates persist via applications API.
+ */
 import { useState, useEffect, useCallback, useMemo, useRef, memo } from "react";
 import {
   DndContext, DragOverlay, DragStartEvent, DragEndEvent, DragOverEvent,
@@ -102,7 +105,7 @@ export default function Kanban() {
 
     if (!targetStage) return;
 
-    // Only update state if stage actually changed — this is the key perf fix
+    // Avoid re-rendering on every pointer move: only update when the hovered stage changes.
     if (targetStage === lastOverStage.current) return;
     lastOverStage.current = targetStage;
 

@@ -10,11 +10,11 @@ const envSchema = z.object({
   GOOGLE_CLIENT_ID: z.string().default(""),
   GOOGLE_CLIENT_SECRET: z.string().default(""),
   GOOGLE_CALLBACK_URL: z.string().default("http://localhost:5050/api/auth/google/callback"),
-  // Cloudinary — optional
+  // Optional: resume PDF storage
   CLOUDINARY_CLOUD_NAME: z.string().default(""),
   CLOUDINARY_API_KEY: z.string().default(""),
   CLOUDINARY_API_SECRET: z.string().default(""),
-  // JSearch — optional
+  // Optional: RapidAPI JSearch proxy
   JSEARCH_API_KEY: z.string().default(""),
 });
 

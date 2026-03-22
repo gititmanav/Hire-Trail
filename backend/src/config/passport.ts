@@ -1,3 +1,7 @@
+/**
+ * Passport serialization + Local (email/password) + optional Google OAuth 2.0.
+ * Google flow links existing email accounts by attaching `googleId`.
+ */
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";

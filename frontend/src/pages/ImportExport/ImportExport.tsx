@@ -1,3 +1,4 @@
+/** CSV export with filters; import flows reuse `parseCSV` + bulk application create. */
 import { useState, useRef, useEffect } from "react";
 import toast from "react-hot-toast";
 import { applicationsAPI, contactsAPI } from "../../utils/api.ts";

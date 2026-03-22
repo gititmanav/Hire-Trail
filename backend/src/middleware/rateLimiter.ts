@@ -1,3 +1,4 @@
+/** Stricter limiter for auth routes; default API limiter for all `/api` traffic. */
 import rateLimit from "express-rate-limit";
 
 export const authLimiter = rateLimit({

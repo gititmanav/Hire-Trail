@@ -1,3 +1,7 @@
+/**
+ * Development/demo dataset: demo user plus synthetic applications, resumes, contacts, deadlines.
+ * Run: `npm run seed` from `backend/`.
+ */
 import mongoose from "mongoose";
 import { env } from "./config/env.js";
 import { User } from "./models/User.js";

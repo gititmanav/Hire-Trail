@@ -1,3 +1,4 @@
+/** App shell: collapsible sidebar, header, fluid vs max-width main by route. */
 import { useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import Sidebar from "../Sidebar/Sidebar.tsx";

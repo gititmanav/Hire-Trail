@@ -13,7 +13,7 @@ export function ensureAuth(
   throw new AuthError("Not authenticated");
 }
 
-// Helper to get typed user from request
+/** Asserts `req.user` (Passport) and returns it as `IUser`. */
 export function getUser(req: Request): IUser {
   if (!req.user) throw new AuthError("Not authenticated");
   return req.user as IUser;

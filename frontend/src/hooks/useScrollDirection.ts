@@ -1,3 +1,4 @@
+/** Returns whether the user is scrolling down (hide chrome) vs up (show), with rAF throttling. */
 import { useState, useEffect, useRef } from "react";
 
 export function useScrollDirection(threshold = 10) {

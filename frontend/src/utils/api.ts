@@ -1,3 +1,7 @@
+/**
+ * Typed API client: cookie sessions (withCredentials), JSON by default, multipart for resume uploads.
+ * Interceptor surfaces server errors via toast and suppresses noise on 401 from /auth/me.
+ */
 import axios, { AxiosError } from "axios";
 import toast from "react-hot-toast";
 import type {

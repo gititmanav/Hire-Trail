@@ -1,3 +1,6 @@
+/**
+ * Express app: Helmet, JSON body, Mongo-backed sessions, Passport, rate-limited /api, SPA static in deploy.
+ */
 import express from "express";
 import session from "express-session";
 import MongoStore from "connect-mongo";
@@ -27,7 +30,6 @@ const __dirname = dirname(__filename);
 
 const app = express();
 
-// Security
 app.use(
   helmet({
     contentSecurityPolicy: {
@@ -50,7 +52,6 @@ if (env.NODE_ENV === "production") {
 app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ extended: false }));
 
-// Session
 app.use(
   session({
     secret: env.SESSION_SECRET,
@@ -75,10 +76,8 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Rate limiting
 app.use("/api", apiLimiter);
 
-// API routes
 app.use("/api/auth", authRoutes);
 app.use("/api/applications", applicationRoutes);
 app.use("/api/resumes", resumeRoutes);
@@ -87,7 +86,7 @@ app.use("/api/deadlines", deadlineRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/jobs", jobRoutes);
 
-// Serve React build in production
+// Monorepo deploy: Vite build at ../frontend/dist (dev UX uses Vite on :5173 with proxy to this API).
 const clientBuildPath = join(__dirname, "..", "..", "frontend", "dist");
 app.use(express.static(clientBuildPath));
 app.get("*", (_req, res) => {

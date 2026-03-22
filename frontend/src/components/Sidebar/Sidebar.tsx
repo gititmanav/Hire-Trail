@@ -1,4 +1,6 @@
+/** Primary navigation; paths match `App.tsx` routes. */
 import { NavLink } from "react-router-dom";
+import { SidebarLogoTile } from "../LogoMark/LogoMark.tsx";
 
 interface Props { collapsed: boolean; onToggle: () => void; }
 
@@ -16,20 +18,14 @@ const nav = [
 export default function Sidebar({ collapsed, onToggle }: Props) {
   return (
     <aside className={`fixed top-0 left-0 bottom-0 bg-sidebar-bg flex flex-col z-50 transition-all duration-200 ${collapsed ? "w-16" : "w-60"}`}>
-      <div className={`flex items-center min-h-[60px] px-4 ${collapsed ? "justify-center" : "justify-between"}`}>
+      <div className={`flex items-center min-h-[64px] ${collapsed ? "px-2 justify-center" : "px-2 justify-between gap-2"}`}>
         {!collapsed && (
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-lg bg-white p-1 flex items-center justify-center shrink-0">
-              <img src="/logo.svg" alt="HireTrail" className="w-full h-full object-contain" />
-            </div>
-            <span className="text-[17px] font-semibold text-white whitespace-nowrap">HireTrail</span>
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+            <SidebarLogoTile />
+            <span className="text-[17px] font-semibold text-white whitespace-nowrap truncate">HireTrail</span>
           </div>
         )}
-        {collapsed && (
-          <div className="w-9 h-9 rounded-lg bg-white p-1 flex items-center justify-center">
-            <img src="/logo.svg" alt="H" className="w-full h-full object-contain" />
-          </div>
-        )}
+        {collapsed && <SidebarLogoTile />}
         {!collapsed && (
           <button onClick={onToggle} className="text-sidebar-text hover:text-white hover:bg-sidebar-hover p-1.5 rounded-md transition-colors">
             <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><line x1="3" y1="4" x2="15" y2="4"/><line x1="3" y1="9" x2="11" y2="9"/><line x1="3" y1="14" x2="15" y2="14"/></svg>

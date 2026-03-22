@@ -1,3 +1,4 @@
+/** Aggregated metrics for the current user: funnel, resume performance, weekly trend. */
 import { Router, Request, Response, NextFunction } from "express";
 import { Application, STAGES } from "../models/Application.js";
 import { ensureAuth, getUser } from "../middleware/auth.js";

@@ -1,3 +1,4 @@
+/** Session-based auth: register/login/logout, Google OAuth, profile and password updates. */
 import { Router, Request, Response, NextFunction } from "express";
 import passport from "passport";
 import { User } from "../models/User.js";
@@ -89,13 +90,13 @@ router.get("/me", (req: Request, res: Response) => {
   res.status(401).json({ error: "Not authenticated" });
 });
 
-// Google OAuth — initiate
+// Google OAuth: redirect to Google
 router.get(
   "/google",
   passport.authenticate("google", { scope: ["profile", "email"] })
 );
 
-// Google OAuth — callback
+// Google OAuth: callback after consent
 router.get("/google/callback", (req: Request, res: Response, next: NextFunction) => {
   passport.authenticate("google", (err: Error | null, user: any) => {
     if (err || !user) {

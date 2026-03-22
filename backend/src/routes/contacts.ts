@@ -11,7 +11,7 @@ import { NotFoundError } from "../errors/AppError.js";
 const router = Router();
 router.use(ensureAuth);
 
-// GET all — supports pagination
+// GET list (paginated)
 router.get("/", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = getUser(req);

@@ -1,3 +1,4 @@
+/** Resume versions with optional PDF to Cloudinary; usage counts come from the list API. */
 import { useState, useEffect, useCallback, useRef, FormEvent } from "react";
 import toast from "react-hot-toast";
 import { resumesAPI } from "../../utils/api.ts";
@@ -41,7 +42,6 @@ function Modal({ resume, onSave, onClose }: { resume: Resume | null; onSave: (da
           <div><label className="block text-sm font-medium text-gray-900 dark:text-gray-200 mb-1.5">Version name *</label><input className="input-premium" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. SWE Resume v2" required /></div>
           <div><label className="block text-sm font-medium text-gray-900 dark:text-gray-200 mb-1.5">Target role</label><input className="input-premium" value={targetRole} onChange={(e) => setTargetRole(e.target.value)} placeholder="e.g. Software Engineer" /></div>
 
-          {/* File upload zone */}
           <div>
             <label className="block text-sm font-medium text-gray-900 dark:text-gray-200 mb-1.5">PDF file <span className="text-gray-400 font-normal">(optional)</span></label>
             <div
@@ -149,7 +149,6 @@ export default function Resumes() {
               {r.targetRole && <span className="inline-block text-xs font-medium text-accent-dark dark:text-accent bg-accent-light dark:bg-accent/20 px-2 py-0.5 rounded-full mb-1 w-fit">{r.targetRole}</span>}
               {r.fileName && <span className="text-xs text-gray-400 mb-1">{r.fileName}</span>}
 
-              {/* PDF link */}
               {r.fileUrl && (
                 <a href={r.fileUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-[13px] text-accent hover:underline mt-1 mb-1">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15,3 21,3 21,9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>

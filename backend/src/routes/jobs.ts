@@ -46,7 +46,7 @@ router.get("/search", async (req: Request, res: Response, next: NextFunction) =>
 
     const data = await response.json();
 
-    // Transform to cleaner format
+    // Map RapidAPI/JSearch payload to a stable client shape
     const jobs = (data.data || []).map((job: any) => ({
       id: job.job_id,
       title: job.job_title,

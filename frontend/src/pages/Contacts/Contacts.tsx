@@ -1,3 +1,4 @@
+/** Paginated contact cards with client-side search across the current page. */
 import { useState, useEffect, useCallback, FormEvent } from "react";
 import toast from "react-hot-toast";
 import { contactsAPI } from "../../utils/api.ts";
@@ -91,9 +92,8 @@ export default function Contacts() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6"><h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Contacts</h1><button onClick={() => { setEditing(null); setModal(true); }} className="inline-flex items-center gap-1.5 px-4 py-2 bg-accent hover:bg-accent-hover text-white text-sm font-medium rounded-lg"><svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="8" y1="3" x2="8" y2="13" /><line x1="3" y1="8" x2="13" y2="8" /></svg>Add contact</button></div>
+      <div className="flex items-center justify-between mb-6"><h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Contacts</h1><button onClick={() => { setEditing(null); setModal(true); }} className="inline-flex items-center gap-1.5 px-4 py-2 bg-accent hover:bg-accent-hover text-white text-sm font-medium rounded-lg"><svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="8" y1="3" x2="8" y2="13" /><line x1="3" y1="8" x2="13" y2="8" /></svg>Add contact</button>      </div>
 
-      {/* Sticky search bar */}
       <div className="sticky top-[57px] z-20 bg-page/95 dark:bg-gray-900/95 backdrop-blur-sm py-3 -mx-8 px-8">
         <input className={`${inputCls} max-w-[280px]`} placeholder="Search name or company..." value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>

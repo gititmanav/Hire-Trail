@@ -1,3 +1,6 @@
+/**
+ * JSearch-backed listings; "Track" creates applications via the API. State lifted in `JobSearchContext`.
+ */
 import { useState, useCallback, FormEvent } from "react";
 import toast from "react-hot-toast";
 import axios from "axios";
@@ -88,7 +91,6 @@ export default function JobSearch() {
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Find internships and jobs, then track them with one click</p>
       </div>
 
-      {/* Search form */}
       <form onSubmit={handleSubmit} className="card-premium p-5 mb-6">
         <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-3 mb-3">
           <div>
@@ -124,17 +126,14 @@ export default function JobSearch() {
         </div>
       </form>
 
-      {/* Loading state */}
       {loading && (
         <div className="space-y-3">{[1, 2, 3].map((i) => <div key={i} className="card-premium p-5 animate-pulse"><div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-3" /><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mb-2" /><div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-2/3" /></div>)}</div>
       )}
 
-      {/* No results */}
       {!loading && s.searched && s.jobs.length === 0 && (
         <div className="card-premium p-12 text-center"><h3 className="font-medium text-gray-500 dark:text-gray-400 mb-1">No jobs found</h3><p className="text-sm text-gray-400">Try different keywords or broaden your filters</p></div>
       )}
 
-      {/* Results */}
       {!loading && s.jobs.length > 0 && (
         <>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
@@ -214,7 +213,6 @@ export default function JobSearch() {
         </>
       )}
 
-      {/* Empty state before first search */}
       {!s.searched && !loading && (
         <div className="card-premium p-12 text-center">
           <svg className="mx-auto mb-4 text-gray-300 dark:text-gray-600" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>

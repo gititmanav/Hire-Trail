@@ -1,3 +1,4 @@
+/** Last Express middleware: maps Zod, Mongoose, AppError, and unknown errors to JSON. */
 import { Request, Response, NextFunction } from "express";
 import { AppError } from "../errors/AppError.js";
 import { ZodError } from "zod";

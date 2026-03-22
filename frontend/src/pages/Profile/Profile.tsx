@@ -1,3 +1,4 @@
+/** Profile and password forms; hits `/api/auth` PUT endpoints with session cookies. */
 import { useState, FormEvent } from "react";
 import toast from "react-hot-toast";
 import axios from "axios";
@@ -69,7 +70,6 @@ export default function Profile() {
     <div className="max-w-2xl">
       <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6">Profile</h1>
 
-      {/* Avatar + name */}
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 mb-4">
         <div className="flex items-center gap-4 mb-6">
           <div className="w-16 h-16 rounded-full bg-accent text-white flex items-center justify-center text-xl font-semibold">
@@ -98,7 +98,6 @@ export default function Profile() {
         </form>
       </div>
 
-      {/* Change password */}
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6">
         <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-4">Change password</h3>
         <form onSubmit={handlePassword} className="space-y-4">

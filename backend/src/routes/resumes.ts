@@ -73,7 +73,7 @@ router.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
   } catch (err) { next(err); }
 });
 
-// POST create — with optional file upload
+// POST create (multipart optional)
 router.post("/", upload.single("file"), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = getUser(req);
@@ -106,7 +106,7 @@ router.post("/", upload.single("file"), async (req: Request, res: Response, next
   } catch (err) { next(err); }
 });
 
-// PUT update — with optional new file upload
+// PUT update (multipart optional)
 router.put("/:id", upload.single("file"), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = getUser(req);
@@ -135,7 +135,7 @@ router.put("/:id", upload.single("file"), async (req: Request, res: Response, ne
   } catch (err) { next(err); }
 });
 
-// DELETE — also removes file from Cloudinary
+// DELETE (removes Cloudinary asset when present)
 router.delete("/:id", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = getUser(req);

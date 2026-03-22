@@ -1,3 +1,6 @@
+/**
+ * Persists dashboard widget layout and visibility in localStorage (react-grid-layout).
+ */
 import { useState, useCallback } from "react";
 import type { Layout } from "react-grid-layout";
 
@@ -18,7 +21,7 @@ export const ALL_WIDGETS: WidgetConfig[] = [
   { id: "deadlines", type: "deadlines", title: "Upcoming Deadlines" },
 ];
 
-// Default layout: swapped conversion with pie+resume-perf
+// Initial 12-column grid when no saved layout exists (lg breakpoint).
 const DEFAULT_LAYOUT: Layout[] = [
   { i: "stats", x: 0, y: 0, w: 12, h: 2, minW: 6, minH: 2 },
   { i: "recent-apps", x: 0, y: 2, w: 7, h: 6, minW: 4, minH: 4 },

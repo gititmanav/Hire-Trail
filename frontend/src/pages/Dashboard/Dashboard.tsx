@@ -19,6 +19,7 @@ import "react-grid-layout/css/styles.css";
 const RGL = WidthProvider(Responsive);
 const ONBOARD_KEY = "hiretrail-onboarded";
 
+/** Home: analytics-backed widgets in a persisted grid; optional one-time drag hint for new sessions. */
 export default function Dashboard() {
   const [stats, setStats] = useState<AnalyticsData | null>(null);
   const [apps, setApps] = useState<Application[]>([]);
@@ -29,11 +30,9 @@ export default function Dashboard() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const { layout, visible, locked, onLayoutChange, toggleWidget, toggleLock, resetLayout } = useWidgetLayout();
 
-  // Check if first-time user
   useEffect(() => {
     if (!localStorage.getItem(ONBOARD_KEY)) {
       setShowOnboarding(true);
-      // Mark as onboarded after animation plays
       const timer = setTimeout(() => {
         localStorage.setItem(ONBOARD_KEY, "true");
         setShowOnboarding(false);
@@ -82,7 +81,6 @@ export default function Dashboard() {
 
   return (
     <div className="fade-up">
-      {/* Onboarding tooltip for first-time users */}
       {showOnboarding && !locked && (
         <div className="fixed top-24 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white px-5 py-3 rounded-xl shadow-xl text-sm font-medium animate-in" style={{ animation: "fadeSlideUp 0.4s ease-out, fadeSlideUp 0.4s ease-out 3s reverse forwards" }}>
           <div className="flex items-center gap-2">

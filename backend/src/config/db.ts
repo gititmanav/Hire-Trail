@@ -1,3 +1,4 @@
+/** Mongoose connection singleton; exits on failure so the API never runs without a DB. */
 import mongoose from "mongoose";
 import { env } from "./env.js";
 

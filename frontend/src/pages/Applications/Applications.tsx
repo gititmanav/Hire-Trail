@@ -1,3 +1,6 @@
+/**
+ * Paginated application table with server search, client stage filter, CSV import/export, sortable columns.
+ */
 import { useState, useEffect, useCallback, useRef, FormEvent } from "react";
 import toast from "react-hot-toast";
 import { applicationsAPI, resumesAPI } from "../../utils/api.ts";
@@ -81,7 +84,7 @@ export default function Applications() {
   const { confirm: confirmDelete, confirmState, handleConfirm: onConfirm, handleCancel: onCancel } = useConfirm();
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
-  // Debounce search — 300ms
+  // 300ms debounce before hitting the server search param
   useEffect(() => {
     debounceRef.current = setTimeout(() => { setDebouncedSearch(search); setPage(1); }, 300);
     return () => clearTimeout(debounceRef.current);
@@ -117,9 +120,7 @@ export default function Applications() {
   const handleDelete = async (id: string) => { const ok = await confirmDelete("This application will be permanently deleted.", { title: "Delete application?", confirmLabel: "Delete" }); if (!ok) return; await applicationsAPI.delete(id); toast.success("Deleted"); await fetchData(); };
   const toggleSort = (field: string) => { setSort((s) => ({ field, order: s.field === field && s.order === "desc" ? "asc" : "desc" })); setPage(1); };
 
-  // Client-side stage filter on server-returned data
   const filtered = filter === "All" ? apps : apps.filter((a) => a.stage === filter);
-  // Stage counts from full page data
   const stageCounts = STAGES.reduce((acc, s) => { acc[s] = apps.filter((a) => a.stage === s).length; return acc; }, {} as Record<string, number>);
 
   if (loading) return <div className="fade-up"><SkeletonStats /><SkeletonTable rows={8} /></div>;
@@ -141,7 +142,6 @@ export default function Applications() {
         </div>
       </div>
 
-      {/* Sticky filter bar */}
       <div className="sticky top-[49px] z-20 bg-page/95 dark:bg-gray-900/95 backdrop-blur-sm py-3 -mx-8 px-8">
         <div className="flex flex-wrap items-center gap-4 max-w-[1200px]">
           <input className="input-premium max-w-[280px]" placeholder="Search company or role..." value={search} onChange={(e) => setSearch(e.target.value)} />

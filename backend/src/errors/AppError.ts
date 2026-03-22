@@ -1,3 +1,4 @@
+/** Operational errors with HTTP status; `errorHandler` maps these to JSON. */
 export class AppError extends Error {
   public statusCode: number;
   public isOperational: boolean;

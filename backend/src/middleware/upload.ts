@@ -1,3 +1,4 @@
+/** In-memory PDF uploads for resumes (10MB cap, application/pdf only). */
 import multer from "multer";
 import { AppError } from "../errors/AppError.js";
 

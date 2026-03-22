@@ -1,3 +1,4 @@
+/** Lifted job-search UI state so `/jobs` survives layout remounts and stays in sync with the header. */
 import { createContext, useContext } from "react";
 
 export interface JobSearchState {
