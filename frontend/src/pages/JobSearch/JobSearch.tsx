@@ -3,8 +3,7 @@
  */
 import { useState, useCallback, FormEvent } from "react";
 import toast from "react-hot-toast";
-import axios from "axios";
-import { applicationsAPI } from "../../utils/api.ts";
+import { api, applicationsAPI } from "../../utils/api.ts";
 import { useJobSearch } from "../../hooks/useJobSearchState.ts";
 
 interface Job {
@@ -30,7 +29,7 @@ export default function JobSearch() {
   const search = useCallback(async (p = 1) => {
     setLoading(true);
     try {
-      const res = await axios.get("/api/jobs/search", {
+      const res = await api.get("/jobs/search", {
         params: {
           query: s.query,
           location: s.location,

@@ -1,7 +1,7 @@
-/** Profile and password forms; hits `/api/auth` PUT endpoints with session cookies. */
-import { useState, FormEvent } from "react";
+/** Profile and password forms; session cookies via shared API client. */
+import { useState, useEffect, FormEvent } from "react";
 import toast from "react-hot-toast";
-import axios from "axios";
+import { api } from "../../utils/api.ts";
 import type { User } from "../../types";
 
 const inputCls = "w-full px-3 py-2 text-sm bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent";
@@ -15,20 +15,23 @@ export default function Profile() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  useState(() => {
-    axios.get<User>("/api/auth/me").then((r) => {
-      setUser(r.data);
-      setName(r.data.name);
-      setEmail(r.data.email);
-      setLoading(false);
-    }).catch(() => setLoading(false));
-  });
+  useEffect(() => {
+    api
+      .get<User>("/auth/me")
+      .then((r) => {
+        setUser(r.data);
+        setName(r.data.name);
+        setEmail(r.data.email);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
 
   const handleProfile = async (e: FormEvent) => {
     e.preventDefault();
     setSaving(true);
     try {
-      const res = await axios.put<User>("/api/auth/profile", { name, email });
+      const res = await api.put<User>("/auth/profile", { name, email });
       setUser(res.data);
       toast.success("Profile updated");
     } catch (err: any) {
@@ -46,7 +49,7 @@ export default function Profile() {
     }
     setSaving(true);
     try {
-      await axios.put("/api/auth/password", { currentPassword, newPassword });
+      await api.put("/auth/password", { currentPassword, newPassword });
       toast.success("Password changed");
       setCurrentPassword("");
       setNewPassword("");

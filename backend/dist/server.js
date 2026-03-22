@@ -2,6 +2,7 @@
  * Express app: Helmet, JSON body, Mongo-backed sessions, Passport, rate-limited /api, SPA static in deploy.
  */
 import express from "express";
+import cors from "cors";
 import session from "express-session";
 import MongoStore from "connect-mongo";
 import passport from "passport";
@@ -24,6 +25,10 @@ import "./types/express.d.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const app = express();
+app.use(cors({
+    origin: env.CLIENT_URL,
+    credentials: true,
+}));
 app.use(helmet({
     contentSecurityPolicy: {
         directives: {
@@ -35,6 +40,7 @@ app.use(helmet({
         },
     },
     crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" },
 }));
 if (env.NODE_ENV === "production") {
     app.set("trust proxy", 1);
@@ -56,7 +62,8 @@ app.use(session({
         maxAge: 24 * 60 * 60 * 1000,
         httpOnly: true,
         secure: env.NODE_ENV === "production",
-        sameSite: "lax",
+        // Cross-origin SPA (e.g. Vercel → API host) requires None + Secure for session cookies on fetch.
+        sameSite: env.NODE_ENV === "production" ? "none" : "lax",
     },
 }));
 app.use(passport.initialize());

@@ -1,15 +1,21 @@
 /**
  * Typed API client: cookie sessions (withCredentials), JSON by default, multipart for resume uploads.
  * Interceptor surfaces server errors via toast and suppresses noise on 401 from /auth/me.
+ * Base URL: `VITE_API_BASE_URL` or `/api` (see `config/apiBase.ts`).
  */
 import axios, { AxiosError } from "axios";
 import toast from "react-hot-toast";
+import { getApiBaseURL } from "../config/apiBase.ts";
 import type {
   User, Application, Resume, Contact, Deadline, AnalyticsData,
   ApplicationFormData, ContactFormData, DeadlineFormData, PaginatedResponse,
 } from "../types";
 
-const api = axios.create({ baseURL: "/api", headers: { "Content-Type": "application/json" }, withCredentials: true });
+export const api = axios.create({
+  baseURL: getApiBaseURL(),
+  headers: { "Content-Type": "application/json" },
+  withCredentials: true,
+});
 
 api.interceptors.response.use(
   (r) => r,

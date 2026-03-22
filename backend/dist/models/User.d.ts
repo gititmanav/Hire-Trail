@@ -1,3 +1,4 @@
+/** User document: local password and/or Google OAuth; password hash stripped in `toJSON`. */
 import mongoose, { Document } from "mongoose";
 export interface IUser extends Document {
     _id: mongoose.Types.ObjectId;

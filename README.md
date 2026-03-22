@@ -98,9 +98,23 @@ cd backend
 cp .env.example .env
 ```
 
-Edit `backend/.env`: set `MONGO_URI`, `SESSION_SECRET`, and optionally Google, Cloudinary, and `JSEARCH_API_KEY`. Use `CLIENT_URL` matching the frontend origin (e.g. `http://localhost:5173` in development).
+Edit `backend/.env`: set `MONGO_URI`, `SESSION_SECRET`, and optionally Google, Cloudinary, and `JSEARCH_API_KEY`. Use `CLIENT_URL` matching the **exact** frontend origin (scheme + host + port): `http://localhost:5173` locally, or your **Vercel** URL when the SPA is deployed separately (required for CORS and session cookies).
 
-### 3. Seed demo data
+### 3. Frontend environment
+
+```bash
+cd frontend
+cp .env.example .env
+```
+
+| Variable | When to set |
+|----------|-------------|
+| `VITE_API_PROXY_TARGET` | Local dev only: where Vite should proxy `/api` (default `http://localhost:5050`). |
+| `VITE_API_BASE_URL` | **Split deploy:** set at **build time** (e.g. in Vercel) to your public API base **including** `/api`, e.g. `https://your-api.onrender.com/api`. If unset, the app uses relative `/api` (same origin as the SPA or dev proxy). |
+
+Never put secrets in `VITE_*` variables; they are embedded in the client bundle.
+
+### 4. Seed demo data
 
 ```bash
 cd backend
@@ -109,7 +123,7 @@ npm run seed
 
 Creates **demo@hiretrail.com** / **password123** plus synthetic data for applications, resumes, contacts, and deadlines.
 
-### 4. Development (two terminals)
+### 5. Development (two terminals)
 
 **API** (default port `5050`):
 
@@ -127,14 +141,16 @@ npm run dev
 
 Open [http://localhost:5173](http://localhost:5173).
 
-### 5. Production build
+### 6. Production build
 
 ```bash
 cd frontend && npm run build
 cd ../backend && npm run build && npm start
 ```
 
-The server serves the Vite output from `frontend/dist` when deployed as a single unit (e.g. Render). Set `NODE_ENV=production` and a strong `SESSION_SECRET`; configure OAuth callback URL for your public API origin.
+**Monolith:** the server can serve `frontend/dist` from one host (e.g. Render). Set `NODE_ENV=production`, `SESSION_SECRET`, and OAuth callback URLs for that host.
+
+**Frontend on Vercel + API elsewhere:** build the frontend with `VITE_API_BASE_URL` pointing at your API; set backend `CLIENT_URL` to the Vercel site URL. The API enables CORS for that origin and uses `SameSite=None` session cookies in production.
 
 ---
 

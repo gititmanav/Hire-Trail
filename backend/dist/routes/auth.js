@@ -1,3 +1,4 @@
+/** Session-based auth: register/login/logout, Google OAuth, profile and password updates. */
 import { Router } from "express";
 import passport from "passport";
 import { User } from "../models/User.js";

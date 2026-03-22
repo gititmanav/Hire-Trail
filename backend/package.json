@@ -13,6 +13,7 @@
     "bcrypt": "^5.1.1",
     "cloudinary": "^2.5.1",
     "connect-mongo": "^5.1.0",
+    "cors": "^2.8.6",
     "dotenv": "^16.4.5",
     "express": "^4.21.0",
     "express-rate-limit": "^7.4.1",
@@ -27,6 +28,7 @@
   },
   "devDependencies": {
     "@types/bcrypt": "^5.0.2",
+    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.0",
     "@types/express-session": "^1.18.0",
     "@types/multer": "^1.4.12",
