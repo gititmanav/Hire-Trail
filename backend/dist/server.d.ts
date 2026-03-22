@@ -1,1 +1,1 @@
-import "./types/express.d.js";
+export {};

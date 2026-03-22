@@ -21,7 +21,6 @@ import contactRoutes from "./routes/contacts.js";
 import deadlineRoutes from "./routes/deadlines.js";
 import analyticsRoutes from "./routes/analytics.js";
 import jobRoutes from "./routes/jobs.js";
-import "./types/express.d.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const app = express();
