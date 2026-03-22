@@ -1,4 +1,5 @@
 {
+    "installCommand": "npm install && cd ../frontend && npm install",
     "rewrites": [
         {
             "source": "/api/(.*)",
