@@ -19,7 +19,7 @@ export const AUTH_BRAND_LOGO_MOBILE_CLASS = "h-36 w-36 object-contain object-cen
 export function SidebarLogoTile() {
   return (
     <div className={SIDEBAR_LOGO_TILE_CLASS}>
-      <img src="/logo.svg" alt="HireTrail" className={SIDEBAR_LOGO_IMG_CLASS} />
+      <img src="/favicon.svg" alt="HireTrail" className={SIDEBAR_LOGO_IMG_CLASS} />
     </div>
   );
 }

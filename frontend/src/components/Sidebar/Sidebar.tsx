@@ -1,6 +1,5 @@
 /** Primary navigation; paths match `App.tsx` routes. */
 import { NavLink } from "react-router-dom";
-import { SidebarLogoTile } from "../LogoMark/LogoMark.tsx";
 
 interface Props { collapsed: boolean; onToggle: () => void; }
 
@@ -17,25 +16,17 @@ const nav = [
 
 export default function Sidebar({ collapsed, onToggle }: Props) {
   return (
-    <aside className={`fixed top-0 left-0 bottom-0 bg-sidebar-bg flex flex-col z-50 transition-all duration-200 ${collapsed ? "w-16" : "w-60"}`}>
-      <div className={`flex items-center min-h-[64px] ${collapsed ? "px-2 justify-center" : "px-2 justify-between gap-2"}`}>
+    <aside className={`fixed top-0 left-0 bottom-0 bg-sidebar-bg flex flex-col overflow-hidden z-50 transition-all duration-200 ${collapsed ? "w-16" : "w-60"}`}>
+      <div className="flex items-center justify-between min-h-[60px] px-4">
         {!collapsed && (
-          <div className="flex items-center gap-2.5 min-w-0 flex-1">
-            <SidebarLogoTile />
-            <span className="text-[17px] font-semibold text-white whitespace-nowrap truncate">HireTrail</span>
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 bg-gradient-to-br from-accent to-blue-600 rounded-md flex items-center justify-center text-white font-bold text-sm shadow-sm">H</div>
+            <span className="text-[17px] font-semibold text-white whitespace-nowrap">HireTrail</span>
           </div>
         )}
-        {collapsed && <SidebarLogoTile />}
-        {!collapsed && (
-          <button onClick={onToggle} className="text-sidebar-text hover:text-white hover:bg-sidebar-hover p-1.5 rounded-md transition-colors">
-            <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><line x1="3" y1="4" x2="15" y2="4"/><line x1="3" y1="9" x2="11" y2="9"/><line x1="3" y1="14" x2="15" y2="14"/></svg>
-          </button>
-        )}
-        {collapsed && (
-          <button onClick={onToggle} className="absolute top-[18px] right-[-12px] w-6 h-6 bg-sidebar-bg border border-sidebar-hover rounded-full flex items-center justify-center text-sidebar-text hover:text-white transition-colors">
-            <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="4,2 8,6 4,10"/></svg>
-          </button>
-        )}
+        <button onClick={onToggle} className="text-sidebar-text hover:text-white hover:bg-sidebar-hover p-1.5 rounded-md transition-colors">
+          <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><line x1="3" y1="4" x2="15" y2="4"/><line x1="3" y1="9" x2={collapsed ? "15" : "11"} y2="9"/><line x1="3" y1="14" x2="15" y2="14"/></svg>
+        </button>
       </div>
       <nav className={`flex-1 flex flex-col gap-0.5 overflow-y-auto ${collapsed ? "px-1 items-center" : "px-2"}`}>
         {nav.map((item) => (

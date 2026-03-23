@@ -134,7 +134,7 @@ export default function Login({ onLogin }: { onLogin: (u: User) => void }) {
               type="button"
               onClick={handleDemoLogin}
               disabled={loading}
-              className="btn-secondary w-full justify-center !py-2.5 disabled:opacity-50"
+              className="btn-secondary demo-login-btn w-full justify-center !py-2.5 disabled:opacity-50"
             >
               Log in as demo user
             </button>
