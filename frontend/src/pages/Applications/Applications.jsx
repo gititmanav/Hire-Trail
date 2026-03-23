@@ -234,6 +234,7 @@ function Applications() {
     setModalOpen(true);
   };
 
+  // DRY: getBadgeClass is identical to the one in Dashboard.jsx; extract to utils/formatters.js
   const getBadgeClass = (stage) => {
     const map = {
       Applied: "badge-applied",
@@ -245,6 +246,7 @@ function Applications() {
     return map[stage] || "badge-applied";
   };
 
+  // DRY: formatDate is duplicated in Dashboard.jsx; extract to utils/formatters.js
   const formatDate = (dateStr) => {
     return new Date(dateStr).toLocaleDateString("en-US", {
       month: "short",
@@ -253,6 +255,8 @@ function Applications() {
     });
   };
 
+  // Performance: O(n) linear scan on every render for every table row;
+  // build a Map<id, name> once from the resumes array instead
   const getResumeName = (resumeId) => {
     const r = resumes.find((res) => res._id === resumeId);
     return r ? r.name : "—";

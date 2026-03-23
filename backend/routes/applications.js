@@ -55,6 +55,8 @@ router.post("/", async (req, res) => {
 
     const now = new Date();
     const newApp = {
+      // Data Model: userId is stored as a plain string while _id is an ObjectId;
+      // this inconsistency causes silent failures in aggregation $lookup/$match across collections
       userId: req.user._id.toString(),
       company,
       role,
@@ -112,6 +114,8 @@ router.put("/:id", async (req, res) => {
       ];
     }
 
+    // Performance/Correctness: two separate DB round-trips with a race-condition window between them;
+    // replace with findOneAndUpdate(..., { returnDocument: 'after' }) to fetch the updated doc atomically
     await db
       .collection("applications")
       .updateOne({ _id: new ObjectId(req.params.id) }, { $set: updates });
