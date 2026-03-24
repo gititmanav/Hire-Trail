@@ -9,6 +9,9 @@ import { getApiBaseURL } from "../config/apiBase.ts";
 import type {
   User, Application, Resume, Contact, Deadline, AnalyticsData, AdminOverview,
   ApplicationFormData, ContactFormData, DeadlineFormData, PaginatedResponse,
+  AdminDashboardData, AdminUserDetail, PlatformAnalyticsData, AuditLog,
+  Announcement, SystemSetting, Invite, EmailTemplate, IntegrationStatusItem,
+  StorageStats, PerformanceMetrics, RoleDefinition, SeedResult,
 } from "../types";
 
 export const api = axios.create({
@@ -101,4 +104,75 @@ export const analyticsAPI = {
 
 export const adminAPI = {
   getOverview: () => api.get<AdminOverview>("/admin/overview").then((r) => r.data),
+
+  // Dashboard
+  getDashboard: () => api.get<AdminDashboardData>("/admin/dashboard").then((r) => r.data),
+
+  // Users
+  getUsers: (params?: { page?: number; limit?: number; search?: string; role?: string; sort?: string; order?: string }) =>
+    api.get<PaginatedResponse<AdminUserDetail>>("/admin/users", { params }).then((r) => r.data),
+  getUser: (id: string) => api.get<AdminUserDetail>(`/admin/users/${id}`).then((r) => r.data),
+  updateUserRole: (id: string, role: string) => api.put(`/admin/users/${id}/role`, { role }).then((r) => r.data),
+  suspendUser: (id: string) => api.put(`/admin/users/${id}/suspend`).then((r) => r.data),
+  unsuspendUser: (id: string) => api.put(`/admin/users/${id}/unsuspend`).then((r) => r.data),
+  deleteUser: (id: string) => api.delete(`/admin/users/${id}`).then((r) => r.data),
+  hardDeleteUser: (id: string) => api.delete(`/admin/users/${id}/hard`).then((r) => r.data),
+  impersonateUser: (id: string) => api.post(`/admin/users/${id}/impersonate`).then((r) => r.data),
+  exportUsers: () => api.get("/admin/users/export", { responseType: "blob" }).then((r) => r.data),
+
+  // Analytics
+  getPlatformAnalytics: () => api.get<PlatformAnalyticsData>("/admin/analytics/platform").then((r) => r.data),
+
+  // Content
+  getContentApplications: (params?: Record<string, unknown>) => api.get<PaginatedResponse<Application & { userId: { _id: string; name: string; email: string } }>>("/admin/content/applications", { params }).then((r) => r.data),
+  getContentContacts: (params?: Record<string, unknown>) => api.get<PaginatedResponse<Contact & { userId: { _id: string; name: string; email: string } }>>("/admin/content/contacts", { params }).then((r) => r.data),
+  getContentDeadlines: (params?: Record<string, unknown>) => api.get<PaginatedResponse<Deadline & { userId: { _id: string; name: string; email: string } }>>("/admin/content/deadlines", { params }).then((r) => r.data),
+  getContentResumes: (params?: Record<string, unknown>) => api.get<PaginatedResponse<Resume & { userId: { _id: string; name: string; email: string } }>>("/admin/content/resumes", { params }).then((r) => r.data),
+
+  // Storage
+  getStorage: () => api.get<StorageStats>("/admin/storage").then((r) => r.data),
+
+  // Settings
+  getSettings: () => api.get<{ settings: SystemSetting[]; grouped: Record<string, SystemSetting[]> }>("/admin/settings").then((r) => r.data),
+  updateSetting: (key: string, value: unknown, valueType?: string) => api.put("/admin/settings", { key, value, valueType }).then((r) => r.data),
+
+  // Integrations
+  getIntegrations: () => api.get<{ integrations: IntegrationStatusItem[] }>("/admin/integrations").then((r) => r.data),
+
+  // Announcements
+  getAnnouncements: (params?: { page?: number; limit?: number }) => api.get<PaginatedResponse<Announcement>>("/admin/announcements", { params }).then((r) => r.data),
+  createAnnouncement: (data: Partial<Announcement>) => api.post<Announcement>("/admin/announcements", data).then((r) => r.data),
+  updateAnnouncement: (id: string, data: Partial<Announcement>) => api.put<Announcement>(`/admin/announcements/${id}`, data).then((r) => r.data),
+  deleteAnnouncement: (id: string) => api.delete(`/admin/announcements/${id}`).then((r) => r.data),
+
+  // Audit Logs
+  getAuditLogs: (params?: { page?: number; limit?: number; action?: string; resourceType?: string; userId?: string; startDate?: string; endDate?: string }) =>
+    api.get<PaginatedResponse<AuditLog>>("/admin/audit-logs", { params }).then((r) => r.data),
+
+  // Email Templates
+  getEmailTemplates: (params?: { page?: number; limit?: number }) => api.get<PaginatedResponse<EmailTemplate>>("/admin/email-templates", { params }).then((r) => r.data),
+  getEmailTemplate: (id: string) => api.get<EmailTemplate>(`/admin/email-templates/${id}`).then((r) => r.data),
+  createEmailTemplate: (data: Partial<EmailTemplate>) => api.post<EmailTemplate>("/admin/email-templates", data).then((r) => r.data),
+  updateEmailTemplate: (id: string, data: Partial<EmailTemplate>) => api.put<EmailTemplate>(`/admin/email-templates/${id}`, data).then((r) => r.data),
+  deleteEmailTemplate: (id: string) => api.delete(`/admin/email-templates/${id}`).then((r) => r.data),
+
+  // Invites
+  getInvites: (params?: { page?: number; limit?: number }) => api.get<PaginatedResponse<Invite>>("/admin/invites", { params }).then((r) => r.data),
+  createInvite: (data: { email?: string; maxUses?: number; expiresAt: string }) => api.post<Invite>("/admin/invites", data).then((r) => r.data),
+  deleteInvite: (id: string) => api.delete(`/admin/invites/${id}`).then((r) => r.data),
+
+  // Backup
+  exportBackup: () => api.post("/admin/backup/export", {}, { responseType: "blob" }).then((r) => r.data),
+  getBackupList: () => api.get("/admin/backup/list").then((r) => r.data),
+  exportUserData: (userId: string) => api.post(`/admin/backup/user-export/${userId}`, {}, { responseType: "blob" }).then((r) => r.data),
+
+  // Roles
+  getRoles: () => api.get<{ roles: RoleDefinition[] }>("/admin/roles").then((r) => r.data),
+
+  // Performance
+  getPerformance: () => api.get<PerformanceMetrics>("/admin/performance").then((r) => r.data),
+
+  // Seed
+  runSeed: () => api.post<SeedResult>("/admin/seed/run").then((r) => r.data),
+  clearSeed: () => api.post("/admin/seed/clear").then((r) => r.data),
 };

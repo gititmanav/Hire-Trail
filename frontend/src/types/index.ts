@@ -1,5 +1,9 @@
 export type UserRole = "user" | "admin";
-export interface User { _id: string; name: string; email: string; role: UserRole; }
+export interface User {
+  _id: string; name: string; email: string; role: UserRole;
+  suspended?: boolean; suspendedAt?: string | null;
+  deleted?: boolean; deletedAt?: string | null;
+}
 export interface AdminLoginEvent {
   _id: string;
   userId: string;
@@ -54,3 +58,205 @@ export interface ContactFormData { name: string; company: string; role: string; 
 export interface DeadlineFormData { applicationId: string; type: string; dueDate: string; notes: string; }
 export type SortOrder = "asc" | "desc";
 export interface SortConfig { field: string; order: SortOrder; }
+
+/* ───── Admin Panel Types ───── */
+
+export interface AuditLog {
+  _id: string;
+  timestamp: string;
+  userId: { _id: string; name: string; email: string } | string;
+  action: string;
+  resourceType: string;
+  resourceId?: string;
+  oldValue?: unknown;
+  newValue?: unknown;
+  ipAddress: string;
+  userAgent: string;
+  metadata?: unknown;
+}
+
+export interface Announcement {
+  _id: string;
+  title: string;
+  body: string;
+  type: "info" | "warning" | "success";
+  startDate: string;
+  endDate: string;
+  dismissible: boolean;
+  active: boolean;
+  createdBy: { _id: string; name: string; email: string } | string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SystemSetting {
+  _id: string;
+  key: string;
+  value: unknown;
+  valueType: "string" | "number" | "boolean" | "json";
+  description: string;
+  category: string;
+  updatedBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Invite {
+  _id: string;
+  code: string;
+  email: string | null;
+  maxUses: number;
+  usedCount: number;
+  expiresAt: string;
+  createdBy: { _id: string; name: string; email: string } | string;
+  usedBy: { userId: string; usedAt: string }[];
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EmailTemplate {
+  _id: string;
+  name: string;
+  subject: string;
+  bodyHtml: string;
+  variables: string[];
+  type: "welcome" | "reset" | "suspend" | "reminder" | "digest";
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminDashboardData {
+  stats: {
+    totalUsers: number;
+    totalApplications: number;
+    totalResumes: number;
+    totalContacts: number;
+    totalDeadlines: number;
+    signupsToday: number;
+    signupsThisWeek: number;
+    signupsThisMonth: number;
+    activeUsers7d: number;
+  };
+  recentActivity: AuditLog[];
+  charts: {
+    userGrowth: { _id: string; count: number }[];
+    appsPerDay: { _id: string; count: number }[];
+  };
+}
+
+export interface AdminUserDetail extends User {
+  applicationCount: number;
+  resumeCount: number;
+  contactCount?: number;
+  deadlineCount?: number;
+  lastLogin: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PlatformAnalyticsData {
+  funnel: { _id: string; count: number }[];
+  topCompanies: { _id: string; count: number }[];
+  topRoles: { _id: string; count: number }[];
+  totalApplications: number;
+  totalUsers: number;
+  avgAppsPerUser: number;
+  conversionRates: {
+    oaRate: number;
+    interviewRate: number;
+    offerRate: number;
+    rejectionRate: number;
+  };
+  trends: {
+    weeklySignups: { _id: { year: number; week: number }; count: number }[];
+    weeklyRejections: { _id: { year: number; week: number }; count: number }[];
+  };
+}
+
+export interface IntegrationStatusItem {
+  name: string;
+  key: string;
+  status: "connected" | "disconnected" | "error";
+  details?: string;
+  category: string;
+}
+
+export interface StorageStats {
+  stats: {
+    totalFiles: number;
+    orphanedFiles: number;
+    cloudinary: {
+      totalStorage: number;
+      storageLimit: number;
+      bandwidth: number;
+      bandwidthLimit: number;
+      transformations: number;
+    } | null;
+  };
+  files: {
+    _id: string;
+    name: string;
+    fileName: string;
+    targetRole: string;
+    fileUrl: string;
+    filePublicId: string;
+    user: { _id: string; name: string; email: string };
+    createdAt: string;
+  }[];
+  orphans: {
+    _id: string;
+    name: string;
+    filePublicId: string;
+    user: { _id: string; name: string; email: string };
+  }[];
+}
+
+export interface PerformanceMetrics {
+  server: {
+    uptime: number;
+    uptimeFormatted: string;
+    memory: {
+      heapUsed: number;
+      heapTotal: number;
+      rss: number;
+      external: number;
+      heapUsedMB: number;
+      heapTotalMB: number;
+      rssMB: number;
+    };
+    nodeVersion: string;
+    platform: string;
+    pid: number;
+  };
+  database: {
+    status: string;
+    host: string;
+    name: string;
+    stats: {
+      collections: number;
+      dataSize: number;
+      storageSize: number;
+      indexSize: number;
+      objects: number;
+      avgObjSize: number;
+    } | null;
+  };
+}
+
+export interface RoleDefinition {
+  role: string;
+  description: string;
+  permissions: string[];
+}
+
+export interface SeedResult {
+  message: string;
+  users: number;
+  resumes: number;
+  applications: number;
+  contacts: number;
+  deadlines: number;
+  total: number;
+}
