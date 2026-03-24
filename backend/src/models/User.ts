@@ -9,6 +9,10 @@ export interface IUser extends Document {
   password: string | null;
   googleId: string | null;
   role: "user" | "admin";
+  suspended: boolean;
+  suspendedAt: Date | null;
+  deleted: boolean;
+  deletedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidate: string): Promise<boolean>;
@@ -44,6 +48,10 @@ const userSchema = new Schema<IUser>(
       enum: ["user", "admin"],
       default: "user",
     },
+    suspended: { type: Boolean, default: false },
+    suspendedAt: { type: Date, default: null },
+    deleted: { type: Boolean, default: false },
+    deletedAt: { type: Date, default: null },
   },
   {
     timestamps: true,
@@ -60,6 +68,24 @@ const userSchema = new Schema<IUser>(
 
 userSchema.index({ email: 1 });
 userSchema.index({ googleId: 1 }, { sparse: true });
+
+/* Auto-exclude soft-deleted users from normal find queries.
+   Admin routes that need deleted users should use User.find({ deleted: true }) explicitly
+   or Model.find().setOptions({ includeDeleted: true }). */
+userSchema.pre(/^find/, function (this: mongoose.Query<unknown, IUser>, next) {
+  const opts = this.getOptions() as Record<string, unknown>;
+  if (!opts.includeDeleted) {
+    this.where({ deleted: { $ne: true } });
+  }
+  next();
+});
+userSchema.pre("countDocuments", function (this: mongoose.Query<unknown, IUser>, next) {
+  const opts = this.getOptions() as Record<string, unknown>;
+  if (!opts.includeDeleted) {
+    this.where({ deleted: { $ne: true } });
+  }
+  next();
+});
 
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password") || !this.password) return next();

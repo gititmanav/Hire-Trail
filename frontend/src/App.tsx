@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback, createContext } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import Layout from "./components/Layout/Layout.tsx";
 import ProtectedRoute from "./components/ProtectedRoute/ProtectedRoute.tsx";
+import AdminLayout from "./components/AdminLayout/AdminLayout.tsx";
 import Login from "./pages/Login/Login.tsx";
 import Register from "./pages/Register/Register.tsx";
 import Dashboard from "./pages/Dashboard/Dashboard.tsx";
@@ -16,7 +17,12 @@ import Contacts from "./pages/Contacts/Contacts.tsx";
 import Deadlines from "./pages/Deadlines/Deadlines.tsx";
 import ImportExport from "./pages/ImportExport/ImportExport.tsx";
 import Profile from "./pages/Profile/Profile.tsx";
-import Admin from "./pages/Admin/Admin.tsx";
+import {
+  AdminDashboard, AuditLogs,
+  ContentModeration, StorageManagement, SystemConfig, IntegrationStatus,
+  Announcements, EmailTemplates, InviteSystem, BackupManagement,
+  RBACManagement, PerformanceMonitor, SeedManagement,
+} from "./pages/Admin/index.ts";
 import { authAPI } from "./utils/api.ts";
 import { useTheme } from "./hooks/useTheme.ts";
 import type { User } from "./types";
@@ -43,10 +49,29 @@ function App() {
       <JobSearchContext.Provider value={{ state: jobSearchState, setState: setJobSearchState }}>
 
         <Routes>
-          <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login onLogin={setUser} />} />
-          <Route path="/register" element={user ? <Navigate to="/" replace /> : <Register onLogin={setUser} />} />
+          <Route path="/login" element={user ? <Navigate to={user.role === "admin" ? "/admin" : "/"} replace /> : <Login onLogin={setUser} />} />
+          <Route path="/register" element={user ? <Navigate to={user.role === "admin" ? "/admin" : "/"} replace /> : <Register onLogin={setUser} />} />
+
+          {/* Admin panel — own layout, own sidebar */}
+          <Route element={<ProtectedRoute user={user}>{user?.role === "admin" ? <AdminLayout user={user!} onLogout={async () => { try { await authAPI.logout(); } catch { } setUser(null); }} /> : <Navigate to="/" replace />}</ProtectedRoute>}>
+            <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/admin/users" element={<RBACManagement />} />
+            <Route path="/admin/content" element={<ContentModeration />} />
+            <Route path="/admin/storage" element={<StorageManagement />} />
+            <Route path="/admin/settings" element={<SystemConfig />} />
+            <Route path="/admin/integrations" element={<IntegrationStatus />} />
+            <Route path="/admin/announcements" element={<Announcements />} />
+            <Route path="/admin/audit-logs" element={<AuditLogs />} />
+            <Route path="/admin/email-templates" element={<EmailTemplates />} />
+            <Route path="/admin/invites" element={<InviteSystem />} />
+            <Route path="/admin/backup" element={<BackupManagement />} />
+            <Route path="/admin/performance" element={<PerformanceMonitor />} />
+            <Route path="/admin/seed" element={<SeedManagement />} />
+          </Route>
+
+          {/* Main app layout */}
           <Route element={<ProtectedRoute user={user}><Layout user={user!} onLogout={async () => { try { await authAPI.logout(); } catch { } setUser(null); }} /></ProtectedRoute>}>
-            <Route path="/" element={<Dashboard />} />
+            <Route path="/" element={user?.role === "admin" ? <Navigate to="/admin" replace /> : <Dashboard />} />
             <Route path="/applications" element={<Applications />} />
             <Route path="/kanban" element={<Kanban />} />
             <Route path="/jobs" element={<JobSearch />} />
@@ -56,10 +81,6 @@ function App() {
             <Route path="/import-export" element={<ImportExport />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/settings" element={<Profile />} />
-            <Route
-              path="/admin"
-              element={user?.role === "admin" ? <Admin /> : <Navigate to="/" replace />}
-            />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
