@@ -16,6 +16,7 @@ const envSchema = z.object({
   CLOUDINARY_API_SECRET: z.string().default(""),
   // Optional: RapidAPI JSearch proxy
   JSEARCH_API_KEY: z.string().default(""),
+  ADMIN_EMAILS: z.string().default(""),
 });
 
 const parsed = envSchema.safeParse(process.env);

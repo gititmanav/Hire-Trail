@@ -1,7 +1,7 @@
 /** Primary navigation; paths match `App.tsx` routes. */
 import { NavLink } from "react-router-dom";
 
-interface Props { collapsed: boolean; onToggle: () => void; }
+interface Props { collapsed: boolean; onToggle: () => void; isAdmin: boolean; }
 
 const nav = [
   { to: "/", label: "Dashboard", d: "M3 3h7v8H3zM12 3h7v5h-7zM3 13h7v6H3zM12 10h7v9h-7z" },
@@ -14,7 +14,11 @@ const nav = [
   { to: "/import-export", label: "Import / Export", d: "M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5" },
 ];
 
-export default function Sidebar({ collapsed, onToggle }: Props) {
+const adminNav = { to: "/admin", label: "Admin Panel", d: "M12 3l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V7l8-4zm0 5a2 2 0 100 4 2 2 0 000-4zm-3 8h6" };
+
+export default function Sidebar({ collapsed, onToggle, isAdmin }: Props) {
+  const navItems = isAdmin ? [...nav, adminNav] : nav;
+
   return (
     <aside className={`fixed top-0 left-0 bottom-0 bg-sidebar-bg flex flex-col overflow-hidden z-50 transition-all duration-200 ${collapsed ? "w-16" : "w-60"}`}>
       <div className="flex items-center justify-between min-h-[60px] px-4">
@@ -29,7 +33,7 @@ export default function Sidebar({ collapsed, onToggle }: Props) {
         </button>
       </div>
       <nav className={`flex-1 flex flex-col gap-0.5 overflow-y-auto ${collapsed ? "px-1 items-center" : "px-2"}`}>
-        {nav.map((item) => (
+        {navItems.map((item) => (
           <NavLink key={item.to} to={item.to} end={item.to === "/"} title={collapsed ? item.label : undefined}
             className={({ isActive }) => `flex items-center gap-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${collapsed ? "justify-center w-11 h-11 p-0" : "px-3 py-2"} ${isActive ? "bg-sidebar-active text-white" : "text-sidebar-text hover:bg-sidebar-hover hover:text-white"}`}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d={item.d}/></svg>

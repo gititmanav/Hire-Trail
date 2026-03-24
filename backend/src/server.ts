@@ -23,6 +23,7 @@ import contactRoutes from "./routes/contacts.js";
 import deadlineRoutes from "./routes/deadlines.js";
 import analyticsRoutes from "./routes/analytics.js";
 import jobRoutes from "./routes/jobs.js";
+import adminRoutes from "./routes/admin.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -93,6 +94,7 @@ app.use("/api/contacts", contactRoutes);
 app.use("/api/deadlines", deadlineRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/jobs", jobRoutes);
+app.use("/api/admin", adminRoutes);
 
 // Monorepo deploy: Vite build at ../frontend/dist (dev UX uses Vite on :5173 with proxy to this API).
 const clientBuildPath = join(__dirname, "..", "..", "frontend", "dist");

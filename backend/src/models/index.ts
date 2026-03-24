@@ -12,3 +12,6 @@ export type { IContact, ConnectionSource } from "./Contact.js";
 
 export { Deadline, DEADLINE_TYPES } from "./Deadline.js";
 export type { IDeadline, DeadlineType } from "./Deadline.js";
+
+export { AdminLoginEvent } from "./AdminLoginEvent.js";
+export type { IAdminLoginEvent } from "./AdminLoginEvent.js";

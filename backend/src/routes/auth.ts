@@ -7,8 +7,20 @@ import { registerSchema, loginSchema } from "../validators/auth.js";
 import { authLimiter } from "../middleware/rateLimiter.js";
 import { AppError } from "../errors/AppError.js";
 import { env } from "../config/env.js";
+import { isAdminEmail } from "../utils/admin.js";
+import { AdminLoginEvent } from "../models/AdminLoginEvent.js";
 
 const router = Router();
+
+function getRequestMeta(req: Request): { ipAddress: string; userAgent: string } {
+  const forwardedFor = req.headers["x-forwarded-for"];
+  const forwardedIp = Array.isArray(forwardedFor)
+    ? forwardedFor[0]
+    : forwardedFor?.split(",")[0];
+  const ipAddress = (forwardedIp || req.ip || "").trim();
+  const userAgent = (req.get("user-agent") || "").slice(0, 512);
+  return { ipAddress, userAgent };
+}
 
 // Register
 router.post(
@@ -24,14 +36,28 @@ router.post(
         throw new AppError("Email already registered", 409);
       }
 
-      const user = await User.create({ name, email, password });
+      const user = await User.create({
+        name,
+        email,
+        password,
+        role: isAdminEmail(email) ? "admin" : "user",
+      });
 
       req.login(user, (err) => {
         if (err) return next(err);
+        const meta = getRequestMeta(req);
+        void AdminLoginEvent.create({
+          userId: user._id,
+          email: user.email,
+          name: user.name,
+          provider: "local",
+          ...meta,
+        });
         res.status(201).json({
           _id: user._id,
           name: user.name,
           email: user.email,
+          role: user.role,
         });
       });
     } catch (err) {
@@ -59,6 +85,15 @@ router.post(
             _id: user._id,
             name: user.name,
             email: user.email,
+            role: user.role,
+          });
+          const meta = getRequestMeta(req);
+          void AdminLoginEvent.create({
+            userId: user._id,
+            email: user.email,
+            name: user.name,
+            provider: "local",
+            ...meta,
           });
         });
       }
@@ -81,10 +116,15 @@ router.post("/logout", (req: Request, res: Response, next: NextFunction) => {
 router.get("/me", (req: Request, res: Response) => {
   if (req.isAuthenticated() && req.user) {
     const user = req.user as any;
+    if (isAdminEmail(user.email) && user.role !== "admin") {
+      void User.findByIdAndUpdate(user._id, { $set: { role: "admin" } }).catch(() => {});
+      user.role = "admin";
+    }
     return res.json({
       _id: user._id,
       name: user.name,
       email: user.email,
+      role: user.role,
     });
   }
   res.status(401).json({ error: "Not authenticated" });
@@ -109,6 +149,14 @@ router.get("/google/callback", (req: Request, res: Response, next: NextFunction)
         return res.redirect(`${env.CLIENT_URL}/login`);
       }
       res.redirect(env.CLIENT_URL);
+      const meta = getRequestMeta(req);
+      void AdminLoginEvent.create({
+        userId: user._id,
+        email: user.email,
+        name: user.name,
+        provider: "google",
+        ...meta,
+      });
     });
   })(req, res, next);
 });
@@ -137,7 +185,12 @@ router.put("/profile", async (req: Request, res: Response, next: NextFunction) =
       { new: true, runValidators: true }
     );
 
-    res.json({ _id: updated!._id, name: updated!.name, email: updated!.email });
+    res.json({
+      _id: updated!._id,
+      name: updated!.name,
+      email: updated!.email,
+      role: updated!.role,
+    });
   } catch (err) {
     next(err);
   }

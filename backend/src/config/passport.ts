@@ -7,6 +7,7 @@ import { Strategy as LocalStrategy } from "passport-local";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { User, IUser } from "../models/User.js";
 import { env } from "./env.js";
+import { isAdminEmail } from "../utils/admin.js";
 
 export function configurePassport(): void {
   passport.serializeUser((user, done) => {
@@ -75,6 +76,9 @@ export function configurePassport(): void {
 
             if (emailUser) {
               emailUser.googleId = profile.id;
+              if (isAdminEmail(emailUser.email)) {
+                emailUser.role = "admin";
+              }
               await emailUser.save();
               return done(null, emailUser);
             }
@@ -85,6 +89,7 @@ export function configurePassport(): void {
               email: profile.emails?.[0]?.value,
               googleId: profile.id,
               password: null,
+              role: isAdminEmail(profile.emails?.[0]?.value) ? "admin" : "user",
             });
 
             return done(null, newUser);

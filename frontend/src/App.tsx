@@ -16,6 +16,7 @@ import Contacts from "./pages/Contacts/Contacts.tsx";
 import Deadlines from "./pages/Deadlines/Deadlines.tsx";
 import ImportExport from "./pages/ImportExport/ImportExport.tsx";
 import Profile from "./pages/Profile/Profile.tsx";
+import Admin from "./pages/Admin/Admin.tsx";
 import { authAPI } from "./utils/api.ts";
 import { useTheme } from "./hooks/useTheme.ts";
 import type { User } from "./types";
@@ -55,6 +56,10 @@ function App() {
             <Route path="/import-export" element={<ImportExport />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/settings" element={<Profile />} />
+            <Route
+              path="/admin"
+              element={user?.role === "admin" ? <Admin /> : <Navigate to="/" replace />}
+            />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

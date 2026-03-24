@@ -7,7 +7,7 @@ import axios, { AxiosError } from "axios";
 import toast from "react-hot-toast";
 import { getApiBaseURL } from "../config/apiBase.ts";
 import type {
-  User, Application, Resume, Contact, Deadline, AnalyticsData,
+  User, Application, Resume, Contact, Deadline, AnalyticsData, AdminOverview,
   ApplicationFormData, ContactFormData, DeadlineFormData, PaginatedResponse,
 } from "../types";
 
@@ -97,4 +97,8 @@ export const deadlinesAPI = {
 
 export const analyticsAPI = {
   get: () => api.get<AnalyticsData>("/analytics").then((r) => r.data),
+};
+
+export const adminAPI = {
+  getOverview: () => api.get<AdminOverview>("/admin/overview").then((r) => r.data),
 };

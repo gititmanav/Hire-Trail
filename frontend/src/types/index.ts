@@ -1,4 +1,25 @@
-export interface User { _id: string; name: string; email: string; }
+export type UserRole = "user" | "admin";
+export interface User { _id: string; name: string; email: string; role: UserRole; }
+export interface AdminLoginEvent {
+  _id: string;
+  userId: string;
+  email: string;
+  name: string;
+  provider: "local" | "google";
+  ipAddress: string;
+  userAgent: string;
+  loggedInAt: string;
+}
+export interface AdminOverview {
+  stats: {
+    totalUsers: number;
+    adminUsers: number;
+    regularUsers: number;
+    totalLoginsTracked: number;
+  };
+  users: (Pick<User, "_id" | "name" | "email" | "role"> & { createdAt: string; updatedAt: string })[];
+  recentLogins: AdminLoginEvent[];
+}
 export type Stage = "Applied" | "OA" | "Interview" | "Offer" | "Rejected";
 export interface StageEntry { stage: Stage; date: string; }
 export interface Application {
