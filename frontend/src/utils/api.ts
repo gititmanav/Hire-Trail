@@ -10,8 +10,8 @@ import type {
   User, Application, Resume, Contact, Deadline, AnalyticsData, AdminOverview,
   ApplicationFormData, ContactFormData, DeadlineFormData, PaginatedResponse,
   AdminDashboardData, AdminUserDetail, PlatformAnalyticsData, AuditLog,
-  Announcement, SystemSetting, Invite, EmailTemplate, IntegrationStatusItem,
-  StorageStats, PerformanceMetrics, RoleDefinition, SeedResult,
+  Announcement, SystemSetting, Invite, EmailTemplate,
+  StorageStats, RoleDefinition, SeedResult,
 } from "../types";
 
 export const api = axios.create({
@@ -136,9 +136,6 @@ export const adminAPI = {
   getSettings: () => api.get<{ settings: SystemSetting[]; grouped: Record<string, SystemSetting[]> }>("/admin/settings").then((r) => r.data),
   updateSetting: (key: string, value: unknown, valueType?: string) => api.put("/admin/settings", { key, value, valueType }).then((r) => r.data),
 
-  // Integrations
-  getIntegrations: () => api.get<{ integrations: IntegrationStatusItem[] }>("/admin/integrations").then((r) => r.data),
-
   // Announcements
   getAnnouncements: (params?: { page?: number; limit?: number }) => api.get<PaginatedResponse<Announcement>>("/admin/announcements", { params }).then((r) => r.data),
   createAnnouncement: (data: Partial<Announcement>) => api.post<Announcement>("/admin/announcements", data).then((r) => r.data),
@@ -168,9 +165,6 @@ export const adminAPI = {
 
   // Roles
   getRoles: () => api.get<{ roles: RoleDefinition[] }>("/admin/roles").then((r) => r.data),
-
-  // Performance
-  getPerformance: () => api.get<PerformanceMetrics>("/admin/performance").then((r) => r.data),
 
   // Seed
   runSeed: () => api.post<SeedResult>("/admin/seed/run").then((r) => r.data),

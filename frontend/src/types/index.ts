@@ -175,14 +175,6 @@ export interface PlatformAnalyticsData {
   };
 }
 
-export interface IntegrationStatusItem {
-  name: string;
-  key: string;
-  status: "connected" | "disconnected" | "error";
-  details?: string;
-  category: string;
-}
-
 export interface StorageStats {
   stats: {
     totalFiles: number;
@@ -211,38 +203,6 @@ export interface StorageStats {
     filePublicId: string;
     user: { _id: string; name: string; email: string };
   }[];
-}
-
-export interface PerformanceMetrics {
-  server: {
-    uptime: number;
-    uptimeFormatted: string;
-    memory: {
-      heapUsed: number;
-      heapTotal: number;
-      rss: number;
-      external: number;
-      heapUsedMB: number;
-      heapTotalMB: number;
-      rssMB: number;
-    };
-    nodeVersion: string;
-    platform: string;
-    pid: number;
-  };
-  database: {
-    status: string;
-    host: string;
-    name: string;
-    stats: {
-      collections: number;
-      dataSize: number;
-      storageSize: number;
-      indexSize: number;
-      objects: number;
-      avgObjSize: number;
-    } | null;
-  };
 }
 
 export interface RoleDefinition {

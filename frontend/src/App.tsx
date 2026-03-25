@@ -19,9 +19,9 @@ import ImportExport from "./pages/ImportExport/ImportExport.tsx";
 import Profile from "./pages/Profile/Profile.tsx";
 import {
   AdminDashboard, AuditLogs,
-  ContentModeration, StorageManagement, SystemConfig, IntegrationStatus,
+  ContentModeration, StorageManagement, SystemConfig,
   Announcements, EmailTemplates, InviteSystem, BackupManagement,
-  RBACManagement, PerformanceMonitor, SeedManagement,
+  RBACManagement, SeedManagement,
 } from "./pages/Admin/index.ts";
 import { authAPI } from "./utils/api.ts";
 import { useTheme } from "./hooks/useTheme.ts";
@@ -59,13 +59,11 @@ function App() {
             <Route path="/admin/content" element={<ContentModeration />} />
             <Route path="/admin/storage" element={<StorageManagement />} />
             <Route path="/admin/settings" element={<SystemConfig />} />
-            <Route path="/admin/integrations" element={<IntegrationStatus />} />
             <Route path="/admin/announcements" element={<Announcements />} />
             <Route path="/admin/audit-logs" element={<AuditLogs />} />
             <Route path="/admin/email-templates" element={<EmailTemplates />} />
             <Route path="/admin/invites" element={<InviteSystem />} />
             <Route path="/admin/backup" element={<BackupManagement />} />
-            <Route path="/admin/performance" element={<PerformanceMonitor />} />
             <Route path="/admin/seed" element={<SeedManagement />} />
           </Route>
 
