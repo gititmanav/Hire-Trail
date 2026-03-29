@@ -1,266 +1,156 @@
-# HireTrail — Internship & Job Application Command Center
+# HireTrail
 
-![HireTrail Screenshot](screenshot.png)
-![HireTrail Screenshot](screenshot2.png)
+A full-stack **job search command center**: applications, Kanban pipeline, deadlines, contacts, resume versions with uploads, analytics, and an integrated job search. Built as a personal project to stay organized during recruiting and to ship a polished reference implementation others can run and learn from.
 
-## Authors
-
-- **Manav Kaneria** — Applications & Resume Module (Full Stack)
-- **Tisha Anil Patel** — Contacts, Deadlines & Analytics Module (Full Stack)
-
-## Class
-
-[CS5610 Web Development — Northeastern University, Khoury College of Computer Sciences](https://johnguerra.co/classes/webDevelopment_fall_2025/)
-
-## Links
-
-- **Live App:** [https://hire-trail.onrender.com](https://hire-trail.onrender.com)
-- **Demo Video:** [https://youtu.be/gXdi4DEMhLw](https://youtu.be/gXdi4DEMhLw)
-- **Presentation Slides:** [https://docs.google.com/presentation/d/1EP8yyFO1Fp1cxK44g_lF3OL5UuxNCs7SAX7Zh3UlRoQ/edit?usp=sharing](https://docs.google.com/presentation/d/1EP8yyFO1Fp1cxK44g_lF3OL5UuxNCs7SAX7Zh3UlRoQ/edit?usp=sharing)
-- **Design Document:** [https://drive.google.com/file/d/1uuVTc4PUYyaIpMTHK6DkAzHOQYuqdx5U/view?usp=sharing](https://drive.google.com/file/d/1uuVTc4PUYyaIpMTHK6DkAzHOQYuqdx5U/view?usp=sharing)
-
----
-
-## Project Objective
-
-HireTrail is a browser-based job search management platform designed for students and early-career professionals navigating internship and full-time recruiting cycles. It goes beyond basic application tracking by combining five interconnected modules into a single command center:
-
-- Track applications through every hiring stage with timestamped history
-- Version resumes and measure which version gets the best response rate
-- Log contacts, referrals, and recruiters per company with conversation notes
-- Manage deadlines with urgency-based color coding and completion tracking
-- Analyze your entire funnel with conversion rates, weekly trends, and resume performance breakdowns
-
-The goal is to replace the scattered spreadsheets, sticky notes, and email threads that most students use during recruiting season with a structured, data-driven workflow.
-
----
-
-## Features
+**Live:** [https://hiretrail.vercel.app/login](https://hiretrail.vercel.app/login)  
+**Repo:** [github.com/gititmanav/Hire-Trail](https://github.com/gititmanav/Hire-Trail)
 
 ### Dashboard
-- At-a-glance stat cards showing total applications, in-progress count, offers, and rejections
-- Recent applications table with stage badges
-- Upcoming deadlines sorted by urgency
-- Embedded analytics section with funnel chart, conversion rates, weekly trend, and resume performance
 
-### Applications (Manav)
-- Full CRUD — create, view, edit, and delete job applications
-- Each application tracks: company, role, job URL, application date, current stage, notes, and linked resume version
-- Stage options: Applied, OA, Interview, Offer, Rejected
-- Every stage change is timestamped in a stage history array for timeline visibility
-- Filter by stage with count badges
-- Search by company or role name
-- Direct link to job postings via external URL
+Customizable widget grid (funnel, trends, deadlines, recent applications, and more) in light and dark theme.
 
-### Resumes (Manav)
-- Full CRUD for resume versions (metadata-based)
-- Each version stores: name, target role type, and file name
-- Card grid layout showing all versions with upload dates
-- Live usage count per resume pulled from an aggregation pipeline
-- Linked to applications — each application tags exactly one resume version
-
-### Contacts (Tisha)
-- Full CRUD for contacts at each company
-- Each contact stores: name, company, role, LinkedIn URL, connection source, last contact date, and conversation notes
-- Connection sources: Cold email, Referral, Career fair, LinkedIn, Professor intro, Alumni network
-- Card grid with avatar initials, search by name or company
-
-### Deadlines (Tisha)
-- Full CRUD for deadlines linked to applications
-- Deadline types: OA due date, Follow-up reminder, Interview prep, Offer decision, Thank you note
-- Tab-based filtering: Upcoming, Overdue, Completed, All
-- Color-coded urgency badges (overdue = red, urgent = amber, soon = blue, normal = gray)
-- One-click completion toggle with visual strikethrough
-
-### Analytics (Tisha)
-- Application funnel bar chart (Applied → OA → Interview → Offer)
-- Stage-to-stage conversion rates with progress bars
-- Applications over time — weekly trend line chart
-- Resume performance table — response rate per resume version with visual bars
-- Summary stat cards: response rate, offer rate, rejection rate
-
-### Authentication
-- Passport.js Local strategy (email + password with bcrypt hashing)
-- Passport.js Google OAuth 2.0 strategy
-- Session management stored in MongoDB via connect-mongo
-- Auto-login after registration
-- Protected routes — all API endpoints require authentication
+| Light | Dark |
+| :---: | :---: |
+| ![Dashboard — light theme](frontend/public/Dashboard.png) | ![Dashboard — dark theme](frontend/public/Darkmode%20dashboard.png) |
 
 ---
 
-## Tech Stack
+## Features (product)
 
-| Layer | Technology |
-|---|---|
-| Frontend | React 18 with hooks, client-side rendering only |
-| Routing | React Router DOM v6 |
-| Charts | Recharts |
-| Type Checking | PropTypes |
-| Backend | Node.js + Express (ES Modules) |
-| Database | MongoDB Atlas with the native driver |
-| Authentication | Passport.js (Local + Google OAuth 2.0) |
-| Sessions | express-session + connect-mongo |
-| Password Hashing | bcrypt |
-| Linting | ESLint |
-| Formatting | Prettier |
-| Deployment | Render |
+- **Dashboard** – Drag-and-drop, resizable widgets (`react-grid-layout`): funnel, conversion, trends, stage mix, resume performance, recent applications, deadlines. Lock layout, show/hide widgets, persist layout in `localStorage`. First-visit hint for discoverability.
+- **Applications** – Full CRUD with server-side search and pagination, stage filters, and **timestamped stage history** for a real audit trail.
+- **Kanban** – **Drag-and-drop cards across hiring stages** (`@dnd-kit`); optimistic UI with throttled updates during drag; persists stage to the API on drop.
 
-**Not used (per course rules):** Axios, Mongoose, CORS, or any other prohibited library.
+![Kanban board](frontend/public/Kanban%20Board.png)
 
----
+- **Resumes** – Versioned metadata, **PDF upload** to Cloudinary, usage counts from aggregation, linked to applications.
+- **Contacts** – People per company with source, notes, and LinkedIn links; paginated lists.
+- **Deadlines** – Tied to applications; tabs for upcoming / overdue / completed; urgency styling; quick complete toggle.
+- **Analytics** – Funnel counts, conversion rates, weekly trend, resume-level performance (MongoDB aggregations).
+- **Import / export** – CSV bulk import for applications; export paths for portability.
+- **Job search** – In-app listings via **JSearch (RapidAPI)** when `JSEARCH_API_KEY` is set; optional remote/location filters.
 
-## MongoDB Collections
+![Job search](frontend/public/Job%20Search.png)
 
-| Collection | Owner | Operations |
-|---|---|---|
-| `users` | Shared | Create (register), Read (auth) |
-| `applications` | Manav | Full CRUD + stage history tracking |
-| `resumes` | Manav | Full CRUD + aggregation for usage counts |
-| `contacts` | Tisha | Full CRUD |
-| `deadlines` | Tisha | Full CRUD + completion toggling |
-| `sessions` | System | Managed by connect-mongo |
-
-Database is seeded with **1,000+ synthetic records** across all collections.
+- **Auth** – Email/password, **Google OAuth 2.0**, sessions stored in MongoDB (`connect-mongo`); profile and password change flows.
+- **UX** – Dark/light theme with a **circular reveal** transition, toast notifications, skeleton loading, responsive layout.
 
 ---
 
-## Project Structure
+## Engineering highlights (for builders)
+
+| Area | Choices |
+|------|---------|
+| **API & data** | **Express** (ESM), **Mongoose** models, compound indexes, aggregation pipelines for analytics and resume usage |
+| **Validation** | **Zod** at the boundary; centralized error handler mapping Zod / Mongoose / `AppError` |
+| **Auth** | **Passport.js**: `passport-local` + **Google OAuth 2.0**; **bcrypt**; `express-session` + **connect-mongo** |
+| **Security** | **Helmet** CSP, **express-rate-limit** on `/api`, httpOnly cookies, production `secure` cookies behind proxy |
+| **Files** | **Multer** + **Cloudinary** for resume PDFs |
+| **Frontend** | **React 18**, **TypeScript**, **Vite**, **Tailwind CSS**, **React Router v6** |
+| **HTTP** | **Axios** instance with `withCredentials`, response interceptor for 401/429 and user-facing errors |
+| **Charts** | **Chart.js** + `react-chartjs-2`, `chartjs-plugin-datalabels` |
+| **Layout / DnD** | **react-grid-layout** (dashboard), **@dnd-kit** (Kanban) |
+| **CSV** | **Papa Parse** for parsing and robust import |
+| **Job API** | Server-side proxy to JSearch so the API key stays off the client |
+
+---
+
+## Repository layout
 
 ```
-hiretrail/
-├── backend/
-│   ├── config/
-│   │   ├── db.js              # MongoDB native driver connection
-│   │   └── passport.js        # Local + Google OAuth strategies
-│   ├── middleware/
-│   │   └── auth.js            # Route protection middleware
-│   ├── routes/
-│   │   ├── auth.js            # Register, login, logout, Google OAuth
-│   │   ├── applications.js    # Applications CRUD
-│   │   ├── resumes.js         # Resumes CRUD + aggregation
-│   │   ├── contacts.js        # Contacts CRUD
-│   │   ├── deadlines.js       # Deadlines CRUD
-│   │   └── analytics.js       # Aggregation pipelines
-│   ├── server.js              # Express app entry point
-│   ├── seed.js                # Synthetic data seeder (1,000+ records)
-│   ├── .env.example           # Environment variable template
-│   ├── .eslintrc.cjs          # Backend ESLint config
-│   └── package.json
-├── frontend/
-│   ├── public/
-│   │   └── favicon.svg
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── Layout/        # Sidebar + content wrapper
-│   │   │   ├── Sidebar/       # Collapsible navigation sidebar
-│   │   │   └── ProtectedRoute/# Auth guard for routes
-│   │   ├── pages/
-│   │   │   ├── Login/         # Login page (local + Google)
-│   │   │   ├── Register/      # Registration page
-│   │   │   ├── Dashboard/     # Overview + embedded analytics
-│   │   │   ├── Applications/  # Application tracker with CRUD modal
-│   │   │   ├── Resumes/       # Resume version manager
-│   │   │   ├── Contacts/      # Contact relationship tracker
-│   │   │   ├── Deadlines/     # Deadline manager with urgency
-│   │   │   └── Analytics/     # Full analytics dashboard
-│   │   ├── utils/
-│   │   │   └── api.js         # Centralized fetch wrapper
-│   │   ├── App.jsx            # Root component with routing
-│   │   ├── App.css            # Global styles (Slate blue palette)
-│   │   └── main.jsx           # Entry point
-│   ├── .eslintrc.cjs          # Frontend ESLint config
-│   ├── vite.config.js         # Vite config with API proxy
-│   └── package.json
-├── .gitignore
-├── .prettierrc
-├── LICENSE                    # MIT
+Hire Trail/
+├── backend/          # Express API (TypeScript → dist/)
+│   └── src/
+│       ├── config/   # env (Zod), db, passport, cloudinary
+│       ├── models/   # Mongoose schemas
+│       ├── routes/   # REST handlers
+│       ├── middleware/
+│       └── server.ts
+├── frontend/         # Vite + React SPA
+│   └── src/
 ├── README.md
-└── screenshot.png
+└── LICENSE
 ```
 
 ---
 
-## Instructions to Build
+## Setup
 
 ### Prerequisites
 
-- Node.js 18+
-- MongoDB Atlas account
-- (Optional) Google Cloud Console project for OAuth
+- **Node.js 18+**
+- **MongoDB Atlas** (or compatible URI)
+- Optional: **Google Cloud** OAuth credentials; **Cloudinary** account; **RapidAPI** key for JSearch
 
-### Setup
-
-1. **Clone the repository**
+### 1. Clone and install
 
 ```bash
 git clone https://github.com/gititmanav/Hire-Trail.git
 cd Hire-Trail
-```
-
-2. **Install dependencies**
-
-```bash
 cd backend && npm install
 cd ../frontend && npm install
 ```
 
-3. **Configure environment**
+### 2. Environment (backend)
 
 ```bash
 cd backend
 cp .env.example .env
 ```
 
-Edit `backend/.env` with your credentials:
+Edit `backend/.env`: set `MONGO_URI`, `SESSION_SECRET`, and optionally Google, Cloudinary, and `JSEARCH_API_KEY`. Use `CLIENT_URL` matching the **exact** frontend origin (scheme + host + port): `http://localhost:5173` locally, or your **Vercel** URL when the SPA is deployed separately (required for CORS and session cookies).
 
-```
-MONGO_URI=mongodb+srv://<user>:<password>@<cluster>.mongodb.net/HireTrail?retryWrites=true&w=majority
-SESSION_SECRET=any-random-string-here
-CLIENT_URL=http://localhost:5173
-PORT=5050
-```
+### 3. Frontend environment
 
-For Google OAuth (optional):
-
-```
-GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
-GOOGLE_CALLBACK_URL=http://localhost:5050/api/auth/google/callback
+```bash
+cd frontend
+cp .env.example .env
 ```
 
-4. **Seed the database**
+| Variable | When to set |
+|----------|-------------|
+| `VITE_API_PROXY_TARGET` | Local dev only: where Vite should proxy `/api` (default `http://localhost:5050`). |
+| `VITE_API_BASE_URL` | **Split deploy:** set at **build time** (e.g. in Vercel) to your public API base **including** `/api`, e.g. `https://your-api.onrender.com/api`. If unset, the app uses relative `/api` (same origin as the SPA or dev proxy). |
+
+Never put secrets in `VITE_*` variables; they are embedded in the client bundle.
+
+### 4. Seed demo data
 
 ```bash
 cd backend
-node seed.js
+npm run seed
 ```
 
-This creates a demo user and 1,000+ synthetic records. Login credentials: `demo@hiretrail.com` / `password123`
+Creates **demo@hiretrail.com** / **password123** plus synthetic data for applications, resumes, contacts, and deadlines.
 
-5. **Run in development**
+### 5. Development (two terminals)
 
-Terminal 1:
+**API** (default port `5050`):
+
 ```bash
 cd backend
 npm run dev
 ```
 
-Terminal 2:
+**SPA** (Vite proxies `/api` to the backend):
+
 ```bash
 cd frontend
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173)
+Open [http://localhost:5173](http://localhost:5173).
 
-6. **Build for production**
+### 6. Production build
 
 ```bash
-cd frontend
-npm run build
-cd ../backend
-npm start
+cd frontend && npm run build
+cd ../backend && npm run build && npm start
 ```
+
+**Monolith:** the server can serve `frontend/dist` from one host (e.g. Render). Set `NODE_ENV=production`, `SESSION_SECRET`, and OAuth callback URLs for that host.
+
+**Frontend on Vercel + API elsewhere:** build the frontend with `VITE_API_BASE_URL` pointing at your API; set backend `CLIENT_URL` to the Vercel site URL. The API enables CORS for that origin and uses `SameSite=None` session cookies in production.
 
 ---
 

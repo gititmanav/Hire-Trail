@@ -24,4 +24,4 @@ npm-debug.log*
 .cache
 
 # OAuth
-client_secret_15875098947-v3ki4761r0f9d2co11f1kef87oj0ocar.apps.googleusercontent.com.json
+googleClientAuth.json

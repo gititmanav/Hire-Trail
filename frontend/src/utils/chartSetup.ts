@@ -1,0 +1,13 @@
+/** Shared Chart.js registration and defaults for dashboard widgets (single import side effect). */
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement, PointElement, ArcElement, Title, Tooltip, Legend, Filler } from "chart.js";
+import ChartDataLabels from "chartjs-plugin-datalabels";
+ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, ArcElement, Title, Tooltip, Legend, Filler, ChartDataLabels);
+ChartJS.defaults.font.family = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+ChartJS.defaults.font.size = 12;
+ChartJS.defaults.plugins.legend.display = false;
+if (ChartJS.defaults.plugins.datalabels) {
+  ChartJS.defaults.plugins.datalabels.display = false;
+}
+ChartJS.defaults.responsive = true;
+ChartJS.defaults.maintainAspectRatio = false;
+export { ChartJS };
