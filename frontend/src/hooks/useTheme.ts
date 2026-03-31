@@ -1,15 +1,16 @@
 /**
  * Theme hook: applies tweakcn-compatible CSS variables, persists selection in localStorage.
- * Themes with isDark=true/false that have no variable overrides use the CSS :root / .dark defaults.
- * Themes with variable overrides inject them directly onto the root element.
+ *
+ * IMPORTANT: applyTheme() runs synchronously during render (not in useEffect) so that
+ * CSS variables are set BEFORE any child useEffect hooks fire. This ensures chart widgets
+ * and other components that read CSS variables in effects always get the current values.
  */
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { getTheme } from "../utils/themes.ts";
 import type { Theme } from "../utils/themes.ts";
 
 const STORAGE_KEY = "hiretrail-theme-id";
 
-// All CSS variable keys that a theme can override
 const ALL_VARS = [
   "--background", "--foreground", "--card", "--card-foreground",
   "--popover", "--popover-foreground", "--primary", "--primary-foreground",
@@ -24,19 +25,16 @@ const ALL_VARS = [
 function applyTheme(theme: Theme) {
   const root = document.documentElement;
 
-  // Clear any previous inline overrides so CSS :root / .dark defaults take effect
   for (const v of ALL_VARS) {
     root.style.removeProperty(v);
   }
 
-  // Toggle dark class
   if (theme.isDark) {
     root.classList.add("dark");
   } else {
     root.classList.remove("dark");
   }
 
-  // Apply the appropriate variable set
   const vars = theme.isDark && theme.darkVariables
     ? theme.darkVariables
     : theme.variables;
@@ -47,7 +45,6 @@ function applyTheme(theme: Theme) {
     }
   }
 
-  // Smooth transition
   root.style.setProperty("transition", "background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease");
 }
 
@@ -55,7 +52,6 @@ function resolveInitialId(): string {
   if (typeof window === "undefined") return "default";
   const stored = localStorage.getItem(STORAGE_KEY);
   if (stored) return stored;
-  // Migrate from old key
   const legacy = localStorage.getItem("hiretrail-theme");
   if (legacy === "dark") return "dark";
   if (window.matchMedia("(prefers-color-scheme: dark)").matches) return "dark";
@@ -65,9 +61,17 @@ function resolveInitialId(): string {
 export function useTheme() {
   const [themeId, setThemeId] = useState(resolveInitialId);
   const currentTheme = getTheme(themeId);
+  const appliedRef = useRef("");
 
-  useEffect(() => {
+  // Apply CSS variables synchronously during render — NOT in useEffect.
+  // This guarantees child useEffect hooks (e.g. chart widgets) read fresh values.
+  if (appliedRef.current !== currentTheme.id) {
+    appliedRef.current = currentTheme.id;
     applyTheme(currentTheme);
+  }
+
+  // Persist to localStorage (side effect, so kept in useEffect)
+  useEffect(() => {
     localStorage.setItem(STORAGE_KEY, currentTheme.id);
   }, [currentTheme]);
 
