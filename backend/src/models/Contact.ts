@@ -12,6 +12,17 @@ export const CONNECTION_SOURCES = [
 
 export type ConnectionSource = (typeof CONNECTION_SOURCES)[number];
 
+export const CONTACT_OUTREACH_STATUSES = [
+  "not_contacted",
+  "reached_out",
+  "responded",
+  "meeting_scheduled",
+  "follow_up_needed",
+  "gone_cold",
+] as const;
+
+export type ContactOutreachStatus = (typeof CONTACT_OUTREACH_STATUSES)[number];
+
 export interface IContact extends Document {
   _id: Types.ObjectId;
   userId: Types.ObjectId;
@@ -22,6 +33,11 @@ export interface IContact extends Document {
   connectionSource: string;
   lastContactDate: Date;
   notes: string;
+  companyId: Types.ObjectId | null;
+  applicationIds: Types.ObjectId[];
+  outreachStatus: ContactOutreachStatus;
+  lastOutreachDate: Date | null;
+  nextFollowUpDate: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -70,6 +86,30 @@ const contactSchema = new Schema<IContact>(
       type: String,
       default: "",
       maxlength: 5000,
+    },
+    companyId: {
+      type: Schema.Types.ObjectId,
+      ref: "Company",
+      default: null,
+      index: true,
+    },
+    applicationIds: {
+      type: [Schema.Types.ObjectId],
+      ref: "Application",
+      default: [],
+    },
+    outreachStatus: {
+      type: String,
+      enum: CONTACT_OUTREACH_STATUSES,
+      default: "not_contacted",
+    },
+    lastOutreachDate: {
+      type: Date,
+      default: null,
+    },
+    nextFollowUpDate: {
+      type: Date,
+      default: null,
     },
   },
   { timestamps: true }

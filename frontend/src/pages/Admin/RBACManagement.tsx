@@ -23,7 +23,7 @@ const roleBadge: Record<string, string> = {
 };
 
 function statusBadge(u: AdminUserDetail): { label: string; cls: string } {
-  if (u.deleted) return { label: "Deleted", cls: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300" };
+  if (u.deleted) return { label: "Deleted", cls: "bg-muted text-foreground" };
   if (u.suspended) return { label: "Suspended", cls: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300" };
   return { label: "Active", cls: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300" };
 }
@@ -150,16 +150,16 @@ export default function RBACManagement() {
 
   return (
     <div className="space-y-6 p-6">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Users &amp; Roles</h1>
+      <h1 className="text-2xl font-bold text-foreground">Users &amp; Roles</h1>
 
       {/* Role Definitions */}
       <div>
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Role Definitions</h2>
+        <h2 className="text-lg font-semibold text-foreground mb-4">Role Definitions</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {roles.map((role) => (
             <div key={role.role} className="card-premium p-5">
-              <h3 className="text-base font-semibold text-gray-900 dark:text-white capitalize mb-1">{role.role}</h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">{role.description}</p>
+              <h3 className="text-base font-semibold text-foreground capitalize mb-1">{role.role}</h3>
+              <p className="text-sm text-secondary-foreground mb-3">{role.description}</p>
               <div className="flex flex-wrap gap-1.5">
                 {role.permissions.map((perm) => (
                   <span key={perm} className="text-xs font-medium px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300">{perm}</span>
@@ -173,10 +173,10 @@ export default function RBACManagement() {
       {/* User Management */}
       <div className="card-premium p-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">User Management</h2>
+          <h2 className="text-lg font-semibold text-foreground">User Management</h2>
           <div className="flex items-center gap-3">
             <div className="relative">
-              <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 pointer-events-none" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
               <input
                 type="text"
                 placeholder="Search users..."
@@ -191,7 +191,7 @@ export default function RBACManagement() {
 
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
-            <thead className="text-xs uppercase text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
+            <thead className="text-xs uppercase text-muted-foreground border-b border-border">
               <tr>
                 <th className="px-4 py-3">Name</th>
                 <th className="px-4 py-3">Email</th>
@@ -203,28 +203,28 @@ export default function RBACManagement() {
                 <th className="px-4 py-3">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+            <tbody className="divide-y divide-border">
               {loading && (
-                <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">Loading...</td></tr>
+                <tr><td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">Loading...</td></tr>
               )}
               {!loading && users.length === 0 && (
-                <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">No users found.</td></tr>
+                <tr><td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">No users found.</td></tr>
               )}
               {!loading && users.map((user) => {
                 const status = statusBadge(user);
                 return (
-                  <tr key={user._id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                    <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{user.name}</td>
-                    <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{user.email}</td>
+                  <tr key={user._id} className="hover:bg-muted">
+                    <td className="px-4 py-3 font-medium text-foreground">{user.name}</td>
+                    <td className="px-4 py-3 text-secondary-foreground">{user.email}</td>
                     <td className="px-4 py-3">
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${roleBadge[user.role] || roleBadge.user}`}>{user.role}</span>
                     </td>
                     <td className="px-4 py-3">
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${status.cls}`}>{status.label}</span>
                     </td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{new Date(user.createdAt).toLocaleDateString()}</td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{user.lastLogin ? new Date(user.lastLogin).toLocaleDateString() : "Never"}</td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{user.applicationCount}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{new Date(user.createdAt).toLocaleDateString()}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{user.lastLogin ? new Date(user.lastLogin).toLocaleDateString() : "Never"}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{user.applicationCount}</td>
                     <td className="px-4 py-3">
                       <ActionDropdown items={getDropdownItems(user)} align="right" />
                     </td>
@@ -238,7 +238,7 @@ export default function RBACManagement() {
         {/* Pagination */}
         {pagination.pages > 1 && (
           <div className="flex items-center justify-between pt-4">
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-sm text-muted-foreground">
               Page {pagination.page} of {pagination.pages} ({pagination.total} users)
             </p>
             <div className="flex gap-2">
@@ -251,26 +251,26 @@ export default function RBACManagement() {
 
       {/* Permission Matrix (Coming Soon) */}
       <div className="card-premium p-6 relative">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Permission Matrix</h2>
+        <h2 className="text-lg font-semibold text-foreground mb-4">Permission Matrix</h2>
         <div className="relative">
-          <div className="absolute inset-0 bg-gray-50/80 dark:bg-gray-900/80 backdrop-blur-sm z-10 flex items-center justify-center rounded-lg">
-            <span className="text-lg font-semibold text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 px-4 py-2 rounded-lg shadow">Coming Soon</span>
+          <div className="absolute inset-0 bg-muted/80/80 backdrop-blur-sm z-10 flex items-center justify-center rounded-lg">
+            <span className="text-lg font-semibold text-muted-foreground bg-card px-4 py-2 rounded-lg shadow">Coming Soon</span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
-              <thead className="text-xs uppercase text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
+              <thead className="text-xs uppercase text-muted-foreground border-b border-border">
                 <tr>
                   <th className="px-4 py-3">Permission</th>
                   {roles.map((r) => (<th key={r.role} className="px-4 py-3 text-center capitalize">{r.role}</th>))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+              <tbody className="divide-y divide-border">
                 {PERMISSIONS_ROWS.map((perm) => (
                   <tr key={perm}>
-                    <td className="px-4 py-2 text-gray-700 dark:text-gray-300 font-mono text-xs">{perm}</td>
+                    <td className="px-4 py-2 text-foreground font-mono text-xs">{perm}</td>
                     {roles.map((r) => (
                       <td key={r.role} className="px-4 py-2 text-center">
-                        <input type="checkbox" disabled checked={r.permissions.includes(perm)} className="h-4 w-4 rounded border-gray-300 dark:border-gray-600" />
+                        <input type="checkbox" disabled checked={r.permissions.includes(perm)} className="h-4 w-4 rounded border-border" />
                       </td>
                     ))}
                   </tr>

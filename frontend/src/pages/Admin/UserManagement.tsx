@@ -13,7 +13,7 @@ const roleBadge: Record<string, string> = {
 };
 
 function statusBadge(u: AdminUserDetail): { label: string; cls: string } {
-  if (u.deleted) return { label: "Deleted", cls: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300" };
+  if (u.deleted) return { label: "Deleted", cls: "bg-muted text-foreground" };
   if (u.suspended) return { label: "Suspended", cls: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300" };
   return { label: "Active", cls: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300" };
 }
@@ -158,7 +158,7 @@ export default function UserManagement() {
   return (
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">User Management</h1>
+        <h1 className="text-2xl font-bold text-foreground">User Management</h1>
         <button onClick={handleExport} className="btn-secondary text-sm">
           Export CSV
         </button>
@@ -167,7 +167,7 @@ export default function UserManagement() {
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1 min-w-0">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
           <input
             type="text"
             placeholder="Search by name or email..."
@@ -190,7 +190,7 @@ export default function UserManagement() {
       {/* Table */}
       <div className="overflow-x-auto">
         <table className="w-full text-sm text-left">
-          <thead className="text-xs uppercase text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
+          <thead className="text-xs uppercase text-muted-foreground border-b border-border">
             <tr>
               <th className="px-4 py-3">Name</th>
               <th className="px-4 py-3">Email</th>
@@ -205,14 +205,14 @@ export default function UserManagement() {
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
                   Loading...
                 </td>
               </tr>
             )}
             {!loading && users.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
                   No users found.
                 </td>
               </tr>
@@ -223,10 +223,10 @@ export default function UserManagement() {
                 return (
                   <tr
                     key={user._id}
-                    className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                    className="border-b border-border hover:bg-muted"
                   >
-                    <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{user.name}</td>
-                    <td className="px-4 py-3 text-gray-600 dark:text-gray-300">{user.email}</td>
+                    <td className="px-4 py-3 font-medium text-foreground">{user.name}</td>
+                    <td className="px-4 py-3 text-secondary-foreground">{user.email}</td>
                     <td className="px-4 py-3">
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${roleBadge[user.role] || ""}`}>
                         {user.role}
@@ -237,13 +237,13 @@ export default function UserManagement() {
                         {status.label}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">
+                    <td className="px-4 py-3 text-muted-foreground">
                       {new Date(user.createdAt).toLocaleDateString()}
                     </td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">
+                    <td className="px-4 py-3 text-muted-foreground">
                       {user.lastLogin ? new Date(user.lastLogin).toLocaleDateString() : "Never"}
                     </td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{user.applicationCount}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{user.applicationCount}</td>
                     <td className="px-4 py-3">
                       <ActionDropdown items={getDropdownItems(user)} align="right" />
                     </td>
@@ -257,7 +257,7 @@ export default function UserManagement() {
       {/* Pagination */}
       {pagination.pages > 1 && (
         <div className="flex items-center justify-between pt-2">
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+          <p className="text-sm text-muted-foreground">
             Page {pagination.page} of {pagination.pages} ({pagination.total} users)
           </p>
           <div className="flex gap-2">

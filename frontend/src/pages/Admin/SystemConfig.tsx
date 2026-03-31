@@ -39,14 +39,14 @@ function SettingRow({
   return (
     <div
       className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-3 ${
-        isMaintenanceMode ? "" : "border-b border-gray-100 dark:border-gray-700/50 last:border-0"
+        isMaintenanceMode ? "" : "border-b border-border/50 last:border-0"
       }`}
     >
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-gray-900 dark:text-white">
+        <p className="text-sm font-medium text-foreground">
           {setting.key}
         </p>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+        <p className="text-xs text-muted-foreground mt-0.5">
           {setting.description}
         </p>
       </div>
@@ -60,15 +60,15 @@ function SettingRow({
               onSave(setting.key, next).finally(() => setSaving(false));
             }}
             disabled={saving}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-accent/40 ${
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-ring/40 ${
               value
-                ? "bg-accent"
-                : "bg-gray-300 dark:bg-gray-600"
+                ? "bg-primary"
+                : "bg-muted-foreground/30"
             }`}
           >
             <span
               className={`inline-block h-4 w-4 transform rounded-full shadow-sm transition-transform ${
-                value ? "translate-x-6 bg-white" : "translate-x-1 bg-white dark:bg-gray-300"
+                value ? "translate-x-6 bg-white" : "translate-x-1 bg-white"
               }`}
             />
           </button>
@@ -174,7 +174,7 @@ export default function SystemConfig() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+      <h1 className="text-2xl font-bold text-foreground">
         System Configuration
       </h1>
 
@@ -184,7 +184,7 @@ export default function SystemConfig() {
           className={`card-premium p-5 border-2 ${
             maintenanceSetting.value
               ? "border-red-500 bg-red-50 dark:bg-red-900/20"
-              : "border-gray-200 dark:border-gray-700"
+              : "border-border"
           }`}
         >
           <div className="flex items-center justify-between">
@@ -213,7 +213,7 @@ export default function SystemConfig() {
 
         return (
           <div key={cat} className="card-premium p-5">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 capitalize">
+            <h2 className="text-lg font-semibold text-foreground mb-4 capitalize">
               {CATEGORY_LABELS[cat] || cat}
             </h2>
             <div className="space-y-0">
@@ -236,7 +236,7 @@ export default function SystemConfig() {
           if (!settings || settings.length === 0) return null;
           return (
             <div key={cat} className="card-premium p-5">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 capitalize">
+              <h2 className="text-lg font-semibold text-foreground mb-4 capitalize">
                 {CATEGORY_LABELS[cat] || cat}
               </h2>
               <div className="space-y-0">

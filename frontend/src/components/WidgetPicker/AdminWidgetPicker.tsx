@@ -16,17 +16,17 @@ export default function AdminWidgetPicker({ visible, onToggle, onReset, onClose 
   useEffect(() => { const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); }; document.addEventListener("keydown", h); return () => document.removeEventListener("keydown", h); }, [onClose]);
   return (
     <div className="fixed inset-0 bg-black/45 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-[480px] max-h-[85vh] overflow-y-auto shadow-2xl animate-in" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-5"><h2 className="text-lg font-semibold text-gray-900 dark:text-white">Dashboard widgets</h2><button onClick={onClose} className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-600 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-600"><svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/></svg></button></div>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Toggle widgets to show or hide them on your admin dashboard.</p>
+      <div className="bg-card rounded-xl p-6 w-full max-w-[480px] max-h-[85vh] overflow-y-auto shadow-2xl animate-in" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-5"><h2 className="text-lg font-semibold text-foreground">Dashboard widgets</h2><button onClick={onClose} className="w-9 h-9 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted"><svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/></svg></button></div>
+        <p className="text-sm text-muted-foreground mb-4">Toggle widgets to show or hide them on your admin dashboard.</p>
         <div className="space-y-2">{ADMIN_WIDGETS.map((w) => (
-          <button key={w.id} onClick={() => onToggle(w.id)} className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg border transition-colors ${visible[w.id] ? "border-accent bg-accent-light/50 dark:bg-accent/10 dark:border-accent/50" : "border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"}`}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={visible[w.id] ? "text-accent" : "text-gray-400"}><path d={IC[w.id] || "M4 6h16"}/></svg>
-            <span className={`text-sm font-medium ${visible[w.id] ? "text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400"}`}>{w.title}</span>
-            <div className="ml-auto"><div className={`w-9 h-5 rounded-full p-0.5 transition-colors ${visible[w.id] ? "bg-accent" : "bg-gray-300 dark:bg-gray-600"}`}><div className={`w-4 h-4 rounded-full bg-white transition-transform ${visible[w.id] ? "translate-x-4" : "translate-x-0"}`}/></div></div>
+          <button key={w.id} onClick={() => onToggle(w.id)} className={`flex items-center gap-3 w-full px-4 py-3 rounded-lg border transition-colors ${visible[w.id] ? "border-primary bg-primary/10" : "border-border hover:bg-muted"}`}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={visible[w.id] ? "text-primary" : "text-muted-foreground"}><path d={IC[w.id] || "M4 6h16"}/></svg>
+            <span className={`text-sm font-medium ${visible[w.id] ? "text-foreground" : "text-muted-foreground"}`}>{w.title}</span>
+            <div className="ml-auto"><div className={`w-9 h-5 rounded-full p-0.5 transition-colors ${visible[w.id] ? "bg-primary" : "bg-muted-foreground/30"}`}><div className={`w-4 h-4 rounded-full bg-white transition-transform ${visible[w.id] ? "translate-x-4" : "translate-x-0"}`}/></div></div>
           </button>
         ))}</div>
-        <div className="flex justify-between mt-5 pt-4 border-t border-gray-200 dark:border-gray-700"><button onClick={onReset} className="text-sm text-gray-500 hover:text-danger">Reset to defaults</button><button onClick={onClose} className="px-4 py-2 text-sm font-medium text-white bg-accent hover:bg-accent-hover rounded-lg">Done</button></div>
+        <div className="flex justify-between mt-5 pt-4 border-t border-border"><button onClick={onReset} className="text-sm text-muted-foreground hover:text-danger">Reset to defaults</button><button onClick={onClose} className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg">Done</button></div>
       </div>
     </div>
   );

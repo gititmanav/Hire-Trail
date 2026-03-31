@@ -62,12 +62,12 @@ export default function SeedManagement() {
 
   return (
     <div className="space-y-6 p-6">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Seed Data Management</h1>
+      <h1 className="text-2xl font-bold text-foreground">Seed Data Management</h1>
 
       {/* Description */}
       <div className="card-premium p-6">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">What Seed Data Creates</h2>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+        <h2 className="text-lg font-semibold text-foreground mb-3">What Seed Data Creates</h2>
+        <p className="text-sm text-secondary-foreground mb-4">
           Running the seed will populate the database with demo data for testing and demonstration purposes.
           The following resources will be created:
         </p>
@@ -79,11 +79,11 @@ export default function SeedManagement() {
             { label: "Contacts", value: "220", detail: null },
             { label: "Deadlines", value: "180", detail: null },
           ].map((item) => (
-            <div key={item.label} className="rounded-lg bg-gray-50 dark:bg-gray-800/50 p-3 text-center">
+            <div key={item.label} className="rounded-lg bg-muted p-3 text-center">
               <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{item.value}</p>
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{item.label}</p>
+              <p className="text-sm font-medium text-foreground">{item.label}</p>
               {item.detail && (
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{item.detail}</p>
+                <p className="text-xs text-muted-foreground mt-1">{item.detail}</p>
               )}
             </div>
           ))}
@@ -92,7 +92,7 @@ export default function SeedManagement() {
 
       {/* Actions */}
       <div className="card-premium p-6">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Actions</h2>
+        <h2 className="text-lg font-semibold text-foreground mb-4">Actions</h2>
         <div className="flex flex-wrap gap-4">
           <button
             className="btn-accent"
@@ -135,7 +135,7 @@ export default function SeedManagement() {
       {result && (
         <div className="card-premium p-6">
           <h2 className="text-lg font-semibold text-green-700 dark:text-green-400 mb-3">Seed Completed</h2>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">{result.message}</p>
+          <p className="text-sm text-secondary-foreground mb-4">{result.message}</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             {[
               { label: "Users", value: result.users },
@@ -157,7 +157,7 @@ export default function SeedManagement() {
       {clearMessage && (
         <div className="card-premium p-6">
           <h2 className="text-lg font-semibold text-orange-700 dark:text-orange-400 mb-2">Seed Data Cleared</h2>
-          <p className="text-sm text-gray-600 dark:text-gray-400">{clearMessage}</p>
+          <p className="text-sm text-secondary-foreground">{clearMessage}</p>
         </div>
       )}
 

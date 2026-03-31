@@ -1,14 +1,30 @@
 import { Request, Response, NextFunction } from "express";
+import jwt from "jsonwebtoken";
 import { AuthError } from "../errors/AppError.js";
-import { IUser } from "../models/User.js";
+import { IUser, User } from "../models/User.js";
+import { env } from "../config/env.js";
 
-export function ensureAuth(
+export async function ensureAuth(
   req: Request,
   _res: Response,
   next: NextFunction
-): void {
+): Promise<void> {
+  // Session auth (Passport)
   if (req.isAuthenticated() && req.user) {
     return next();
+  }
+  // Token auth (Bearer JWT — for Chrome extension)
+  const authHeader = req.headers.authorization;
+  if (authHeader?.startsWith("Bearer ")) {
+    try {
+      const token = authHeader.slice(7);
+      const payload = jwt.verify(token, env.SESSION_SECRET) as { userId: string };
+      const user = await User.findById(payload.userId);
+      if (user && !user.deleted && !user.suspended) {
+        (req as any).user = user;
+        return next();
+      }
+    } catch {}
   }
   throw new AuthError("Not authenticated");
 }

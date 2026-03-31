@@ -51,15 +51,15 @@ function ExportSection() {
         <div className="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="text-emerald-600 dark:text-emerald-400"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         </div>
-        <div><h2 className="text-base font-semibold text-gray-900 dark:text-white">Export Data</h2><p className="text-sm text-gray-500 dark:text-gray-400">Download your data as CSV</p></div>
+        <div><h2 className="text-base font-semibold text-foreground">Export Data</h2><p className="text-sm text-muted-foreground">Download your data as CSV</p></div>
       </div>
 
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Data type</label>
+          <label className="block text-sm font-medium text-foreground mb-1.5">Data type</label>
           <div className="flex gap-2">
             {(["applications", "contacts"] as const).map((t) => (
-              <button key={t} onClick={() => setType(t)} className={`px-4 py-2 text-sm font-medium rounded-lg border transition-all ${type === t ? "bg-accent-light border-accent text-accent-dark dark:bg-accent/20 dark:border-accent dark:text-accent" : "bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-gray-300"}`}>
+              <button key={t} onClick={() => setType(t)} className={`px-4 py-2 text-sm font-medium rounded-lg border transition-all ${type === t ? "bg-primary/10 border-primary text-primary" : "bg-card border-border text-muted-foreground hover:border-border"}`}>
                 {t.charAt(0).toUpperCase() + t.slice(1)}
               </button>
             ))}
@@ -69,14 +69,14 @@ function ExportSection() {
         {type === "applications" && (
           <>
             <div className="grid grid-cols-2 gap-3">
-              <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">From date</label><input type="date" className="input-premium" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} /></div>
-              <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">To date</label><input type="date" className="input-premium" value={dateTo} onChange={(e) => setDateTo(e.target.value)} /></div>
+              <div><label className="block text-sm font-medium text-foreground mb-1.5">From date</label><input type="date" className="input-premium" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} /></div>
+              <div><label className="block text-sm font-medium text-foreground mb-1.5">To date</label><input type="date" className="input-premium" value={dateTo} onChange={(e) => setDateTo(e.target.value)} /></div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Filter by stage <span className="text-gray-400 font-normal">(optional)</span></label>
+              <label className="block text-sm font-medium text-foreground mb-1.5">Filter by stage <span className="text-muted-foreground font-normal">(optional)</span></label>
               <div className="flex flex-wrap gap-1.5">
                 {STAGES.map((s) => (
-                  <button key={s} onClick={() => toggleStage(s)} className={`px-3 py-1 text-[13px] font-medium rounded-full border transition-all ${stages.includes(s) ? "bg-accent-light border-accent text-accent-dark dark:bg-accent/20 dark:border-accent dark:text-accent" : "bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-500 hover:border-gray-300"}`}>{s}</button>
+                  <button key={s} onClick={() => toggleStage(s)} className={`px-3 py-1 text-[13px] font-medium rounded-full border transition-all ${stages.includes(s) ? "bg-primary/10 border-primary text-primary" : "bg-card border-border text-muted-foreground hover:border-border"}`}>{s}</button>
                 ))}
               </div>
             </div>
@@ -148,36 +148,36 @@ function ImportSection({ onDone }: { onDone: () => void }) {
         <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="text-blue-600 dark:text-blue-400"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
         </div>
-        <div><h2 className="text-base font-semibold text-gray-900 dark:text-white">Import Data</h2><p className="text-sm text-gray-500 dark:text-gray-400">Upload a CSV to bulk-add records</p></div>
+        <div><h2 className="text-base font-semibold text-foreground">Import Data</h2><p className="text-sm text-muted-foreground">Upload a CSV to bulk-add records</p></div>
       </div>
 
       {step === "upload" && (
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Data type</label>
+            <label className="block text-sm font-medium text-foreground mb-1.5">Data type</label>
             <div className="flex gap-2">
               {(["applications", "contacts"] as const).map((t) => (
-                <button key={t} onClick={() => setType(t)} className={`px-4 py-2 text-sm font-medium rounded-lg border transition-all ${type === t ? "bg-accent-light border-accent text-accent-dark dark:bg-accent/20 dark:border-accent dark:text-accent" : "bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-500 hover:border-gray-300"}`}>
+                <button key={t} onClick={() => setType(t)} className={`px-4 py-2 text-sm font-medium rounded-lg border transition-all ${type === t ? "bg-primary/10 border-primary text-primary" : "bg-card border-border text-muted-foreground hover:border-border"}`}>
                   {t.charAt(0).toUpperCase() + t.slice(1)}
                 </button>
               ))}
             </div>
           </div>
-          <div className="border-2 border-dashed border-gray-200 dark:border-gray-600 rounded-xl p-8 text-center hover:border-accent dark:hover:border-accent transition-colors cursor-pointer" onClick={() => inputRef.current?.click()} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f?.name.endsWith(".csv")) handleFile(f); else toast.error("CSV files only"); }}>
-            <svg className="mx-auto mb-3 text-gray-300 dark:text-gray-600" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            <p className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Drop CSV here or click to browse</p>
-            <p className="text-xs text-gray-400">{type === "applications" ? "Company, Role, Stage, Job URL, Application Date, Notes" : "Name, Company, Role, LinkedIn URL, Connection Source, Notes"}</p>
+          <div className="border-2 border-dashed border-border rounded-xl p-8 text-center hover:border-primary dark:hover:border-primary transition-colors cursor-pointer" onClick={() => inputRef.current?.click()} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f?.name.endsWith(".csv")) handleFile(f); else toast.error("CSV files only"); }}>
+            <svg className="mx-auto mb-3 text-muted-foreground dark:text-secondary-foreground" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <p className="text-sm font-medium text-secondary-foreground mb-1">Drop CSV here or click to browse</p>
+            <p className="text-xs text-muted-foreground">{type === "applications" ? "Company, Role, Stage, Job URL, Application Date, Notes" : "Name, Company, Role, LinkedIn URL, Connection Source, Notes"}</p>
             <input ref={inputRef} type="file" accept=".csv" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
           </div>
-          {type === "applications" && <button onClick={downloadTemplate} className="text-sm text-accent hover:underline">Download CSV template</button>}
+          {type === "applications" && <button onClick={downloadTemplate} className="text-sm text-primary hover:underline">Download CSV template</button>}
         </div>
       )}
 
       {step === "preview" && parsed && (
         <div className="space-y-4">
           <div className="flex items-center gap-3">
-            <span className="text-sm text-gray-600 dark:text-gray-300">{file?.name}</span>
-            <button onClick={() => setStep("upload")} className="text-xs text-accent hover:underline">Change</button>
+            <span className="text-sm text-secondary-foreground">{file?.name}</span>
+            <button onClick={() => setStep("upload")} className="text-xs text-primary hover:underline">Change</button>
           </div>
 
           {errors.length > 0 && (
@@ -189,19 +189,19 @@ function ImportSection({ onDone }: { onDone: () => void }) {
 
           <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-900/10 rounded-lg">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-success"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/></svg>
-            <span className="text-sm text-gray-700 dark:text-gray-300"><strong>{parsed.length}</strong> {type} ready to import</span>
+            <span className="text-sm text-foreground"><strong>{parsed.length}</strong> {type} ready to import</span>
           </div>
 
-          <div className="max-h-[250px] overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg">
+          <div className="max-h-[250px] overflow-y-auto border border-border rounded-lg">
             <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-gray-50 dark:bg-gray-700"><tr>
-                {(type === "applications" ? ["Company", "Role", "Stage"] : ["Name", "Company", "Role"]).map((h) => <th key={h} className="text-left px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400">{h}</th>)}
+              <thead className="sticky top-0 bg-muted"><tr>
+                {(type === "applications" ? ["Company", "Role", "Stage"] : ["Name", "Company", "Role"]).map((h) => <th key={h} className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">{h}</th>)}
               </tr></thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                {parsed.slice(0, 15).map((r, i) => <tr key={i}><td className="px-3 py-2 font-medium text-gray-900 dark:text-white">{r.company || r.name}</td><td className="px-3 py-2 text-gray-500">{r.role || r.company}</td><td className="px-3 py-2 text-gray-400">{r.stage || r.role || ""}</td></tr>)}
+              <tbody className="divide-y divide-border">
+                {parsed.slice(0, 15).map((r, i) => <tr key={i}><td className="px-3 py-2 font-medium text-foreground">{r.company || r.name}</td><td className="px-3 py-2 text-muted-foreground">{r.role || r.company}</td><td className="px-3 py-2 text-muted-foreground">{r.stage || r.role || ""}</td></tr>)}
               </tbody>
             </table>
-            {parsed.length > 15 && <div className="px-3 py-2 text-xs text-gray-400 text-center border-t border-gray-200 dark:border-gray-700">...and {parsed.length - 15} more</div>}
+            {parsed.length > 15 && <div className="px-3 py-2 text-xs text-muted-foreground text-center border-t border-border">...and {parsed.length - 15} more</div>}
           </div>
 
           <div className="flex gap-2">
@@ -214,8 +214,8 @@ function ImportSection({ onDone }: { onDone: () => void }) {
       {step === "done" && (
         <div className="text-center py-8">
           <svg className="mx-auto mb-3 text-success" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/></svg>
-          <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-1">Import complete!</h3>
-          <p className="text-sm text-gray-500 mb-4">{parsed?.length} {type} added successfully</p>
+          <h3 className="text-base font-semibold text-foreground mb-1">Import complete!</h3>
+          <p className="text-sm text-muted-foreground mb-4">{parsed?.length} {type} added successfully</p>
           <button onClick={() => setStep("upload")} className="btn-secondary">Import more</button>
         </div>
       )}
@@ -227,8 +227,8 @@ export default function ImportExport() {
   return (
     <div className="fade-up max-w-3xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">Import & Export</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Move your data in and out of HireTrail</p>
+        <h1 className="text-2xl font-bold text-foreground tracking-tight">Import & Export</h1>
+        <p className="text-sm text-muted-foreground mt-1">Move your data in and out of HireTrail</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

@@ -33,7 +33,7 @@ export default function ConfirmModal({
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] animate-in" onClick={onCancel}>
       <div
-        className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-[380px] shadow-2xl animate-in"
+        className="bg-card rounded-xl p-6 w-full max-w-[380px] shadow-2xl animate-in"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-3 mb-4">
@@ -47,8 +47,8 @@ export default function ConfirmModal({
             </div>
           )}
           <div>
-            <h3 className="text-base font-semibold text-gray-900 dark:text-white">{title}</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{message}</p>
+            <h3 className="text-base font-semibold text-foreground">{title}</h3>
+            <p className="text-sm text-muted-foreground mt-0.5">{message}</p>
           </div>
         </div>
 

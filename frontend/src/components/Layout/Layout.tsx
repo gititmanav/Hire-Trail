@@ -13,7 +13,7 @@ export default function Layout({ user, onLogout }: Props) {
   const fullWidth = location.pathname === "/" || location.pathname === "/kanban";
 
   return (
-    <div className="flex min-h-screen bg-page dark:bg-gray-900">
+    <div className="flex min-h-screen bg-background">
       <Sidebar
         collapsed={collapsed}
         onToggle={() => setCollapsed(!collapsed)}
@@ -22,7 +22,7 @@ export default function Layout({ user, onLogout }: Props) {
       <div className={`flex-1 flex flex-col transition-all duration-200 ${collapsed ? "ml-16" : "ml-60"}`}>
         <Header user={user} onLogout={onLogout} />
         <main className="flex-1">
-          <div className={`p-6 ${fullWidth ? "" : "max-w-[1200px]"} mx-auto`}>
+          <div key={location.pathname} className={`p-6 ${fullWidth ? "" : "max-w-[1200px]"} mx-auto fade-up`}>
             <Outlet />
           </div>
         </main>

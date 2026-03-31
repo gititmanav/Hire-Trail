@@ -43,8 +43,8 @@ export default function Admin() {
   if (!data) {
     return (
       <div className="card-premium p-6">
-        <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Admin Panel</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+        <h1 className="text-xl font-semibold text-foreground">Admin Panel</h1>
+        <p className="text-sm text-muted-foreground mt-2">
           Unable to load admin data right now.
         </p>
       </div>
@@ -55,10 +55,10 @@ export default function Admin() {
     <div className="fade-up space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">
             Admin Panel
           </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             Monitor user accounts and login activity.
           </p>
         </div>
@@ -66,26 +66,26 @@ export default function Admin() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <div className="card-premium p-4">
-          <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Total users</p>
-          <p className="mt-2 text-2xl font-semibold text-gray-900 dark:text-white">{data.stats.totalUsers}</p>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Total users</p>
+          <p className="mt-2 text-2xl font-semibold text-foreground">{data.stats.totalUsers}</p>
         </div>
         <div className="card-premium p-4">
-          <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Admin users</p>
-          <p className="mt-2 text-2xl font-semibold text-gray-900 dark:text-white">{data.stats.adminUsers}</p>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Admin users</p>
+          <p className="mt-2 text-2xl font-semibold text-foreground">{data.stats.adminUsers}</p>
         </div>
         <div className="card-premium p-4">
-          <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Regular users</p>
-          <p className="mt-2 text-2xl font-semibold text-gray-900 dark:text-white">{data.stats.regularUsers}</p>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Regular users</p>
+          <p className="mt-2 text-2xl font-semibold text-foreground">{data.stats.regularUsers}</p>
         </div>
         <div className="card-premium p-4">
-          <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Recent logins tracked</p>
-          <p className="mt-2 text-2xl font-semibold text-gray-900 dark:text-white">{data.stats.totalLoginsTracked}</p>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Recent logins tracked</p>
+          <p className="mt-2 text-2xl font-semibold text-foreground">{data.stats.totalLoginsTracked}</p>
         </div>
       </div>
 
       <div className="card-premium p-4">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Users</h2>
+          <h2 className="text-sm font-semibold text-foreground">Users</h2>
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -96,7 +96,7 @@ export default function Admin() {
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead>
-              <tr className="text-left text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700/50">
+              <tr className="text-left text-muted-foreground border-b border-border/50">
                 <th className="py-2 pr-3">Name</th>
                 <th className="py-2 pr-3">Email</th>
                 <th className="py-2 pr-3">Role</th>
@@ -105,15 +105,15 @@ export default function Admin() {
             </thead>
             <tbody>
               {filteredUsers.map((u) => (
-                <tr key={u._id} className="border-b border-gray-100 dark:border-gray-700/30 last:border-b-0">
-                  <td className="py-2 pr-3 text-gray-900 dark:text-white">{u.name}</td>
-                  <td className="py-2 pr-3 text-gray-600 dark:text-gray-300">{u.email}</td>
+                <tr key={u._id} className="border-b border-border/30 last:border-b-0">
+                  <td className="py-2 pr-3 text-foreground">{u.name}</td>
+                  <td className="py-2 pr-3 text-secondary-foreground">{u.email}</td>
                   <td className="py-2 pr-3">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${u.role === "admin" ? "bg-accent-light text-accent-dark dark:bg-accent/20 dark:text-accent" : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300"}`}>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${u.role === "admin" ? "bg-primary/10 text-primary bg-primary/10 text-primary" : "bg-muted text-secondary-foreground"}`}>
                       {u.role}
                     </span>
                   </td>
-                  <td className="py-2 pr-3 text-gray-600 dark:text-gray-300">
+                  <td className="py-2 pr-3 text-secondary-foreground">
                     {new Date(u.createdAt).toLocaleDateString()}
                   </td>
                 </tr>
@@ -124,11 +124,11 @@ export default function Admin() {
       </div>
 
       <div className="card-premium p-4">
-        <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Recent login activity</h2>
+        <h2 className="text-sm font-semibold text-foreground mb-3">Recent login activity</h2>
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead>
-              <tr className="text-left text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700/50">
+              <tr className="text-left text-muted-foreground border-b border-border/50">
                 <th className="py-2 pr-3">Time</th>
                 <th className="py-2 pr-3">Name</th>
                 <th className="py-2 pr-3">Email</th>
@@ -138,14 +138,14 @@ export default function Admin() {
             </thead>
             <tbody>
               {data.recentLogins.map((event) => (
-                <tr key={event._id} className="border-b border-gray-100 dark:border-gray-700/30 last:border-b-0">
-                  <td className="py-2 pr-3 text-gray-600 dark:text-gray-300">
+                <tr key={event._id} className="border-b border-border/30 last:border-b-0">
+                  <td className="py-2 pr-3 text-secondary-foreground">
                     {new Date(event.loggedInAt).toLocaleString()}
                   </td>
-                  <td className="py-2 pr-3 text-gray-900 dark:text-white">{event.name}</td>
-                  <td className="py-2 pr-3 text-gray-600 dark:text-gray-300">{event.email}</td>
-                  <td className="py-2 pr-3 text-gray-600 dark:text-gray-300 capitalize">{event.provider}</td>
-                  <td className="py-2 pr-3 text-gray-600 dark:text-gray-300">{event.ipAddress || "-"}</td>
+                  <td className="py-2 pr-3 text-foreground">{event.name}</td>
+                  <td className="py-2 pr-3 text-secondary-foreground">{event.email}</td>
+                  <td className="py-2 pr-3 text-secondary-foreground capitalize">{event.provider}</td>
+                  <td className="py-2 pr-3 text-secondary-foreground">{event.ipAddress || "-"}</td>
                 </tr>
               ))}
             </tbody>
