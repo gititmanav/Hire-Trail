@@ -94,9 +94,14 @@ export default function Dashboard() {
         });
         setStaleApps(stale);
 
-        const today = new Date(); today.setHours(0, 0, 0, 0);
+        // Compare dates as YYYY-MM-DD strings to avoid timezone shifts
+        const todayStr = new Date().toLocaleDateString("en-CA"); // "YYYY-MM-DD" format
         setDeadlines(
-          dl.data.filter((d) => { if (d.completed) return false; const due = new Date(d.dueDate); due.setHours(0, 0, 0, 0); return due.getTime() >= today.getTime(); })
+          dl.data.filter((d) => {
+            if (d.completed) return false;
+            const dueStr = d.dueDate.slice(0, 10); // "YYYY-MM-DD" from ISO string
+            return dueStr >= todayStr;
+          })
             .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()).slice(0, 8)
         );
       } catch {} finally { setLoading(false); }
