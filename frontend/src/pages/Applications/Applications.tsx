@@ -166,7 +166,7 @@ export default function Applications() {
           <button
             key={tab}
             onClick={() => { setArchiveTab(tab); setPage(1); setFilter("All"); }}
-            className={`pb-2 text-sm font-medium border-b-2 transition-colors ${archiveTab === tab ? "border-accent text-accent" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+            className={`pb-2 text-sm font-medium border-b-2 transition-colors ${archiveTab === tab ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
           >
             {label} <span className="text-xs ml-1 text-muted-foreground">({count})</span>
           </button>
