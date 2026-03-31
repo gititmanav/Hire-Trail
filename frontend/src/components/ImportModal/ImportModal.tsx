@@ -55,10 +55,10 @@ export default function ImportModal({ onClose, onImported }: Props) {
 
   return (
     <div className="fixed inset-0 bg-black/45 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-[600px] max-h-[85vh] overflow-y-auto shadow-2xl animate-in" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-card rounded-xl p-6 w-full max-w-[600px] max-h-[85vh] overflow-y-auto shadow-2xl animate-in" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Import Applications</h2>
-          <button onClick={onClose} className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-600">
+          <h2 className="text-lg font-semibold text-foreground">Import Applications</h2>
+          <button onClick={onClose} className="w-9 h-9 flex items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted">
             <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="4" y1="4" x2="12" y2="12" /><line x1="12" y1="4" x2="4" y2="12" /></svg>
           </button>
         </div>
@@ -66,20 +66,20 @@ export default function ImportModal({ onClose, onImported }: Props) {
         {step === "upload" && (
           <>
             <div
-              className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-10 text-center hover:border-accent dark:hover:border-accent transition-colors cursor-pointer"
+              className="border-2 border-dashed border-border rounded-xl p-10 text-center hover:border-primary dark:hover:border-primary transition-colors cursor-pointer"
               onClick={() => inputRef.current?.click()}
               onDragOver={(e) => e.preventDefault()}
               onDrop={handleDrop}
             >
-              <svg className="mx-auto mb-3 text-gray-400" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+              <svg className="mx-auto mb-3 text-muted-foreground" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
                 <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
                 <polyline points="17,8 12,3 7,8" />
                 <line x1="12" y1="3" x2="12" y2="15" />
               </svg>
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <p className="text-sm font-medium text-foreground mb-1">
                 Drop your CSV here or click to browse
               </p>
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-muted-foreground">
                 Columns: Company, Role, Job URL, Stage, Application Date, Notes
               </p>
               <input
@@ -97,7 +97,7 @@ export default function ImportModal({ onClose, onImported }: Props) {
             <div className="flex items-center justify-between mt-4">
               <button
                 onClick={downloadTemplate}
-                className="text-sm text-accent hover:underline"
+                className="text-sm text-primary hover:underline"
               >
                 Download CSV template
               </button>
@@ -110,12 +110,12 @@ export default function ImportModal({ onClose, onImported }: Props) {
             <div className="mb-4">
               <div className="flex items-center gap-3 mb-3">
                 <div className="flex items-center gap-2 text-sm">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gray-400">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-muted-foreground">
                     <path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9l-7-7z" />
                   </svg>
-                  <span className="text-gray-600 dark:text-gray-300">{file?.name}</span>
+                  <span className="text-secondary-foreground">{file?.name}</span>
                 </div>
-                <button onClick={() => { setStep("upload"); setParsed(null); setErrors([]); setFile(null); }} className="text-xs text-accent hover:underline">
+                <button onClick={() => { setStep("upload"); setParsed(null); setErrors([]); setFile(null); }} className="text-xs text-primary hover:underline">
                   Change file
                 </button>
               </div>
@@ -131,51 +131,51 @@ export default function ImportModal({ onClose, onImported }: Props) {
                 </div>
               )}
 
-              <div className="flex items-center gap-2 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+              <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-success shrink-0">
                   <path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
                   <polyline points="22,4 12,14.01 9,11.01" />
                 </svg>
-                <span className="text-sm text-gray-700 dark:text-gray-300">
+                <span className="text-sm text-foreground">
                   <strong>{parsed.length}</strong> application{parsed.length !== 1 ? "s" : ""} ready to import
                 </span>
               </div>
             </div>
 
-            <div className="max-h-[300px] overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg mb-4">
+            <div className="max-h-[300px] overflow-y-auto border border-border rounded-lg mb-4">
               <table className="w-full text-sm">
-                <thead className="sticky top-0 bg-gray-50 dark:bg-gray-700">
+                <thead className="sticky top-0 bg-muted">
                   <tr>
-                    <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400">Company</th>
-                    <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400">Role</th>
-                    <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400">Stage</th>
+                    <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Company</th>
+                    <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Role</th>
+                    <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Stage</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                <tbody className="divide-y divide-border">
                   {parsed.slice(0, 20).map((row, i) => (
                     <tr key={i}>
-                      <td className="px-3 py-2 text-gray-900 dark:text-white font-medium">{row.company}</td>
-                      <td className="px-3 py-2 text-gray-600 dark:text-gray-300">{row.role}</td>
-                      <td className="px-3 py-2 text-gray-500 dark:text-gray-400">{row.stage}</td>
+                      <td className="px-3 py-2 text-foreground font-medium">{row.company}</td>
+                      <td className="px-3 py-2 text-secondary-foreground">{row.role}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{row.stage}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
               {parsed.length > 20 && (
-                <div className="px-3 py-2 text-xs text-gray-400 text-center border-t border-gray-200 dark:border-gray-700">
+                <div className="px-3 py-2 text-xs text-muted-foreground text-center border-t border-border">
                   ...and {parsed.length - 20} more
                 </div>
               )}
             </div>
 
             <div className="flex justify-end gap-2">
-              <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600">
+              <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-foreground border border-border rounded-lg hover:bg-muted">
                 Cancel
               </button>
               <button
                 onClick={handleImport}
                 disabled={importing || parsed.length === 0}
-                className="px-4 py-2 text-sm font-medium text-white bg-accent hover:bg-accent-hover rounded-lg transition-colors disabled:opacity-50"
+                className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg transition-colors disabled:opacity-50"
               >
                 {importing ? "Importing..." : `Import ${parsed.length} applications`}
               </button>
@@ -189,11 +189,11 @@ export default function ImportModal({ onClose, onImported }: Props) {
               <path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
               <polyline points="22,4 12,14.01 9,11.01" />
             </svg>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">Import complete!</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            <h3 className="text-lg font-semibold text-foreground mb-1">Import complete!</h3>
+            <p className="text-sm text-muted-foreground mb-4">
               {parsed?.length} applications have been added to your tracker
             </p>
-            <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-white bg-accent hover:bg-accent-hover rounded-lg">
+            <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg">
               Done
             </button>
           </div>

@@ -53,7 +53,7 @@ export default function BackupManagement() {
 
   return (
     <div className="space-y-6 p-6">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Backup Management</h1>
+      <h1 className="text-2xl font-bold text-foreground">Backup Management</h1>
 
       {/* Warning Banner */}
       <div className="rounded-lg bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 p-4">
@@ -72,8 +72,8 @@ export default function BackupManagement() {
 
       {/* Full Database Export */}
       <div className="card-premium p-6">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Full Database Export</h2>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+        <h2 className="text-lg font-semibold text-foreground mb-2">Full Database Export</h2>
+        <p className="text-sm text-secondary-foreground mb-4">
           Export the entire database as a JSON file. This includes all users, applications, resumes, contacts,
           deadlines, audit logs, announcements, settings, and invite codes. The exported file can be used for
           disaster recovery, migration, or archival purposes.
@@ -99,8 +99,8 @@ export default function BackupManagement() {
 
       {/* Single User Data Export */}
       <div className="card-premium p-6">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Single User Data Export</h2>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+        <h2 className="text-lg font-semibold text-foreground mb-2">Single User Data Export</h2>
+        <p className="text-sm text-secondary-foreground mb-4">
           Export all data for a specific user. Useful for GDPR data portability requests or individual account backups.
         </p>
         <div className="flex flex-col sm:flex-row gap-3">
@@ -133,8 +133,8 @@ export default function BackupManagement() {
 
       {/* Backup History */}
       <div className="card-premium p-6">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Backup History</h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400 italic">
+        <h2 className="text-lg font-semibold text-foreground mb-2">Backup History</h2>
+        <p className="text-sm text-muted-foreground italic">
           Backup history not yet implemented.
         </p>
       </div>

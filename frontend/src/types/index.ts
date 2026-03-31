@@ -3,6 +3,7 @@ export interface User {
   _id: string; name: string; email: string; role: UserRole;
   suspended?: boolean; suspendedAt?: string | null;
   deleted?: boolean; deletedAt?: string | null;
+  tourCompleted?: boolean;
 }
 export interface AdminLoginEvent {
   _id: string;
@@ -25,11 +26,18 @@ export interface AdminOverview {
   recentLogins: AdminLoginEvent[];
 }
 export type Stage = "Applied" | "OA" | "Interview" | "Offer" | "Rejected";
+export type OutreachStatus = "none" | "reached_out" | "referred" | "response_received";
+export type ArchiveReason = "auto_stale" | "rejected" | "manual";
+export type ContactOutreachStatus = "not_contacted" | "reached_out" | "responded" | "meeting_scheduled" | "follow_up_needed" | "gone_cold";
 export interface StageEntry { stage: Stage; date: string; }
 export interface Application {
   _id: string; userId: string; company: string; role: string; jobUrl: string;
   applicationDate: string; stage: Stage; stageHistory: StageEntry[];
-  notes: string; resumeId: string | null; createdAt: string; updatedAt: string;
+  notes: string; resumeId: string | null;
+  companyId: string | null; contactId: string | null;
+  outreachStatus: OutreachStatus;
+  archived: boolean; archivedAt: string | null; archivedReason: ArchiveReason | null;
+  createdAt: string; updatedAt: string;
 }
 export interface Resume {
   _id: string; userId: string; name: string; targetRole: string; fileName: string;
@@ -39,7 +47,11 @@ export interface Resume {
 export interface Contact {
   _id: string; userId: string; name: string; company: string; role: string;
   linkedinUrl: string; connectionSource: string; lastContactDate: string;
-  notes: string; createdAt: string; updatedAt: string;
+  notes: string;
+  companyId: string | null; applicationIds: string[];
+  outreachStatus: ContactOutreachStatus;
+  lastOutreachDate: string | null; nextFollowUpDate: string | null;
+  createdAt: string; updatedAt: string;
 }
 export interface Deadline {
   _id: string; userId: string; applicationId: string | null; type: string;
@@ -52,9 +64,21 @@ export interface AnalyticsData {
   resumePerformance: { _id: string; total: number; responses: number; }[];
   weeklyTrend: { _id: { year: number; week: number }; count: number; firstDate: string; }[];
 }
-export interface ApplicationFormData { company: string; role: string; jobUrl: string; stage: Stage; notes: string; resumeId: string; }
+export interface Company {
+  _id: string; userId: string; name: string; website: string; industry: string;
+  notes: string; blacklisted: boolean; blacklistReason: string;
+  createdAt: string; updatedAt: string;
+}
+export interface CompanyDetail extends Company {
+  applications: Application[];
+  contacts: Contact[];
+  rejectionCount: number;
+  avgStageReached: number;
+}
+export interface CompanyFormData { name: string; website: string; industry: string; notes: string; blacklisted: boolean; blacklistReason: string; }
+export interface ApplicationFormData { company: string; role: string; jobUrl: string; stage: Stage; notes: string; resumeId: string; companyId: string; contactId: string; outreachStatus: OutreachStatus; }
 export interface ResumeFormData { name: string; targetRole: string; fileName: string; file?: File | null; }
-export interface ContactFormData { name: string; company: string; role: string; linkedinUrl: string; connectionSource: string; notes: string; }
+export interface ContactFormData { name: string; company: string; role: string; linkedinUrl: string; connectionSource: string; notes: string; companyId: string; applicationIds: string[]; outreachStatus: ContactOutreachStatus; nextFollowUpDate: string; }
 export interface DeadlineFormData { applicationId: string; type: string; dueDate: string; notes: string; }
 export type SortOrder = "asc" | "desc";
 export interface SortConfig { field: string; order: SortOrder; }

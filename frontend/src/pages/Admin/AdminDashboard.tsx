@@ -112,9 +112,9 @@ export default function AdminDashboard() {
         return (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 h-full items-center">
             {statCards.map((s) => (
-              <div key={s.label} className="bg-gray-50 dark:bg-gray-800/60 rounded-lg p-3">
-                <p className="text-xs text-gray-500 dark:text-gray-400">{s.label}</p>
-                <p className="text-xl font-bold text-gray-900 dark:text-white">{s.value.toLocaleString()}</p>
+              <div key={s.label} className="bg-muted rounded-lg p-3">
+                <p className="text-xs text-muted-foreground">{s.label}</p>
+                <p className="text-xl font-bold text-foreground">{s.value.toLocaleString()}</p>
               </div>
             ))}
           </div>
@@ -144,26 +144,26 @@ export default function AdminDashboard() {
         return (
           <div className="h-full overflow-y-auto space-y-2">
             {recentActivity.length === 0 && (
-              <p className="text-gray-500 dark:text-gray-400 text-sm">No recent activity.</p>
+              <p className="text-muted-foreground text-sm">No recent activity.</p>
             )}
             {recentActivity.map((log) => (
-              <div key={log._id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-800/50">
-                <span className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap">
+              <div key={log._id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-muted">
+                <span className="text-xs text-muted-foreground whitespace-nowrap">
                   {new Date(log.timestamp).toLocaleString()}
                 </span>
-                <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                <span className="text-sm font-medium text-foreground truncate">
                   {getUserName(log.userId)}
                 </span>
-                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${actionColors[log.action] || "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"}`}>
+                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${actionColors[log.action] || "bg-muted text-foreground"}`}>
                   {log.action}
                 </span>
-                <span className="text-xs text-gray-500 dark:text-gray-400">{log.resourceType}</span>
+                <span className="text-xs text-muted-foreground">{log.resourceType}</span>
               </div>
             ))}
           </div>
         );
       case "conversion-rates": {
-        if (!analyticsData) return <p className="text-gray-400 text-sm">Loading analytics...</p>;
+        if (!analyticsData) return <p className="text-muted-foreground text-sm">Loading analytics...</p>;
         const { conversionRates } = analyticsData;
         return (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 h-full items-center">
@@ -172,9 +172,9 @@ export default function AdminDashboard() {
               const color = rateColors[key];
               return (
                 <div key={key} className={`rounded-lg p-3 ${color.bg}`}>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{rateLabels[key]}</p>
+                  <p className="text-xs text-muted-foreground">{rateLabels[key]}</p>
                   <p className={`text-2xl font-bold ${color.text}`}>{val.toFixed(1)}%</p>
-                  <div className="mt-1.5 w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                  <div className="mt-1.5 w-full h-1.5 bg-border rounded-full overflow-hidden">
                     <div className={`h-full ${color.bar} rounded-full`} style={{ width: `${Math.min(val, 100)}%` }} />
                   </div>
                 </div>
@@ -227,9 +227,9 @@ export default function AdminDashboard() {
         return (
           <div className="grid grid-cols-3 gap-3 h-full items-center">
             {items.map((s) => (
-              <div key={s.label} className="bg-gray-50 dark:bg-gray-800/60 rounded-lg p-3 text-center">
-                <p className="text-xs text-gray-500 dark:text-gray-400">{s.label}</p>
-                <p className="text-xl font-bold text-gray-900 dark:text-white">{s.value}</p>
+              <div key={s.label} className="bg-muted rounded-lg p-3 text-center">
+                <p className="text-xs text-muted-foreground">{s.label}</p>
+                <p className="text-xl font-bold text-foreground">{s.value}</p>
               </div>
             ))}
           </div>
@@ -243,9 +243,9 @@ export default function AdminDashboard() {
   return (
     <div className="fade-up">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">Admin Dashboard</h1>
+        <h1 className="text-2xl font-bold text-foreground tracking-tight">Admin Dashboard</h1>
         <div className="flex items-center gap-2">
-          <button onClick={toggleLock} className={`btn-secondary !px-2.5 ${locked ? "!border-accent !text-accent dark:!text-accent" : ""}`} title={locked ? "Unlock dashboard" : "Lock dashboard"}>
+          <button onClick={toggleLock} className={`btn-secondary !px-2.5 ${locked ? "!border-accent !text-primary dark:!text-accent" : ""}`} title={locked ? "Unlock dashboard" : "Lock dashboard"}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="transition-all duration-300">
               {locked ? (<><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></>) : (<><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 019.9-1"/></>)}
             </svg>
@@ -274,8 +274,8 @@ export default function AdminDashboard() {
             <div key={l.i}>
               <div className="card-premium h-full flex flex-col">
                 {l.i !== "stats" && l.i !== "conversion-rates" && l.i !== "summary" && (
-                  <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 dark:border-gray-700/50">
-                    <h3 className="text-[13px] font-semibold text-gray-900 dark:text-white">{title(l.i)}</h3>
+                  <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/50">
+                    <h3 className="text-[13px] font-semibold text-foreground">{title(l.i)}</h3>
                   </div>
                 )}
                 <div className={`flex-1 ${l.i === "stats" || l.i === "conversion-rates" || l.i === "summary" ? "p-3" : "p-4"} overflow-hidden`}>

@@ -153,7 +153,7 @@ export default function Announcements() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+        <h1 className="text-2xl font-bold text-foreground">
           Announcements
         </h1>
         <button onClick={openCreate} className="btn-accent text-sm">
@@ -165,12 +165,12 @@ export default function Announcements() {
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="card-premium w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 space-y-4">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+            <h2 className="text-lg font-semibold text-foreground">
               {editingId ? "Edit Announcement" : "Create Announcement"}
             </h2>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-foreground mb-1">
                 Title
               </label>
               <input
@@ -183,7 +183,7 @@ export default function Announcements() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-foreground mb-1">
                 Body
               </label>
               <textarea
@@ -197,7 +197,7 @@ export default function Announcements() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-foreground mb-1">
                   Type
                 </label>
                 <select
@@ -216,7 +216,7 @@ export default function Announcements() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-foreground mb-1">
                   End Date
                 </label>
                 <input
@@ -231,25 +231,25 @@ export default function Announcements() {
             </div>
 
             <div className="flex items-center gap-6">
-              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+              <label className="flex items-center gap-2 text-sm text-foreground">
                 <input
                   type="checkbox"
                   checked={form.dismissible}
                   onChange={(e) =>
                     setForm({ ...form, dismissible: e.target.checked })
                   }
-                  className="rounded border-gray-300 dark:border-gray-600"
+                  className="rounded border-border"
                 />
                 Dismissible
               </label>
-              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+              <label className="flex items-center gap-2 text-sm text-foreground">
                 <input
                   type="checkbox"
                   checked={form.active}
                   onChange={(e) =>
                     setForm({ ...form, active: e.target.checked })
                   }
-                  className="rounded border-gray-300 dark:border-gray-600"
+                  className="rounded border-border"
                 />
                 Active
               </label>
@@ -258,7 +258,7 @@ export default function Announcements() {
             {/* Preview */}
             {form.title && (
               <div>
-                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
+                <p className="text-xs font-medium text-muted-foreground mb-2">
                   Preview
                 </p>
                 <div
@@ -296,7 +296,7 @@ export default function Announcements() {
 
       {/* Announcements List */}
       {announcements.length === 0 ? (
-        <div className="card-premium p-10 text-center text-gray-400 dark:text-gray-500">
+        <div className="card-premium p-10 text-center text-muted-foreground">
           No announcements yet.
         </div>
       ) : (
@@ -308,7 +308,7 @@ export default function Announcements() {
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+                      <h3 className="text-base font-semibold text-foreground">
                         {a.title}
                       </h3>
                       <span
@@ -320,18 +320,18 @@ export default function Announcements() {
                         className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                           a.active
                             ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
-                            : "bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
+                            : "bg-muted text-muted-foreground"
                         }`}
                       >
                         {a.active ? "Active" : "Inactive"}
                       </span>
                     </div>
                     {a.body && (
-                      <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                      <p className="text-sm text-secondary-foreground mt-1">
                         {a.body}
                       </p>
                     )}
-                    <div className="flex items-center gap-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
                       <span>
                         Start: {new Date(a.startDate).toLocaleDateString()}
                       </span>

@@ -1,6 +1,7 @@
-/** Session-based auth: register/login/logout, Google OAuth, profile and password updates. */
+/** Session-based auth: register/login/logout, Google OAuth, profile and password updates, token auth for extensions. */
 import { Router, Request, Response, NextFunction } from "express";
 import passport from "passport";
+import jwt from "jsonwebtoken";
 import { User } from "../models/User.js";
 import { validate } from "../middleware/validate.js";
 import { registerSchema, loginSchema } from "../validators/auth.js";
@@ -125,9 +126,24 @@ router.get("/me", (req: Request, res: Response) => {
       name: user.name,
       email: user.email,
       role: user.role,
+      tourCompleted: user.tourCompleted ?? false,
     });
   }
   res.status(401).json({ error: "Not authenticated" });
+});
+
+// Mark guided tour as completed
+router.put("/tour", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    if (!req.isAuthenticated() || !req.user) {
+      throw new AppError("Not authenticated", 401);
+    }
+    const user = req.user as any;
+    await User.findByIdAndUpdate(user._id, { $set: { tourCompleted: true } });
+    res.json({ tourCompleted: true });
+  } catch (err) {
+    next(err);
+  }
 });
 
 // Google OAuth: redirect to Google
@@ -160,6 +176,36 @@ router.get("/google/callback", (req: Request, res: Response, next: NextFunction)
     });
   })(req, res, next);
 });
+
+// Token-based login (for Chrome extension)
+router.post(
+  "/token",
+  authLimiter,
+  validate(loginSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { email, password } = req.body;
+      const user = await User.findOne({ email: email.toLowerCase() });
+      if (!user || !user.password) {
+        return res.status(401).json({ error: "Invalid credentials" });
+      }
+      const isMatch = await user.comparePassword(password);
+      if (!isMatch) {
+        return res.status(401).json({ error: "Invalid credentials" });
+      }
+      if (user.suspended) {
+        return res.status(403).json({ error: "Account suspended" });
+      }
+      const token = jwt.sign({ userId: user._id.toString() }, env.SESSION_SECRET, { expiresIn: "30d" });
+      res.json({
+        token,
+        user: { _id: user._id, name: user.name, email: user.email, role: user.role },
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
 
 export default router;
 

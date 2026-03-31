@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { Application } from "../models/Application.js";
+import { Company } from "../models/Company.js";
 import { ensureAuth, getUser } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
 import { createApplicationSchema, updateApplicationSchema } from "../validators/applications.js";
@@ -24,9 +25,23 @@ router.get("/", async (req: Request, res: Response, next: NextFunction) => {
 
     // Build query
     const query: any = { userId: user._id };
+    const archivedParam = req.query.archived as string;
+    if (archivedParam === "true") {
+      query.archived = true;
+    } else if (archivedParam !== "all") {
+      // Default: only show non-archived
+      query.$or = [{ archived: false }, { archived: { $exists: false } }];
+    }
     if (search.trim()) {
       const regex = new RegExp(search.trim(), "i");
-      query.$or = [{ company: regex }, { role: regex }];
+      const searchOr = [{ company: regex }, { role: regex }];
+      if (query.$or) {
+        // Combine archived filter with search — use $and
+        query.$and = [{ $or: query.$or }, { $or: searchOr }];
+        delete query.$or;
+      } else {
+        query.$or = searchOr;
+      }
     }
 
     const skip = (page - 1) * limit;
@@ -49,11 +64,27 @@ router.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
   } catch (err) { next(err); }
 });
 
-// POST create
+// POST create (with auto-company linking)
 router.post("/", validate(createApplicationSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = getUser(req);
-    const app = await Application.create({ ...req.body, userId: user._id, resumeId: req.body.resumeId || null });
+    const data = { ...req.body, userId: user._id, resumeId: req.body.resumeId || null };
+
+    // Auto-company creation: if no companyId but company name provided, find or create
+    if (!data.companyId && data.company) {
+      const existing = await Company.findOne({
+        userId: user._id,
+        name: { $regex: new RegExp(`^${data.company.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") },
+      });
+      if (existing) {
+        data.companyId = existing._id;
+      } else {
+        const newCompany = await Company.create({ userId: user._id, name: data.company });
+        data.companyId = newCompany._id;
+      }
+    }
+
+    const app = await Application.create(data);
     res.status(201).json(app);
   } catch (err) { next(err); }
 });
@@ -91,8 +122,43 @@ router.put("/:id", validate(updateApplicationSchema), async (req: Request, res: 
     if (data.jobUrl !== undefined) existing.jobUrl = data.jobUrl;
     if (data.notes !== undefined) existing.notes = data.notes;
     if (data.resumeId !== undefined) existing.resumeId = data.resumeId;
+    if (data.companyId !== undefined) existing.companyId = data.companyId;
+    if (data.contactId !== undefined) existing.contactId = data.contactId;
+    if (data.outreachStatus !== undefined) existing.outreachStatus = data.outreachStatus;
+    if (data.archived !== undefined) existing.archived = data.archived;
+    if (data.archivedAt !== undefined) existing.archivedAt = data.archivedAt ? new Date(data.archivedAt) : null;
+    if (data.archivedReason !== undefined) existing.archivedReason = data.archivedReason;
     await existing.save();
     res.json(existing);
+  } catch (err) { next(err); }
+});
+
+// PUT archive
+router.put("/:id/archive", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = getUser(req);
+    const reason = req.body?.reason || "manual";
+    const app = await Application.findOneAndUpdate(
+      { _id: req.params.id, userId: user._id },
+      { $set: { archived: true, archivedAt: new Date(), archivedReason: reason } },
+      { new: true }
+    );
+    if (!app) throw new NotFoundError("Application");
+    res.json(app);
+  } catch (err) { next(err); }
+});
+
+// PUT unarchive
+router.put("/:id/unarchive", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = getUser(req);
+    const app = await Application.findOneAndUpdate(
+      { _id: req.params.id, userId: user._id },
+      { $set: { archived: false, archivedAt: null, archivedReason: null } },
+      { new: true }
+    );
+    if (!app) throw new NotFoundError("Application");
+    res.json(app);
   } catch (err) { next(err); }
 });
 

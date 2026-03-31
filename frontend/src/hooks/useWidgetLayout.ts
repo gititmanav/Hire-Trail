@@ -19,6 +19,7 @@ export const ALL_WIDGETS: WidgetConfig[] = [
   { id: "resume-perf", type: "resume-perf", title: "Resume Performance" },
   { id: "recent-apps", type: "recent-apps", title: "Recent Applications" },
   { id: "deadlines", type: "deadlines", title: "Upcoming Deadlines" },
+  { id: "follow-ups", type: "follow-ups", title: "Follow-up Queue" },
 ];
 
 // Initial 12-column grid when no saved layout exists (lg breakpoint).
@@ -31,6 +32,7 @@ const DEFAULT_LAYOUT: Layout[] = [
   { i: "resume-perf", x: 9, y: 8, w: 3, h: 6, minW: 3, minH: 5 },
   { i: "trend", x: 0, y: 14, w: 6, h: 6, minW: 4, minH: 5 },
   { i: "conversion", x: 6, y: 14, w: 6, h: 6, minW: 4, minH: 5 },
+  { i: "follow-ups", x: 0, y: 20, w: 6, h: 4, minW: 4, minH: 3 },
 ];
 
 function loadLayout(): Layout[] {

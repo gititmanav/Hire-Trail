@@ -8,6 +8,23 @@ export const STAGES = [
   "Rejected",
 ] as const;
 
+export const OUTREACH_STATUSES = [
+  "none",
+  "reached_out",
+  "referred",
+  "response_received",
+] as const;
+
+export type OutreachStatus = (typeof OUTREACH_STATUSES)[number];
+
+export const ARCHIVE_REASONS = [
+  "auto_stale",
+  "rejected",
+  "manual",
+] as const;
+
+export type ArchiveReason = (typeof ARCHIVE_REASONS)[number];
+
 export type Stage = (typeof STAGES)[number];
 
 interface StageEntry {
@@ -26,6 +43,12 @@ export interface IApplication extends Document {
   stageHistory: StageEntry[];
   notes: string;
   resumeId: Types.ObjectId | null;
+  companyId: Types.ObjectId | null;
+  contactId: Types.ObjectId | null;
+  outreachStatus: OutreachStatus;
+  archived: boolean;
+  archivedAt: Date | null;
+  archivedReason: ArchiveReason | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -87,6 +110,35 @@ const applicationSchema = new Schema<IApplication>(
       ref: "Resume",
       default: null,
     },
+    companyId: {
+      type: Schema.Types.ObjectId,
+      ref: "Company",
+      default: null,
+      index: true,
+    },
+    contactId: {
+      type: Schema.Types.ObjectId,
+      ref: "Contact",
+      default: null,
+    },
+    outreachStatus: {
+      type: String,
+      enum: OUTREACH_STATUSES,
+      default: "none",
+    },
+    archived: {
+      type: Boolean,
+      default: false,
+    },
+    archivedAt: {
+      type: Date,
+      default: null,
+    },
+    archivedReason: {
+      type: String,
+      enum: [...ARCHIVE_REASONS, null],
+      default: null,
+    },
   },
   { timestamps: true }
 );
@@ -95,6 +147,8 @@ const applicationSchema = new Schema<IApplication>(
 applicationSchema.index({ userId: 1, stage: 1 });
 applicationSchema.index({ userId: 1, applicationDate: -1 });
 applicationSchema.index({ userId: 1, resumeId: 1 });
+applicationSchema.index({ userId: 1, archived: 1 });
+applicationSchema.index({ userId: 1, companyId: 1 });
 
 // Auto-add initial stage to history on create
 applicationSchema.pre("save", function (next) {

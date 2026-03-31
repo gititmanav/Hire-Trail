@@ -9,6 +9,7 @@ import { getApiBaseURL } from "../config/apiBase.ts";
 import type {
   User, Application, Resume, Contact, Deadline, AnalyticsData, AdminOverview,
   ApplicationFormData, ContactFormData, DeadlineFormData, PaginatedResponse,
+  Company, CompanyDetail, CompanyFormData,
   AdminDashboardData, AdminUserDetail, PlatformAnalyticsData, AuditLog,
   Announcement, SystemSetting, Invite, EmailTemplate,
   StorageStats, RoleDefinition, SeedResult,
@@ -36,16 +37,20 @@ export const authAPI = {
   register: (name: string, email: string, password: string) => api.post<User>("/auth/register", { name, email, password }).then((r) => r.data),
   logout: () => api.post("/auth/logout").then((r) => r.data),
   getMe: () => api.get<User>("/auth/me").then((r) => r.data),
+  completeTour: () => api.put("/auth/tour").then((r) => r.data),
 };
 
 export const applicationsAPI = {
-  getAll: (params?: { page?: number; limit?: number; sort?: string; order?: string; search?: string }) =>
+  getAll: (params?: { page?: number; limit?: number; sort?: string; order?: string; search?: string; archived?: string }) =>
     api.get<PaginatedResponse<Application>>("/applications", { params }).then((r) => r.data),
   getOne: (id: string) => api.get<Application>(`/applications/${id}`).then((r) => r.data),
   create: (data: ApplicationFormData) => api.post<Application>("/applications", data).then((r) => r.data),
-  update: (id: string, data: Partial<ApplicationFormData>) => api.put<Application>(`/applications/${id}`, data).then((r) => r.data),
+  update: (id: string, data: Partial<ApplicationFormData & { archived?: boolean; archivedAt?: string | null; archivedReason?: string | null }>) =>
+    api.put<Application>(`/applications/${id}`, data).then((r) => r.data),
   delete: (id: string) => api.delete(`/applications/${id}`).then((r) => r.data),
   bulkImport: (applications: any[]) => api.post<{ message: string; count: number }>("/applications/bulk", { applications }).then((r) => r.data),
+  archive: (id: string, reason?: string) => api.put<Application>(`/applications/${id}/archive`, { reason }).then((r) => r.data),
+  unarchive: (id: string) => api.put<Application>(`/applications/${id}/unarchive`).then((r) => r.data),
 };
 
 export const resumesAPI = {
@@ -68,6 +73,15 @@ export const resumesAPI = {
     return api.put<Resume>(`/resumes/${id}`, formData, { headers: { "Content-Type": "multipart/form-data" } }).then((r) => r.data);
   },
   delete: (id: string) => api.delete(`/resumes/${id}`).then((r) => r.data),
+};
+
+export const companiesAPI = {
+  getAll: (params?: { page?: number; limit?: number; search?: string }) =>
+    api.get<PaginatedResponse<Company>>("/companies", { params }).then((r) => r.data),
+  getOne: (id: string) => api.get<CompanyDetail>(`/companies/${id}`).then((r) => r.data),
+  create: (data: CompanyFormData) => api.post<Company>("/companies", data).then((r) => r.data),
+  update: (id: string, data: Partial<CompanyFormData>) => api.put<Company>(`/companies/${id}`, data).then((r) => r.data),
+  delete: (id: string) => api.delete(`/companies/${id}`).then((r) => r.data),
 };
 
 export const contactsAPI = {

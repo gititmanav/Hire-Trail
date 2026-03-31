@@ -183,7 +183,7 @@ export default function EmailTemplates() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+          <h1 className="text-2xl font-bold text-foreground">
             Email Templates
           </h1>
           <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400">
@@ -206,13 +206,13 @@ export default function EmailTemplates() {
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="card-premium w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 space-y-4">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+            <h2 className="text-lg font-semibold text-foreground">
               {editingId ? "Edit Template" : "Create Template"}
             </h2>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-foreground mb-1">
                   Name
                 </label>
                 <input
@@ -224,7 +224,7 @@ export default function EmailTemplates() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-foreground mb-1">
                   Type
                 </label>
                 <select
@@ -247,7 +247,7 @@ export default function EmailTemplates() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-foreground mb-1">
                 Subject
               </label>
               <input
@@ -260,7 +260,7 @@ export default function EmailTemplates() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-foreground mb-1">
                 Body (HTML)
               </label>
               <textarea
@@ -275,7 +275,7 @@ export default function EmailTemplates() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-foreground mb-1">
                 Variables (comma-separated)
               </label>
               <input
@@ -289,14 +289,14 @@ export default function EmailTemplates() {
               />
             </div>
 
-            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <label className="flex items-center gap-2 text-sm text-foreground">
               <input
                 type="checkbox"
                 checked={form.active}
                 onChange={(e) =>
                   setForm({ ...form, active: e.target.checked })
                 }
-                className="rounded border-gray-300 dark:border-gray-600"
+                className="rounded border-border"
               />
               Active
             </label>
@@ -310,14 +310,14 @@ export default function EmailTemplates() {
                 {showPreview ? "Hide Preview" : "Show Preview"}
               </button>
               {showPreview && (
-                <div className="mt-3 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-                  <div className="bg-gray-50 dark:bg-gray-800 px-4 py-2 border-b border-gray-200 dark:border-gray-700">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                <div className="mt-3 border border-border rounded-lg overflow-hidden">
+                  <div className="bg-muted px-4 py-2 border-b border-border">
+                    <p className="text-xs text-muted-foreground">
                       HTML Preview (sample data substituted)
                     </p>
                   </div>
                   <div
-                    className="p-4 bg-white dark:bg-gray-900 prose dark:prose-invert max-w-none text-sm"
+                    className="p-4 bg-background prose dark:prose-invert max-w-none text-sm"
                     dangerouslySetInnerHTML={{ __html: previewHtml }}
                   />
                 </div>
@@ -346,7 +346,7 @@ export default function EmailTemplates() {
 
       {/* Template List */}
       {templates.length === 0 ? (
-        <div className="card-premium p-10 text-center text-gray-400 dark:text-gray-500">
+        <div className="card-premium p-10 text-center text-muted-foreground">
           No email templates yet.
         </div>
       ) : (
@@ -358,7 +358,7 @@ export default function EmailTemplates() {
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+                      <h3 className="text-base font-semibold text-foreground">
                         {t.name}
                       </h3>
                       <span
@@ -370,17 +370,17 @@ export default function EmailTemplates() {
                         className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                           t.active
                             ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
-                            : "bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
+                            : "bg-muted text-muted-foreground"
                         }`}
                       >
                         {t.active ? "Active" : "Inactive"}
                       </span>
                     </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                    <p className="text-sm text-secondary-foreground mt-1">
                       Subject: {t.subject}
                     </p>
                     {t.variables.length > 0 && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         Variables:{" "}
                         {t.variables.map((v) => `{{${v}}}`).join(", ")}
                       </p>

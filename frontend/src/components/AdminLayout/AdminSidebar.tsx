@@ -18,29 +18,29 @@ const adminNav = [
 
 export default function AdminSidebar({ collapsed, onToggle }: Props) {
   return (
-    <aside className={`fixed top-0 left-0 bottom-0 bg-sidebar-bg flex flex-col overflow-hidden z-50 transition-all duration-200 ${collapsed ? "w-16" : "w-60"}`}>
+    <aside className={`fixed top-0 left-0 bottom-0 bg-sidebar flex flex-col overflow-hidden z-50 transition-all duration-200 ${collapsed ? "w-16" : "w-60"}`}>
       <div className="flex items-center justify-between min-h-[60px] px-4">
         {!collapsed && (
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-gradient-to-br from-red-500 to-red-700 rounded-md flex items-center justify-center text-white font-bold text-sm shadow-sm">A</div>
-            <span className="text-[17px] font-semibold text-white whitespace-nowrap">Admin</span>
+            <div className="w-8 h-8 bg-destructive rounded-md flex items-center justify-center text-white font-bold text-sm shadow-sm">A</div>
+            <span className="text-[17px] font-semibold text-sidebar-foreground whitespace-nowrap">Admin</span>
           </div>
         )}
-        <button onClick={onToggle} className="text-sidebar-text hover:text-white hover:bg-sidebar-hover p-1.5 rounded-md transition-colors">
+        <button onClick={onToggle} className="text-sidebar-foreground hover:text-sidebar-primary-foreground hover:bg-sidebar-accent p-1.5 rounded-md transition-colors">
           <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><line x1="3" y1="4" x2="15" y2="4"/><line x1="3" y1="9" x2={collapsed ? "15" : "11"} y2="9"/><line x1="3" y1="14" x2="15" y2="14"/></svg>
         </button>
       </div>
       <nav className={`flex-1 flex flex-col gap-0.5 overflow-y-auto ${collapsed ? "px-1 items-center" : "px-2"}`}>
         {adminNav.map((item) => (
           <NavLink key={item.to} to={item.to} end={item.end || false} title={collapsed ? item.label : undefined}
-            className={({ isActive }) => `flex items-center gap-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${collapsed ? "justify-center w-11 h-11 p-0" : "px-3 py-2"} ${isActive ? "bg-sidebar-active text-white" : "text-sidebar-text hover:bg-sidebar-hover hover:text-white"}`}>
+            className={({ isActive }) => `flex items-center gap-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${collapsed ? "justify-center w-11 h-11 p-0" : "px-3 py-2"} ${isActive ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"}`}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d={item.d}/></svg>
             {!collapsed && <span>{item.label}</span>}
           </NavLink>
         ))}
       </nav>
-      <div className="px-4 py-3 border-t border-sidebar-hover">
-        <p className={`text-[11px] text-sidebar-text/50 ${collapsed ? "text-center" : ""}`}>{collapsed ? "Admin" : "Admin Panel"}</p>
+      <div className="px-4 py-3 border-t border-sidebar-border">
+        <p className={`text-[11px] text-sidebar-foreground/50 ${collapsed ? "text-center" : ""}`}>{collapsed ? "Admin" : "Admin Panel"}</p>
       </div>
     </aside>
   );
