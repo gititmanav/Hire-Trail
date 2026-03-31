@@ -55,7 +55,7 @@ const KanbanColumn = memo(function KanbanColumn({ stage, apps }: { stage: Stage;
         <span className="text-[13px] font-semibold text-foreground">{stage}</span>
         <span className="text-[11px] text-muted-foreground ml-auto bg-white/70 bg-card/70 px-2 py-0.5 rounded-full font-semibold">{apps.length}</span>
       </div>
-      <div ref={setNodeRef} className={`flex-1 p-2 rounded-b-xl border-2 border-dashed transition-colors duration-150 ${c.border} ${c.bg} min-h-[120px] space-y-2 ${isOver ? "!border-accent !bg-accent/5" : ""}`}>
+      <div ref={setNodeRef} className={`flex-1 p-2 rounded-b-xl border-2 border-dashed transition-colors duration-150 ${c.border} ${c.bg} min-h-[120px] space-y-2 ${isOver ? "!border-primary !bg-accent/5" : ""}`}>
         <SortableContext items={ids} strategy={verticalListSortingStrategy}>
           {apps.map((app) => <SortableCard key={app._id} app={app} />)}
         </SortableContext>

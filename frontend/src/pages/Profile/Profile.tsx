@@ -4,7 +4,7 @@ import toast from "react-hot-toast";
 import { api, applicationsAPI } from "../../utils/api.ts";
 import type { User } from "../../types";
 
-const inputCls = "w-full px-3 py-2 text-sm bg-card border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-accent";
+const inputCls = "w-full px-3 py-2 text-sm bg-card border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring";
 
 function ReportRejectionModal({ onClose }: { onClose: () => void }) {
   const [company, setCompany] = useState("");
