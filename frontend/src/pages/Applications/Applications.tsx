@@ -26,7 +26,7 @@ function SortArrow({ field, sort }: { field: string; sort: SortConfig }) {
 }
 
 function Modal({ app, resumes, onSave, onClose }: { app: Application | null; resumes: Resume[]; onSave: (d: ApplicationFormData) => Promise<void>; onClose: () => void }) {
-  const [form, setForm] = useState<ApplicationFormData>({ company: app?.company || "", role: app?.role || "", jobUrl: app?.jobUrl || "", stage: app?.stage || "Applied", notes: app?.notes || "", resumeId: app?.resumeId || "" });
+  const [form, setForm] = useState<ApplicationFormData>({ company: app?.company || "", role: app?.role || "", jobUrl: app?.jobUrl || "", stage: app?.stage || "Applied", notes: app?.notes || "", resumeId: app?.resumeId || "", companyId: app?.companyId || "", contactId: app?.contactId || "", outreachStatus: app?.outreachStatus || "none" });
   const [saving, setSaving] = useState(false);
   const u = (k: string, v: string) => setForm({ ...form, [k]: v });
   useEffect(() => { const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); }; document.addEventListener("keydown", h); return () => document.removeEventListener("keydown", h); }, [onClose]);

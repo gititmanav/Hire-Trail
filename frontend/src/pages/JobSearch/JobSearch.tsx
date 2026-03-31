@@ -64,6 +64,9 @@ export default function JobSearch() {
         stage: "Applied",
         notes: `Source: ${job.source}${job.salary ? ` | Salary: ${job.salary}` : ""}${job.remote ? " | Remote" : ""}`,
         resumeId: "",
+        companyId: "",
+        contactId: "",
+        outreachStatus: "none",
       });
       toast.success(`Tracking ${job.company} — ${job.title}`);
     } catch {
