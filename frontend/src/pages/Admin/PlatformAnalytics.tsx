@@ -106,7 +106,7 @@ export default function PlatformAnalytics() {
 
   return (
     <div className="space-y-6 p-6">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Platform Analytics</h1>
+      <h1 className="text-2xl font-bold text-foreground">Platform Analytics</h1>
 
       {/* Conversion Rate Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -115,9 +115,9 @@ export default function PlatformAnalytics() {
           const color = rateColors[key];
           return (
             <div key={key} className={`card-premium p-4 ${color.bg}`}>
-              <p className="text-sm text-gray-500 dark:text-gray-400">{rateLabels[key]}</p>
+              <p className="text-sm text-muted-foreground">{rateLabels[key]}</p>
               <p className={`text-3xl font-bold ${color.text}`}>{val.toFixed(1)}%</p>
-              <div className="mt-2 w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+              <div className="mt-2 w-full h-2 bg-border rounded-full overflow-hidden">
                 <div className={`h-full ${color.bar} rounded-full`} style={{ width: `${Math.min(val, 100)}%` }} />
               </div>
             </div>
@@ -127,7 +127,7 @@ export default function PlatformAnalytics() {
 
       {/* Funnel */}
       <div className="card-premium p-4">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Platform Funnel</h2>
+        <h2 className="text-lg font-semibold text-foreground mb-4">Platform Funnel</h2>
         <div className="h-64">
           <Bar data={funnelData} options={horizontalOpts} />
         </div>
@@ -136,13 +136,13 @@ export default function PlatformAnalytics() {
       {/* Top Companies and Roles */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="card-premium p-4">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Top 10 Companies</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-4">Top 10 Companies</h2>
           <div className="h-72">
             <Bar data={companiesData} options={horizontalOpts} />
           </div>
         </div>
         <div className="card-premium p-4">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Top 10 Roles</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-4">Top 10 Roles</h2>
           <div className="h-72">
             <Bar data={rolesData} options={horizontalOpts} />
           </div>
@@ -152,16 +152,16 @@ export default function PlatformAnalytics() {
       {/* Summary */}
       <div className="grid grid-cols-3 gap-4">
         <div className="card-premium p-4 text-center">
-          <p className="text-sm text-gray-500 dark:text-gray-400">Total Applications</p>
-          <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalApplications.toLocaleString()}</p>
+          <p className="text-sm text-muted-foreground">Total Applications</p>
+          <p className="text-2xl font-bold text-foreground">{totalApplications.toLocaleString()}</p>
         </div>
         <div className="card-premium p-4 text-center">
-          <p className="text-sm text-gray-500 dark:text-gray-400">Total Users</p>
-          <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalUsers.toLocaleString()}</p>
+          <p className="text-sm text-muted-foreground">Total Users</p>
+          <p className="text-2xl font-bold text-foreground">{totalUsers.toLocaleString()}</p>
         </div>
         <div className="card-premium p-4 text-center">
-          <p className="text-sm text-gray-500 dark:text-gray-400">Avg Apps / User</p>
-          <p className="text-2xl font-bold text-gray-900 dark:text-white">{avgAppsPerUser.toFixed(1)}</p>
+          <p className="text-sm text-muted-foreground">Avg Apps / User</p>
+          <p className="text-2xl font-bold text-foreground">{avgAppsPerUser.toFixed(1)}</p>
         </div>
       </div>
     </div>

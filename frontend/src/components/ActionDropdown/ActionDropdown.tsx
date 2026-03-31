@@ -88,14 +88,14 @@ export default function ActionDropdown({
       {/* Menu */}
       {open && (
         <div
-          className={`absolute z-50 mt-1 ${menuWidth} bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 ${
+          className={`absolute z-50 mt-1 ${menuWidth} bg-card border border-border rounded-lg shadow-lg py-1 ${
             align === "right" ? "right-0" : "left-0"
           }`}
         >
           {items.map((item, i) => (
             <div key={i}>
               {item.divider && (
-                <div className="border-t border-gray-100 dark:border-gray-700 my-1" />
+                <div className="border-t border-border my-1" />
               )}
               <button
                 onClick={() => {
@@ -107,9 +107,9 @@ export default function ActionDropdown({
                 disabled={item.disabled}
                 className={`w-full text-left px-4 py-2 text-sm flex items-center gap-2 transition-colors ${
                   item.disabled
-                    ? "opacity-50 cursor-not-allowed text-gray-400 dark:text-gray-500"
-                    : "hover:bg-gray-100 dark:hover:bg-gray-700"
-                } ${item.className || "text-gray-700 dark:text-gray-300"}`}
+                    ? "opacity-50 cursor-not-allowed text-muted-foreground"
+                    : "hover:bg-muted"
+                } ${item.className || "text-foreground"}`}
               >
                 {item.icon && <span className="shrink-0">{item.icon}</span>}
                 {item.label}

@@ -14,6 +14,8 @@ import Kanban from "./pages/Kanban/Kanban.tsx";
 import JobSearch from "./pages/JobSearch/JobSearch.tsx";
 import Resumes from "./pages/Resumes/Resumes.tsx";
 import Contacts from "./pages/Contacts/Contacts.tsx";
+import Companies from "./pages/Companies/Companies.tsx";
+import CompanyProfile from "./pages/Companies/CompanyProfile.tsx";
 import Deadlines from "./pages/Deadlines/Deadlines.tsx";
 import ImportExport from "./pages/ImportExport/ImportExport.tsx";
 import Profile from "./pages/Profile/Profile.tsx";
@@ -29,7 +31,9 @@ import type { User } from "./types";
 import { JobSearchContext, defaultState } from "./hooks/useJobSearchState.ts";
 import type { JobSearchState } from "./hooks/useJobSearchState.ts";
 
-export const ThemeContext = createContext<{ dark: boolean; toggle: (e?: React.MouseEvent) => void }>({ dark: false, toggle: () => { } });
+export const ThemeContext = createContext<{ dark: boolean; toggle: (e?: React.MouseEvent) => void; themeId: string; setTheme: (id: string) => void }>({ dark: false, toggle: () => { }, themeId: "default", setTheme: () => { } });
+
+export const UserContext = createContext<{ user: User | null; setUser: (u: User | null) => void }>({ user: null, setUser: () => {} });
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -46,6 +50,7 @@ function App() {
 
   return (
     <ThemeContext.Provider value={theme}>
+      <UserContext.Provider value={{ user, setUser }}>
       <JobSearchContext.Provider value={{ state: jobSearchState, setState: setJobSearchState }}>
 
         <Routes>
@@ -75,6 +80,8 @@ function App() {
             <Route path="/jobs" element={<JobSearch />} />
             <Route path="/resumes" element={<Resumes />} />
             <Route path="/contacts" element={<Contacts />} />
+            <Route path="/companies" element={<Companies />} />
+            <Route path="/companies/:id" element={<CompanyProfile />} />
             <Route path="/deadlines" element={<Deadlines />} />
             <Route path="/import-export" element={<ImportExport />} />
             <Route path="/profile" element={<Profile />} />
@@ -83,7 +90,7 @@ function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </JobSearchContext.Provider>
-
+      </UserContext.Provider>
     </ThemeContext.Provider>
   );
 }

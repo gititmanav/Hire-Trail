@@ -68,7 +68,7 @@ export default function AuditLogs() {
 
   return (
     <div className="space-y-6 p-6">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Audit Logs</h1>
+      <h1 className="text-2xl font-bold text-foreground">Audit Logs</h1>
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
@@ -111,7 +111,7 @@ export default function AuditLogs() {
       {/* Table */}
       <div className="overflow-x-auto">
         <table className="w-full text-sm text-left">
-          <thead className="text-xs uppercase text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
+          <thead className="text-xs uppercase text-muted-foreground border-b border-border">
             <tr>
               <th className="px-4 py-3 w-8" />
               <th className="px-4 py-3">Timestamp</th>
@@ -124,14 +124,14 @@ export default function AuditLogs() {
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
                   Loading...
                 </td>
               </tr>
             )}
             {!loading && logs.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
                   No logs found.
                 </td>
               </tr>
@@ -139,41 +139,41 @@ export default function AuditLogs() {
             {!loading &&
               logs.map((log) => {
                 const isExpanded = expandedRow === log._id;
-                const badgeCls = actionColors[log.action] || "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300";
+                const badgeCls = actionColors[log.action] || "bg-muted text-foreground";
                 return (
-                  <tr key={log._id} className="border-b border-gray-100 dark:border-gray-800">
+                  <tr key={log._id} className="border-b border-border">
                     <td colSpan={6} className="p-0">
                       <div
-                        className="grid grid-cols-[2rem_1fr_1fr_1fr_1fr_1fr] items-center hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer"
+                        className="grid grid-cols-[2rem_1fr_1fr_1fr_1fr_1fr] items-center hover:bg-muted cursor-pointer"
                         onClick={() => setExpandedRow(isExpanded ? null : log._id)}
                       >
-                        <span className="px-4 py-3 text-gray-400">{isExpanded ? "▼" : "▶"}</span>
-                        <span className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                        <span className="px-4 py-3 text-muted-foreground">{isExpanded ? "▼" : "▶"}</span>
+                        <span className="px-4 py-3 text-muted-foreground whitespace-nowrap">
                           {new Date(log.timestamp).toLocaleString()}
                         </span>
-                        <span className="px-4 py-3 text-gray-900 dark:text-white">{getUserName(log.userId)}</span>
+                        <span className="px-4 py-3 text-foreground">{getUserName(log.userId)}</span>
                         <span className="px-4 py-3">
                           <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${badgeCls}`}>
                             {log.action}
                           </span>
                         </span>
-                        <span className="px-4 py-3 text-gray-500 dark:text-gray-400">{log.resourceType}</span>
-                        <span className="px-4 py-3 text-gray-400 dark:text-gray-500 font-mono text-xs">
+                        <span className="px-4 py-3 text-muted-foreground">{log.resourceType}</span>
+                        <span className="px-4 py-3 text-muted-foreground font-mono text-xs">
                           {log.ipAddress || "—"}
                         </span>
                       </div>
                       {isExpanded && (
-                        <div className="px-8 py-4 bg-gray-50 dark:bg-gray-800/60 border-t border-gray-100 dark:border-gray-700">
+                        <div className="px-8 py-4 bg-muted border-t border-border">
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                              <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Old Value</p>
-                              <pre className="text-xs bg-gray-100 dark:bg-gray-900 p-3 rounded-lg overflow-x-auto max-h-48 text-gray-700 dark:text-gray-300">
+                              <p className="text-xs font-semibold text-muted-foreground mb-1">Old Value</p>
+                              <pre className="text-xs bg-muted p-3 rounded-lg overflow-x-auto max-h-48 text-foreground">
                                 {formatJson(log.oldValue)}
                               </pre>
                             </div>
                             <div>
-                              <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">New Value</p>
-                              <pre className="text-xs bg-gray-100 dark:bg-gray-900 p-3 rounded-lg overflow-x-auto max-h-48 text-gray-700 dark:text-gray-300">
+                              <p className="text-xs font-semibold text-muted-foreground mb-1">New Value</p>
+                              <pre className="text-xs bg-muted p-3 rounded-lg overflow-x-auto max-h-48 text-foreground">
                                 {formatJson(log.newValue)}
                               </pre>
                             </div>
@@ -191,7 +191,7 @@ export default function AuditLogs() {
       {/* Pagination */}
       {pagination.pages > 1 && (
         <div className="flex items-center justify-between pt-2">
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+          <p className="text-sm text-muted-foreground">
             Page {pagination.page} of {pagination.pages} ({pagination.total} entries)
           </p>
           <div className="flex gap-2">

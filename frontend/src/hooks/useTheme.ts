@@ -1,56 +1,86 @@
 /**
- * `dark` class on `<html>`, persisted in localStorage; toggle uses a clip-path circle reveal.
+ * Theme hook: applies tweakcn-compatible CSS variables, persists selection in localStorage.
+ * Themes with isDark=true/false that have no variable overrides use the CSS :root / .dark defaults.
+ * Themes with variable overrides inject them directly onto the root element.
  */
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { getTheme } from "../utils/themes.ts";
+import type { Theme } from "../utils/themes.ts";
+
+const STORAGE_KEY = "hiretrail-theme-id";
+
+// All CSS variable keys that a theme can override
+const ALL_VARS = [
+  "--background", "--foreground", "--card", "--card-foreground",
+  "--popover", "--popover-foreground", "--primary", "--primary-foreground",
+  "--secondary", "--secondary-foreground", "--muted", "--muted-foreground",
+  "--accent", "--accent-foreground", "--destructive", "--destructive-foreground",
+  "--border", "--input", "--ring",
+  "--chart-1", "--chart-2", "--chart-3", "--chart-4", "--chart-5",
+  "--sidebar", "--sidebar-foreground", "--sidebar-primary", "--sidebar-primary-foreground",
+  "--sidebar-accent", "--sidebar-accent-foreground", "--sidebar-border", "--sidebar-ring",
+];
+
+function applyTheme(theme: Theme) {
+  const root = document.documentElement;
+
+  // Clear any previous inline overrides so CSS :root / .dark defaults take effect
+  for (const v of ALL_VARS) {
+    root.style.removeProperty(v);
+  }
+
+  // Toggle dark class
+  if (theme.isDark) {
+    root.classList.add("dark");
+  } else {
+    root.classList.remove("dark");
+  }
+
+  // Apply the appropriate variable set
+  const vars = theme.isDark && theme.darkVariables
+    ? theme.darkVariables
+    : theme.variables;
+
+  if (Object.keys(vars).length > 0) {
+    for (const [key, value] of Object.entries(vars)) {
+      root.style.setProperty(key, value);
+    }
+  }
+
+  // Smooth transition
+  root.style.setProperty("transition", "background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease");
+}
+
+function resolveInitialId(): string {
+  if (typeof window === "undefined") return "default";
+  const stored = localStorage.getItem(STORAGE_KEY);
+  if (stored) return stored;
+  // Migrate from old key
+  const legacy = localStorage.getItem("hiretrail-theme");
+  if (legacy === "dark") return "dark";
+  if (window.matchMedia("(prefers-color-scheme: dark)").matches) return "dark";
+  return "default";
+}
 
 export function useTheme() {
-  const [dark, setDark] = useState(() => {
-    if (typeof window === "undefined") return false;
-    const stored = localStorage.getItem("hiretrail-theme");
-    if (stored) return stored === "dark";
-    return window.matchMedia("(prefers-color-scheme: dark)").matches;
-  });
-  const overlayRef = useRef<HTMLDivElement | null>(null);
+  const [themeId, setThemeId] = useState(resolveInitialId);
+  const currentTheme = getTheme(themeId);
 
   useEffect(() => {
-    const root = document.documentElement;
-    if (dark) {
-      root.classList.add("dark");
-      localStorage.setItem("hiretrail-theme", "dark");
-    } else {
-      root.classList.remove("dark");
-      localStorage.setItem("hiretrail-theme", "light");
-    }
-  }, [dark]);
+    applyTheme(currentTheme);
+    localStorage.setItem(STORAGE_KEY, currentTheme.id);
+  }, [currentTheme]);
 
-  const toggle = useCallback((e?: React.MouseEvent) => {
-    const x = e ? e.clientX : window.innerWidth - 60;
-    const y = e ? e.clientY : 30;
-    const endRadius = Math.hypot(
-      Math.max(x, window.innerWidth - x),
-      Math.max(y, window.innerHeight - y)
-    );
+  const setTheme = useCallback((id: string) => {
+    setThemeId(id);
+  }, []);
 
-    const overlay = document.createElement("div");
-    overlay.style.cssText = `
-      position: fixed; inset: 0; z-index: 9999; pointer-events: none;
-      background: ${dark ? "#f0f2f5" : "#111827"};
-      clip-path: circle(0px at ${x}px ${y}px);
-      transition: clip-path 0.4s ease-out;
-    `;
-    document.body.appendChild(overlay);
-
-    requestAnimationFrame(() => {
-      overlay.style.clipPath = `circle(${endRadius}px at ${x}px ${y}px)`;
+  const toggle = useCallback((_e?: React.MouseEvent) => {
+    setThemeId((prev) => {
+      const cur = getTheme(prev);
+      return cur.isDark ? "default" : "dark";
     });
+  }, []);
 
-    setTimeout(() => {
-      setDark((d) => !d);
-      setTimeout(() => {
-        overlay.remove();
-      }, 50);
-    }, 400);
-  }, [dark]);
-
-  return { dark, toggle };
+  return { dark: currentTheme.isDark, toggle, themeId: currentTheme.id, setTheme, currentTheme };
 }

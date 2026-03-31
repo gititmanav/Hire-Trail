@@ -75,7 +75,7 @@ export default function InviteSystem() {
   };
 
   const getStatus = (invite: Invite): { label: string; className: string } => {
-    if (!invite.active) return { label: "Inactive", className: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300" };
+    if (!invite.active) return { label: "Inactive", className: "bg-muted text-foreground" };
     if (new Date(invite.expiresAt) < new Date()) return { label: "Expired", className: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300" };
     if (invite.usedCount >= invite.maxUses) return { label: "Maxed", className: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300" };
     return { label: "Active", className: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300" };
@@ -93,14 +93,14 @@ export default function InviteSystem() {
 
   return (
     <div className="space-y-6 p-6">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Invite System</h1>
+      <h1 className="text-2xl font-bold text-foreground">Invite System</h1>
 
       {/* Generate Invite Form */}
       <div className="card-premium p-6">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Generate Invite Code</h2>
+        <h2 className="text-lg font-semibold text-foreground mb-4">Generate Invite Code</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label className="block text-sm font-medium text-foreground mb-1">
               Email Restriction (optional)
             </label>
             <input
@@ -112,7 +112,7 @@ export default function InviteSystem() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label className="block text-sm font-medium text-foreground mb-1">
               Max Uses
             </label>
             <input
@@ -124,7 +124,7 @@ export default function InviteSystem() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label className="block text-sm font-medium text-foreground mb-1">
               Expires At
             </label>
             <input
@@ -146,12 +146,12 @@ export default function InviteSystem() {
 
       {/* Invites Table */}
       <div className="card-premium p-6">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+        <h2 className="text-lg font-semibold text-foreground mb-4">
           Invite Codes ({invites.length})
         </h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
-            <thead className="text-xs uppercase text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
+            <thead className="text-xs uppercase text-muted-foreground border-b border-border">
               <tr>
                 <th className="px-4 py-3">Code</th>
                 <th className="px-4 py-3">Email Restriction</th>
@@ -161,10 +161,10 @@ export default function InviteSystem() {
                 <th className="px-4 py-3">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+            <tbody className="divide-y divide-border">
               {invites.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-6 text-center text-gray-500 dark:text-gray-400">
+                  <td colSpan={6} className="px-4 py-6 text-center text-muted-foreground">
                     No invite codes yet.
                   </td>
                 </tr>
@@ -172,15 +172,15 @@ export default function InviteSystem() {
               {invites.map((invite) => {
                 const status = getStatus(invite);
                 return (
-                  <tr key={invite._id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                  <tr key={invite._id} className="hover:bg-muted">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <code className="text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded font-mono">
+                        <code className="text-xs bg-muted px-2 py-1 rounded font-mono">
                           {invite.code}
                         </code>
                         <button
                           onClick={() => handleCopy(invite.code)}
-                          className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                          className="text-muted-foreground hover:text-secondary-foreground"
                           title="Copy code"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -189,13 +189,13 @@ export default function InviteSystem() {
                         </button>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
-                      {invite.email || <span className="text-gray-400 italic">None</span>}
+                    <td className="px-4 py-3 text-foreground">
+                      {invite.email || <span className="text-muted-foreground italic">None</span>}
                     </td>
-                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
+                    <td className="px-4 py-3 text-foreground">
                       {invite.usedCount} / {invite.maxUses}
                     </td>
-                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
+                    <td className="px-4 py-3 text-foreground">
                       {new Date(invite.expiresAt).toLocaleString()}
                     </td>
                     <td className="px-4 py-3">

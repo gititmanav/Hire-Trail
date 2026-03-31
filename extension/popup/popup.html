@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="popup.css">
+  <title>HireTrail</title>
+</head>
+<body>
+  <div id="app">
+    <!-- Login Form -->
+    <div id="login-view" style="display:none;">
+      <div class="logo">
+        <div class="logo-icon">H</div>
+        <span class="logo-text">HireTrail</span>
+      </div>
+      <form id="login-form">
+        <input type="email" id="email" placeholder="Email" required>
+        <input type="password" id="password" placeholder="Password" required>
+        <button type="submit" id="login-btn">Log in</button>
+        <p id="login-error" class="error"></p>
+      </form>
+    </div>
+
+    <!-- Logged In View -->
+    <div id="logged-in-view" style="display:none;">
+      <div class="header">
+        <div class="logo">
+          <div class="logo-icon">H</div>
+          <span class="logo-text">HireTrail</span>
+        </div>
+      </div>
+      <div class="user-info">
+        <div class="avatar" id="user-avatar"></div>
+        <div>
+          <p class="user-name" id="user-name"></p>
+          <p class="user-email" id="user-email"></p>
+        </div>
+      </div>
+      <div class="stats">
+        <p id="track-count">Ready to track jobs</p>
+      </div>
+      <div class="actions">
+        <a id="open-app" class="btn btn-primary" target="_blank">Open HireTrail</a>
+        <button id="logout-btn" class="btn btn-secondary">Log out</button>
+      </div>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -19,13 +19,17 @@ router.get("/", async (req: Request, res: Response, next: NextFunction) => {
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
     const skip = (page - 1) * limit;
 
+    const query: any = { userId: user._id };
+    const companyIdParam = req.query.companyId as string;
+    if (companyIdParam) query.companyId = companyIdParam;
+
     const [contacts, total] = await Promise.all([
-      Contact.find({ userId: user._id })
+      Contact.find(query)
         .sort({ lastContactDate: -1 })
         .skip(skip)
         .limit(limit)
         .lean(),
-      Contact.countDocuments({ userId: user._id }),
+      Contact.countDocuments(query),
     ]);
 
     res.json({
@@ -81,6 +85,14 @@ router.put(
 
       if (data.lastContactDate) {
         data.lastContactDate = new Date(data.lastContactDate);
+      }
+      if (data.lastOutreachDate) {
+        data.lastOutreachDate = new Date(data.lastOutreachDate);
+      }
+      if (data.nextFollowUpDate) {
+        data.nextFollowUpDate = new Date(data.nextFollowUpDate);
+      } else if (data.nextFollowUpDate === null) {
+        data.nextFollowUpDate = null;
       }
 
       const contact = await Contact.findOneAndUpdate(

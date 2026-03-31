@@ -13,6 +13,7 @@ export interface IUser extends Document {
   suspendedAt: Date | null;
   deleted: boolean;
   deletedAt: Date | null;
+  tourCompleted: boolean;
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidate: string): Promise<boolean>;
@@ -52,6 +53,7 @@ const userSchema = new Schema<IUser>(
     suspendedAt: { type: Date, default: null },
     deleted: { type: Boolean, default: false },
     deletedAt: { type: Date, default: null },
+    tourCompleted: { type: Boolean, default: false },
   },
   {
     timestamps: true,

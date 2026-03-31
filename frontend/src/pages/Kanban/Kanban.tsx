@@ -9,13 +9,14 @@ import {
 import { SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import toast from "react-hot-toast";
+import { Link } from "react-router-dom";
 import { applicationsAPI } from "../../utils/api.ts";
 import { SkeletonCard } from "../../components/Skeleton/Skeleton.tsx";
 import type { Application, Stage } from "../../types";
 
 const STAGES: Stage[] = ["Applied", "OA", "Interview", "Offer", "Rejected"];
 const CFG: Record<Stage, { dot: string; hBg: string; border: string; bg: string }> = {
-  Applied: { dot: "bg-accent", hBg: "bg-blue-50 dark:bg-blue-900/20", border: "border-blue-200/60 dark:border-blue-800/40", bg: "bg-blue-50/30 dark:bg-blue-950/20" },
+  Applied: { dot: "bg-primary", hBg: "bg-blue-50 dark:bg-blue-900/20", border: "border-blue-200/60 dark:border-blue-800/40", bg: "bg-blue-50/30 dark:bg-blue-950/20" },
   OA: { dot: "bg-warning", hBg: "bg-amber-50 dark:bg-amber-900/20", border: "border-amber-200/60 dark:border-amber-800/40", bg: "bg-amber-50/30 dark:bg-amber-950/20" },
   Interview: { dot: "bg-purple-500", hBg: "bg-purple-50 dark:bg-purple-900/20", border: "border-purple-200/60 dark:border-purple-800/40", bg: "bg-purple-50/30 dark:bg-purple-950/20" },
   Offer: { dot: "bg-success", hBg: "bg-emerald-50 dark:bg-emerald-900/20", border: "border-emerald-200/60 dark:border-emerald-800/40", bg: "bg-emerald-50/30 dark:bg-emerald-950/20" },
@@ -25,10 +26,10 @@ const fmt = (d: string) => new Date(d).toLocaleDateString("en-US", { month: "sho
 
 const KanbanCard = memo(function KanbanCard({ app, isDragging }: { app: Application; isDragging?: boolean }) {
   return (
-    <div className={`card-premium p-3 ${isDragging ? "!shadow-lg ring-2 ring-accent/20 scale-[1.02]" : ""}`}>
-      <h4 className="text-[13px] font-semibold text-gray-900 dark:text-white mb-0.5 truncate">{app.company}</h4>
-      <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 truncate">{app.role}</p>
-      <span className="text-[11px] text-gray-400">{fmt(app.applicationDate)}</span>
+    <div className={`card-premium p-3 ${isDragging ? "!shadow-lg ring-2 ring-ring/20 scale-[1.02]" : ""}`}>
+      <h4 className="text-[13px] font-semibold text-foreground mb-0.5 truncate">{app.company}</h4>
+      <p className="text-xs text-muted-foreground mb-2 truncate">{app.role}</p>
+      <span className="text-[11px] text-muted-foreground">{fmt(app.applicationDate)}</span>
     </div>
   );
 });
@@ -51,14 +52,14 @@ const KanbanColumn = memo(function KanbanColumn({ stage, apps }: { stage: Stage;
     <div className="flex flex-col min-w-[240px] max-w-[280px] flex-1">
       <div className={`flex items-center gap-2 px-3 py-2.5 rounded-t-xl ${c.hBg}`}>
         <div className={`w-2.5 h-2.5 rounded-full ${c.dot}`} />
-        <span className="text-[13px] font-semibold text-gray-800 dark:text-white">{stage}</span>
-        <span className="text-[11px] text-gray-500 dark:text-gray-400 ml-auto bg-white/70 dark:bg-gray-800/70 px-2 py-0.5 rounded-full font-semibold">{apps.length}</span>
+        <span className="text-[13px] font-semibold text-foreground">{stage}</span>
+        <span className="text-[11px] text-muted-foreground ml-auto bg-white/70 bg-card/70 px-2 py-0.5 rounded-full font-semibold">{apps.length}</span>
       </div>
       <div ref={setNodeRef} className={`flex-1 p-2 rounded-b-xl border-2 border-dashed transition-colors duration-150 ${c.border} ${c.bg} min-h-[120px] space-y-2 ${isOver ? "!border-accent !bg-accent/5" : ""}`}>
         <SortableContext items={ids} strategy={verticalListSortingStrategy}>
           {apps.map((app) => <SortableCard key={app._id} app={app} />)}
         </SortableContext>
-        {apps.length === 0 && <div className="flex items-center justify-center h-16 text-xs text-gray-400 dark:text-gray-600">Drop here</div>}
+        {apps.length === 0 && <div className="flex items-center justify-center h-16 text-xs text-muted-foreground dark:text-secondary-foreground">Drop here</div>}
       </div>
     </div>
   );
@@ -66,6 +67,7 @@ const KanbanColumn = memo(function KanbanColumn({ stage, apps }: { stage: Stage;
 
 export default function Kanban() {
   const [apps, setApps] = useState<Application[]>([]);
+  const [archivedCount, setArchivedCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [activeApp, setActiveApp] = useState<Application | null>(null);
   const lastOverStage = useRef<Stage | null>(null);
@@ -73,8 +75,14 @@ export default function Kanban() {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
   const fetchApps = useCallback(async () => {
-    try { const res = await applicationsAPI.getAll({ limit: 999 }); setApps(res.data); }
-    catch {} finally { setLoading(false); }
+    try {
+      const [res, arch] = await Promise.all([
+        applicationsAPI.getAll({ limit: 999, archived: "false" }),
+        applicationsAPI.getAll({ limit: 1, archived: "true" }),
+      ]);
+      setApps(res.data);
+      setArchivedCount(arch.pagination.total);
+    } catch {} finally { setLoading(false); }
   }, []);
   useEffect(() => { fetchApps(); }, [fetchApps]);
 
@@ -136,7 +144,7 @@ export default function Kanban() {
 
   if (loading) return (
     <div className="fade-up">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Kanban Board</h1>
+      <h1 className="text-2xl font-bold text-foreground mb-6">Kanban Board</h1>
       <div className="flex gap-4">{STAGES.map((s) => <div key={s} className="min-w-[240px] flex-1 space-y-2"><SkeletonCard /><SkeletonCard /></div>)}</div>
     </div>
   );
@@ -145,10 +153,17 @@ export default function Kanban() {
     <div className="fade-up">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">Kanban Board</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Drag applications between stages</p>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">Kanban Board</h1>
+          <p className="text-sm text-muted-foreground mt-1">Drag applications between stages</p>
         </div>
-        <span className="text-sm text-gray-400">{apps.length} applications</span>
+        <div className="flex items-center gap-4">
+          {archivedCount > 0 && (
+            <Link to="/applications" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+              Archived: {archivedCount}
+            </Link>
+          )}
+          <span className="text-sm text-muted-foreground">{apps.length} applications</span>
+        </div>
       </div>
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
         <div className="flex gap-4 overflow-x-auto pb-4">
