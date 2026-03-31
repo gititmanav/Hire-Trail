@@ -94,9 +94,14 @@ export default function Dashboard() {
         });
         setStaleApps(stale);
 
-        const today = new Date(); today.setHours(0, 0, 0, 0);
+        // Compare dates as YYYY-MM-DD strings to avoid timezone shifts
+        const todayStr = new Date().toLocaleDateString("en-CA"); // "YYYY-MM-DD" format
         setDeadlines(
-          dl.data.filter((d) => { if (d.completed) return false; const due = new Date(d.dueDate); due.setHours(0, 0, 0, 0); return due.getTime() >= today.getTime(); })
+          dl.data.filter((d) => {
+            if (d.completed) return false;
+            const dueStr = d.dueDate.slice(0, 10); // "YYYY-MM-DD" from ISO string
+            return dueStr >= todayStr;
+          })
             .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()).slice(0, 8)
         );
       } catch {} finally { setLoading(false); }
@@ -185,7 +190,7 @@ export default function Dashboard() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-foreground tracking-tight">Dashboard</h1>
         <div className="flex items-center gap-2">
-          <button data-tour="lock-btn" onClick={toggleLock} className={`btn-secondary !px-2.5 ${locked ? "!border-accent !text-primary dark:!text-accent" : ""}`} title={locked ? "Unlock dashboard" : "Lock dashboard"}>
+          <button data-tour="lock-btn" onClick={toggleLock} className={`btn-secondary !px-2.5 ${locked ? "!border-primary !text-primary dark:!text-primary" : ""}`} title={locked ? "Unlock dashboard" : "Lock dashboard"}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="transition-all duration-300">
               {locked ? (<><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></>) : (<><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 019.9-1"/></>)}
             </svg>
