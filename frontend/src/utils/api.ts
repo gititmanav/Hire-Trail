@@ -116,6 +116,14 @@ export const analyticsAPI = {
   get: () => api.get<AnalyticsData>("/analytics").then((r) => r.data),
 };
 
+export const settingsAPI = {
+  getFeatureFlags: () => api.get<{ flags: Record<string, boolean> }>("/settings/features").then((r) => r.data),
+};
+
+export const proxyAPI = {
+  fetchTweakcn: (url: string) => api.post<{ html: string }>("/proxy/tweakcn", { url }).then((r) => r.data),
+};
+
 export const adminAPI = {
   getOverview: () => api.get<AdminOverview>("/admin/overview").then((r) => r.data),
 

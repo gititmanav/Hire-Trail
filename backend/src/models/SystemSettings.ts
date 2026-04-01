@@ -51,5 +51,6 @@ export const DEFAULT_SETTINGS: Array<{
   { key: "feature_job_search", value: true, valueType: "boolean", description: "Enable JSearch job search integration", category: "features" },
   { key: "feature_cloudinary_uploads", value: true, valueType: "boolean", description: "Enable Cloudinary file uploads", category: "features" },
   { key: "feature_csv_import_export", value: true, valueType: "boolean", description: "Enable CSV import/export", category: "features" },
+  { key: "feature_kanban", value: true, valueType: "boolean", description: "Enable Kanban board view", category: "features" },
   { key: "maintenance_mode", value: false, valueType: "boolean", description: "Show maintenance page to non-admin users", category: "general" },
 ];

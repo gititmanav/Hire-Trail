@@ -23,8 +23,10 @@ import contactRoutes from "./routes/contacts.js";
 import deadlineRoutes from "./routes/deadlines.js";
 import analyticsRoutes from "./routes/analytics.js";
 import jobRoutes from "./routes/jobs.js";
-import adminRoutes from "./routes/admin.js";
 import companyRoutes from "./routes/companies.js";
+import settingsRoutes from "./routes/settings.js";
+import proxyRoutes from "./routes/proxy.js";
+import adminRoutes from "./routes/admin.js";
 import emailRoutes from "./routes/email.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -97,6 +99,8 @@ app.use("/api/deadlines", deadlineRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/jobs", jobRoutes);
 app.use("/api/companies", companyRoutes);
+app.use("/api/settings", settingsRoutes);
+app.use("/api/proxy", proxyRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/email", emailRoutes);
 

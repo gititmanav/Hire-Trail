@@ -63,7 +63,7 @@ export default function Dashboard() {
         const [a, ap, dl, r, ct] = await Promise.all([
           analyticsAPI.get(),
           applicationsAPI.getAll({ limit: 8, sort: "createdAt", order: "desc" }),
-          deadlinesAPI.getAll({ limit: 100 }),
+          deadlinesAPI.getAll({ limit: 100, status: "upcoming" }),
           resumesAPI.getAll(),
           contactsAPI.getAll({ limit: 100 }),
         ]);
