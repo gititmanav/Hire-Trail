@@ -36,6 +36,7 @@ export interface IApplication extends Document {
   _id: Types.ObjectId;
   userId: Types.ObjectId;
   company: string;
+  companyId: Types.ObjectId | null;
   role: string;
   jobUrl: string;
   applicationDate: Date;
@@ -43,7 +44,6 @@ export interface IApplication extends Document {
   stageHistory: StageEntry[];
   notes: string;
   resumeId: Types.ObjectId | null;
-  companyId: Types.ObjectId | null;
   contactId: Types.ObjectId | null;
   outreachStatus: OutreachStatus;
   archived: boolean;
@@ -105,16 +105,16 @@ const applicationSchema = new Schema<IApplication>(
       default: "",
       maxlength: 5000,
     },
-    resumeId: {
-      type: Schema.Types.ObjectId,
-      ref: "Resume",
-      default: null,
-    },
     companyId: {
       type: Schema.Types.ObjectId,
       ref: "Company",
       default: null,
       index: true,
+    },
+    resumeId: {
+      type: Schema.Types.ObjectId,
+      ref: "Resume",
+      default: null,
     },
     contactId: {
       type: Schema.Types.ObjectId,

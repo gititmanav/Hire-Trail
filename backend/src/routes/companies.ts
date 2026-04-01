@@ -1,161 +1,128 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { Company } from "../models/Company.js";
 import { Application } from "../models/Application.js";
-import { Contact } from "../models/Contact.js";
 import { ensureAuth, getUser } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
-import {
-  createCompanySchema,
-  updateCompanySchema,
-} from "../validators/companies.js";
+import { updateCompanySchema } from "../validators/companies.js";
 import { NotFoundError } from "../errors/AppError.js";
 
 const router = Router();
 router.use(ensureAuth);
 
-// GET list (paginated, searchable)
+/** Extract domain from a URL. */
+function extractDomain(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}
+
+// GET list: companies for current user with pagination + search + application counts
 router.get("/", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = getUser(req);
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
-    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 24));
     const skip = (page - 1) * limit;
     const search = (req.query.search as string) || "";
 
-    const query: any = { userId: user._id };
+    const query: any = { users: user._id };
     if (search.trim()) {
       query.name = new RegExp(search.trim(), "i");
     }
 
     const [companies, total] = await Promise.all([
-      Company.find(query)
-        .sort({ name: 1 })
-        .skip(skip)
-        .limit(limit)
-        .lean(),
+      Company.find(query).sort({ name: 1 }).skip(skip).limit(limit).lean(),
       Company.countDocuments(query),
     ]);
 
-    res.json({
-      data: companies,
-      pagination: { page, limit, total, pages: Math.ceil(total / limit) },
-    });
+    // Get application counts per company for this user
+    const companyIds = companies.map((c) => c._id);
+    const appCounts = await Application.aggregate([
+      { $match: { userId: user._id, companyId: { $in: companyIds } } },
+      { $group: { _id: "$companyId", count: { $sum: 1 } } },
+    ]);
+    const countMap = new Map(appCounts.map((a) => [a._id.toString(), a.count]));
+
+    const data = companies.map((c) => ({
+      ...c,
+      applicationCount: countMap.get(c._id.toString()) || 0,
+    }));
+
+    res.json({ data, pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
   } catch (err) {
     next(err);
   }
 });
 
-// GET one — includes aggregated data
+// GET one company with details
 router.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = getUser(req);
-    const company = await Company.findOne({
-      _id: req.params.id,
-      userId: user._id,
-    }).lean();
+    const company = await Company.findOne({ _id: req.params.id, users: user._id }).lean();
     if (!company) throw new NotFoundError("Company");
 
-    const [applications, contacts, rejectionCount] = await Promise.all([
-      Application.find({ userId: user._id, companyId: company._id })
-        .sort({ createdAt: -1 })
-        .lean(),
-      Contact.find({ userId: user._id, companyId: company._id })
-        .sort({ lastContactDate: -1 })
-        .lean(),
-      Application.countDocuments({
-        userId: user._id,
-        companyId: company._id,
-        stage: "Rejected",
-      }),
+    const [applications, appCount] = await Promise.all([
+      Application.find({ userId: user._id, companyId: company._id }).lean(),
+      Application.countDocuments({ userId: user._id, companyId: company._id }),
     ]);
 
-    // Compute average stage reached (numeric index: Applied=0, OA=1, Interview=2, Offer=3, Rejected is excluded)
-    const stageOrder: Record<string, number> = { Applied: 0, OA: 1, Interview: 2, Offer: 3 };
-    const nonRejected = applications.filter((a) => a.stage !== "Rejected");
-    const avgStageReached =
-      nonRejected.length > 0
-        ? nonRejected.reduce((sum, a) => sum + (stageOrder[a.stage] ?? 0), 0) / nonRejected.length
-        : 0;
-
-    res.json({
-      ...company,
-      applications,
-      contacts,
-      rejectionCount,
-      avgStageReached,
-    });
+    res.json({ ...company, applications, applicationCount: appCount });
   } catch (err) {
     next(err);
   }
 });
 
-// POST create
-router.post(
-  "/",
-  validate(createCompanySchema),
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const user = getUser(req);
-      const company = await Company.create({
-        ...req.body,
-        userId: user._id,
-      });
-      res.status(201).json(company);
-    } catch (err) {
-      next(err);
+// POST create / find-or-create company
+router.post("/", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = getUser(req);
+    const { name, website } = req.body;
+    if (!name || typeof name !== "string" || !name.trim()) {
+      return res.status(400).json({ error: "Company name is required" });
     }
-  }
-);
 
-// PUT update
-router.put(
-  "/:id",
-  validate(updateCompanySchema),
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const user = getUser(req);
-      const company = await Company.findOneAndUpdate(
-        { _id: req.params.id, userId: user._id },
-        { $set: req.body },
-        { new: true, runValidators: true }
-      );
-      if (!company) throw new NotFoundError("Company");
-      res.json(company);
-    } catch (err) {
-      next(err);
+    const domain = website ? extractDomain(website) : "";
+    const company = await Company.findOneAndUpdate(
+      { name: name.trim() },
+      {
+        $setOnInsert: { name: name.trim(), website: website || "", domain, createdBy: user._id },
+        $addToSet: { users: user._id },
+      },
+      { upsert: true, new: true, collation: { locale: "en", strength: 2 } }
+    );
+
+    // Update website/domain if not already set
+    if (!company.website && website) {
+      company.website = website;
+      company.domain = domain;
+      await company.save();
     }
+
+    res.status(201).json(company);
+  } catch (err) {
+    next(err);
   }
-);
+});
 
-// DELETE
-router.delete(
-  "/:id",
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const user = getUser(req);
-      const result = await Company.findOneAndDelete({
-        _id: req.params.id,
-        userId: user._id,
-      });
-      if (!result) throw new NotFoundError("Company");
+// PUT update company
+router.put("/:id", validate(updateCompanySchema), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = getUser(req);
+    const company = await Company.findOne({ _id: req.params.id, users: user._id });
+    if (!company) throw new NotFoundError("Company");
 
-      // Unlink applications and contacts from this company
-      await Promise.all([
-        Application.updateMany(
-          { userId: user._id, companyId: result._id },
-          { $unset: { companyId: "" } }
-        ),
-        Contact.updateMany(
-          { userId: user._id, companyId: result._id },
-          { $unset: { companyId: "" } }
-        ),
-      ]);
-
-      res.json({ message: "Company deleted" });
-    } catch (err) {
-      next(err);
+    if (req.body.website !== undefined) {
+      company.website = req.body.website;
+      company.domain = req.body.website ? extractDomain(req.body.website) : company.domain;
     }
+    if (req.body.domain !== undefined) company.domain = req.body.domain;
+    await company.save();
+    res.json(company);
+  } catch (err) {
+    next(err);
   }
-);
+});
 
 export default router;

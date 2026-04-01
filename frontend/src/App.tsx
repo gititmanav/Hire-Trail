@@ -15,7 +15,6 @@ import JobSearch from "./pages/JobSearch/JobSearch.tsx";
 import Resumes from "./pages/Resumes/Resumes.tsx";
 import Contacts from "./pages/Contacts/Contacts.tsx";
 import Companies from "./pages/Companies/Companies.tsx";
-import CompanyProfile from "./pages/Companies/CompanyProfile.tsx";
 import Deadlines from "./pages/Deadlines/Deadlines.tsx";
 import ImportExport from "./pages/ImportExport/ImportExport.tsx";
 import Profile from "./pages/Profile/Profile.tsx";
@@ -27,13 +26,20 @@ import {
 } from "./pages/Admin/index.ts";
 import { authAPI } from "./utils/api.ts";
 import { useTheme } from "./hooks/useTheme.ts";
+import { FeatureFlagsProvider, useFeatureFlags } from "./hooks/useFeatureFlags.tsx";
 import type { User } from "./types";
 import { JobSearchContext, defaultState } from "./hooks/useJobSearchState.ts";
 import type { JobSearchState } from "./hooks/useJobSearchState.ts";
 
-export const ThemeContext = createContext<{ dark: boolean; toggle: (e?: React.MouseEvent) => void; themeId: string; setTheme: (id: string) => void }>({ dark: false, toggle: () => { }, themeId: "default", setTheme: () => { } });
-
+export const ThemeContext = createContext<{ dark: boolean; toggle: (e?: React.MouseEvent) => void; themeId: string; setTheme: (id: string) => void }>({ dark: false, toggle: () => { }, themeId: "default", setTheme: () => {} });
 export const UserContext = createContext<{ user: User | null; setUser: (u: User | null) => void }>({ user: null, setUser: () => {} });
+
+function FeatureRoute({ flag, children }: { flag: string; children: React.ReactNode }) {
+  const { isEnabled, loading } = useFeatureFlags();
+  if (loading) return <div className="spinner" style={{ minHeight: "50vh" }} />;
+  if (!isEnabled(flag)) return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -51,6 +57,7 @@ function App() {
   return (
     <ThemeContext.Provider value={theme}>
       <UserContext.Provider value={{ user, setUser }}>
+      <FeatureFlagsProvider authenticated={!!user}>
       <JobSearchContext.Provider value={{ state: jobSearchState, setState: setJobSearchState }}>
 
         <Routes>
@@ -76,20 +83,20 @@ function App() {
           <Route element={<ProtectedRoute user={user}><Layout user={user!} onLogout={async () => { try { await authAPI.logout(); } catch { } setUser(null); }} /></ProtectedRoute>}>
             <Route path="/" element={user?.role === "admin" ? <Navigate to="/admin" replace /> : <Dashboard />} />
             <Route path="/applications" element={<Applications />} />
-            <Route path="/kanban" element={<Kanban />} />
-            <Route path="/jobs" element={<JobSearch />} />
+            <Route path="/companies" element={<Companies />} />
+            <Route path="/kanban" element={<FeatureRoute flag="feature_kanban"><Kanban /></FeatureRoute>} />
+            <Route path="/jobs" element={<FeatureRoute flag="feature_job_search"><JobSearch /></FeatureRoute>} />
             <Route path="/resumes" element={<Resumes />} />
             <Route path="/contacts" element={<Contacts />} />
-            <Route path="/companies" element={<Companies />} />
-            <Route path="/companies/:id" element={<CompanyProfile />} />
             <Route path="/deadlines" element={<Deadlines />} />
-            <Route path="/import-export" element={<ImportExport />} />
+            <Route path="/import-export" element={<FeatureRoute flag="feature_csv_import_export"><ImportExport /></FeatureRoute>} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/settings" element={<Profile />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </JobSearchContext.Provider>
+      </FeatureFlagsProvider>
       </UserContext.Provider>
     </ThemeContext.Provider>
   );

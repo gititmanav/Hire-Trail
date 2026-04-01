@@ -6,6 +6,10 @@ import { validate } from "../middleware/validate.js";
 import { createApplicationSchema, updateApplicationSchema } from "../validators/applications.js";
 import { NotFoundError, ValidationError } from "../errors/AppError.js";
 
+function extractDomain(url: string): string {
+  try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return ""; }
+}
+
 const router = Router();
 router.use(ensureAuth);
 
@@ -64,27 +68,25 @@ router.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
   } catch (err) { next(err); }
 });
 
-// POST create (with auto-company linking)
+// POST create (with shared-company linking)
 router.post("/", validate(createApplicationSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = getUser(req);
-    const data = { ...req.body, userId: user._id, resumeId: req.body.resumeId || null };
-
-    // Auto-company creation: if no companyId but company name provided, find or create
-    if (!data.companyId && data.company) {
-      const existing = await Company.findOne({
-        userId: user._id,
-        name: { $regex: new RegExp(`^${data.company.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") },
-      });
-      if (existing) {
-        data.companyId = existing._id;
-      } else {
-        const newCompany = await Company.create({ userId: user._id, name: data.company });
-        data.companyId = newCompany._id;
-      }
+    // Find-or-create shared company
+    let companyId = req.body.companyId || null;
+    if (!companyId && req.body.company) {
+      const domain = req.body.jobUrl ? extractDomain(req.body.jobUrl) : "";
+      const company = await Company.findOneAndUpdate(
+        { name: req.body.company.trim() },
+        {
+          $setOnInsert: { name: req.body.company.trim(), website: req.body.jobUrl ? new URL(req.body.jobUrl).origin : "", domain, createdBy: user._id },
+          $addToSet: { users: user._id },
+        },
+        { upsert: true, new: true, collation: { locale: "en", strength: 2 } }
+      );
+      companyId = company._id;
     }
-
-    const app = await Application.create(data);
+    const app = await Application.create({ ...req.body, userId: user._id, companyId, resumeId: req.body.resumeId || null });
     res.status(201).json(app);
   } catch (err) { next(err); }
 });
@@ -117,7 +119,20 @@ router.put("/:id", validate(updateApplicationSchema), async (req: Request, res: 
     if (!existing) throw new NotFoundError("Application");
     const data = req.body;
     if (data.stage && data.stage !== existing.stage) { existing.stageHistory.push({ stage: data.stage, date: new Date() }); existing.stage = data.stage; }
-    if (data.company !== undefined) existing.company = data.company;
+    if (data.company !== undefined) {
+      existing.company = data.company;
+      // Re-link shared company if name changed
+      const domain = data.jobUrl ? extractDomain(data.jobUrl) : (existing.jobUrl ? extractDomain(existing.jobUrl) : "");
+      const company = await Company.findOneAndUpdate(
+        { name: data.company.trim() },
+        {
+          $setOnInsert: { name: data.company.trim(), website: "", domain, createdBy: user._id },
+          $addToSet: { users: user._id },
+        },
+        { upsert: true, new: true, collation: { locale: "en", strength: 2 } }
+      );
+      existing.companyId = company._id;
+    }
     if (data.role !== undefined) existing.role = data.role;
     if (data.jobUrl !== undefined) existing.jobUrl = data.jobUrl;
     if (data.notes !== undefined) existing.notes = data.notes;

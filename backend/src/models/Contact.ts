@@ -28,12 +28,12 @@ export interface IContact extends Document {
   userId: Types.ObjectId;
   name: string;
   company: string;
+  companyId: Types.ObjectId | null;
   role: string;
   linkedinUrl: string;
   connectionSource: string;
   lastContactDate: Date;
   notes: string;
-  companyId: Types.ObjectId | null;
   applicationIds: Types.ObjectId[];
   outreachStatus: ContactOutreachStatus;
   lastOutreachDate: Date | null;
@@ -82,16 +82,16 @@ const contactSchema = new Schema<IContact>(
       type: Date,
       default: Date.now,
     },
-    notes: {
-      type: String,
-      default: "",
-      maxlength: 5000,
-    },
     companyId: {
       type: Schema.Types.ObjectId,
       ref: "Company",
       default: null,
       index: true,
+    },
+    notes: {
+      type: String,
+      default: "",
+      maxlength: 5000,
     },
     applicationIds: {
       type: [Schema.Types.ObjectId],
