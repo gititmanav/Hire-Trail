@@ -3,7 +3,7 @@ import { Line } from "react-chartjs-2";
 import { ThemeContext } from "../../App.tsx";
 import { primaryColor, mutedFgColor, borderColor } from "../../utils/chartSetup.ts";
 import type { AnalyticsData } from "../../types";
-import type { ChartJS } from "chart.js";
+import type { Chart as ChartJS } from "chart.js";
 
 interface Props { data: AnalyticsData; }
 

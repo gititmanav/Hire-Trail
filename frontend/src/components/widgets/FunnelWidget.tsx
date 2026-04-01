@@ -3,7 +3,7 @@ import { Bar } from "react-chartjs-2";
 import { ThemeContext } from "../../App.tsx";
 import { chartColors, mutedFgColor, borderColor } from "../../utils/chartSetup.ts";
 import type { AnalyticsData, Stage } from "../../types";
-import type { ChartJS } from "chart.js";
+import type { Chart as ChartJS } from "chart.js";
 
 const STAGES: Stage[] = ["Applied", "OA", "Interview", "Offer"];
 interface Props { data: AnalyticsData; }
