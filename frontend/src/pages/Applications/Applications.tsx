@@ -8,6 +8,7 @@ import { applicationsAPI, resumesAPI, contactsAPI, deadlinesAPI } from "../../ut
 import { exportToCSV } from "../../utils/csv.ts";
 import ImportModal from "../../components/ImportModal/ImportModal.tsx";
 import { SkeletonTable, SkeletonStats } from "../../components/Skeleton/Skeleton.tsx";
+import ResumePreview from "../../components/ResumePreview/ResumePreview.tsx";
 import type { Application, Resume, Contact, Deadline, Stage, ApplicationFormData, Pagination, SortConfig } from "../../types";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal.tsx";
 import { useConfirm } from "../../hooks/useConfirm.ts";
@@ -91,160 +92,122 @@ function ApplicationDetailSidebar({
     return () => document.removeEventListener("keydown", h);
   }, [onClose]);
 
+  const [open, setOpen] = useState(false);
+  useEffect(() => { requestAnimationFrame(() => setOpen(true)); }, []);
+  const handleClose = () => { setOpen(false); setTimeout(onClose, 300); };
+
   return (
-    <>
-      <div className="fixed inset-0 bg-black/20 z-40" onClick={onClose} />
-      <div className="fixed top-0 right-0 bottom-0 w-[420px] bg-white dark:bg-gray-800 shadow-2xl z-50 overflow-y-auto animate-in border-l border-gray-200 dark:border-gray-700">
-        <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white truncate">{app.role}</h2>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-600 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
-            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="3" x2="11" y2="11"/><line x1="11" y1="3" x2="3" y2="11"/></svg>
-          </button>
+    <div className="fixed inset-0 z-40 flex justify-end" onClick={handleClose}>
+      <div className={`absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300 ${open ? "opacity-100" : "opacity-0"}`} />
+      <div
+        className={`relative w-[420px] h-full bg-card shadow-2xl flex flex-col border-l border-border transition-transform duration-300 ${open ? "translate-x-0" : "translate-x-full"}`}
+        onClick={(e) => e.stopPropagation()}
+      >
+      <div className="sticky top-0 bg-card border-b border-border px-6 py-4 flex items-center justify-between shrink-0">
+        <h2 className="text-lg font-semibold text-foreground truncate">{app.role}</h2>
+        <button onClick={handleClose} className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground">
+          <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="3" x2="11" y2="11"/><line x1="11" y1="3" x2="3" y2="11"/></svg>
+        </button>
+      </div>
+
+      <div className="p-6 space-y-5 overflow-y-auto flex-1">
+        {/* Company */}
+        <div>
+          <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Company</label>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-foreground">{app.company}</span>
+            {app.jobUrl && <a href={app.jobUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-xs">Visit</a>}
+          </div>
         </div>
 
-        <div className="p-6 space-y-5">
-          {/* Company */}
-          <div>
-            <label className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1 block">Company</label>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-gray-900 dark:text-white">{app.company}</span>
-              {app.jobUrl && <a href={app.jobUrl} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline text-xs">Visit</a>}
-            </div>
+        {/* Stage tags */}
+        <div>
+          <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 block">Stage</label>
+          <div className="flex flex-wrap gap-1.5">
+            {STAGES.map((s) => (
+              <button key={s} onClick={() => onStageChange(app._id, s)}
+                className={`px-3 py-1 text-xs font-medium rounded-full border transition-all ${app.stage === s ? badgeCls[s] + " border-current" : "bg-muted border-border text-muted-foreground hover:border-primary hover:text-primary"}`}>
+                {s}
+              </button>
+            ))}
           </div>
+        </div>
 
-          {/* Stage tags */}
+        {/* Date */}
+        <div>
+          <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Applied</label>
+          <p className="text-sm text-secondary-foreground">{fmt(app.applicationDate)}</p>
+        </div>
+
+        {/* Resume */}
+        <div>
+          <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Resume</label>
+          {resume ? (
+            <button onClick={() => onViewResume(resume)} className="text-sm text-primary hover:underline flex items-center gap-1">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9l-7-7z"/><path d="M13 2v7h7"/></svg>
+              {resume.name}
+            </button>
+          ) : <p className="text-sm text-muted-foreground">None</p>}
+        </div>
+
+        {/* Contact */}
+        <div>
+          <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Company Contact</label>
+          {companyContacts.length > 0 ? (
+            <div className="space-y-2">
+              {companyContacts.slice(0, 3).map((c) => (
+                <div key={c._id} className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold text-muted-foreground">{c.name[0]}</div>
+                  <div>
+                    <p className="text-sm text-foreground">{c.name}</p>
+                    <p className="text-[11px] text-muted-foreground">{c.role} · {c.connectionSource}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : <p className="text-sm text-muted-foreground">None</p>}
+        </div>
+
+        {/* Deadlines */}
+        <div>
+          <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Follow-up Deadlines</label>
+          {appDeadlines.length > 0 ? (
+            <div className="space-y-1.5">
+              {appDeadlines.map((d) => (
+                <div key={d._id} className="flex items-center justify-between text-sm">
+                  <span className="text-secondary-foreground">{d.type}</span>
+                  <span className="text-xs text-muted-foreground">{fmt(d.dueDate)}</span>
+                </div>
+              ))}
+            </div>
+          ) : <p className="text-sm text-muted-foreground">None</p>}
+        </div>
+
+        {/* Notes */}
+        {app.notes && (
           <div>
-            <label className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2 block">Stage</label>
-            <div className="flex flex-wrap gap-1.5">
-              {STAGES.map((s) => (
-                <button key={s} onClick={() => onStageChange(app._id, s)}
-                  className={`px-3 py-1 text-xs font-medium rounded-full border transition-all ${app.stage === s ? badgeCls[s] + " border-current" : "bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-accent hover:text-accent"}`}>
-                  {s}
-                </button>
+            <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Notes</label>
+            <p className="text-sm text-secondary-foreground whitespace-pre-wrap">{app.notes}</p>
+          </div>
+        )}
+
+        {/* Stage History */}
+        {app.stageHistory.length > 0 && (
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 block">Stage History</label>
+            <div className="space-y-1.5">
+              {app.stageHistory.map((sh, i) => (
+                <div key={i} className="flex items-center gap-2 text-sm">
+                  <span className={`inline-block px-2 py-0.5 text-[11px] font-medium rounded-full ${badgeCls[sh.stage]}`}>{sh.stage}</span>
+                  <span className="text-xs text-muted-foreground">{fmt(sh.date)}</span>
+                </div>
               ))}
             </div>
           </div>
-
-          {/* Date */}
-          <div>
-            <label className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1 block">Applied</label>
-            <p className="text-sm text-gray-700 dark:text-gray-300">{fmt(app.applicationDate)}</p>
-          </div>
-
-          {/* Resume */}
-          <div>
-            <label className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1 block">Resume</label>
-            {resume ? (
-              <button onClick={() => onViewResume(resume)} className="text-sm text-accent hover:underline flex items-center gap-1">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9l-7-7z"/><path d="M13 2v7h7"/></svg>
-                {resume.name}
-              </button>
-            ) : <p className="text-sm text-gray-400">None</p>}
-          </div>
-
-          {/* Contact */}
-          <div>
-            <label className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1 block">Company Contact</label>
-            {companyContacts.length > 0 ? (
-              <div className="space-y-2">
-                {companyContacts.slice(0, 3).map((c) => (
-                  <div key={c._id} className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-[10px] font-bold text-gray-500">{c.name[0]}</div>
-                    <div>
-                      <p className="text-sm text-gray-900 dark:text-white">{c.name}</p>
-                      <p className="text-[11px] text-gray-400">{c.role} · {c.connectionSource}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : <p className="text-sm text-gray-400">None</p>}
-          </div>
-
-          {/* Deadlines */}
-          <div>
-            <label className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1 block">Follow-up Deadlines</label>
-            {appDeadlines.length > 0 ? (
-              <div className="space-y-1.5">
-                {appDeadlines.map((d) => (
-                  <div key={d._id} className="flex items-center justify-between text-sm">
-                    <span className="text-gray-700 dark:text-gray-300">{d.type}</span>
-                    <span className="text-xs text-gray-400">{fmt(d.dueDate)}</span>
-                  </div>
-                ))}
-              </div>
-            ) : <p className="text-sm text-gray-400">None</p>}
-          </div>
-
-          {/* Notes */}
-          {app.notes && (
-            <div>
-              <label className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1 block">Notes</label>
-              <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{app.notes}</p>
-            </div>
-          )}
-
-          {/* Stage History */}
-          {app.stageHistory.length > 0 && (
-            <div>
-              <label className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2 block">Stage History</label>
-              <div className="space-y-1.5">
-                {app.stageHistory.map((sh, i) => (
-                  <div key={i} className="flex items-center gap-2 text-sm">
-                    <span className={`inline-block px-2 py-0.5 text-[11px] font-medium rounded-full ${badgeCls[sh.stage]}`}>{sh.stage}</span>
-                    <span className="text-xs text-gray-400">{fmt(sh.date)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+        )}
       </div>
-    </>
-  );
-}
-
-/* ─── Resume Sidebar ─── */
-function ResumeSidebar({ resume, onClose }: { resume: Resume; onClose: () => void }) {
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", h);
-    return () => document.removeEventListener("keydown", h);
-  }, [onClose]);
-
-  return (
-    <>
-      <div className="fixed inset-0 bg-black/10 z-[55]" onClick={onClose} />
-      <div className="fixed top-0 right-0 bottom-0 w-[380px] bg-white dark:bg-gray-800 shadow-2xl z-[60] overflow-y-auto animate-in border-l border-gray-200 dark:border-gray-700">
-        <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-600 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
-              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M11 7H3m0 0l4-4M3 7l4 4"/></svg>
-            </button>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white truncate">{resume.name}</h2>
-          </div>
-        </div>
-        <div className="p-6 space-y-4">
-          <div>
-            <label className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1 block">Target Role</label>
-            <p className="text-sm text-gray-700 dark:text-gray-300">{resume.targetRole || "General"}</p>
-          </div>
-          <div>
-            <label className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1 block">File</label>
-            <p className="text-sm text-gray-700 dark:text-gray-300">{resume.fileName}</p>
-          </div>
-          <div>
-            <label className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1 block">Uploaded</label>
-            <p className="text-sm text-gray-700 dark:text-gray-300">{fmt(resume.uploadDate)}</p>
-          </div>
-          {resume.fileUrl && (
-            <a href={resume.fileUrl} target="_blank" rel="noopener noreferrer" className="btn-accent inline-flex mt-2">
-              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M9 6.5v3a1 1 0 01-1 1H3a1 1 0 01-1-1V4.5a1 1 0 011-1h3"/><polyline points="7,1.5 10.5,1.5 10.5,5"/><line x1="5.5" y1="6.5" x2="10.5" y2="1.5"/></svg>
-              View PDF
-            </a>
-          )}
-        </div>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -421,21 +384,25 @@ export default function Applications() {
                   const firstApp = companyApps[0];
 
                   if (!isMulti) {
-                    // Single application - normal row
+                    // Single application - normal row with disabled chevron
                     return (
-                      <tr key={firstApp._id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group">
-                        <td className="px-2 py-3"><div className="w-4" /></td>
-                        <td className="px-4 py-3">
-                          <span className="text-sm font-medium text-gray-900 dark:text-white">{firstApp.company}</span>
-                          {firstApp.jobUrl && <a href={firstApp.jobUrl} target="_blank" rel="noopener noreferrer" className="ml-1.5 text-gray-300 hover:text-accent inline-flex opacity-0 group-hover:opacity-100 transition-opacity"><svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M9 6.5v3a1 1 0 01-1 1H3a1 1 0 01-1-1V4.5a1 1 0 011-1h3"/><polyline points="7,1.5 10.5,1.5 10.5,5"/><line x1="5.5" y1="6.5" x2="10.5" y2="1.5"/></svg></a>}
+                      <tr key={firstApp._id} className="hover:bg-muted/50 transition-colors group">
+                        <td className="px-2 py-3">
+                          <div className="w-5 h-5 flex items-center justify-center">
+                            <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-muted-foreground/20"><path d="M4 2l5 5-5 5" /></svg>
+                          </div>
                         </td>
-                        <td className="px-4 py-3"><button onClick={() => setSidebarApp(firstApp)} className="text-sm text-accent hover:underline text-left">{firstApp.role}</button></td>
+                        <td className="px-4 py-3">
+                          <span className="text-sm font-medium text-foreground">{firstApp.company}</span>
+                          {firstApp.jobUrl && <a href={firstApp.jobUrl} target="_blank" rel="noopener noreferrer" className="ml-1.5 text-muted-foreground/50 hover:text-primary inline-flex opacity-0 group-hover:opacity-100 transition-opacity"><svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M9 6.5v3a1 1 0 01-1 1H3a1 1 0 01-1-1V4.5a1 1 0 011-1h3"/><polyline points="7,1.5 10.5,1.5 10.5,5"/><line x1="5.5" y1="6.5" x2="10.5" y2="1.5"/></svg></a>}
+                        </td>
+                        <td className="px-4 py-3"><button onClick={() => setSidebarApp(firstApp)} className="text-sm text-primary hover:underline text-left">{firstApp.role}</button></td>
                         <td className="px-4 py-3"><span className={`inline-block px-2.5 py-0.5 text-xs font-medium rounded-full ${badgeCls[firstApp.stage]}`}>{firstApp.stage}</span></td>
-                        <td className="px-4 py-3 text-[13px] text-gray-400">{resumes.find((r) => r._id === firstApp.resumeId)?.name || "—"}</td>
-                        <td className="px-4 py-3 text-[13px] text-gray-400">{fmt(firstApp.applicationDate)}</td>
+                        <td className="px-4 py-3 text-[13px] text-muted-foreground">{(() => { const r = resumes.find((r) => r._id === firstApp.resumeId); return r ? <button onClick={() => setSidebarResume(r)} className="text-primary hover:underline text-left flex items-center gap-1"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9l-7-7z"/><path d="M13 2v7h7"/></svg>{r.name}</button> : "—"; })()}</td>
+                        <td className="px-4 py-3 text-[13px] text-muted-foreground">{fmt(firstApp.applicationDate)}</td>
                         <td className="px-4 py-3"><div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => { setEditing(firstApp); setModal(true); }} className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-600 text-gray-400 hover:text-accent hover:border-accent transition-colors"><svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M8.5 2.5l3 3L4.5 12.5H1.5v-3z"/></svg></button>
-                          <button onClick={() => handleDelete(firstApp._id)} className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-600 text-gray-400 hover:text-danger hover:border-danger transition-colors"><svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="2,4 12,4"/><path d="M5 4V2.5a.5.5 0 01.5-.5h3a.5.5 0 01.5.5V4"/><path d="M3 4l.75 8.5a1 1 0 001 .5h4.5a1 1 0 001-.5L11 4"/></svg></button>
+                          <button onClick={() => { setEditing(firstApp); setModal(true); }} className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary transition-colors"><svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M8.5 2.5l3 3L4.5 12.5H1.5v-3z"/></svg></button>
+                          <button onClick={() => handleDelete(firstApp._id)} className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-danger hover:border-danger transition-colors"><svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="2,4 12,4"/><path d="M5 4V2.5a.5.5 0 01.5-.5h3a.5.5 0 01.5.5V4"/><path d="M3 4l.75 8.5a1 1 0 001 .5h4.5a1 1 0 001-.5L11 4"/></svg></button>
                         </div></td>
                       </tr>
                     );
@@ -444,9 +411,9 @@ export default function Applications() {
                   // Multi-application company: header + expandable children
                   return (
                     <Fragment key={company}>
-                      <tr className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer" onClick={() => toggleExpand(company)}>
+                      <tr className="hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => toggleExpand(company)}>
                         <td className="px-2 py-3">
-                          <button className="w-5 h-5 flex items-center justify-center rounded text-gray-400 hover:text-accent transition-colors">
+                          <button className="w-5 h-5 flex items-center justify-center rounded text-muted-foreground hover:text-primary transition-colors">
                             <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
                               className={`transition-transform duration-200 ${isExpanded ? "rotate-90" : ""}`}>
                               <path d="M4 2l5 5-5 5" />
@@ -454,10 +421,10 @@ export default function Applications() {
                           </button>
                         </td>
                         <td className="px-4 py-3">
-                          <span className="text-sm font-medium text-gray-900 dark:text-white">{company}</span>
-                          <span className="ml-2 text-[11px] bg-accent-light text-accent-dark dark:bg-accent/20 dark:text-accent px-2 py-0.5 rounded-full font-medium">{companyApps.length} apps</span>
+                          <span className="text-sm font-medium text-foreground">{company}</span>
+                          <span className="ml-2 text-[11px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">{companyApps.length} apps</span>
                         </td>
-                        <td className="px-4 py-3 text-[13px] text-gray-400">{isExpanded ? "" : companyApps.map((a) => a.role).join(", ")}</td>
+                        <td className="px-4 py-3 text-[13px] text-muted-foreground">{isExpanded ? "" : companyApps.map((a) => a.role).join(", ")}</td>
                         <td className="px-4 py-3">
                           <div className="flex gap-1">{[...new Set(companyApps.map((a) => a.stage))].map((s) => <span key={s} className={`inline-block px-2 py-0.5 text-[11px] font-medium rounded-full ${badgeCls[s]}`}>{s}</span>)}</div>
                         </td>
@@ -466,23 +433,23 @@ export default function Applications() {
                         <td className="px-4 py-3" />
                       </tr>
                       {isExpanded && companyApps.map((a) => (
-                        <tr key={a._id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group bg-gray-50/50 dark:bg-gray-700/20">
+                        <tr key={a._id} className="hover:bg-muted/50 transition-colors group bg-muted/30">
                           <td className="px-2 py-2.5">
                             <div className="w-5 h-5 flex items-center justify-center">
-                              <svg width="10" height="10" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gray-300 dark:text-gray-600"><path d="M2 1v5h6"/></svg>
+                              <svg width="10" height="10" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-muted-foreground/30"><path d="M2 1v5h6"/></svg>
                             </div>
                           </td>
                           <td className="px-4 py-2.5">
-                            <span className="text-[13px] text-gray-500 dark:text-gray-400">{a.company}</span>
-                            {a.jobUrl && <a href={a.jobUrl} target="_blank" rel="noopener noreferrer" className="ml-1.5 text-gray-300 hover:text-accent inline-flex opacity-0 group-hover:opacity-100 transition-opacity"><svg width="10" height="10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M7 5v2.5a.8.8 0 01-.8.8H2.5a.8.8 0 01-.8-.8V3.8a.8.8 0 01.8-.8H5"/><polyline points="6,1.2 8.8,1.2 8.8,4"/><line x1="4.5" y1="5.3" x2="8.8" y2="1.2"/></svg></a>}
+                            <span className="text-[13px] text-muted-foreground">{a.company}</span>
+                            {a.jobUrl && <a href={a.jobUrl} target="_blank" rel="noopener noreferrer" className="ml-1.5 text-muted-foreground/50 hover:text-primary inline-flex opacity-0 group-hover:opacity-100 transition-opacity"><svg width="10" height="10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M7 5v2.5a.8.8 0 01-.8.8H2.5a.8.8 0 01-.8-.8V3.8a.8.8 0 01.8-.8H5"/><polyline points="6,1.2 8.8,1.2 8.8,4"/><line x1="4.5" y1="5.3" x2="8.8" y2="1.2"/></svg></a>}
                           </td>
-                          <td className="px-4 py-2.5"><button onClick={() => setSidebarApp(a)} className="text-sm text-accent hover:underline text-left">{a.role}</button></td>
+                          <td className="px-4 py-2.5"><button onClick={() => setSidebarApp(a)} className="text-sm text-primary hover:underline text-left">{a.role}</button></td>
                           <td className="px-4 py-2.5"><span className={`inline-block px-2.5 py-0.5 text-xs font-medium rounded-full ${badgeCls[a.stage]}`}>{a.stage}</span></td>
-                          <td className="px-4 py-2.5 text-[13px] text-gray-400">{resumes.find((r) => r._id === a.resumeId)?.name || "—"}</td>
-                          <td className="px-4 py-2.5 text-[13px] text-gray-400">{fmt(a.applicationDate)}</td>
+                          <td className="px-4 py-2.5 text-[13px] text-muted-foreground">{(() => { const r = resumes.find((r) => r._id === a.resumeId); return r ? <button onClick={(e) => { e.stopPropagation(); setSidebarResume(r); }} className="text-primary hover:underline text-left flex items-center gap-1"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9l-7-7z"/><path d="M13 2v7h7"/></svg>{r.name}</button> : "—"; })()}</td>
+                          <td className="px-4 py-2.5 text-[13px] text-muted-foreground">{fmt(a.applicationDate)}</td>
                           <td className="px-4 py-2.5"><div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onClick={(e) => { e.stopPropagation(); setEditing(a); setModal(true); }} className="w-7 h-7 flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-600 text-gray-400 hover:text-accent hover:border-accent transition-colors"><svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M8.5 2.5l3 3L4.5 12.5H1.5v-3z"/></svg></button>
-                            <button onClick={(e) => { e.stopPropagation(); handleDelete(a._id); }} className="w-7 h-7 flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-600 text-gray-400 hover:text-danger hover:border-danger transition-colors"><svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="2,4 10,4"/><path d="M4 4V2.5a.5.5 0 01.5-.5h3a.5.5 0 01.5.5V4"/><path d="M3 4l.6 7a.8.8 0 00.8.4h3.2a.8.8 0 00.8-.4L9 4"/></svg></button>
+                            <button onClick={(e) => { e.stopPropagation(); setEditing(a); setModal(true); }} className="w-7 h-7 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary transition-colors"><svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M8.5 2.5l3 3L4.5 12.5H1.5v-3z"/></svg></button>
+                            <button onClick={(e) => { e.stopPropagation(); handleDelete(a._id); }} className="w-7 h-7 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-danger hover:border-danger transition-colors"><svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="2,4 10,4"/><path d="M4 4V2.5a.5.5 0 01.5-.5h3a.5.5 0 01.5.5V4"/><path d="M3 4l.6 7a.8.8 0 00.8.4h3.2a.8.8 0 00.8-.4L9 4"/></svg></button>
                           </div></td>
                         </tr>
                       ))}
@@ -508,7 +475,7 @@ export default function Applications() {
           onViewResume={(r) => setSidebarResume(r)}
         />
       )}
-      {sidebarResume && <ResumeSidebar resume={sidebarResume} onClose={() => setSidebarResume(null)} />}
+      {sidebarResume && sidebarResume.fileUrl && <ResumePreview fileUrl={sidebarResume.fileUrl} name={sidebarResume.name} fileName={sidebarResume.fileName} onClose={() => setSidebarResume(null)} />}
 
       {modal && <Modal app={editing} resumes={resumes} onSave={handleSave} onClose={() => { setModal(false); setEditing(null); }} />}
       {importModal && <ImportModal onClose={() => setImportModal(false)} onImported={fetchData} />}

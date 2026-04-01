@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 
 const slides = [
-  { src: "/screenshot.png", caption: "Customizable analytics dashboard" },
-  { src: "/screenshot2.png", caption: "Visual Kanban pipeline" },
+  { src: "/screenshot-dashboard.png", caption: "Customizable analytics dashboard" },
+  { src: "/screenshot-kanban.png", caption: "Visual Kanban pipeline" },
 ];
 
 export default function ScreenshotCarousel() {
@@ -14,7 +14,7 @@ export default function ScreenshotCarousel() {
   }, []);
 
   return (
-    <div className="w-full max-w-md">
+    <div className="w-full max-w-lg">
       <div className="relative rounded-xl overflow-hidden shadow-lg border border-border/60 bg-white aspect-[16/10]">
         {slides.map((s, i) => (
           <img

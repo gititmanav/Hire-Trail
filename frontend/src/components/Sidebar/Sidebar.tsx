@@ -19,7 +19,6 @@ const nav: NavItem[] = [
   { to: "/jobs", label: "Job Search", d: "M11 11a4 4 0 100-8 4 4 0 000 8zm0 0l6 6m-13-2l3-3", featureKey: "feature_job_search" },
   { to: "/resumes", label: "Resumes", d: "M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9l-7-7zm0 0v7h7" },
   { to: "/contacts", label: "Contacts", d: "M12 11a4 4 0 100-8 4 4 0 000 8zm-8 10v-1a6 6 0 016-6h4a6 6 0 016 6v1" },
-  { to: "/companies", label: "Companies", d: "M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" },
   { to: "/deadlines", label: "Deadlines", d: "M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" },
   { to: "/import-export", label: "Import / Export", d: "M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5", featureKey: "feature_csv_import_export" },
 ];
@@ -36,8 +35,7 @@ export default function Sidebar({ collapsed, onToggle, isAdmin }: Props) {
       <div className="flex items-center justify-between min-h-[60px] px-4">
         {!collapsed && (
           <div className="flex items-center gap-2.5">
-            <img src="/logo.svg" alt="HireTrail" className="w-8 h-8 rounded-md bg-white p-0.5" />
-            <span className="text-[17px] font-semibold text-sidebar-foreground whitespace-nowrap">HireTrail</span>
+            <span className="text-[18px] font-bold whitespace-nowrap select-none ml-1"><span className="text-[19px] text-[#4d8fd6]">H</span><span className="text-sidebar-foreground">ire</span><span className="text-[19px] text-[#4d8fd6]">T</span><span className="text-sidebar-foreground">rail</span></span>
           </div>
         )}
         <button onClick={onToggle} className="text-sidebar-foreground hover:text-sidebar-primary-foreground hover:bg-sidebar-accent p-1.5 rounded-md transition-colors">
