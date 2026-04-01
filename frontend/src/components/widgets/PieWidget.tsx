@@ -3,7 +3,7 @@ import { Doughnut } from "react-chartjs-2";
 import { ThemeContext } from "../../App.tsx";
 import { chartColors, mutedFgColor } from "../../utils/chartSetup.ts";
 import type { AnalyticsData, Stage } from "../../types";
-import type { ChartJS } from "chart.js";
+import type { Chart as ChartJS } from "chart.js";
 
 const STAGES: Stage[] = ["Applied", "OA", "Interview", "Offer", "Rejected"];
 interface Props { data: AnalyticsData; }
