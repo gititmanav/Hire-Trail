@@ -12,7 +12,6 @@ import { isAdminEmail } from "../utils/admin.js";
 import { AdminLoginEvent } from "../models/AdminLoginEvent.js";
 
 const router = Router();
-const defaultGoogleCallbackUrl = "http://localhost:5050/api/auth/google/callback";
 
 function getRequestMeta(req: Request): { ipAddress: string; userAgent: string } {
   const forwardedFor = req.headers["x-forwarded-for"];
@@ -22,23 +21,6 @@ function getRequestMeta(req: Request): { ipAddress: string; userAgent: string } 
   const ipAddress = (forwardedIp || req.ip || "").trim();
   const userAgent = (req.get("user-agent") || "").slice(0, 512);
   return { ipAddress, userAgent };
-}
-
-function resolveGoogleCallbackUrl(req: Request): string {
-  // If an explicit non-default callback is configured, respect it.
-  if (
-    env.GOOGLE_CALLBACK_URL &&
-    env.GOOGLE_CALLBACK_URL !== defaultGoogleCallbackUrl
-  ) {
-    return env.GOOGLE_CALLBACK_URL;
-  }
-
-  // Otherwise, derive from request host (works for split deploys/proxies).
-  const forwardedProto = req.get("x-forwarded-proto")?.split(",")[0]?.trim();
-  const forwardedHost = req.get("x-forwarded-host")?.split(",")[0]?.trim();
-  const proto = forwardedProto || req.protocol;
-  const host = forwardedHost || req.get("host");
-  return `${proto}://${host}/api/auth/google/callback`;
 }
 
 // Register
@@ -164,23 +146,12 @@ router.put("/tour", async (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
-// Google OAuth: redirect to Google
-router.get(
-  "/google",
-  (req: Request, res: Response, next: NextFunction) => {
-    passport.authenticate("google", {
-      scope: ["profile", "email"],
-      callbackURL: resolveGoogleCallbackUrl(req),
-    })(req, res, next);
-  }
-);
+// Google OAuth: redirect to Google (callback URL comes from env.GOOGLE_CALLBACK_URL in passport config)
+router.get("/google", passport.authenticate("google", { scope: ["profile", "email"] }));
 
 // Google OAuth: callback after consent
 router.get("/google/callback", (req: Request, res: Response, next: NextFunction) => {
-  passport.authenticate(
-    "google",
-    { callbackURL: resolveGoogleCallbackUrl(req) },
-    (err: Error | null, user: any) => {
+  passport.authenticate("google", (err: Error | null, user: any) => {
     if (err || !user) {
       console.error("Google OAuth error:", err);
       return res.redirect(`${env.CLIENT_URL}/login`);
@@ -200,8 +171,7 @@ router.get("/google/callback", (req: Request, res: Response, next: NextFunction)
         ...meta,
       });
     });
-    }
-  )(req, res, next);
+  })(req, res, next);
 });
 
 // Token-based login (for Chrome extension)
