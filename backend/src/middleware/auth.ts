@@ -26,7 +26,8 @@ export async function ensureAuth(
       }
     } catch {}
   }
-  throw new AuthError("Not authenticated");
+  // Use next(err) instead of throw — Express 4 doesn't catch async throws
+  next(new AuthError("Not authenticated"));
 }
 
 /** Asserts `req.user` (Passport) and returns it as `IUser`. */
@@ -43,5 +44,5 @@ export function ensureAdmin(
   if (req.isAuthenticated() && req.user && (req.user as IUser).role === "admin") {
     return next();
   }
-  throw new AuthError("Admin access required");
+  next(new AuthError("Admin access required"));
 }
