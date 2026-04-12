@@ -37,7 +37,6 @@ const app = express();
 const ALLOWED_ORIGINS = [
   env.CLIENT_URL,
   "https://hiretrail.manavkaneria.me",
-  "https://hiretrail.vercel.app",
   "http://localhost:5173",
 ];
 

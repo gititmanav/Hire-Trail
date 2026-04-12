@@ -216,26 +216,61 @@ router.post(
 );
 
 // Exchange existing web-app session cookie for a JWT (auto-login for extension)
+// The extension reads the connect.sid cookie via chrome.cookies API and sends its value
+// in the X-Session-Cookie header (cross-origin fetch can't attach cookies automatically).
 router.post(
   "/extension-token",
-  ensureAuth,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const user = getUser(req);
-      const doc = await User.findById(user._id).lean();
-      if (!doc) throw new AppError("Not found", 404);
+      // Try standard session auth first (in case credentials: include works)
+      if (req.isAuthenticated() && req.user) {
+        const user = req.user as any;
+        const doc = await User.findById(user._id).lean();
+        if (!doc) throw new AppError("Not found", 404);
+        if (doc.suspended) return res.status(403).json({ error: "Account suspended" });
+
+        const token = jwt.sign({ userId: doc._id.toString() }, env.SESSION_SECRET, { expiresIn: "30d" });
+        return res.json({
+          token,
+          user: { _id: doc._id, name: doc.name, email: doc.email, role: doc.role, primaryResumeId: doc.primaryResumeId ? String(doc.primaryResumeId) : null },
+        });
+      }
+
+      // Fall back to manual session lookup from X-Session-Cookie header
+      const rawCookie = req.headers["x-session-cookie"] as string | undefined;
+      if (!rawCookie) throw new AppError("Not authenticated", 401);
+
+      // connect.sid value is URL-encoded: s%3A<sessionId>.<signature>
+      // Decoded: s:<sessionId>.<signature>
+      const decoded = decodeURIComponent(rawCookie);
+      const match = decoded.match(/^s:([^.]+)\./);
+      if (!match) throw new AppError("Invalid session cookie", 401);
+
+      const sessionId = match[1];
+
+      // Look up session in MongoDB
+      const mongoose = await import("mongoose");
+      const db = mongoose.connection.db;
+      if (!db) throw new AppError("Database not connected", 500);
+      const sessionDoc = await db.collection("sessions").findOne({ _id: sessionId as any });
+      if (!sessionDoc) throw new AppError("Session expired", 401);
+
+      // Parse session data — stored as JSON string in the "session" field
+      const sessionData = typeof sessionDoc.session === "string"
+        ? JSON.parse(sessionDoc.session)
+        : sessionDoc.session;
+
+      const userId = sessionData?.passport?.user;
+      if (!userId) throw new AppError("Invalid session", 401);
+
+      const doc = await User.findById(userId).lean();
+      if (!doc) throw new AppError("User not found", 404);
       if (doc.suspended) return res.status(403).json({ error: "Account suspended" });
 
       const token = jwt.sign({ userId: doc._id.toString() }, env.SESSION_SECRET, { expiresIn: "30d" });
       res.json({
         token,
-        user: {
-          _id: doc._id,
-          name: doc.name,
-          email: doc.email,
-          role: doc.role,
-          primaryResumeId: doc.primaryResumeId ? String(doc.primaryResumeId) : null,
-        },
+        user: { _id: doc._id, name: doc.name, email: doc.email, role: doc.role, primaryResumeId: doc.primaryResumeId ? String(doc.primaryResumeId) : null },
       });
     } catch (err) {
       next(err);

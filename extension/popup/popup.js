@@ -1,5 +1,7 @@
 const API_BASE = "https://hiretrail.manavkaneria.me/api";
-const HIRETRAIL_DOMAIN = "hiretrail.manavkaneria.me";
+const HIRETRAIL_DOMAINS = [
+  "hiretrail.manavkaneria.me",
+];
 
 const loadingView = document.getElementById("loading-view");
 const loginView = document.getElementById("login-view");
@@ -56,19 +58,25 @@ async function checkAuth() {
     return;
   }
 
-  // 2. Try to auto-login from web app session cookie
+  // 2. Try to auto-login from web app session cookie (check both domains)
   try {
-    const cookie = await chrome.cookies.get({
-      url: `https://${HIRETRAIL_DOMAIN}`,
-      name: "connect.sid",
-    });
+    let cookie = null;
+    for (const domain of HIRETRAIL_DOMAINS) {
+      cookie = await chrome.cookies.get({
+        url: `https://${domain}`,
+        name: "connect.sid",
+      });
+      if (cookie) break;
+    }
 
     if (cookie) {
+      // Send the cookie value manually in a header since cross-origin fetch won't attach it
       const res = await fetch(`${API_BASE}/auth/extension-token`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        // Send the session cookie along with the request
-        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Session-Cookie": cookie.value,
+        },
       });
 
       if (res.ok) {
