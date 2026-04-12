@@ -1,0 +1,77 @@
+import { z } from "zod";
+export declare const createContactSchema: z.ZodObject<{
+    name: z.ZodString;
+    company: z.ZodString;
+    role: z.ZodDefault<z.ZodString>;
+    linkedinUrl: z.ZodDefault<z.ZodUnion<[z.ZodString, z.ZodLiteral<"">]>>;
+    connectionSource: z.ZodDefault<z.ZodString>;
+    notes: z.ZodDefault<z.ZodString>;
+    companyId: z.ZodDefault<z.ZodNullable<z.ZodString>>;
+    applicationIds: z.ZodDefault<z.ZodArray<z.ZodString, "many">>;
+    outreachStatus: z.ZodDefault<z.ZodEnum<["not_contacted", "reached_out", "responded", "meeting_scheduled", "follow_up_needed", "gone_cold"]>>;
+    nextFollowUpDate: z.ZodDefault<z.ZodNullable<z.ZodString>>;
+}, "strip", z.ZodTypeAny, {
+    name: string;
+    role: string;
+    company: string;
+    companyId: string | null;
+    notes: string;
+    outreachStatus: "reached_out" | "not_contacted" | "responded" | "meeting_scheduled" | "follow_up_needed" | "gone_cold";
+    linkedinUrl: string;
+    connectionSource: string;
+    applicationIds: string[];
+    nextFollowUpDate: string | null;
+}, {
+    name: string;
+    company: string;
+    role?: string | undefined;
+    companyId?: string | null | undefined;
+    notes?: string | undefined;
+    outreachStatus?: "reached_out" | "not_contacted" | "responded" | "meeting_scheduled" | "follow_up_needed" | "gone_cold" | undefined;
+    linkedinUrl?: string | undefined;
+    connectionSource?: string | undefined;
+    applicationIds?: string[] | undefined;
+    nextFollowUpDate?: string | null | undefined;
+}>;
+export declare const updateContactSchema: z.ZodObject<{
+    name: z.ZodOptional<z.ZodString>;
+    company: z.ZodOptional<z.ZodString>;
+    role: z.ZodOptional<z.ZodString>;
+    linkedinUrl: z.ZodOptional<z.ZodUnion<[z.ZodString, z.ZodLiteral<"">]>>;
+    connectionSource: z.ZodOptional<z.ZodString>;
+    lastContactDate: z.ZodOptional<z.ZodString>;
+    notes: z.ZodOptional<z.ZodString>;
+    companyId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    applicationIds: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
+    outreachStatus: z.ZodOptional<z.ZodEnum<["not_contacted", "reached_out", "responded", "meeting_scheduled", "follow_up_needed", "gone_cold"]>>;
+    lastOutreachDate: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    nextFollowUpDate: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+}, "strip", z.ZodTypeAny, {
+    name?: string | undefined;
+    role?: string | undefined;
+    company?: string | undefined;
+    companyId?: string | null | undefined;
+    notes?: string | undefined;
+    outreachStatus?: "reached_out" | "not_contacted" | "responded" | "meeting_scheduled" | "follow_up_needed" | "gone_cold" | undefined;
+    linkedinUrl?: string | undefined;
+    connectionSource?: string | undefined;
+    lastContactDate?: string | undefined;
+    applicationIds?: string[] | undefined;
+    lastOutreachDate?: string | null | undefined;
+    nextFollowUpDate?: string | null | undefined;
+}, {
+    name?: string | undefined;
+    role?: string | undefined;
+    company?: string | undefined;
+    companyId?: string | null | undefined;
+    notes?: string | undefined;
+    outreachStatus?: "reached_out" | "not_contacted" | "responded" | "meeting_scheduled" | "follow_up_needed" | "gone_cold" | undefined;
+    linkedinUrl?: string | undefined;
+    connectionSource?: string | undefined;
+    lastContactDate?: string | undefined;
+    applicationIds?: string[] | undefined;
+    lastOutreachDate?: string | null | undefined;
+    nextFollowUpDate?: string | null | undefined;
+}>;
+export type CreateContactInput = z.infer<typeof createContactSchema>;
+export type UpdateContactInput = z.infer<typeof updateContactSchema>;

@@ -1,4 +1,4 @@
-const API_BASE = "https://hiretrail.onrender.com/api";
+const API_BASE = "https://hiretrail.manavkaneria.me/api";
 
 const loginView = document.getElementById("login-view");
 const loggedInView = document.getElementById("logged-in-view");

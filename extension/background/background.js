@@ -1,4 +1,4 @@
-const API_BASE = "https://hiretrail.onrender.com/api";
+const API_BASE = "https://hiretrail.manavkaneria.me/api";
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === "TRACK_JOB") {
@@ -17,6 +17,19 @@ async function trackJob(data) {
   const { token } = await chrome.storage.local.get(["token"]);
   if (!token) return { success: false, error: "Not logged in" };
 
+  let resumeId = null;
+  try {
+    const meRes = await fetch(`${API_BASE}/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (meRes.ok) {
+      const me = await meRes.json();
+      resumeId = me.primaryResumeId || null;
+    }
+  } catch {
+    /* still create application without resume */
+  }
+
   try {
     const res = await fetch(`${API_BASE}/applications`, {
       method: "POST",
@@ -30,7 +43,7 @@ async function trackJob(data) {
         jobUrl: data.url || "",
         stage: "Applied",
         notes: "",
-        resumeId: null,
+        resumeId,
       }),
     });
 

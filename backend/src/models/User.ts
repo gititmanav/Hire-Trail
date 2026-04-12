@@ -14,6 +14,8 @@ export interface IUser extends Document {
   deleted: boolean;
   deletedAt: Date | null;
   tourCompleted: boolean;
+  /** Default resume for new applications (e.g. Chrome extension). */
+  primaryResumeId: mongoose.Types.ObjectId | null;
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidate: string): Promise<boolean>;
@@ -54,6 +56,11 @@ const userSchema = new Schema<IUser>(
     deleted: { type: Boolean, default: false },
     deletedAt: { type: Date, default: null },
     tourCompleted: { type: Boolean, default: false },
+    primaryResumeId: {
+      type: Schema.Types.ObjectId,
+      ref: "Resume",
+      default: null,
+    },
   },
   {
     timestamps: true,

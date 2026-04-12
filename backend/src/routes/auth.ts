@@ -10,6 +10,8 @@ import { AppError } from "../errors/AppError.js";
 import { env } from "../config/env.js";
 import { isAdminEmail } from "../utils/admin.js";
 import { AdminLoginEvent } from "../models/AdminLoginEvent.js";
+import { ensureAuth, getUser } from "../middleware/auth.js";
+import { Resume } from "../models/Resume.js";
 
 const router = Router();
 
@@ -113,23 +115,26 @@ router.post("/logout", (req: Request, res: Response, next: NextFunction) => {
   });
 });
 
-// Current user
-router.get("/me", (req: Request, res: Response) => {
-  if (req.isAuthenticated() && req.user) {
-    const user = req.user as any;
+// Current user (session cookie or Bearer token — extension uses JWT)
+router.get("/me", ensureAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = getUser(req);
     if (isAdminEmail(user.email) && user.role !== "admin") {
-      void User.findByIdAndUpdate(user._id, { $set: { role: "admin" } }).catch(() => {});
-      user.role = "admin";
+      await User.findByIdAndUpdate(user._id, { $set: { role: "admin" } });
     }
-    return res.json({
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      tourCompleted: user.tourCompleted ?? false,
+    const doc = await User.findById(user._id).lean();
+    if (!doc) throw new AppError("Not found", 404);
+    res.json({
+      _id: doc._id,
+      name: doc.name,
+      email: doc.email,
+      role: doc.role,
+      tourCompleted: doc.tourCompleted ?? false,
+      primaryResumeId: doc.primaryResumeId ? String(doc.primaryResumeId) : null,
     });
+  } catch (err) {
+    next(err);
   }
-  res.status(401).json({ error: "Not authenticated" });
 });
 
 // Mark guided tour as completed
@@ -199,7 +204,13 @@ router.post(
       const token = jwt.sign({ userId: user._id.toString() }, env.SESSION_SECRET, { expiresIn: "30d" });
       res.json({
         token,
-        user: { _id: user._id, name: user.name, email: user.email, role: user.role },
+        user: {
+          _id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          primaryResumeId: user.primaryResumeId ? String(user.primaryResumeId) : null,
+        },
       });
     } catch (err) {
       next(err);
@@ -207,35 +218,42 @@ router.post(
   }
 );
 
-export default router;
-
-// PUT update profile
-router.put("/profile", async (req: Request, res: Response, next: NextFunction) => {
+// PUT update profile (session or Bearer)
+router.put("/profile", ensureAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    if (!req.isAuthenticated() || !req.user) {
-      throw new AppError("Not authenticated", 401);
-    }
-    const { name, email } = req.body;
-    const user = req.user as any;
+    const { name, email, primaryResumeId } = req.body;
+    const user = getUser(req);
 
     if (email && email !== user.email) {
-      const { User: UserModel } = await import("../models/User.js");
-      const existing = await UserModel.findOne({ email: email.toLowerCase(), _id: { $ne: user._id } });
+      const existing = await User.findOne({ email: String(email).toLowerCase(), _id: { $ne: user._id } });
       if (existing) throw new AppError("Email already in use", 409);
     }
 
-    const { User: UserModel } = await import("../models/User.js");
-    const updated = await UserModel.findByIdAndUpdate(
-      user._id,
-      { $set: { name: name || user.name, email: email ? email.toLowerCase() : user.email } },
-      { new: true, runValidators: true }
-    );
+    const $set: Record<string, unknown> = {
+      name: name !== undefined ? String(name).trim() || user.name : user.name,
+      email: email !== undefined ? String(email).toLowerCase().trim() : user.email,
+    };
+
+    if (primaryResumeId !== undefined) {
+      if (primaryResumeId === null || primaryResumeId === "") {
+        $set.primaryResumeId = null;
+      } else {
+        const resume = await Resume.findOne({ _id: primaryResumeId, userId: user._id });
+        if (!resume) throw new AppError("Resume not found", 404);
+        $set.primaryResumeId = resume._id;
+      }
+    }
+
+    const updated = await User.findByIdAndUpdate(user._id, { $set }, { new: true, runValidators: true }).lean();
+    if (!updated) throw new AppError("Not found", 404);
 
     res.json({
-      _id: updated!._id,
-      name: updated!.name,
-      email: updated!.email,
-      role: updated!.role,
+      _id: updated._id,
+      name: updated.name,
+      email: updated.email,
+      role: updated.role,
+      tourCompleted: updated.tourCompleted ?? false,
+      primaryResumeId: updated.primaryResumeId ? String(updated.primaryResumeId) : null,
     });
   } catch (err) {
     next(err);
@@ -243,11 +261,8 @@ router.put("/profile", async (req: Request, res: Response, next: NextFunction) =
 });
 
 // PUT change password
-router.put("/password", async (req: Request, res: Response, next: NextFunction) => {
+router.put("/password", ensureAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    if (!req.isAuthenticated() || !req.user) {
-      throw new AppError("Not authenticated", 401);
-    }
     const { currentPassword, newPassword } = req.body;
 
     if (!currentPassword || !newPassword) {
@@ -257,8 +272,7 @@ router.put("/password", async (req: Request, res: Response, next: NextFunction) 
       throw new AppError("New password must be at least 6 characters", 400);
     }
 
-    const { User: UserModel } = await import("../models/User.js");
-    const user = await UserModel.findById((req.user as any)._id);
+    const user = await User.findById(getUser(req)._id);
     if (!user || !user.password) {
       throw new AppError("Cannot change password for Google-only accounts", 400);
     }
@@ -276,3 +290,5 @@ router.put("/password", async (req: Request, res: Response, next: NextFunction) 
     next(err);
   }
 });
+
+export default router;

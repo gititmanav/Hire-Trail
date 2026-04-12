@@ -1,7 +1,7 @@
 /** Resume versions with optional PDF to Cloudinary; usage counts come from the list API. */
 import { useState, useEffect, useCallback, useRef, FormEvent } from "react";
 import toast from "react-hot-toast";
-import { resumesAPI } from "../../utils/api.ts";
+import { resumesAPI, authAPI } from "../../utils/api.ts";
 import { SkeletonCard } from "../../components/Skeleton/Skeleton.tsx";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal.tsx";
 import ResumePreview from "../../components/ResumePreview/ResumePreview.tsx";
@@ -94,9 +94,24 @@ export default function Resumes() {
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState<Resume | null>(null);
   const [previewResume, setPreviewResume] = useState<Resume | null>(null);
+  const [primaryResumeId, setPrimaryResumeId] = useState<string | null>(null);
   const { confirm: confirmDelete, confirmState, handleConfirm: onConfirm, handleCancel: onCancel } = useConfirm();
 
-  const fetchResumes = useCallback(async () => { try { setResumes(await resumesAPI.getAll()); } catch {} finally { setLoading(false); } }, []);
+  const fetchResumes = useCallback(async () => {
+    try {
+      const [list, me] = await Promise.all([resumesAPI.getAll(), authAPI.getMe()]);
+      setResumes(list);
+      setPrimaryResumeId(me.primaryResumeId ?? null);
+    } catch {
+      try {
+        setResumes(await resumesAPI.getAll());
+      } catch {
+        /* ignore */
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, []);
   useEffect(() => { fetchResumes(); }, [fetchResumes]);
 
   const save = async (data: { name: string; targetRole: string; fileName: string; file: File | null }) => {
@@ -114,8 +129,19 @@ export default function Resumes() {
     const ok = await confirmDelete("This resume will be permanently deleted.", { title: "Delete resume?", confirmLabel: "Delete" });
     if (!ok) return;
     await resumesAPI.delete(id);
+    if (primaryResumeId === id) setPrimaryResumeId(null);
     toast.success("Deleted");
     await fetchResumes();
+  };
+
+  const setAsPrimary = async (id: string | null) => {
+    try {
+      const me = await authAPI.updateProfile({ primaryResumeId: id });
+      setPrimaryResumeId(me.primaryResumeId ?? null);
+      toast.success(id ? "Primary resume saved — the extension will use it for new applications." : "Primary resume cleared.");
+    } catch {
+      toast.error("Could not update primary resume");
+    }
   };
 
   if (loading) return <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">{[1, 2, 3].map((i) => <SkeletonCard key={i} />)}</div>;
@@ -123,7 +149,10 @@ export default function Resumes() {
   return (
     <div className="fade-up">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-foreground tracking-tight">Resumes</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">Resumes</h1>
+          <p className="text-sm text-muted-foreground mt-1">Set a primary resume so the browser extension attaches it when you track a job.</p>
+        </div>
         <button onClick={() => { setEditing(null); setModal(true); }} className="btn-accent">
           <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg>Add resume
         </button>
@@ -147,7 +176,12 @@ export default function Resumes() {
                 </div>
               </div>
 
-              <h3 className="text-[15px] font-semibold text-foreground mb-1">{r.name}</h3>
+              <div className="flex items-center gap-2 flex-wrap mb-1">
+                <h3 className="text-[15px] font-semibold text-foreground">{r.name}</h3>
+                {primaryResumeId === r._id && (
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-primary bg-primary/15 px-2 py-0.5 rounded">Primary</span>
+                )}
+              </div>
               {r.targetRole && <span className="inline-block text-xs font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full mb-1 w-fit">{r.targetRole}</span>}
               {r.fileName && <span className="text-xs text-muted-foreground mb-1">{r.fileName}</span>}
 
@@ -163,9 +197,20 @@ export default function Resumes() {
                 </span>
               )}
 
-              <div className="flex items-center justify-between mt-auto pt-3 border-t border-border text-xs text-muted-foreground">
-                <span>Added {fmt(r.uploadDate)}</span>
-                <span className="font-medium text-muted-foreground">{r.applicationCount || 0} apps</span>
+              <div className="mt-auto pt-3 border-t border-border space-y-2">
+                {primaryResumeId === r._id ? (
+                  <button type="button" onClick={() => setAsPrimary(null)} className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
+                    Remove as primary
+                  </button>
+                ) : (
+                  <button type="button" onClick={() => setAsPrimary(r._id)} className="text-xs font-medium text-primary hover:underline">
+                    Set as primary for extension
+                  </button>
+                )}
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Added {fmt(r.uploadDate)}</span>
+                  <span className="font-medium text-muted-foreground">{r.applicationCount || 0} apps</span>
+                </div>
               </div>
             </div>
           ))}
