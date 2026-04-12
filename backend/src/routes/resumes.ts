@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { Resume } from "../models/Resume.js";
+import { User } from "../models/User.js";
 import { Application } from "../models/Application.js";
 import { ensureAuth, getUser } from "../middleware/auth.js";
 import { upload } from "../middleware/upload.js";
@@ -146,6 +147,7 @@ router.delete("/:id", async (req: Request, res: Response, next: NextFunction) =>
       await deleteFromCloudinary(resume.filePublicId);
     }
 
+    await User.updateMany({ primaryResumeId: resume._id }, { $set: { primaryResumeId: null } });
     await resume.deleteOne();
     res.json({ message: "Resume deleted" });
   } catch (err) { next(err); }

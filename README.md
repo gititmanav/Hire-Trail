@@ -2,7 +2,7 @@
 
 A full-stack **job search command center**: applications, Kanban pipeline, deadlines, contacts, resume versions with uploads, analytics, and an integrated job search. Built as a personal project to stay organized during recruiting and to ship a polished reference implementation others can run and learn from.
 
-**Live:** [https://hiretrail.vercel.app/login](https://hiretrail.vercel.app/login)  
+**Live:** [https://hiretrail.manavkaneria.me/login](https://hiretrail.manavkaneria.me/login)  
 **Repo:** [github.com/gititmanav/Hire-Trail](https://github.com/gititmanav/Hire-Trail)
 
 ### Dashboard

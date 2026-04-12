@@ -37,6 +37,8 @@ export const authAPI = {
   register: (name: string, email: string, password: string) => api.post<User>("/auth/register", { name, email, password }).then((r) => r.data),
   logout: () => api.post("/auth/logout").then((r) => r.data),
   getMe: () => api.get<User>("/auth/me").then((r) => r.data),
+  updateProfile: (data: { name?: string; email?: string; primaryResumeId?: string | null }) =>
+    api.put<User>("/auth/profile", data).then((r) => r.data),
   completeTour: () => api.put("/auth/tour").then((r) => r.data),
 };
 

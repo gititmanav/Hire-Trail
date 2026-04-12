@@ -4,6 +4,8 @@ export interface User {
   suspended?: boolean; suspendedAt?: string | null;
   deleted?: boolean; deletedAt?: string | null;
   tourCompleted?: boolean;
+  /** Default resume for new applications (extension uses this when tracking a job). */
+  primaryResumeId?: string | null;
 }
 export interface AdminLoginEvent {
   _id: string;
