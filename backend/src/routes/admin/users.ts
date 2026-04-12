@@ -5,6 +5,7 @@ import { Resume } from "../../models/Resume.js";
 import { Contact } from "../../models/Contact.js";
 import { Deadline } from "../../models/Deadline.js";
 import { AdminLoginEvent } from "../../models/AdminLoginEvent.js";
+import { Notification } from "../../models/Notification.js";
 import { getUser } from "../../middleware/auth.js";
 import { logAudit, getClientInfo } from "../../utils/auditLog.js";
 import { validate } from "../../middleware/validate.js";
@@ -112,12 +113,13 @@ router.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
       .lean();
     if (!user) throw new NotFoundError("User");
 
-    const [appCount, resumeCount, contactCount, deadlineCount, lastLogin] = await Promise.all([
+    const [appCount, resumeCount, contactCount, deadlineCount, lastLogin, notificationCount] = await Promise.all([
       Application.countDocuments({ userId: user._id }),
       Resume.countDocuments({ userId: user._id }),
       Contact.countDocuments({ userId: user._id }),
       Deadline.countDocuments({ userId: user._id }),
       AdminLoginEvent.findOne({ userId: user._id }).sort({ loggedInAt: -1 }).lean(),
+      Notification.countDocuments({ userId: user._id }),
     ]);
 
     res.json({
@@ -126,6 +128,7 @@ router.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
       resumeCount,
       contactCount,
       deadlineCount,
+      notificationCount,
       lastLogin: lastLogin?.loggedInAt || null,
     });
   } catch (err) {

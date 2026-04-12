@@ -6,6 +6,20 @@ export interface User {
   tourCompleted?: boolean;
   /** Default resume for new applications (extension uses this when tracking a job). */
   primaryResumeId?: string | null;
+  gmailConnected?: boolean;
+  gmailEmail?: string | null;
+  gmailLastSyncAt?: string | null;
+}
+export interface Notification {
+  _id: string;
+  userId: string;
+  type: "rejection_detected" | "info";
+  title: string;
+  message: string;
+  applicationId: string | null;
+  read: boolean;
+  readAt: string | null;
+  createdAt: string;
 }
 export interface AdminLoginEvent {
   _id: string;
@@ -35,6 +49,7 @@ export interface StageEntry { stage: Stage; date: string; }
 export interface Application {
   _id: string; userId: string; company: string; companyId: string | null; role: string; jobUrl: string;
   applicationDate: string; stage: Stage; stageHistory: StageEntry[];
+  jobDescription?: string; location?: string; salary?: string; jobType?: string;
   notes: string; resumeId: string | null;
   contactId: string | null;
   outreachStatus: OutreachStatus;
@@ -164,11 +179,16 @@ export interface AdminDashboardData {
     signupsThisWeek: number;
     signupsThisMonth: number;
     activeUsers7d: number;
+    gmailConnectedUsers: number;
+    totalNotifications: number;
+    unreadNotifications: number;
+    rejectionsDetected30d: number;
   };
   recentActivity: AuditLog[];
   charts: {
     userGrowth: { _id: string; count: number }[];
     appsPerDay: { _id: string; count: number }[];
+    rejectionsPerDay: { _id: string; count: number }[];
   };
 }
 
@@ -177,9 +197,45 @@ export interface AdminUserDetail extends User {
   resumeCount: number;
   contactCount?: number;
   deadlineCount?: number;
+  notificationCount?: number;
   lastLogin: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface AdminGmailUser {
+  _id: string;
+  name: string;
+  email: string;
+  gmailConnected: boolean;
+  gmailEmail: string | null;
+  gmailLastSyncAt: string | null;
+  createdAt: string;
+}
+
+export interface AdminNotificationItem {
+  _id: string;
+  userId: { _id: string; name: string; email: string };
+  type: "rejection_detected" | "info";
+  title: string;
+  message: string;
+  applicationId: { _id: string; company: string; role: string } | null;
+  read: boolean;
+  readAt: string | null;
+  createdAt: string;
+}
+
+export interface AdminNotificationStats {
+  total: number;
+  unread: number;
+  byType: { _id: string; count: number }[];
+  last30Days: number;
+}
+
+export interface AdminGmailStats {
+  gmailConnectedCount: number;
+  totalRejectionsDetected: number;
+  totalScansToday: number;
 }
 
 export interface PlatformAnalyticsData {

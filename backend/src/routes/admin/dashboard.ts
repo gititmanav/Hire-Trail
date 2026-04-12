@@ -6,6 +6,7 @@ import { Contact } from "../../models/Contact.js";
 import { Deadline } from "../../models/Deadline.js";
 import { AuditLog } from "../../models/AuditLog.js";
 import { AdminLoginEvent } from "../../models/AdminLoginEvent.js";
+import { Notification } from "../../models/Notification.js";
 
 const router = Router();
 
@@ -29,6 +30,11 @@ router.get("/", async (_req: Request, res: Response, next: NextFunction) => {
       recentActivity,
       userGrowth,
       appsPerDay,
+      gmailConnectedUsers,
+      totalNotifications,
+      unreadNotifications,
+      rejectionsDetected30d,
+      rejectionsPerDay,
     ] = await Promise.all([
       User.countDocuments({}).setOptions({ includeDeleted: true }),
       Application.countDocuments({}),
@@ -66,6 +72,16 @@ router.get("/", async (_req: Request, res: Response, next: NextFunction) => {
         },
         { $sort: { _id: 1 } },
       ]),
+      // Gmail & Notification stats
+      User.countDocuments({ gmailConnected: true }),
+      Notification.countDocuments({}),
+      Notification.countDocuments({ read: false }),
+      Notification.countDocuments({ type: "rejection_detected", createdAt: { $gte: monthAgo } }),
+      Notification.aggregate([
+        { $match: { type: "rejection_detected", createdAt: { $gte: monthAgo } } },
+        { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }, count: { $sum: 1 } } },
+        { $sort: { _id: 1 } },
+      ]),
     ]);
 
     res.json({
@@ -79,11 +95,16 @@ router.get("/", async (_req: Request, res: Response, next: NextFunction) => {
         signupsThisWeek,
         signupsThisMonth,
         activeUsers7d: activeUserLogins.length,
+        gmailConnectedUsers,
+        totalNotifications,
+        unreadNotifications,
+        rejectionsDetected30d,
       },
       recentActivity,
       charts: {
         userGrowth,
         appsPerDay,
+        rejectionsPerDay,
       },
     });
   } catch (err) {

@@ -18,6 +18,8 @@ import {
   rolesRoutes,
   performanceRoutes,
   seedRoutes,
+  adminNotificationRoutes,
+  gmailRoutes,
 } from "./admin/index.js";
 
 const router = Router();
@@ -41,6 +43,8 @@ router.use("/backup", backupRoutes);
 router.use("/roles", rolesRoutes);
 router.use("/performance", performanceRoutes);
 router.use("/seed", seedRoutes);
+router.use("/notifications", adminNotificationRoutes);
+router.use("/gmail", gmailRoutes);
 
 // Backward-compatible overview endpoint
 router.get(

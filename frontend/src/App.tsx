@@ -22,7 +22,7 @@ import {
   AdminDashboard, AuditLogs,
   ContentModeration, StorageManagement, SystemConfig,
   Announcements, EmailTemplates, InviteSystem, BackupManagement,
-  RBACManagement, SeedManagement,
+  RBACManagement, SeedManagement, GmailManagement, NotificationCenter,
 } from "./pages/Admin/index.ts";
 import { authAPI } from "./utils/api.ts";
 import { useTheme } from "./hooks/useTheme.ts";
@@ -77,6 +77,8 @@ function App() {
             <Route path="/admin/invites" element={<InviteSystem />} />
             <Route path="/admin/backup" element={<BackupManagement />} />
             <Route path="/admin/seed" element={<SeedManagement />} />
+            <Route path="/admin/gmail" element={<GmailManagement />} />
+            <Route path="/admin/notifications" element={<NotificationCenter />} />
           </Route>
 
           {/* Main app layout */}

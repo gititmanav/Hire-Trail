@@ -28,6 +28,8 @@ import settingsRoutes from "./routes/settings.js";
 import proxyRoutes from "./routes/proxy.js";
 import adminRoutes from "./routes/admin.js";
 import emailRoutes from "./routes/email.js";
+import notificationRoutes from "./routes/notifications.js";
+import { startEmailScanJob } from "./services/emailScanJob.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -118,6 +120,7 @@ app.use("/api/settings", settingsRoutes);
 app.use("/api/proxy", proxyRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/email", emailRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 // Monorepo deploy: Vite build at ../frontend/dist (dev UX uses Vite on :5173 with proxy to this API).
 const clientBuildPath = join(__dirname, "..", "..", "frontend", "dist");
@@ -131,6 +134,11 @@ app.use(errorHandler);
 async function start(): Promise<void> {
   await connectDB();
   configurePassport();
+  // Start email scan cron job only if encryption key is configured
+  if (env.ENCRYPTION_KEY && env.ENCRYPTION_KEY !== "0000000000000000000000000000000000000000000000000000000000000000") {
+    startEmailScanJob();
+  }
+
   app.listen(env.PORT, () => {
     console.log(`HireTrail server running on port ${env.PORT} [${env.NODE_ENV}]`);
   });

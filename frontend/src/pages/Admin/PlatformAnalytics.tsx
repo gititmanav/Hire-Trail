@@ -1,16 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useContext } from "react";
 import toast from "react-hot-toast";
 import { Bar } from "react-chartjs-2";
 import "../../utils/chartSetup";
+import { chartColors, mutedFgColor, borderColor } from "../../utils/chartSetup";
+import { ThemeContext } from "../../App.tsx";
 import { adminAPI } from "../../utils/api";
 import type { PlatformAnalyticsData } from "../../types";
-
-const rateColors: Record<string, { bg: string; text: string; bar: string }> = {
-  oaRate: { bg: "bg-blue-50 dark:bg-blue-900/30", text: "text-blue-700 dark:text-blue-300", bar: "bg-blue-500" },
-  interviewRate: { bg: "bg-purple-50 dark:bg-purple-900/30", text: "text-purple-700 dark:text-purple-300", bar: "bg-purple-500" },
-  offerRate: { bg: "bg-green-50 dark:bg-green-900/30", text: "text-green-700 dark:text-green-300", bar: "bg-green-500" },
-  rejectionRate: { bg: "bg-red-50 dark:bg-red-900/30", text: "text-red-700 dark:text-red-300", bar: "bg-red-500" },
-};
+import type { Chart as ChartJS } from "chart.js";
 
 const rateLabels: Record<string, string> = {
   oaRate: "OA Rate",
@@ -19,17 +15,14 @@ const rateLabels: Record<string, string> = {
   rejectionRate: "Rejection Rate",
 };
 
-const stageColors: Record<string, string> = {
-  Applied: "rgba(59,130,246,0.7)",
-  OA: "rgba(139,92,246,0.7)",
-  Interview: "rgba(245,158,11,0.7)",
-  Offer: "rgba(16,185,129,0.7)",
-  Rejected: "rgba(239,68,68,0.7)",
-};
-
 export default function PlatformAnalytics() {
+  const { themeId } = useContext(ThemeContext);
   const [data, setData] = useState<PlatformAnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const funnelRef = useRef<ChartJS<"bar">>(null);
+  const companiesRef = useRef<ChartJS<"bar">>(null);
+  const rolesRef = useRef<ChartJS<"bar">>(null);
 
   useEffect(() => {
     adminAPI
@@ -38,6 +31,37 @@ export default function PlatformAnalytics() {
       .catch(() => toast.error("Failed to load analytics"))
       .finally(() => setLoading(false));
   }, []);
+
+  // Update chart colors on theme change
+  useEffect(() => {
+    const colors = chartColors();
+    const m = mutedFgColor();
+    const g = borderColor();
+
+    function updateHorizontal(chart: ChartJS | null) {
+      if (!chart) return;
+      if (chart.options.scales?.x?.ticks) (chart.options.scales.x.ticks as any).color = m;
+      if (chart.options.scales?.y?.ticks) (chart.options.scales.y.ticks as any).color = m;
+      if (chart.options.scales?.x?.grid) (chart.options.scales.x.grid as any).color = g;
+      chart.update("none");
+    }
+
+    if (funnelRef.current) {
+      const stageNames = ["Applied", "OA", "Interview", "Offer", "Rejected"];
+      funnelRef.current.data.datasets[0].backgroundColor = stageNames.map((_, i) => colors[i] || "rgba(156,163,175,0.7)");
+      updateHorizontal(funnelRef.current);
+    }
+
+    if (companiesRef.current) {
+      companiesRef.current.data.datasets[0].backgroundColor = colors[2] || "rgba(99,102,241,0.7)";
+      updateHorizontal(companiesRef.current);
+    }
+
+    if (rolesRef.current) {
+      rolesRef.current.data.datasets[0].backgroundColor = colors[3] || "rgba(16,185,129,0.7)";
+      updateHorizontal(rolesRef.current);
+    }
+  }, [themeId]);
 
   if (loading) {
     return (
@@ -60,49 +84,53 @@ export default function PlatformAnalytics() {
 
   const { conversionRates, funnel, topCompanies, topRoles, totalApplications, totalUsers, avgAppsPerUser } = data;
 
+  const colors = chartColors();
+  const muted = mutedFgColor();
+  const grid = borderColor();
+
+  const stageNames = ["Applied", "OA", "Interview", "Offer", "Rejected"];
   const funnelData = {
     labels: funnel.map((f) => f._id),
-    datasets: [
-      {
-        label: "Count",
-        data: funnel.map((f) => f.count),
-        backgroundColor: funnel.map((f) => stageColors[f._id] || "rgba(156,163,175,0.7)"),
-        borderWidth: 0,
-      },
-    ],
+    datasets: [{
+      label: "Count",
+      data: funnel.map((f) => f.count),
+      backgroundColor: funnel.map((f) => {
+        const idx = stageNames.indexOf(f._id);
+        return idx >= 0 ? colors[idx] : "rgba(156,163,175,0.7)";
+      }),
+      borderWidth: 0,
+    }],
   };
 
   const companiesData = {
     labels: topCompanies.map((c) => c._id),
-    datasets: [
-      {
-        label: "Applications",
-        data: topCompanies.map((c) => c.count),
-        backgroundColor: "rgba(99,102,241,0.7)",
-        borderWidth: 0,
-      },
-    ],
+    datasets: [{
+      label: "Applications",
+      data: topCompanies.map((c) => c.count),
+      backgroundColor: colors[2] || "rgba(99,102,241,0.7)",
+      borderWidth: 0,
+    }],
   };
 
   const rolesData = {
     labels: topRoles.map((r) => r._id),
-    datasets: [
-      {
-        label: "Applications",
-        data: topRoles.map((r) => r.count),
-        backgroundColor: "rgba(16,185,129,0.7)",
-        borderWidth: 0,
-      },
-    ],
+    datasets: [{
+      label: "Applications",
+      data: topRoles.map((r) => r.count),
+      backgroundColor: colors[3] || "rgba(16,185,129,0.7)",
+      borderWidth: 0,
+    }],
   };
 
   const horizontalOpts = {
     indexAxis: "y" as const,
     scales: {
-      x: { beginAtZero: true, ticks: { color: "#9ca3af" }, grid: { color: "rgba(156,163,175,0.15)" } },
-      y: { ticks: { color: "#9ca3af" }, grid: { display: false } },
+      x: { beginAtZero: true, ticks: { color: muted }, grid: { color: grid } },
+      y: { ticks: { color: muted }, grid: { display: false } },
     },
   };
+
+  const rateColorKeys = ["oaRate", "interviewRate", "offerRate", "rejectionRate"];
 
   return (
     <div className="space-y-6 p-6">
@@ -110,15 +138,15 @@ export default function PlatformAnalytics() {
 
       {/* Conversion Rate Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {(Object.keys(rateLabels) as (keyof typeof rateLabels)[]).map((key) => {
+        {rateColorKeys.map((key, i) => {
           const val = conversionRates[key as keyof typeof conversionRates];
-          const color = rateColors[key];
+          const color = colors[i] || muted;
           return (
-            <div key={key} className={`card-premium p-4 ${color.bg}`}>
+            <div key={key} className="card-premium p-4 bg-muted">
               <p className="text-sm text-muted-foreground">{rateLabels[key]}</p>
-              <p className={`text-3xl font-bold ${color.text}`}>{val.toFixed(1)}%</p>
+              <p className="text-3xl font-bold text-foreground">{val.toFixed(1)}%</p>
               <div className="mt-2 w-full h-2 bg-border rounded-full overflow-hidden">
-                <div className={`h-full ${color.bar} rounded-full`} style={{ width: `${Math.min(val, 100)}%` }} />
+                <div className="h-full rounded-full" style={{ width: `${Math.min(val, 100)}%`, backgroundColor: color }} />
               </div>
             </div>
           );
@@ -129,7 +157,7 @@ export default function PlatformAnalytics() {
       <div className="card-premium p-4">
         <h2 className="text-lg font-semibold text-foreground mb-4">Platform Funnel</h2>
         <div className="h-64">
-          <Bar data={funnelData} options={horizontalOpts} />
+          <Bar ref={funnelRef} data={funnelData} options={horizontalOpts} />
         </div>
       </div>
 
@@ -138,13 +166,13 @@ export default function PlatformAnalytics() {
         <div className="card-premium p-4">
           <h2 className="text-lg font-semibold text-foreground mb-4">Top 10 Companies</h2>
           <div className="h-72">
-            <Bar data={companiesData} options={horizontalOpts} />
+            <Bar ref={companiesRef} data={companiesData} options={horizontalOpts} />
           </div>
         </div>
         <div className="card-premium p-4">
           <h2 className="text-lg font-semibold text-foreground mb-4">Top 10 Roles</h2>
           <div className="h-72">
-            <Bar data={rolesData} options={horizontalOpts} />
+            <Bar ref={rolesRef} data={rolesData} options={horizontalOpts} />
           </div>
         </div>
       </div>

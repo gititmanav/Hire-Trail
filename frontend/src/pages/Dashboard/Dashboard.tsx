@@ -3,7 +3,7 @@ import { Responsive, WidthProvider } from "react-grid-layout";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import { UserContext } from "../../App.tsx";
-import { analyticsAPI, applicationsAPI, authAPI, contactsAPI, deadlinesAPI, resumesAPI } from "../../utils/api.ts";
+import { analyticsAPI, applicationsAPI, authAPI, contactsAPI, deadlinesAPI, resumesAPI, notificationsAPI } from "../../utils/api.ts";
 import { useWidgetLayout, ALL_WIDGETS } from "../../hooks/useWidgetLayout.ts";
 import WidgetPicker from "../../components/WidgetPicker/WidgetPicker.tsx";
 import StatsWidget from "../../components/widgets/StatsWidget.tsx";
@@ -17,7 +17,7 @@ import DeadlinesWidget from "../../components/widgets/DeadlinesWidget.tsx";
 import FollowUpWidget from "../../components/widgets/FollowUpWidget.tsx";
 import GuidedTour from "../../components/GuidedTour/GuidedTour.tsx";
 import { SkeletonStats, SkeletonTable } from "../../components/Skeleton/Skeleton.tsx";
-import type { Application, Contact, Deadline, Resume, AnalyticsData } from "../../types";
+import type { Application, Contact, Deadline, Resume, AnalyticsData, Notification } from "../../types";
 import "react-grid-layout/css/styles.css";
 
 const RGL = WidthProvider(Responsive);
@@ -37,6 +37,8 @@ export default function Dashboard() {
   const [staleApps, setStaleApps] = useState<Application[]>([]);
   const [staleBannerDismissed, setStaleBannerDismissed] = useState(false);
   const [archiving, setArchiving] = useState(false);
+  const [rejectionNotifs, setRejectionNotifs] = useState<Notification[]>([]);
+  const [rejectionBannerDismissed, setRejectionBannerDismissed] = useState(false);
 
   const handleTourComplete = useCallback(async () => {
     try {
@@ -104,6 +106,12 @@ export default function Dashboard() {
           })
             .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()).slice(0, 8)
         );
+        // Fetch recent rejection notifications
+        try {
+          const notifs = await notificationsAPI.getAll({ limit: 10 });
+          const unreadRejections = notifs.data.filter((n) => n.type === "rejection_detected" && !n.read);
+          setRejectionNotifs(unreadRejections);
+        } catch {}
       } catch {} finally { setLoading(false); }
     })();
   }, []);
@@ -184,6 +192,24 @@ export default function Dashboard() {
               Dismiss
             </button>
           </div>
+        </div>
+      )}
+
+      {rejectionNotifs.length > 0 && !rejectionBannerDismissed && (
+        <div className="mb-4 flex items-center justify-between gap-4 rounded-xl border border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/30 px-5 py-3 text-sm text-red-800 dark:text-red-200">
+          <div className="flex items-center gap-2">
+            <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="shrink-0"><circle cx="9" cy="9" r="8"/><line x1="9" y1="5" x2="9" y2="9"/><line x1="9" y1="12" x2="9" y2="12"/></svg>
+            <span>{rejectionNotifs.length} rejection{rejectionNotifs.length > 1 ? "s" : ""} auto-detected: {rejectionNotifs.map((n) => n.title.replace("Rejection detected: ", "")).join(", ")}</span>
+          </div>
+          <button
+            onClick={async () => {
+              setRejectionBannerDismissed(true);
+              try { await notificationsAPI.markAllRead(); } catch {}
+            }}
+            className="px-3 py-1 text-xs font-medium rounded-lg border border-red-300 dark:border-red-600 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-800/40 transition-colors shrink-0"
+          >
+            Dismiss
+          </button>
         </div>
       )}
 

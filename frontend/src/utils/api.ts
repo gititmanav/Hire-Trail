@@ -12,7 +12,8 @@ import type {
   Company, CompanyDetail, CompanyFormData,
   AdminDashboardData, AdminUserDetail, PlatformAnalyticsData, AuditLog,
   Announcement, SystemSetting, Invite, EmailTemplate,
-  StorageStats, RoleDefinition, SeedResult,
+  StorageStats, RoleDefinition, SeedResult, Notification,
+  AdminGmailUser, AdminGmailStats, AdminNotificationItem, AdminNotificationStats,
 } from "../types";
 
 export const api = axios.create({
@@ -114,6 +115,21 @@ export const deadlinesAPI = {
   delete: (id: string) => api.delete(`/deadlines/${id}`).then((r) => r.data),
 };
 
+export const emailAPI = {
+  connect: () => api.post<{ url: string }>("/email/connect").then((r) => r.data),
+  status: () => api.get<{ connected: boolean; email: string | null; lastSyncAt: string | null }>("/email/status").then((r) => r.data),
+  scan: () => api.post<{ message: string; count: number }>("/email/scan").then((r) => r.data),
+  disconnect: () => api.post("/email/disconnect").then((r) => r.data),
+};
+
+export const notificationsAPI = {
+  getAll: (params?: { page?: number; limit?: number }) =>
+    api.get<PaginatedResponse<Notification>>("/notifications", { params }).then((r) => r.data),
+  getUnreadCount: () => api.get<{ count: number }>("/notifications/unread-count").then((r) => r.data),
+  markRead: (id: string) => api.put<Notification>(`/notifications/${id}/read`).then((r) => r.data),
+  markAllRead: () => api.put("/notifications/read-all").then((r) => r.data),
+};
+
 export const analyticsAPI = {
   get: () => api.get<AnalyticsData>("/analytics").then((r) => r.data),
 };
@@ -193,4 +209,17 @@ export const adminAPI = {
   // Seed
   runSeed: () => api.post<SeedResult>("/admin/seed/run").then((r) => r.data),
   clearSeed: () => api.post("/admin/seed/clear").then((r) => r.data),
+
+  // Gmail Management
+  getGmailUsers: (params?: { page?: number; limit?: number; search?: string }) =>
+    api.get<PaginatedResponse<AdminGmailUser>>("/admin/gmail/users", { params }).then((r) => r.data),
+  getGmailStats: () => api.get<AdminGmailStats>("/admin/gmail/stats").then((r) => r.data),
+  triggerGmailScan: (userId: string) => api.post<{ message: string; count: number }>(`/admin/gmail/${userId}/scan`).then((r) => r.data),
+  disconnectUserGmail: (userId: string) => api.post(`/admin/gmail/${userId}/disconnect`).then((r) => r.data),
+
+  // Admin Notifications
+  getAdminNotifications: (params?: { page?: number; limit?: number; search?: string; type?: string; read?: string }) =>
+    api.get<PaginatedResponse<AdminNotificationItem>>("/admin/notifications", { params }).then((r) => r.data),
+  getAdminNotificationStats: () => api.get<AdminNotificationStats>("/admin/notifications/stats").then((r) => r.data),
+  deleteAdminNotification: (id: string) => api.delete(`/admin/notifications/${id}`).then((r) => r.data),
 };

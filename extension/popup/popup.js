@@ -40,6 +40,18 @@ function showLoggedIn(user) {
   userName.textContent = user.name;
   userEmail.textContent = user.email;
   openAppLink.href = API_BASE.replace("/api", "");
+
+  // Show badge count and reset
+  chrome.storage.local.get(["badgeCount"], ({ badgeCount }) => {
+    const trackCount = document.getElementById("track-count");
+    if (trackCount && badgeCount > 0) {
+      trackCount.textContent = `${badgeCount} job${badgeCount !== 1 ? "s" : ""} tracked today`;
+      trackCount.style.display = "block";
+    }
+    // Reset badge when popup opens
+    chrome.storage.local.set({ badgeCount: 0 });
+    chrome.action.setBadgeText({ text: "" });
+  });
 }
 
 /**

@@ -19,6 +19,7 @@ export const ADMIN_WIDGETS: AdminWidgetConfig[] = [
   { id: "funnel", title: "Platform Funnel" },
   { id: "top-companies", title: "Top 10 Companies" },
   { id: "top-roles", title: "Top 10 Roles" },
+  { id: "rejections-per-day", title: "Rejections Per Day" },
   { id: "summary", title: "Platform Summary" },
 ];
 
@@ -31,7 +32,8 @@ const DEFAULT_LAYOUT: Layout[] = [
   { i: "funnel", x: 0, y: 17, w: 12, h: 6, minW: 6, minH: 5 },
   { i: "top-companies", x: 0, y: 23, w: 6, h: 7, minW: 4, minH: 5 },
   { i: "top-roles", x: 6, y: 23, w: 6, h: 7, minW: 4, minH: 5 },
-  { i: "summary", x: 0, y: 30, w: 12, h: 2, minW: 6, minH: 2 },
+  { i: "rejections-per-day", x: 0, y: 30, w: 12, h: 6, minW: 4, minH: 5 },
+  { i: "summary", x: 0, y: 36, w: 12, h: 2, minW: 6, minH: 2 },
 ];
 
 function loadLayout(): Layout[] {

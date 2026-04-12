@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { env } from "../../config/env.js";
 import mongoose from "mongoose";
+import { User } from "../../models/User.js";
 
 const router = Router();
 
@@ -61,6 +62,16 @@ function getIntegrationDefinitions(): Array<{
       key: "jsearch",
       category: "Job Search",
       envKeys: ["JSEARCH_API_KEY"],
+    },
+    {
+      name: "Gmail API",
+      key: "gmail_api",
+      category: "Email Integration",
+      envKeys: ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GMAIL_REDIRECT_URI", "ENCRYPTION_KEY"],
+      testFn: async () => {
+        const count = await User.countDocuments({ gmailConnected: true });
+        return { status: "connected", details: `${count} user(s) connected` };
+      },
     },
   ];
 }
