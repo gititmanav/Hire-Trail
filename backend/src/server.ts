@@ -37,13 +37,14 @@ const app = express();
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (e.g. mobile apps, curl)
+      // Allow requests with no origin (e.g. mobile apps, curl, same-origin)
       if (!origin) return callback(null, true);
       // Allow the web app
       if (origin === env.CLIENT_URL) return callback(null, true);
       // Allow Chrome extensions
       if (origin.startsWith("chrome-extension://")) return callback(null, true);
-      callback(new Error("Not allowed by CORS"));
+      // Reject others silently (don't throw — that causes 500s)
+      callback(null, false);
     },
     credentials: true,
   })
