@@ -34,13 +34,20 @@ const __dirname = dirname(__filename);
 
 const app = express();
 
+const ALLOWED_ORIGINS = [
+  env.CLIENT_URL,
+  "https://hiretrail.manavkaneria.me",
+  "https://hiretrail.vercel.app",
+  "http://localhost:5173",
+];
+
 app.use(
   cors({
     origin: (origin, callback) => {
       // Allow requests with no origin (e.g. mobile apps, curl)
       if (!origin) return callback(null, true);
-      // Allow the web app
-      if (origin === env.CLIENT_URL) return callback(null, true);
+      // Allow known web app origins
+      if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
       // Allow Chrome extensions
       if (origin.startsWith("chrome-extension://")) return callback(null, true);
       callback(new Error("Not allowed by CORS"));
