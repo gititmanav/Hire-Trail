@@ -1,17 +1,20 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useContext } from "react";
 import toast from "react-hot-toast";
 import { Responsive, WidthProvider } from "react-grid-layout";
 import { Line, Bar } from "react-chartjs-2";
 import "../../utils/chartSetup";
+import { chartColors, primaryColor, mutedFgColor, borderColor } from "../../utils/chartSetup";
+import { ThemeContext } from "../../App.tsx";
 import { adminAPI } from "../../utils/api";
 import { useAdminWidgetLayout, ADMIN_WIDGETS } from "../../hooks/useAdminWidgetLayout";
 import AdminWidgetPicker from "../../components/WidgetPicker/AdminWidgetPicker";
 import type { AdminDashboardData, AuditLog, PlatformAnalyticsData } from "../../types";
+import type { Chart as ChartJS } from "chart.js";
 import "react-grid-layout/css/styles.css";
 
 const RGL = WidthProvider(Responsive);
 
-/* ── colour maps ── */
+/* ── colour maps (Tailwind classes — these respond to dark mode via .dark) ── */
 const actionColors: Record<string, string> = {
   login: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
   create: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
@@ -21,19 +24,7 @@ const actionColors: Record<string, string> = {
   role_change: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300",
 };
 
-const rateColors: Record<string, { bg: string; text: string; bar: string }> = {
-  oaRate: { bg: "bg-blue-50 dark:bg-blue-900/30", text: "text-blue-700 dark:text-blue-300", bar: "bg-blue-500" },
-  interviewRate: { bg: "bg-purple-50 dark:bg-purple-900/30", text: "text-purple-700 dark:text-purple-300", bar: "bg-purple-500" },
-  offerRate: { bg: "bg-green-50 dark:bg-green-900/30", text: "text-green-700 dark:text-green-300", bar: "bg-green-500" },
-  rejectionRate: { bg: "bg-red-50 dark:bg-red-900/30", text: "text-red-700 dark:text-red-300", bar: "bg-red-500" },
-};
-
 const rateLabels: Record<string, string> = { oaRate: "OA Rate", interviewRate: "Interview Rate", offerRate: "Offer Rate", rejectionRate: "Rejection Rate" };
-
-const stageColors: Record<string, string> = {
-  Applied: "rgba(59,130,246,0.7)", OA: "rgba(139,92,246,0.7)",
-  Interview: "rgba(245,158,11,0.7)", Offer: "rgba(16,185,129,0.7)", Rejected: "rgba(239,68,68,0.7)",
-};
 
 function getUserName(userId: AuditLog["userId"]): string {
   if (typeof userId === "object" && userId !== null) return userId.name;
@@ -41,11 +32,20 @@ function getUserName(userId: AuditLog["userId"]): string {
 }
 
 export default function AdminDashboard() {
+  const { themeId } = useContext(ThemeContext);
   const [dashData, setDashData] = useState<AdminDashboardData | null>(null);
   const [analyticsData, setAnalyticsData] = useState<PlatformAnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [pickerOpen, setPickerOpen] = useState(false);
   const { layout, visible, locked, onLayoutChange, toggleWidget, toggleLock, resetLayout } = useAdminWidgetLayout();
+
+  // Chart refs for imperative theme updates
+  const userGrowthRef = useRef<ChartJS<"line">>(null);
+  const appsPerDayRef = useRef<ChartJS<"bar">>(null);
+  const funnelRef = useRef<ChartJS<"bar">>(null);
+  const topCompaniesRef = useRef<ChartJS<"bar">>(null);
+  const topRolesRef = useRef<ChartJS<"bar">>(null);
+  const rejectionsRef = useRef<ChartJS<"bar">>(null);
 
   useEffect(() => {
     Promise.all([
@@ -57,11 +57,86 @@ export default function AdminDashboard() {
       .finally(() => setLoading(false));
   }, []);
 
+  // Update all chart colors when theme changes
+  useEffect(() => {
+    const colors = chartColors();
+    const m = mutedFgColor();
+    const g = borderColor();
+    const p = primaryColor();
+    const pFill = p.replace("hsl(", "hsla(").replace(")", " / 0.15)");
+
+    function updateScales(chart: ChartJS | null, horizontal = false) {
+      if (!chart) return;
+      const xAxis = horizontal ? "x" : "x";
+      const yAxis = horizontal ? "y" : "y";
+      if (chart.options.scales?.[xAxis]?.ticks) (chart.options.scales[xAxis]!.ticks as any).color = m;
+      if (chart.options.scales?.[yAxis]?.ticks) (chart.options.scales[yAxis]!.ticks as any).color = m;
+      if (chart.options.scales?.x?.grid) (chart.options.scales.x.grid as any).color = horizontal ? g : undefined;
+      if (chart.options.scales?.y?.grid) (chart.options.scales.y.grid as any).color = horizontal ? undefined : g;
+      chart.update("none");
+    }
+
+    // User growth
+    if (userGrowthRef.current) {
+      const chart = userGrowthRef.current;
+      const ds = chart.data.datasets[0];
+      ds.borderColor = p;
+      ds.backgroundColor = pFill;
+      updateScales(chart);
+    }
+
+    // Apps per day
+    if (appsPerDayRef.current) {
+      const chart = appsPerDayRef.current;
+      chart.data.datasets[0].backgroundColor = colors[3] || "rgba(16,185,129,0.7)";
+      chart.data.datasets[0].borderColor = colors[3] || "#10b981";
+      updateScales(chart);
+    }
+
+    // Funnel
+    if (funnelRef.current) {
+      const chart = funnelRef.current;
+      // Keep stage colors for semantic meaning, but update scales
+      if (chart.options.scales?.x?.ticks) (chart.options.scales.x.ticks as any).color = m;
+      if (chart.options.scales?.y?.ticks) (chart.options.scales.y.ticks as any).color = m;
+      if (chart.options.scales?.x?.grid) (chart.options.scales.x.grid as any).color = g;
+      chart.update("none");
+    }
+
+    // Top companies
+    if (topCompaniesRef.current) {
+      const chart = topCompaniesRef.current;
+      chart.data.datasets[0].backgroundColor = colors[2] || "rgba(99,102,241,0.7)";
+      if (chart.options.scales?.x?.ticks) (chart.options.scales.x.ticks as any).color = m;
+      if (chart.options.scales?.y?.ticks) (chart.options.scales.y.ticks as any).color = m;
+      if (chart.options.scales?.x?.grid) (chart.options.scales.x.grid as any).color = g;
+      chart.update("none");
+    }
+
+    // Top roles
+    if (topRolesRef.current) {
+      const chart = topRolesRef.current;
+      chart.data.datasets[0].backgroundColor = colors[3] || "rgba(16,185,129,0.7)";
+      if (chart.options.scales?.x?.ticks) (chart.options.scales.x.ticks as any).color = m;
+      if (chart.options.scales?.y?.ticks) (chart.options.scales.y.ticks as any).color = m;
+      if (chart.options.scales?.x?.grid) (chart.options.scales.x.grid as any).color = g;
+      chart.update("none");
+    }
+
+    // Rejections per day
+    if (rejectionsRef.current) {
+      const chart = rejectionsRef.current;
+      chart.data.datasets[0].backgroundColor = colors[4] || "rgba(239,68,68,0.7)";
+      chart.data.datasets[0].borderColor = colors[4] || "#ef4444";
+      updateScales(chart);
+    }
+  }, [themeId]);
+
   if (loading) {
     return (
       <div className="space-y-6">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          {Array.from({ length: 6 }).map((_, i) => (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="card-premium animate-pulse h-24 rounded-lg" />
           ))}
         </div>
@@ -78,11 +153,18 @@ export default function AdminDashboard() {
 
   const { stats, charts, recentActivity } = dashData;
 
-  /* ── chart options ── */
+  // Read theme-aware colors for initial chart render
+  const colors = chartColors();
+  const muted = mutedFgColor();
+  const grid = borderColor();
+  const primary = primaryColor();
+  const primaryFill = primary.replace("hsl(", "hsla(").replace(")", " / 0.15)");
+
+  /* ── chart options (theme-aware) ── */
   const chartOpts = {
     scales: {
-      y: { beginAtZero: true, ticks: { color: "#9ca3af" }, grid: { color: "rgba(156,163,175,0.15)" } },
-      x: { ticks: { color: "#9ca3af", maxRotation: 45 }, grid: { display: false } },
+      y: { beginAtZero: true, ticks: { color: muted }, grid: { color: grid } },
+      x: { ticks: { color: muted, maxRotation: 45 }, grid: { display: false } },
     },
     maintainAspectRatio: false,
   };
@@ -90,8 +172,8 @@ export default function AdminDashboard() {
   const horizontalOpts = {
     indexAxis: "y" as const,
     scales: {
-      x: { beginAtZero: true, ticks: { color: "#9ca3af" }, grid: { color: "rgba(156,163,175,0.15)" } },
-      y: { ticks: { color: "#9ca3af" }, grid: { display: false } },
+      x: { beginAtZero: true, ticks: { color: muted }, grid: { color: grid } },
+      y: { ticks: { color: muted }, grid: { display: false } },
     },
     maintainAspectRatio: false,
   };
@@ -106,11 +188,13 @@ export default function AdminDashboard() {
           { label: "Total Apps", value: stats.totalApplications },
           { label: "Signups This Week", value: stats.signupsThisWeek },
           { label: "Active Users (7d)", value: stats.activeUsers7d },
+          { label: "Gmail Connected", value: stats.gmailConnectedUsers },
+          { label: "Rejections (30d)", value: stats.rejectionsDetected30d },
           { label: "Total Resumes", value: stats.totalResumes },
           { label: "Total Contacts", value: stats.totalContacts },
         ];
         return (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 h-full items-center">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-3 h-full items-center">
             {statCards.map((s) => (
               <div key={s.label} className="bg-muted rounded-lg p-3">
                 <p className="text-xs text-muted-foreground">{s.label}</p>
@@ -125,20 +209,20 @@ export default function AdminDashboard() {
           labels: charts.userGrowth.map((d) => new Date(d._id).toLocaleDateString()),
           datasets: [{
             label: "Users", data: charts.userGrowth.map((d) => d.count),
-            borderColor: "#6366f1", backgroundColor: "rgba(99,102,241,0.15)", fill: true, tension: 0.3,
+            borderColor: primary, backgroundColor: primaryFill, fill: true, tension: 0.3,
           }],
         };
-        return <div className="h-full"><Line data={data} options={chartOpts} /></div>;
+        return <div className="h-full"><Line ref={userGrowthRef} data={data} options={chartOpts} /></div>;
       }
       case "apps-per-day": {
         const data = {
           labels: charts.appsPerDay.map((d) => new Date(d._id).toLocaleDateString()),
           datasets: [{
             label: "Applications", data: charts.appsPerDay.map((d) => d.count),
-            backgroundColor: "rgba(16,185,129,0.7)", borderColor: "#10b981", borderWidth: 1,
+            backgroundColor: colors[3] || "rgba(16,185,129,0.7)", borderColor: colors[3] || "#10b981", borderWidth: 1,
           }],
         };
-        return <div className="h-full"><Bar data={data} options={chartOpts} /></div>;
+        return <div className="h-full"><Bar ref={appsPerDayRef} data={data} options={chartOpts} /></div>;
       }
       case "activity":
         return (
@@ -165,17 +249,18 @@ export default function AdminDashboard() {
       case "conversion-rates": {
         if (!analyticsData) return <p className="text-muted-foreground text-sm">Loading analytics...</p>;
         const { conversionRates } = analyticsData;
+        const rateColorKeys = ["oaRate", "interviewRate", "offerRate", "rejectionRate"];
         return (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 h-full items-center">
-            {(Object.keys(rateLabels) as (keyof typeof rateLabels)[]).map((key) => {
+            {rateColorKeys.map((key, i) => {
               const val = conversionRates[key as keyof typeof conversionRates];
-              const color = rateColors[key];
+              const color = colors[i] || muted;
               return (
-                <div key={key} className={`rounded-lg p-3 ${color.bg}`}>
+                <div key={key} className="rounded-lg p-3 bg-muted">
                   <p className="text-xs text-muted-foreground">{rateLabels[key]}</p>
-                  <p className={`text-2xl font-bold ${color.text}`}>{val.toFixed(1)}%</p>
+                  <p className="text-2xl font-bold text-foreground">{val.toFixed(1)}%</p>
                   <div className="mt-1.5 w-full h-1.5 bg-border rounded-full overflow-hidden">
-                    <div className={`h-full ${color.bar} rounded-full`} style={{ width: `${Math.min(val, 100)}%` }} />
+                    <div className="h-full rounded-full" style={{ width: `${Math.min(val, 100)}%`, backgroundColor: color }} />
                   </div>
                 </div>
               );
@@ -185,6 +270,9 @@ export default function AdminDashboard() {
       }
       case "funnel": {
         if (!analyticsData) return null;
+        const stageColors: Record<string, string> = {};
+        const stageNames = ["Applied", "OA", "Interview", "Offer", "Rejected"];
+        stageNames.forEach((s, i) => { stageColors[s] = colors[i] || `rgba(156,163,175,0.7)`; });
         const data = {
           labels: analyticsData.funnel.map((f) => f._id),
           datasets: [{
@@ -193,7 +281,7 @@ export default function AdminDashboard() {
             borderWidth: 0,
           }],
         };
-        return <div className="h-full"><Bar data={data} options={horizontalOpts} /></div>;
+        return <div className="h-full"><Bar ref={funnelRef} data={data} options={horizontalOpts} /></div>;
       }
       case "top-companies": {
         if (!analyticsData) return null;
@@ -201,10 +289,10 @@ export default function AdminDashboard() {
           labels: analyticsData.topCompanies.map((c) => c._id),
           datasets: [{
             label: "Applications", data: analyticsData.topCompanies.map((c) => c.count),
-            backgroundColor: "rgba(99,102,241,0.7)", borderWidth: 0,
+            backgroundColor: colors[2] || "rgba(99,102,241,0.7)", borderWidth: 0,
           }],
         };
-        return <div className="h-full"><Bar data={data} options={horizontalOpts} /></div>;
+        return <div className="h-full"><Bar ref={topCompaniesRef} data={data} options={horizontalOpts} /></div>;
       }
       case "top-roles": {
         if (!analyticsData) return null;
@@ -212,10 +300,22 @@ export default function AdminDashboard() {
           labels: analyticsData.topRoles.map((r) => r._id),
           datasets: [{
             label: "Applications", data: analyticsData.topRoles.map((r) => r.count),
-            backgroundColor: "rgba(16,185,129,0.7)", borderWidth: 0,
+            backgroundColor: colors[3] || "rgba(16,185,129,0.7)", borderWidth: 0,
           }],
         };
-        return <div className="h-full"><Bar data={data} options={horizontalOpts} /></div>;
+        return <div className="h-full"><Bar ref={topRolesRef} data={data} options={horizontalOpts} /></div>;
+      }
+      case "rejections-per-day": {
+        const rpd = charts.rejectionsPerDay || [];
+        if (rpd.length === 0) return <p className="text-muted-foreground text-sm">No rejection data yet.</p>;
+        const data = {
+          labels: rpd.map((d) => new Date(d._id).toLocaleDateString()),
+          datasets: [{
+            label: "Rejections", data: rpd.map((d) => d.count),
+            backgroundColor: colors[4] || "rgba(239,68,68,0.7)", borderColor: colors[4] || "#ef4444", borderWidth: 1,
+          }],
+        };
+        return <div className="h-full"><Bar ref={rejectionsRef} data={data} options={chartOpts} /></div>;
       }
       case "summary": {
         if (!analyticsData) return null;

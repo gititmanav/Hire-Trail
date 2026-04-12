@@ -208,15 +208,18 @@ function ApplicationsTable({ data, loading }: { data: WithUser<Application>[]; l
           <th className="px-4 py-3">Company</th>
           <th className="px-4 py-3">Role</th>
           <th className="px-4 py-3">Stage</th>
+          <th className="px-4 py-3">Location</th>
+          <th className="px-4 py-3">Salary</th>
+          <th className="px-4 py-3">Job Type</th>
           <th className="px-4 py-3">Date</th>
         </tr>
       </thead>
       <tbody>
         {loading && (
-          <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">Loading...</td></tr>
+          <tr><td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">Loading...</td></tr>
         )}
         {!loading && data.length === 0 && (
-          <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">No applications found.</td></tr>
+          <tr><td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">No applications found.</td></tr>
         )}
         {!loading && data.map((a) => (
           <tr key={a._id} className="border-b border-border hover:bg-muted">
@@ -226,6 +229,9 @@ function ApplicationsTable({ data, loading }: { data: WithUser<Application>[]; l
             <td className="px-4 py-3">
               <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${stageBadge[a.stage] || ""}`}>{a.stage}</span>
             </td>
+            <td className="px-4 py-3 text-muted-foreground">{a.location || "—"}</td>
+            <td className="px-4 py-3 text-muted-foreground">{a.salary || "—"}</td>
+            <td className="px-4 py-3 text-muted-foreground">{a.jobType || "—"}</td>
             <td className="px-4 py-3 text-muted-foreground">{new Date(a.applicationDate).toLocaleDateString()}</td>
           </tr>
         ))}

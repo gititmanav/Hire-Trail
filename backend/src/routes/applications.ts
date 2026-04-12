@@ -86,6 +86,13 @@ router.post("/", validate(createApplicationSchema), async (req: Request, res: Re
       );
       companyId = company._id;
     }
+    // Duplicate detection: if jobUrl is non-empty, check for existing
+    if (req.body.jobUrl) {
+      const existing = await Application.findOne({ userId: user._id, jobUrl: req.body.jobUrl });
+      if (existing) {
+        return res.status(409).json({ error: "Already tracked", applicationId: existing._id });
+      }
+    }
     const app = await Application.create({ ...req.body, userId: user._id, companyId, resumeId: req.body.resumeId || null });
     res.status(201).json(app);
   } catch (err) { next(err); }
@@ -135,6 +142,10 @@ router.put("/:id", validate(updateApplicationSchema), async (req: Request, res: 
     }
     if (data.role !== undefined) existing.role = data.role;
     if (data.jobUrl !== undefined) existing.jobUrl = data.jobUrl;
+    if (data.jobDescription !== undefined) existing.jobDescription = data.jobDescription;
+    if (data.location !== undefined) existing.location = data.location;
+    if (data.salary !== undefined) existing.salary = data.salary;
+    if (data.jobType !== undefined) existing.jobType = data.jobType;
     if (data.notes !== undefined) existing.notes = data.notes;
     if (data.resumeId !== undefined) existing.resumeId = data.resumeId;
     if (data.companyId !== undefined) existing.companyId = data.companyId;

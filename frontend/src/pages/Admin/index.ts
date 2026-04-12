@@ -9,3 +9,5 @@ export { default as InviteSystem } from "./InviteSystem.tsx";
 export { default as BackupManagement } from "./BackupManagement.tsx";
 export { default as RBACManagement } from "./RBACManagement.tsx";
 export { default as SeedManagement } from "./SeedManagement.tsx";
+export { default as GmailManagement } from "./GmailManagement.tsx";
+export { default as NotificationCenter } from "./NotificationCenter.tsx";

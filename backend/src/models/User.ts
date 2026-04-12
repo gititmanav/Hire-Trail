@@ -16,6 +16,10 @@ export interface IUser extends Document {
   tourCompleted: boolean;
   /** Default resume for new applications (e.g. Chrome extension). */
   primaryResumeId: mongoose.Types.ObjectId | null;
+  gmailRefreshToken: string | null;
+  gmailConnected: boolean;
+  gmailEmail: string | null;
+  gmailLastSyncAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidate: string): Promise<boolean>;
@@ -61,6 +65,10 @@ const userSchema = new Schema<IUser>(
       ref: "Resume",
       default: null,
     },
+    gmailRefreshToken: { type: String, default: null },
+    gmailConnected: { type: Boolean, default: false },
+    gmailEmail: { type: String, default: null },
+    gmailLastSyncAt: { type: Date, default: null },
   },
   {
     timestamps: true,
@@ -68,6 +76,7 @@ const userSchema = new Schema<IUser>(
       transform(_doc, ret) {
         const out = ret as Record<string, unknown>;
         delete out.password;
+        delete out.gmailRefreshToken;
         delete out.__v;
         return out;
       },

@@ -13,3 +13,5 @@ export { default as backupRoutes } from "./backup.js";
 export { default as rolesRoutes } from "./roles.js";
 export { default as performanceRoutes } from "./performance.js";
 export { default as seedRoutes } from "./seed.js";
+export { default as adminNotificationRoutes } from "./notifications.js";
+export { default as gmailRoutes } from "./gmail.js";

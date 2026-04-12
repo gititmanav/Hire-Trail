@@ -42,6 +42,10 @@ export interface IApplication extends Document {
   applicationDate: Date;
   stage: Stage;
   stageHistory: StageEntry[];
+  jobDescription: string;
+  location: string;
+  salary: string;
+  jobType: string;
   notes: string;
   resumeId: Types.ObjectId | null;
   contactId: Types.ObjectId | null;
@@ -100,6 +104,26 @@ const applicationSchema = new Schema<IApplication>(
       type: [stageEntrySchema],
       default: [],
     },
+    jobDescription: {
+      type: String,
+      default: "",
+      maxlength: 50000,
+    },
+    location: {
+      type: String,
+      default: "",
+      maxlength: 200,
+    },
+    salary: {
+      type: String,
+      default: "",
+      maxlength: 200,
+    },
+    jobType: {
+      type: String,
+      default: "",
+      maxlength: 200,
+    },
     notes: {
       type: String,
       default: "",
@@ -149,6 +173,7 @@ applicationSchema.index({ userId: 1, applicationDate: -1 });
 applicationSchema.index({ userId: 1, resumeId: 1 });
 applicationSchema.index({ userId: 1, archived: 1 });
 applicationSchema.index({ userId: 1, companyId: 1 });
+applicationSchema.index({ userId: 1, jobUrl: 1 });
 
 // Auto-add initial stage to history on create
 applicationSchema.pre("save", function (next) {

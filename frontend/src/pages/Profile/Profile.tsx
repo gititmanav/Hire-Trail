@@ -1,7 +1,7 @@
 /** Profile, password, theme, and email settings; session cookies via shared API client. */
 import { useState, useEffect, FormEvent } from "react";
 import toast from "react-hot-toast";
-import { api, applicationsAPI } from "../../utils/api.ts";
+import { api, applicationsAPI, emailAPI } from "../../utils/api.ts";
 import { useThemeImport } from "../../hooks/useThemeImport.ts";
 import type { User } from "../../types";
 
@@ -78,19 +78,34 @@ export default function Profile() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [rejectionModal, setRejectionModal] = useState(false);
+  const [gmailStatus, setGmailStatus] = useState<{ connected: boolean; email: string | null; lastSyncAt: string | null }>({ connected: false, email: null, lastSyncAt: null });
+  const [gmailLoading, setGmailLoading] = useState(false);
   const [themeUrl, setThemeUrl] = useState("");
   const { themes, activeTheme, importing, importTheme, applyTheme, removeTheme, resetToDefault } = useThemeImport();
 
   useEffect(() => {
-    api
-      .get<User>("/auth/me")
-      .then((r) => {
+    Promise.all([
+      api.get<User>("/auth/me").then((r) => {
         setUser(r.data);
         setName(r.data.name);
         setEmail(r.data.email);
-      })
+      }),
+      emailAPI.status().then(setGmailStatus).catch(() => {}),
+    ])
       .catch(() => {})
       .finally(() => setLoading(false));
+
+    // Check for gmail callback result in URL
+    const params = new URLSearchParams(window.location.search);
+    const gmailResult = params.get("gmail");
+    if (gmailResult === "success") {
+      toast.success("Gmail connected successfully!");
+      emailAPI.status().then(setGmailStatus).catch(() => {});
+      window.history.replaceState({}, "", window.location.pathname);
+    } else if (gmailResult === "error") {
+      toast.error("Failed to connect Gmail");
+      window.history.replaceState({}, "", window.location.pathname);
+    }
   }, []);
 
   const handleProfile = async (e: FormEvent) => {
@@ -254,15 +269,72 @@ export default function Profile() {
         <p className="text-sm text-muted-foreground mb-4">
           HireTrail can detect rejection emails and automatically update your applications.
         </p>
-        <div className="flex flex-wrap items-center gap-3">
-          <button disabled className="relative px-4 py-2 text-sm font-medium border border-border rounded-lg text-muted-foreground cursor-not-allowed opacity-60">
-            Connect Gmail
-            <span className="absolute -top-2 -right-2 px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-muted text-muted-foreground border border-border">Coming soon</span>
-          </button>
-          <button onClick={() => setRejectionModal(true)} className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg transition-colors">
-            Report a rejection
-          </button>
-        </div>
+        {gmailStatus.connected ? (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              <span className="text-foreground">Connected as <strong>{gmailStatus.email}</strong></span>
+            </div>
+            {gmailStatus.lastSyncAt && (
+              <p className="text-xs text-muted-foreground">Last scanned: {new Date(gmailStatus.lastSyncAt).toLocaleString()}</p>
+            )}
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                disabled={gmailLoading}
+                onClick={async () => {
+                  setGmailLoading(true);
+                  try {
+                    const result = await emailAPI.scan();
+                    toast.success(result.message);
+                    const status = await emailAPI.status();
+                    setGmailStatus(status);
+                  } catch { toast.error("Scan failed"); }
+                  finally { setGmailLoading(false); }
+                }}
+                className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {gmailLoading ? "Scanning..." : "Scan now"}
+              </button>
+              <button
+                disabled={gmailLoading}
+                onClick={async () => {
+                  setGmailLoading(true);
+                  try {
+                    await emailAPI.disconnect();
+                    setGmailStatus({ connected: false, email: null, lastSyncAt: null });
+                    toast.success("Gmail disconnected");
+                  } catch { toast.error("Failed to disconnect"); }
+                  finally { setGmailLoading(false); }
+                }}
+                className="px-4 py-2 text-sm font-medium border border-border rounded-lg text-secondary-foreground hover:bg-muted transition-colors disabled:opacity-50"
+              >
+                Disconnect
+              </button>
+              <button onClick={() => setRejectionModal(true)} className="px-4 py-2 text-sm font-medium border border-border rounded-lg text-secondary-foreground hover:bg-muted transition-colors">
+                Report a rejection
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              disabled={gmailLoading}
+              onClick={async () => {
+                setGmailLoading(true);
+                try {
+                  const { url } = await emailAPI.connect();
+                  window.location.href = url;
+                } catch { toast.error("Failed to start Gmail connection"); setGmailLoading(false); }
+              }}
+              className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg transition-colors disabled:opacity-50"
+            >
+              {gmailLoading ? "Connecting..." : "Connect Gmail"}
+            </button>
+            <button onClick={() => setRejectionModal(true)} className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg transition-colors">
+              Report a rejection
+            </button>
+          </div>
+        )}
       </div>
 
       {rejectionModal && <ReportRejectionModal onClose={() => setRejectionModal(false)} />}

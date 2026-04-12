@@ -14,7 +14,7 @@ export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
 export const RESOURCE_TYPES = [
   "user", "application", "resume", "contact", "deadline",
-  "setting", "announcement", "invite", "email_template", "system",
+  "setting", "announcement", "invite", "email_template", "system", "notification",
 ] as const;
 
 export type ResourceType = (typeof RESOURCE_TYPES)[number];

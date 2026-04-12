@@ -82,6 +82,7 @@ function ApplicationDetailSidebar({
   onStageChange: (id: string, stage: Stage) => void;
   onViewResume: (resume: Resume) => void;
 }) {
+  const [jdExpanded, setJdExpanded] = useState(false);
   const resume = resumes.find((r) => r._id === app.resumeId);
   const companyContacts = contacts.filter((c) => c.company.toLowerCase() === app.company.toLowerCase());
   const appDeadlines = deadlines.filter((d) => d.applicationId === app._id && !d.completed);
@@ -118,6 +119,13 @@ function ApplicationDetailSidebar({
             <span className="text-sm font-medium text-foreground">{app.company}</span>
             {app.jobUrl && <a href={app.jobUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-xs">Visit</a>}
           </div>
+          {(app.location || app.salary || app.jobType) && (
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {app.location && <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-full bg-muted text-muted-foreground"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>{app.location}</span>}
+              {app.salary && <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-full bg-muted text-muted-foreground">{app.salary}</span>}
+              {app.jobType && <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-full bg-muted text-muted-foreground">{app.jobType}</span>}
+            </div>
+          )}
         </div>
 
         {/* Stage tags */}
@@ -138,6 +146,21 @@ function ApplicationDetailSidebar({
           <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Applied</label>
           <p className="text-sm text-secondary-foreground">{fmt(app.applicationDate)}</p>
         </div>
+
+        {/* Job Description */}
+        {app.jobDescription && (
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Job Description</label>
+            <div className="text-sm text-secondary-foreground whitespace-pre-wrap">
+              {jdExpanded ? app.jobDescription : app.jobDescription.slice(0, 150) + (app.jobDescription.length > 150 ? "..." : "")}
+            </div>
+            {app.jobDescription.length > 150 && (
+              <button onClick={() => setJdExpanded(!jdExpanded)} className="text-xs text-primary hover:underline mt-1">
+                {jdExpanded ? "Show less" : "Show more"}
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Resume */}
         <div>

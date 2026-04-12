@@ -20,6 +20,8 @@ const envSchema = z
     // Optional: RapidAPI JSearch proxy
     JSEARCH_API_KEY: z.string().default(""),
     ADMIN_EMAILS: z.string().default(""),
+    GMAIL_REDIRECT_URI: z.string().default("http://localhost:5050/api/email/callback"),
+    ENCRYPTION_KEY: z.string().default("0000000000000000000000000000000000000000000000000000000000000000"),
   })
   .superRefine((data, ctx) => {
     if (data.NODE_ENV !== "production") return;

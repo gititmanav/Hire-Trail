@@ -103,16 +103,41 @@ async function trackJob(data) {
         stage: "Applied",
         notes: "",
         resumeId,
+        jobDescription: data.jobDescription || "",
+        location: data.location || "",
+        salary: data.salary || "",
+        jobType: data.jobType || "",
       }),
     });
+
+    if (res.status === 409) {
+      return { success: false, duplicate: true, error: "Already tracked!" };
+    }
 
     if (!res.ok) {
       const err = await res.json();
       return { success: false, error: err.error || "Failed to track" };
     }
 
+    // Update badge count
+    const { badgeCount = 0 } = await chrome.storage.local.get(["badgeCount"]);
+    const newCount = badgeCount + 1;
+    await chrome.storage.local.set({ badgeCount: newCount });
+    chrome.action.setBadgeText({ text: String(newCount) });
+    chrome.action.setBadgeBackgroundColor({ color: "#378add" });
+
     return { success: true };
   } catch (err) {
     return { success: false, error: err.message };
   }
 }
+
+// Badge reset alarm — daily at midnight
+chrome.alarms.create("resetBadge", { periodInMinutes: 1440 });
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === "resetBadge") {
+    chrome.storage.local.set({ badgeCount: 0 });
+    chrome.action.setBadgeText({ text: "" });
+  }
+});
