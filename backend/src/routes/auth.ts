@@ -218,6 +218,108 @@ router.post(
   }
 );
 
+// Exchange existing web-app session cookie for a JWT (auto-login for extension)
+router.post(
+  "/extension-token",
+  ensureAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const user = getUser(req);
+      const doc = await User.findById(user._id).lean();
+      if (!doc) throw new AppError("Not found", 404);
+      if (doc.suspended) return res.status(403).json({ error: "Account suspended" });
+
+      const token = jwt.sign({ userId: doc._id.toString() }, env.SESSION_SECRET, { expiresIn: "30d" });
+      res.json({
+        token,
+        user: {
+          _id: doc._id,
+          name: doc.name,
+          email: doc.email,
+          role: doc.role,
+          primaryResumeId: doc.primaryResumeId ? String(doc.primaryResumeId) : null,
+        },
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// Google sign-in for Chrome extension: accepts a Google OAuth access token, verifies it, returns JWT
+router.post(
+  "/google/extension",
+  authLimiter,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { accessToken } = req.body;
+      if (!accessToken) throw new AppError("accessToken is required", 400);
+
+      // Verify the access token by fetching user info from Google
+      const googleRes = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (!googleRes.ok) throw new AppError("Invalid Google token", 401);
+
+      const profile = (await googleRes.json()) as {
+        id: string;
+        name: string;
+        email: string;
+        picture?: string;
+      };
+
+      if (!profile.email) throw new AppError("Google account has no email", 400);
+
+      // Same user lookup/create logic as passport Google strategy
+      let user = await User.findOne({ googleId: profile.id });
+
+      if (!user) {
+        // Check if email exists from local signup — link accounts
+        user = await User.findOne({ email: profile.email.toLowerCase() });
+        if (user) {
+          user.googleId = profile.id;
+          if (isAdminEmail(user.email)) user.role = "admin";
+          await user.save();
+        } else {
+          // Create new user
+          user = await User.create({
+            name: profile.name,
+            email: profile.email.toLowerCase(),
+            googleId: profile.id,
+            password: null,
+            role: isAdminEmail(profile.email) ? "admin" : "user",
+          });
+        }
+      }
+
+      if (user.suspended) return res.status(403).json({ error: "Account suspended" });
+
+      const token = jwt.sign({ userId: user._id.toString() }, env.SESSION_SECRET, { expiresIn: "30d" });
+      res.json({
+        token,
+        user: {
+          _id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          primaryResumeId: user.primaryResumeId ? String(user.primaryResumeId) : null,
+        },
+      });
+
+      const meta = getRequestMeta(req);
+      void AdminLoginEvent.create({
+        userId: user._id,
+        email: user.email,
+        name: user.name,
+        provider: "google-extension",
+        ...meta,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
 // PUT update profile (session or Bearer)
 router.put("/profile", ensureAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
