@@ -62,36 +62,38 @@
   });
 
   btn.addEventListener("click", async () => {
-    // Check auth first
-    const authRes = await chrome.runtime.sendMessage({ type: "CHECK_AUTH" });
-    if (!authRes.authenticated) {
-      showStatus("Log in via extension popup first", "error");
-      return;
-    }
+    try {
+      // Check auth first
+      const authRes = await chrome.runtime.sendMessage({ type: "CHECK_AUTH" });
+      if (!authRes || !authRes.authenticated) {
+        showStatus("Log in via extension popup first", "error");
+        return;
+      }
 
-    const data = scrape();
-    data.url = window.location.href;
+      const data = scrape();
+      data.url = window.location.href;
 
-    btn.style.opacity = "0.6";
-    btn.style.pointerEvents = "none";
-    btn.textContent = "...";
+      btn.style.opacity = "0.6";
+      btn.style.pointerEvents = "none";
+      btn.textContent = "...";
 
-    const result = await chrome.runtime.sendMessage({ type: "TRACK_JOB", data });
+      const result = await chrome.runtime.sendMessage({ type: "TRACK_JOB", data });
 
-    if (result.success) {
-      showStatus("Tracked!", "success");
-      btn.style.background = "#1d9e75";
-      btn.textContent = "\u2713";
-      setTimeout(() => {
-        btn.style.background = "#378add";
-        btn.textContent = "H";
-        btn.style.opacity = "1";
-        btn.style.pointerEvents = "auto";
-      }, 2000);
-    } else {
-      showStatus(result.error || "Failed", "error");
+      if (result && result.success) {
+        showStatus("Tracked!", "success");
+        btn.style.background = "#1d9e75";
+        btn.textContent = "\u2713";
+      } else {
+        showStatus(result?.error || "Failed", "error");
+        btn.style.background = "#e24b4a";
+        btn.textContent = "!";
+      }
+    } catch (err) {
+      // Extension was reloaded — content script lost connection to service worker
+      showStatus("Refresh page & try again", "error");
       btn.style.background = "#e24b4a";
       btn.textContent = "!";
+    } finally {
       setTimeout(() => {
         btn.style.background = "#378add";
         btn.textContent = "H";
