@@ -44,13 +44,14 @@ const ALLOWED_ORIGINS = [
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (e.g. mobile apps, curl)
+      // Allow requests with no origin (e.g. mobile apps, curl, same-origin)
       if (!origin) return callback(null, true);
       // Allow known web app origins
       if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
       // Allow Chrome extensions
       if (origin.startsWith("chrome-extension://")) return callback(null, true);
-      callback(new Error("Not allowed by CORS"));
+      // Reject others silently (don't throw — that causes 500s)
+      callback(null, false);
     },
     credentials: true,
   })
