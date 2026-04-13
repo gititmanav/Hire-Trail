@@ -124,8 +124,21 @@ app.use("/api/notifications", notificationRoutes);
 
 // Monorepo deploy: Vite build at ../frontend/dist (dev UX uses Vite on :5173 with proxy to this API).
 const clientBuildPath = join(__dirname, "..", "..", "frontend", "dist");
-app.use(express.static(clientBuildPath));
+
+// Hashed assets (JS/CSS/images) — cache immutably (Vite adds content hashes to filenames).
+app.use(
+  express.static(clientBuildPath, {
+    maxAge: "1y",
+    immutable: true,
+    index: false, // don't auto-serve index.html from static middleware
+  })
+);
+
+// SPA fallback — always revalidate index.html so deploys take effect immediately.
 app.get("*", (_req, res) => {
+  res.set("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.set("Pragma", "no-cache");
+  res.set("Expires", "0");
   res.sendFile(join(clientBuildPath, "index.html"));
 });
 

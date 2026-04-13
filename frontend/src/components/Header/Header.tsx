@@ -8,6 +8,15 @@ import type { User } from "../../types";
 
 const EXT_DISMISSED_KEY = "hiretrail-ext-banner-dismissed";
 
+const SUPPORTED_SITES = [
+  { name: "LinkedIn", domain: "linkedin.com", color: "#0A66C2" },
+  { name: "Indeed", domain: "indeed.com", color: "#2164F3" },
+  { name: "Greenhouse", domain: "greenhouse.io", color: "#23A47F", note: "boards + job-boards" },
+  { name: "Lever", domain: "lever.co", color: "#4B5563" },
+  { name: "Glassdoor", domain: "glassdoor.com", color: "#0CAA41" },
+  { name: "Workday", domain: "myworkdayjobs.com", color: "#005CB9" },
+];
+
 const FB: Record<string, [string, string]> = {
   "--primary": ["217 91% 60%", "217 91% 60%"],
   "--background": ["0 0% 100%", "0 0% 9%"],
@@ -23,9 +32,9 @@ function previewColor(theme: Theme, v: string): string {
   return fb ? `hsl(${fb[theme.isDark ? 1 : 0]})` : "#888";
 }
 
-interface Props { user: User; onLogout: () => void; }
+interface Props { user: User; onLogout: () => void; onMobileMenuToggle?: () => void; }
 
-export default function Header({ user, onLogout }: Props) {
+export default function Header({ user, onLogout, onMobileMenuToggle }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [themeOpen, setThemeOpen] = useState(false);
   const [themeSearch, setThemeSearch] = useState("");
@@ -35,6 +44,8 @@ export default function Header({ user, onLogout }: Props) {
   const navigate = useNavigate();
   const initials = user.name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
   const [extHighlight, setExtHighlight] = useState(() => !localStorage.getItem(EXT_DISMISSED_KEY));
+  const [sitesOpen, setSitesOpen] = useState(false);
+  const sitesRef = useRef<HTMLDivElement>(null);
 
   const handleExtDownload = useCallback(() => {
     if (extHighlight) {
@@ -47,14 +58,27 @@ export default function Header({ user, onLogout }: Props) {
   useEffect(() => { const h = (e: MouseEvent) => { if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false); }; document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h); }, []);
   // Click-outside for theme picker
   useEffect(() => { const h = (e: MouseEvent) => { if (themeRef.current && !themeRef.current.contains(e.target as Node)) setThemeOpen(false); }; document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h); }, []);
-  // Escape closes both
-  useEffect(() => { const h = (e: KeyboardEvent) => { if (e.key === "Escape") { setMenuOpen(false); setThemeOpen(false); } }; document.addEventListener("keydown", h); return () => document.removeEventListener("keydown", h); }, []);
+  // Escape closes menus
+  useEffect(() => { const h = (e: KeyboardEvent) => { if (e.key === "Escape") { setMenuOpen(false); setThemeOpen(false); setSitesOpen(false); } }; document.addEventListener("keydown", h); return () => document.removeEventListener("keydown", h); }, []);
+  // Click-outside for supported-sites popover (esp. mobile tap-to-toggle)
+  useEffect(() => {
+    const h = (e: MouseEvent) => {
+      if (sitesRef.current && !sitesRef.current.contains(e.target as Node)) setSitesOpen(false);
+    };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
 
   return (
     <header className="glass-header">
       <div className="flex items-center justify-between px-6 py-2.5">
-        {/* Extension download CTA */}
+        {/* Mobile hamburger + Extension download CTA */}
         <div className="flex items-center">
+          {onMobileMenuToggle && (
+            <button onClick={onMobileMenuToggle} className="md:hidden w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors mr-1">
+              <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><line x1="3" y1="5" x2="17" y2="5"/><line x1="3" y1="10" x2="17" y2="10"/><line x1="3" y1="15" x2="17" y2="15"/></svg>
+            </button>
+          )}
           <a
             href="/extension.zip"
             download="HireTrail-Extension.zip"
@@ -79,6 +103,45 @@ export default function Header({ user, onLogout }: Props) {
               </svg>
             )}
           </a>
+          {/* "Where it works" hover card */}
+          <div
+            className="relative hidden sm:block"
+            ref={sitesRef}
+            onMouseEnter={() => {
+              if (typeof matchMedia !== "undefined" && matchMedia("(hover: hover)").matches) setSitesOpen(true);
+            }}
+            onMouseLeave={() => {
+              if (typeof matchMedia !== "undefined" && matchMedia("(hover: hover)").matches) setSitesOpen(false);
+            }}
+          >
+            <button
+              type="button"
+              className="flex items-center gap-1 px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-muted"
+              onClick={() => {
+                if (typeof matchMedia !== "undefined" && matchMedia("(pointer: coarse)").matches) {
+                  setSitesOpen((o) => !o);
+                }
+              }}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+              Where it works
+            </button>
+            <div className={`absolute left-0 top-full mt-1 w-[240px] card-premium z-50 transition-all duration-200 origin-top-left ${sitesOpen ? "opacity-100 scale-100 pointer-events-auto" : "opacity-0 scale-95 pointer-events-none"}`}>
+              <div className="p-3 pb-2 border-b border-border">
+                <p className="text-xs font-semibold text-foreground">Supported job boards</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">One-click tracking on these sites</p>
+              </div>
+              <div className="p-2 space-y-0.5">
+                {SUPPORTED_SITES.map((s) => (
+                  <div key={s.domain} className="flex items-center gap-2.5 px-2 py-1.5 rounded-md">
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: s.color }} />
+                    <span className="text-[12px] font-medium text-foreground">{s.name}</span>
+                    <span className="text-[10px] text-muted-foreground ml-auto">{s.domain}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           {/* Theme picker */}

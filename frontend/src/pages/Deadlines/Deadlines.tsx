@@ -118,17 +118,29 @@ export default function Deadlines() {
         ))}
       </div>
 
+      {/* Summary counts */}
+      {(uc > 0 || oc > 0 || cc > 0) && (
+        <div className="flex items-center gap-4 mb-4 text-sm">
+          {oc > 0 && <span className="flex items-center gap-1.5 text-red-600 dark:text-red-400 font-medium"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>{oc} overdue</span>}
+          {uc > 0 && <span className="text-muted-foreground">{uc} upcoming</span>}
+          {cc > 0 && <span className="text-muted-foreground">{cc} completed</span>}
+        </div>
+      )}
+
       {deadlines.length === 0 ? (
         <div className="bg-card border border-border rounded-xl p-12 text-center text-muted-foreground"><h3 className="font-medium text-muted-foreground mb-1">{filter === "upcoming" ? "No upcoming deadlines" : filter === "overdue" ? "No overdue deadlines" : filter === "completed" ? "No completed deadlines" : "No deadlines yet"}</h3><p className="text-sm">{filter === "upcoming" ? "You're all caught up!" : "Add deadlines to stay on track"}</p></div>
       ) : (
         <div className="bg-card border border-border rounded-xl divide-y divide-border">
           {deadlines.map((d) => (
-            <div key={d._id} className={`flex items-center gap-3 px-5 py-3 group ${d.completed ? "opacity-50" : ""}`}>
+            <div key={d._id} className={`flex items-center gap-3 px-5 py-3 group ${d.completed ? "opacity-50" : ""} ${!d.completed && daysN(d.dueDate) < 0 ? "bg-red-50/50 dark:bg-red-950/20" : ""}`}>
               <button onClick={() => toggle(d)} className={`w-[22px] h-[22px] rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${d.completed ? "bg-success border-success text-white" : "border-border hover:border-primary"}`}>
                 {d.completed && <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="2,6 5,9 10,3" /></svg>}
               </button>
               <div className="flex-1 min-w-0">
-                <span className="text-sm font-medium text-foreground">{d.type}</span>
+                <span className="text-sm font-medium text-foreground flex items-center gap-1.5">
+                  {!d.completed && daysN(d.dueDate) < 0 && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-red-500 shrink-0"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>}
+                  {d.type}
+                </span>
                 {appLabel(d.applicationId) && <span className="block text-xs text-muted-foreground">{appLabel(d.applicationId)}</span>}
                 {d.notes && <span className="block text-xs text-muted-foreground truncate">{d.notes}</span>}
               </div>

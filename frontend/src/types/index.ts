@@ -57,7 +57,7 @@ export interface Application {
   createdAt: string; updatedAt: string;
 }
 export interface Resume {
-  _id: string; userId: string; name: string; targetRole: string; fileName: string;
+  _id: string; userId: string; name: string; targetRole: string; tags?: string[]; fileName: string;
   fileUrl: string; filePublicId: string;
   uploadDate: string; createdAt: string; updatedAt: string; applicationCount?: number;
 }
@@ -93,7 +93,7 @@ export interface CompanyDetail extends Company {
   applicationCount: number;
 }
 export interface CompanyFormData { name: string; website?: string; }
-export interface ApplicationFormData { company: string; role: string; jobUrl: string; stage: Stage; notes: string; resumeId: string; companyId: string; contactId: string; outreachStatus: OutreachStatus; }
+export interface ApplicationFormData { company: string; role: string; jobUrl: string; stage: Stage; notes: string; resumeId: string; companyId: string; contactId: string; outreachStatus: OutreachStatus; location?: string; salary?: string; jobType?: string; }
 export interface ResumeFormData { name: string; targetRole: string; fileName: string; file?: File | null; }
 export interface ContactFormData { name: string; company: string; role: string; linkedinUrl: string; connectionSource: string; notes: string; companyId: string; applicationIds: string[]; outreachStatus: ContactOutreachStatus; nextFollowUpDate: string; }
 export interface DeadlineFormData { applicationId: string; type: string; dueDate: string; notes: string; }
