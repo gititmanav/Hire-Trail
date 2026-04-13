@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState, MouseEvent as ReactMouseEvent } from "react";
 
 interface Props {
   fileUrl: string;
@@ -7,8 +7,22 @@ interface Props {
   onClose: () => void;
 }
 
+const RESUME_SIDEBAR_WIDTH_KEY = "hiretrail-resume-sidebar-width";
+const RESUME_SIDEBAR_MIN_WIDTH = 520;
+const RESUME_SIDEBAR_MAX_WIDTH = 1100;
+
 export default function ResumePreview({ fileUrl, name, fileName, onClose }: Props) {
   const [open, setOpen] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(900);
+  const [resizing, setResizing] = useState(false);
+  const dragStartXRef = useRef(0);
+  const dragStartWidthRef = useRef(900);
+  const suppressCloseRef = useRef(false);
+  const clampWidth = useCallback((w: number) => {
+    const viewportMax = Math.max(RESUME_SIDEBAR_MIN_WIDTH, window.innerWidth - 24);
+    const maxAllowed = Math.min(RESUME_SIDEBAR_MAX_WIDTH, viewportMax);
+    return Math.max(Math.min(w, maxAllowed), RESUME_SIDEBAR_MIN_WIDTH);
+  }, []);
 
   useEffect(() => {
     requestAnimationFrame(() => setOpen(true));
@@ -25,13 +39,75 @@ export default function ResumePreview({ fileUrl, name, fileName, onClose }: Prop
     setTimeout(onClose, 300);
   };
 
+  useEffect(() => {
+    const saved = Number(localStorage.getItem(RESUME_SIDEBAR_WIDTH_KEY));
+    const initial = Number.isFinite(saved) ? saved : 900;
+    setSidebarWidth(clampWidth(initial));
+  }, [clampWidth]);
+
+  useEffect(() => {
+    const onResize = () => setSidebarWidth((prev) => clampWidth(prev));
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [clampWidth]);
+
+  useEffect(() => {
+    localStorage.setItem(RESUME_SIDEBAR_WIDTH_KEY, String(Math.round(sidebarWidth)));
+  }, [sidebarWidth]);
+
+  const handleResizeStart = (e: ReactMouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    suppressCloseRef.current = true;
+    dragStartXRef.current = e.clientX;
+    dragStartWidthRef.current = sidebarWidth;
+    setResizing(true);
+  };
+
+  useEffect(() => {
+    if (!resizing) return;
+    const onMove = (e: MouseEvent) => {
+      const delta = dragStartXRef.current - e.clientX;
+      setSidebarWidth(clampWidth(dragStartWidthRef.current + delta));
+    };
+    const onUp = () => {
+      setResizing(false);
+      // Ignore drag-end click to prevent accidental close.
+      setTimeout(() => { suppressCloseRef.current = false; }, 0);
+    };
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "col-resize";
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, [resizing, clampWidth]);
+
   return (
-    <div className="fixed inset-0 z-50 flex justify-end" onClick={handleClose}>
+    <div
+      className="fixed inset-0 z-50 flex justify-end"
+      onClick={() => {
+        if (resizing || suppressCloseRef.current) return;
+        handleClose();
+      }}
+    >
       <div className={`absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300 ${open ? "opacity-100" : "opacity-0"}`} />
       <div
-        className={`relative w-[calc(100vw-240px)] max-w-[900px] h-full bg-card shadow-2xl flex flex-col transition-transform duration-300 ${open ? "translate-x-0" : "translate-x-full"}`}
+        className={`relative h-full bg-card shadow-2xl flex flex-col transition-transform duration-300 ${open ? "translate-x-0" : "translate-x-full"}`}
+        style={{ width: `${sidebarWidth}px`, maxWidth: "calc(100vw - 12px)" }}
         onClick={(e) => e.stopPropagation()}
       >
+        <div
+          className={`absolute left-0 top-0 h-full w-1.5 -translate-x-1/2 cursor-col-resize z-20 group ${resizing ? "bg-primary/30" : ""}`}
+          onMouseDown={handleResizeStart}
+          title={`Drag to resize (${RESUME_SIDEBAR_MIN_WIDTH}px–${RESUME_SIDEBAR_MAX_WIDTH}px)`}
+        >
+          <div className="h-full w-full transition-colors group-hover:bg-primary/20" />
+        </div>
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-border shrink-0">
           <h2 className="text-[15px] font-semibold text-foreground truncate mr-3">{name}</h2>
           <div className="flex items-center gap-2 shrink-0">

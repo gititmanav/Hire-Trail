@@ -58,7 +58,7 @@ export interface Application {
 }
 export interface Resume {
   _id: string; userId: string; name: string; targetRole: string; tags?: string[]; fileName: string;
-  fileUrl: string; filePublicId: string;
+  fileUrl: string; filePublicId: string; isProtected?: boolean;
   uploadDate: string; createdAt: string; updatedAt: string; applicationCount?: number;
 }
 export interface Contact {

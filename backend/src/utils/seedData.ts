@@ -82,6 +82,14 @@ const RESUME_ROLES = [
   "Full Stack", "Backend", "Frontend", "Platform", "DevOps",
 ];
 
+const PROTECTED_DEMO_RESUME = {
+  name: "Software Engineer Resume (Locked)",
+  targetRole: "Software Engineering",
+  fileName: "demo-resume-software-engineer.pdf",
+  fileUrl: "/demo-resume-software-engineer.pdf",
+  tags: ["Software Engineering", "Demo", "Locked"],
+} as const;
+
 const CONTACT_NAMES = [
   "Sarah Chen", "James Wilson", "Priya Patel", "Michael Brown",
   "Emily Rodriguez", "David Kim", "Amanda Foster", "Ryan Thompson",
@@ -176,7 +184,26 @@ export async function runSeed(): Promise<SeedResult> {
     uploadDate: randomDate(new Date("2025-01-01"), new Date("2025-06-01")),
   }));
   const resumes = await Resume.insertMany(resumeDocs);
-  const resumeIds = resumes.map((r) => r._id);
+
+  const protectedResume = await Resume.findOneAndUpdate(
+    { userId, name: PROTECTED_DEMO_RESUME.name },
+    {
+      $set: {
+        targetRole: PROTECTED_DEMO_RESUME.targetRole,
+        fileName: PROTECTED_DEMO_RESUME.fileName,
+        fileUrl: PROTECTED_DEMO_RESUME.fileUrl,
+        tags: PROTECTED_DEMO_RESUME.tags,
+        isProtected: true,
+      },
+      $setOnInsert: {
+        userId,
+        name: PROTECTED_DEMO_RESUME.name,
+        uploadDate: randomDate(new Date("2025-01-01"), new Date("2025-06-01")),
+      },
+    },
+    { upsert: true, new: true }
+  );
+  const resumeIds = [...resumes.map((r) => r._id), protectedResume._id];
 
   // Applications
   const startDate = new Date("2025-01-15");
@@ -238,7 +265,7 @@ export async function runSeed(): Promise<SeedResult> {
 
   return {
     users: 1,
-    resumes: resumes.length,
+    resumes: resumes.length + 1,
     applications: appDocs.length,
     contacts: contactDocs.length,
     deadlines: deadlineDocs.length,

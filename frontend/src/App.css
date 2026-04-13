@@ -125,6 +125,7 @@
   border: 1px solid hsl(var(--border));
 }
 .card-premium:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04); transform: translateY(-1px); }
+.card-no-lift:hover { transform: none; }
 
 .btn-accent {
   @apply inline-flex items-center gap-1.5 px-4 py-2 text-primary-foreground text-sm font-medium rounded-lg transition-all duration-150 bg-primary;

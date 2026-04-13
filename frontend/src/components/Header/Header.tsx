@@ -32,7 +32,7 @@ function previewColor(theme: Theme, v: string): string {
   return fb ? `hsl(${fb[theme.isDark ? 1 : 0]})` : "#888";
 }
 
-interface Props { user: User; onLogout: () => void; onMobileMenuToggle?: () => void; }
+interface Props { user: User; onLogout: () => Promise<void>; onMobileMenuToggle?: () => void; }
 
 export default function Header({ user, onLogout, onMobileMenuToggle }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -45,6 +45,7 @@ export default function Header({ user, onLogout, onMobileMenuToggle }: Props) {
   const initials = user.name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
   const [extHighlight, setExtHighlight] = useState(() => !localStorage.getItem(EXT_DISMISSED_KEY));
   const [sitesOpen, setSitesOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const sitesRef = useRef<HTMLDivElement>(null);
 
   const handleExtDownload = useCallback(() => {
@@ -68,6 +69,17 @@ export default function Header({ user, onLogout, onMobileMenuToggle }: Props) {
     document.addEventListener("mousedown", h);
     return () => document.removeEventListener("mousedown", h);
   }, []);
+
+  const handleLogout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    setMenuOpen(false);
+    try {
+      await onLogout();
+    } finally {
+      setLoggingOut(false);
+    }
+  };
 
   return (
     <header className="glass-header">
@@ -213,8 +225,8 @@ export default function Header({ user, onLogout, onMobileMenuToggle }: Props) {
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="text-muted-foreground"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>Settings
                 </button>
                 <div className="border-t border-border mt-1 pt-1">
-                  <button onClick={() => { setMenuOpen(false); onLogout(); }} className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-red-500 hover:bg-red-50 hover:bg-destructive/10 transition-colors">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Sign out
+                  <button onClick={() => void handleLogout()} disabled={loggingOut} className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-red-500 hover:bg-red-50 hover:bg-destructive/10 transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>{loggingOut ? "Signing out..." : "Sign out"}
                   </button>
                 </div>
               </div>

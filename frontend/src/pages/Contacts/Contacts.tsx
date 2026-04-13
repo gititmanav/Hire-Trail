@@ -28,6 +28,7 @@ const fmt = (d: string) => new Date(d).toLocaleDateString("en-US", { month: "sho
 const ini = (n: string) => n.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
 const inputCls = "w-full px-3 py-2 text-sm bg-card border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring";
 const btnIcon = "w-9 h-9 flex items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted transition-colors";
+const normalizeOutreachStatus = (status?: ContactOutreachStatus | null): ContactOutreachStatus => status || "not_contacted";
 
 function needsFollowUp(c: Contact): boolean {
   if (c.nextFollowUpDate) {
@@ -142,6 +143,7 @@ export default function Contacts() {
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState<Contact | null>(null);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"All" | ContactOutreachStatus>("All");
   const [page, setPage] = useState(1);
   const [pag, setPag] = useState<Pagination>({ page: 1, limit: 20, total: 0, pages: 0 });
   const [viewMode, setViewMode] = useState<"person" | "company">("person");
@@ -171,14 +173,28 @@ export default function Contacts() {
     await fetchContacts();
   };
 
-  const filtered = contacts.filter((c) => !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.company.toLowerCase().includes(search.toLowerCase()));
+  const statusCounts = OUTREACH_STATUSES.reduce((acc, s) => {
+    acc[s.value] = contacts.filter((c) => normalizeOutreachStatus(c.outreachStatus) === s.value).length;
+    return acc;
+  }, {} as Record<ContactOutreachStatus, number>);
+
+  const filtered = contacts.filter((c) => {
+    const matchesSearch = !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.company.toLowerCase().includes(search.toLowerCase());
+    const matchesStatus = statusFilter === "All" || normalizeOutreachStatus(c.outreachStatus) === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
   if (loading) return <div className="grid grid-cols-1 md:grid-cols-2 gap-4">{[1, 2, 3, 4].map((i) => <SkeletonCard key={i} />)}</div>;
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold text-foreground">Contacts</h1>
+        <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
+          Contacts
+          <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-muted text-muted-foreground">
+            {pag.total}
+          </span>
+        </h1>
         <div className="flex items-center gap-2">
           <div className="flex rounded-lg border border-border overflow-hidden">
             <button onClick={() => setViewMode("person")} className={`px-3 py-1.5 text-xs font-medium transition-colors ${viewMode === "person" ? "bg-primary text-primary-foreground" : "bg-card text-secondary-foreground hover:bg-muted"}`}>By Person</button>
@@ -189,11 +205,31 @@ export default function Contacts() {
       </div>
 
       <div className="sticky top-[57px] z-20 bg-background/95 backdrop-blur-sm py-3 -mx-8 px-8">
-        <input className={`${inputCls} max-w-[280px]`} placeholder="Search name or company..." value={search} onChange={(e) => setSearch(e.target.value)} />
+        <div className="flex flex-wrap items-center gap-3 max-w-[1200px]">
+          <input className={`${inputCls} w-[280px]`} placeholder="Search name or company..." value={search} onChange={(e) => setSearch(e.target.value)} />
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              onClick={() => setStatusFilter("All")}
+              className={`inline-flex items-center gap-1 px-3 py-1 text-[13px] font-medium rounded-full border transition-all ${statusFilter === "All" ? "bg-primary/10 border-primary text-primary" : "bg-card border-border text-muted-foreground hover:border-primary hover:text-primary"}`}
+            >
+              All
+            </button>
+            {OUTREACH_STATUSES.map((s) => (
+              <button
+                key={s.value}
+                onClick={() => setStatusFilter(s.value)}
+                className={`inline-flex items-center gap-1 px-3 py-1 text-[13px] font-medium rounded-full border transition-all ${statusFilter === s.value ? "bg-primary/10 border-primary text-primary" : "bg-card border-border text-muted-foreground hover:border-primary hover:text-primary"}`}
+              >
+                {s.label}
+                <span className="text-[11px] bg-muted px-1.5 rounded-full">{statusCounts[s.value] || 0}</span>
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {filtered.length === 0 ? (
-        <div className="bg-card border border-border rounded-xl p-12 text-center text-muted-foreground"><h3 className="font-medium text-muted-foreground mb-1">No contacts</h3><p className="text-sm">Track recruiters, referrals, and hiring managers</p></div>
+        <div className="bg-card border border-border rounded-xl p-12 text-center text-muted-foreground"><h3 className="font-medium text-muted-foreground mb-1">No contacts</h3><p className="text-sm">No contacts match your search and outreach status filter.</p></div>
       ) : viewMode === "person" ? (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
