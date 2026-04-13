@@ -1,6 +1,7 @@
 import { useState, FormEvent } from "react";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
+import { AxiosError } from "axios";
 import { authAPI } from "../../utils/api.ts";
 import { getGoogleOAuthUrl } from "../../config/apiBase.ts";
 import type { User } from "../../types";
@@ -14,14 +15,29 @@ export default function Login({ onLogin }: { onLogin: (u: User) => void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [formError, setFormError] = useState("");
 
   const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault(); setLoading(true);
-    try { const u = await authAPI.login(email, password); toast.success(`Welcome back, ${u.name}!`); onLogin(u); }
-    catch { } finally { setLoading(false); }
+    e.preventDefault();
+    setFormError("");
+    setLoading(true);
+    try {
+      const u = await authAPI.login(email, password);
+      toast.success(`Welcome back, ${u.name}!`);
+      onLogin(u);
+    } catch (error) {
+      const status = (error as AxiosError<{ error?: string }>).response?.status;
+      const message = (error as AxiosError<{ error?: string }>).response?.data?.error;
+      const friendly = status === 401 ? "Incorrect email or password." : (message || "Unable to sign in right now. Please try again.");
+      setFormError(friendly);
+      toast.error(friendly);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleDemoLogin = async () => {
+    setFormError("");
     setLoading(true);
     try {
       const u = await authAPI.login(DEMO_EMAIL, DEMO_PASSWORD);
@@ -113,8 +129,9 @@ export default function Login({ onLogin }: { onLogin: (u: User) => void }) {
             </div>
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">Password</label>
-              <input type="password" className="input-premium" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter your password" required />
+              <input type="password" className={`input-premium ${formError ? "!border-danger focus:!ring-danger/20" : ""}`} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter your password" required />
             </div>
+            {formError && <p className="text-sm text-danger">{formError}</p>}
             <button type="submit" disabled={loading} className="btn-accent w-full justify-center !py-2.5 mt-2 disabled:opacity-50">
               {loading ? "Signing in..." : "Sign in"}
             </button>
@@ -126,6 +143,7 @@ export default function Login({ onLogin }: { onLogin: (u: User) => void }) {
             >
               Log in as demo user
             </button>
+            {loading && <p className="text-xs text-muted-foreground text-center">Authenticating... this can take a few seconds.</p>}
           </form>
 
           <p className="text-center mt-6 text-sm text-muted-foreground">

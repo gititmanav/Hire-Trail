@@ -41,6 +41,14 @@ const RESUME_ROLES = [
   "Full Stack", "Backend", "Frontend", "Platform", "DevOps",
 ];
 
+const PROTECTED_DEMO_RESUME = {
+  name: "Software Engineer Resume (Locked)",
+  targetRole: "Software Engineering",
+  fileName: "demo-resume-software-engineer.pdf",
+  fileUrl: "/demo-resume-software-engineer.pdf",
+  tags: ["Software Engineering", "Demo", "Locked"],
+} as const;
+
 const CONTACT_NAMES = [
   "Sarah Chen", "James Wilson", "Priya Patel", "Michael Brown",
   "Emily Rodriguez", "David Kim", "Amanda Foster", "Ryan Thompson",
@@ -112,13 +120,32 @@ async function seed(): Promise<void> {
     console.log("Created demo user: demo@hiretrail.com / password123");
 
     // Create resumes
-    const resumeDocs = RESUME_NAMES.map((name, i) => ({
+    const resumeDocs: Array<{
+      userId: typeof userId;
+      name: string;
+      targetRole: string;
+      fileName: string;
+      uploadDate: Date;
+      fileUrl?: string;
+      tags?: string[];
+      isProtected?: boolean;
+    }> = RESUME_NAMES.map((name, i) => ({
       userId,
       name,
       targetRole: RESUME_ROLES[i] || "General",
       fileName: `${name.toLowerCase().replace(/ /g, "_")}.pdf`,
       uploadDate: randomDate(new Date("2025-01-01"), new Date("2025-06-01")),
     }));
+    resumeDocs.push({
+      userId,
+      name: PROTECTED_DEMO_RESUME.name,
+      targetRole: PROTECTED_DEMO_RESUME.targetRole,
+      fileName: PROTECTED_DEMO_RESUME.fileName,
+      fileUrl: PROTECTED_DEMO_RESUME.fileUrl,
+      tags: [...PROTECTED_DEMO_RESUME.tags],
+      isProtected: true,
+      uploadDate: randomDate(new Date("2025-01-01"), new Date("2025-06-01")),
+    });
     const resumes = await Resume.insertMany(resumeDocs);
     const resumeIds = resumes.map((r) => r._id);
     console.log(`Created ${resumes.length} resumes`);

@@ -10,6 +10,7 @@ import { getTheme } from "../utils/themes.ts";
 import type { Theme } from "../utils/themes.ts";
 
 const STORAGE_KEY = "hiretrail-theme-id";
+const keyForUser = (userId?: string | null) => (userId ? `${STORAGE_KEY}:${userId}` : STORAGE_KEY);
 
 const ALL_VARS = [
   "--background", "--foreground", "--card", "--card-foreground",
@@ -48,9 +49,9 @@ function applyTheme(theme: Theme) {
   root.style.setProperty("transition", "background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease");
 }
 
-function resolveInitialId(): string {
+function resolveInitialId(userId?: string | null): string {
   if (typeof window === "undefined") return "default";
-  const stored = localStorage.getItem(STORAGE_KEY);
+  const stored = localStorage.getItem(keyForUser(userId));
   if (stored) return stored;
   const legacy = localStorage.getItem("hiretrail-theme");
   if (legacy === "dark") return "dark";
@@ -58,8 +59,8 @@ function resolveInitialId(): string {
   return "default";
 }
 
-export function useTheme() {
-  const [themeId, setThemeId] = useState(resolveInitialId);
+export function useTheme(userId?: string | null) {
+  const [themeId, setThemeId] = useState(() => resolveInitialId(userId));
   const currentTheme = getTheme(themeId);
   const appliedRef = useRef("");
 
@@ -70,10 +71,17 @@ export function useTheme() {
     applyTheme(currentTheme);
   }
 
+  // When auth resolves and we know the user, load that user's saved theme.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const saved = localStorage.getItem(keyForUser(userId));
+    if (saved && saved !== themeId) setThemeId(saved);
+  }, [userId, themeId]);
+
   // Persist to localStorage (side effect, so kept in useEffect)
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, currentTheme.id);
-  }, [currentTheme]);
+    localStorage.setItem(keyForUser(userId), currentTheme.id);
+  }, [currentTheme, userId]);
 
   const setTheme = useCallback((id: string) => {
     setThemeId(id);

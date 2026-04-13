@@ -51,12 +51,15 @@ function ResumeCard({ r, isPrimary, allTags, setAsPrimary, setEditing, setModal,
             </button>
           )}
           <button onClick={() => { setEditing(r); setModal(true); }} title="Edit" className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary transition-colors"><svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M8.5 2.5l3 3L4.5 12.5H1.5v-3z"/></svg></button>
-          <button onClick={() => handleDelete(r._id)} title="Delete" className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-danger hover:border-danger transition-colors"><svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="2,4 12,4"/><path d="M5 4V2.5a.5.5 0 01.5-.5h3a.5.5 0 01.5.5V4"/><path d="M3 4l.75 8.5a1 1 0 001 .5h4.5a1 1 0 001-.5L11 4"/></svg></button>
+          {!r.isProtected && (
+            <button onClick={() => handleDelete(r._id)} title="Delete" className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-danger hover:border-danger transition-colors"><svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="2,4 12,4"/><path d="M5 4V2.5a.5.5 0 01.5-.5h3a.5.5 0 01.5.5V4"/><path d="M3 4l.75 8.5a1 1 0 001 .5h4.5a1 1 0 001-.5L11 4"/></svg></button>
+          )}
         </div>
       </div>
       <div className="flex items-center gap-2 flex-wrap mb-1">
         <h3 className="text-[15px] font-semibold text-foreground">{r.name}</h3>
         {isPrimary && <span className="text-[11px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded">Primary</span>}
+        {r.isProtected && <span className="text-[11px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300 bg-amber-500/15 px-2 py-0.5 rounded">Locked</span>}
       </div>
       {r.targetRole && <span className="inline-block text-xs font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full mb-1 w-fit">{r.targetRole}</span>}
       {r.tags && r.tags.length > 0 && (
@@ -94,6 +97,7 @@ export default function Resumes() {
   const [previewResume, setPreviewResume] = useState<Resume | null>(null);
   const [primaryResumeId, setPrimaryResumeId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [selectedTag, setSelectedTag] = useState("All");
   const { confirm: confirmDelete, confirmState, handleConfirm: onConfirm, handleCancel: onCancel } = useConfirm();
 
   const fetchResumes = useCallback(async () => {
@@ -162,14 +166,17 @@ export default function Resumes() {
 
   // Filter by search query (name, targetRole, or tags)
   const filteredResumes = useMemo(() => {
+    const byTag = selectedTag === "All"
+      ? sortedResumes
+      : sortedResumes.filter((r) => r.tags?.includes(selectedTag));
     const q = search.trim().toLowerCase();
-    if (!q) return sortedResumes;
-    return sortedResumes.filter((r) =>
+    if (!q) return byTag;
+    return byTag.filter((r) =>
       r.name.toLowerCase().includes(q)
       || r.targetRole.toLowerCase().includes(q)
       || r.tags?.some((t) => t.toLowerCase().includes(q))
     );
-  }, [sortedResumes, search]);
+  }, [sortedResumes, search, selectedTag]);
 
   // Group resumes by tag — a resume can appear in multiple groups
   // Primary resume's group(s) float to the top
@@ -207,6 +214,12 @@ export default function Resumes() {
     return Array.from(s).sort();
   }, [resumes]);
 
+  useEffect(() => {
+    if (selectedTag !== "All" && !allExistingTags.includes(selectedTag)) {
+      setSelectedTag("All");
+    }
+  }, [selectedTag, allExistingTags]);
+
   if (loading) return <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">{[1, 2, 3].map((i) => <SkeletonCard key={i} />)}</div>;
 
   return (
@@ -222,19 +235,43 @@ export default function Resumes() {
       </div>
 
       {resumes.length > 0 && (
-        <div className="relative mb-6">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input
-            className="input-premium !pl-9 max-w-sm"
-            placeholder="Search by name, role, or tag..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          {search && (
-            <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="3" x2="11" y2="11"/><line x1="11" y1="3" x2="3" y2="11"/></svg>
-            </button>
-          )}
+        <div className="mb-6">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input
+                className="input-premium !pl-9 w-[280px]"
+                placeholder="Search by name, role, or tag..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              {search && (
+                <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                  <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="3" x2="11" y2="11"/><line x1="11" y1="3" x2="3" y2="11"/></svg>
+                </button>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {["All", ...allExistingTags].map((tag) => (
+                <button
+                  key={tag}
+                  onClick={() => setSelectedTag(tag)}
+                  className={`inline-flex items-center gap-1 px-3 py-1 text-[13px] font-medium rounded-full border transition-all ${
+                    selectedTag === tag
+                      ? "bg-primary/10 border-primary text-primary"
+                      : "bg-card border-border text-muted-foreground hover:border-primary hover:text-primary"
+                  }`}
+                >
+                  {tag}
+                  {tag !== "All" && (
+                    <span className="text-[11px] bg-muted px-1.5 rounded-full">
+                      {resumes.filter((r) => r.tags?.includes(tag)).length}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
@@ -243,7 +280,7 @@ export default function Resumes() {
           {resumes.length === 0 ? (
             <><h3 className="font-medium text-muted-foreground mb-1">No resumes yet</h3><p className="text-sm">Add your resume versions to track which performs best</p></>
           ) : (
-            <><h3 className="font-medium text-muted-foreground mb-1">No matches</h3><p className="text-sm">No resumes match "{search}"</p></>
+            <><h3 className="font-medium text-muted-foreground mb-1">No matches</h3><p className="text-sm">No resumes match your current search and tag filter.</p></>
           )}
         </div>
       ) : hasAnyTags ? (

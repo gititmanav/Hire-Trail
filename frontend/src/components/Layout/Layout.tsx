@@ -5,7 +5,7 @@ import Sidebar from "../Sidebar/Sidebar.tsx";
 import Header from "../Header/Header.tsx";
 import type { User } from "../../types";
 
-interface Props { user: User; onLogout: () => void; }
+interface Props { user: User; onLogout: () => Promise<void>; }
 
 export default function Layout({ user, onLogout }: Props) {
   const [collapsed, setCollapsed] = useState(false);

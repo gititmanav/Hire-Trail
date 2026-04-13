@@ -4,7 +4,7 @@ import { User } from "../models/User.js";
 import { Application } from "../models/Application.js";
 import { ensureAuth, getUser } from "../middleware/auth.js";
 import { upload } from "../middleware/upload.js";
-import { NotFoundError } from "../errors/AppError.js";
+import { ForbiddenError, NotFoundError } from "../errors/AppError.js";
 import { env } from "../config/env.js";
 
 const router = Router();
@@ -154,6 +154,7 @@ router.delete("/:id", async (req: Request, res: Response, next: NextFunction) =>
     const user = getUser(req);
     const resume = await Resume.findOne({ _id: req.params.id, userId: user._id });
     if (!resume) throw new NotFoundError("Resume");
+    if (resume.isProtected) throw new ForbiddenError("This resume is protected and cannot be deleted");
 
     if (resume.filePublicId) {
       await deleteFromCloudinary(resume.filePublicId);

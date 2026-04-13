@@ -46,7 +46,7 @@ export default function Dashboard() {
       if (user) setUser({ ...user, tourCompleted: true });
     } catch {}
   }, [user, setUser]);
-  const { layout, visible, locked, onLayoutChange, toggleWidget, toggleLock, resetLayout } = useWidgetLayout();
+  const { layout, visible, locked, onLayoutChange, toggleWidget, toggleLock, resetLayout } = useWidgetLayout(user?._id);
 
   useEffect(() => {
     if (!localStorage.getItem(ONBOARD_KEY)) {

@@ -2,7 +2,7 @@
  * Paginated application table with company grouping, expandable rows, right sidebar detail view.
  * Server search, client stage filter, CSV import/export, sortable columns.
  */
-import { useState, useEffect, useCallback, useRef, useMemo, FormEvent, Fragment } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, FormEvent, Fragment, MouseEvent as ReactMouseEvent } from "react";
 import toast from "react-hot-toast";
 import { applicationsAPI, resumesAPI, contactsAPI, deadlinesAPI } from "../../utils/api.ts";
 import { exportToCSV } from "../../utils/csv.ts";
@@ -17,6 +17,10 @@ import { useConfirm } from "../../hooks/useConfirm.ts";
 const STAGES: Stage[] = ["Applied", "OA", "Interview", "Offer", "Rejected"];
 const badgeCls: Record<Stage, string> = { Applied: "bg-primary/10 text-primary", OA: "bg-warning-light text-yellow-800", Interview: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300", Offer: "bg-success-light text-emerald-800", Rejected: "bg-danger-light text-red-800" };
 const fmt = (d: string) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+const SIDEBAR_WIDTH_KEY = "hiretrail-app-sidebar-width";
+const SIDEBAR_MIN_WIDTH = 460;
+const SIDEBAR_MAX_WIDTH = 920;
+type SidebarEditForm = Partial<ApplicationFormData> & { jobDescription?: string };
 
 function SortArrow({ field, sort }: { field: string; sort: SortConfig }) {
   const active = sort.field === field;
@@ -99,7 +103,7 @@ function PaginationBar({ page, pag, setPage }: { page: number; pag: Pagination; 
 
 /* ─── Application Detail Sidebar ─── */
 function ApplicationDetailSidebar({
-  app, resumes, contacts, deadlines, onClose, onStageChange, onViewResume,
+  app, resumes, contacts, deadlines, onClose, onStageChange, onViewResume, onSaveInline,
 }: {
   app: Application;
   resumes: Resume[];
@@ -108,34 +112,206 @@ function ApplicationDetailSidebar({
   onClose: () => void;
   onStageChange: (id: string, stage: Stage) => void;
   onViewResume: (resume: Resume) => void;
+  onSaveInline: (id: string, data: SidebarEditForm) => Promise<void>;
 }) {
   const [jdExpanded, setJdExpanded] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [savingInline, setSavingInline] = useState(false);
+  const [closingAfterSave, setClosingAfterSave] = useState(false);
+  const [form, setForm] = useState<SidebarEditForm>({
+    company: app.company,
+    role: app.role,
+    jobUrl: app.jobUrl || "",
+    stage: app.stage,
+    notes: app.notes || "",
+    resumeId: app.resumeId || "",
+    location: app.location || "",
+    salary: app.salary || "",
+    jobType: app.jobType || "",
+    contactId: app.contactId || "",
+    jobDescription: app.jobDescription || "",
+  });
+  const [sidebarWidth, setSidebarWidth] = useState(560);
+  const [resizing, setResizing] = useState(false);
+  const dragStartXRef = useRef(0);
+  const dragStartWidthRef = useRef(560);
+  const suppressCloseRef = useRef(false);
   const resume = resumes.find((r) => r._id === app.resumeId);
   const companyContacts = contacts.filter((c) => c.company.toLowerCase() === app.company.toLowerCase());
   const appDeadlines = deadlines.filter((d) => d.applicationId === app._id && !d.completed);
+  const selectedContact = contacts.find((c) => c._id === app.contactId);
+  const isDirty = useMemo(() => {
+    const normalize = (v?: string | null) => (v || "").trim();
+    return (
+      normalize(form.company) !== normalize(app.company)
+      || normalize(form.role) !== normalize(app.role)
+      || normalize(form.jobUrl) !== normalize(app.jobUrl)
+      || normalize(form.stage) !== normalize(app.stage)
+      || normalize(form.resumeId) !== normalize(app.resumeId)
+      || normalize(form.location) !== normalize(app.location)
+      || normalize(form.salary) !== normalize(app.salary)
+      || normalize(form.jobType) !== normalize(app.jobType)
+      || normalize(form.contactId) !== normalize(app.contactId)
+      || normalize(form.notes) !== normalize(app.notes)
+      || normalize(form.jobDescription) !== normalize(app.jobDescription)
+    );
+  }, [form, app]);
+  const clampWidth = useCallback((w: number) => {
+    const viewportMax = Math.max(SIDEBAR_MIN_WIDTH, window.innerWidth - 24);
+    const maxAllowed = Math.min(SIDEBAR_MAX_WIDTH, viewportMax);
+    return Math.max(Math.min(w, maxAllowed), SIDEBAR_MIN_WIDTH);
+  }, []);
 
   useEffect(() => {
-    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", h);
-    return () => document.removeEventListener("keydown", h);
-  }, [onClose]);
+    const saved = Number(localStorage.getItem(SIDEBAR_WIDTH_KEY));
+    const initial = Number.isFinite(saved) ? saved : 560;
+    setSidebarWidth(clampWidth(initial));
+  }, [clampWidth]);
+
+  useEffect(() => {
+    const onResize = () => setSidebarWidth((prev) => clampWidth(prev));
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [clampWidth]);
+
+  useEffect(() => {
+    localStorage.setItem(SIDEBAR_WIDTH_KEY, String(Math.round(sidebarWidth)));
+  }, [sidebarWidth]);
 
   const [open, setOpen] = useState(false);
   useEffect(() => { requestAnimationFrame(() => setOpen(true)); }, []);
-  const handleClose = () => { setOpen(false); setTimeout(onClose, 300); };
+  const finishClose = () => {
+    setOpen(false);
+    setTimeout(onClose, 300);
+  };
+  const enterEditMode = () => {
+    setForm({
+      company: app.company,
+      role: app.role,
+      jobUrl: app.jobUrl || "",
+      stage: app.stage,
+      notes: app.notes || "",
+      resumeId: app.resumeId || "",
+      location: app.location || "",
+      salary: app.salary || "",
+      jobType: app.jobType || "",
+      contactId: app.contactId || "",
+      jobDescription: app.jobDescription || "",
+    });
+    setIsEditing(true);
+  };
+  const cancelInlineEdit = () => {
+    setIsEditing(false);
+    setSavingInline(false);
+  };
+  const updateFormField = (key: keyof SidebarEditForm, value: string) => setForm((prev) => ({ ...prev, [key]: value }));
+  const saveInlineEdit = async () => {
+    setSavingInline(true);
+    try {
+      await onSaveInline(app._id, form);
+      setIsEditing(false);
+      toast.success("Application updated");
+    } catch {
+      // handled by global interceptor
+    } finally {
+      setSavingInline(false);
+    }
+  };
+  const handleClose = async () => {
+    if (savingInline || closingAfterSave) return;
+    if (isEditing && isDirty) {
+      setClosingAfterSave(true);
+      setSavingInline(true);
+      try {
+        await onSaveInline(app._id, form);
+        setIsEditing(false);
+        toast.success("Changes auto-saved");
+        finishClose();
+      } catch {
+        // Keep sidebar open if auto-save fails.
+      } finally {
+        setSavingInline(false);
+        setClosingAfterSave(false);
+      }
+      return;
+    }
+    finishClose();
+  };
+
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape") void handleClose(); };
+    document.addEventListener("keydown", h);
+    return () => document.removeEventListener("keydown", h);
+  }, [handleClose]);
+
+  const handleResizeStart = (e: ReactMouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    suppressCloseRef.current = true;
+    dragStartXRef.current = e.clientX;
+    dragStartWidthRef.current = sidebarWidth;
+    setResizing(true);
+  };
+
+  useEffect(() => {
+    if (!resizing) return;
+    const onMove = (e: MouseEvent) => {
+      const delta = dragStartXRef.current - e.clientX;
+      setSidebarWidth(clampWidth(dragStartWidthRef.current + delta));
+    };
+    const onUp = () => {
+      setResizing(false);
+      // Ignore the click generated at drag-end so backdrop doesn't close sidebar.
+      setTimeout(() => { suppressCloseRef.current = false; }, 0);
+    };
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "col-resize";
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, [resizing, clampWidth]);
 
   return (
-    <div className="fixed inset-0 z-40 flex justify-end" onClick={handleClose}>
+    <div
+      className="fixed inset-0 z-40 flex justify-end"
+      onClick={() => {
+        if (resizing || suppressCloseRef.current) return;
+        void handleClose();
+      }}
+    >
       <div className={`absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300 ${open ? "opacity-100" : "opacity-0"}`} />
       <div
-        className={`relative w-[560px] h-full bg-card shadow-2xl flex flex-col border-l border-border transition-transform duration-300 ${open ? "translate-x-0" : "translate-x-full"}`}
+        className={`relative h-full bg-card shadow-2xl flex flex-col border-l border-border transition-transform duration-300 ${open ? "translate-x-0" : "translate-x-full"}`}
+        style={{ width: `${sidebarWidth}px`, maxWidth: "calc(100vw - 12px)" }}
         onClick={(e) => e.stopPropagation()}
+        onDoubleClick={() => {
+          if (!isEditing) enterEditMode();
+        }}
       >
+      <div
+        className={`absolute left-0 top-0 h-full w-1.5 -translate-x-1/2 cursor-col-resize z-20 group ${resizing ? "bg-primary/30" : ""}`}
+        onMouseDown={handleResizeStart}
+        title={`Drag to resize (${SIDEBAR_MIN_WIDTH}px–${SIDEBAR_MAX_WIDTH}px)`}
+      >
+        <div className="h-full w-full transition-colors group-hover:bg-primary/20" />
+      </div>
       <div className="sticky top-0 bg-card border-b border-border px-6 py-4 flex items-center justify-between shrink-0">
         <h2 className="text-lg font-semibold text-foreground truncate">{app.role}</h2>
-        <button onClick={handleClose} className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground">
-          <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="3" x2="11" y2="11"/><line x1="11" y1="3" x2="3" y2="11"/></svg>
-        </button>
+        <div className="flex items-center gap-2">
+          {!isEditing && (
+            <button onClick={enterEditMode} title="Edit details" className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary">
+              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M8.5 2.5l3 3L4.5 12.5H1.5v-3z"/></svg>
+            </button>
+          )}
+          <button onClick={() => void handleClose()} className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground">
+            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="3" x2="11" y2="11"/><line x1="11" y1="3" x2="3" y2="11"/></svg>
+          </button>
+        </div>
       </div>
 
       <div className="overflow-y-auto flex-1">
@@ -143,10 +319,14 @@ function ApplicationDetailSidebar({
         <div className="grid grid-cols-2 border-b border-border/40">
           <div className="p-4 border-r border-border/40">
             <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Company</label>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-foreground">{app.company}</span>
-              {app.jobUrl && <a href={app.jobUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-[11px]">Visit</a>}
-            </div>
+            {isEditing ? (
+              <input className="input-premium !h-8 text-sm" value={form.company || ""} onChange={(e) => updateFormField("company", e.target.value)} />
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-foreground">{app.company}</span>
+                {app.jobUrl && <a href={app.jobUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-[11px]">Visit</a>}
+              </div>
+            )}
           </div>
           <div className="p-4">
             <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Applied</label>
@@ -163,7 +343,12 @@ function ApplicationDetailSidebar({
         <div className="grid grid-cols-2 border-b border-border/40">
           <div className="p-4 border-r border-border/40">
             <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Resume</label>
-            {resume ? (
+            {isEditing ? (
+              <select className="input-premium !h-8 text-sm" value={form.resumeId || ""} onChange={(e) => updateFormField("resumeId", e.target.value)}>
+                <option value="">None</option>
+                {resumes.map((r) => <option key={r._id} value={r._id}>{r.name}</option>)}
+              </select>
+            ) : resume ? (
               <button onClick={() => onViewResume(resume)} className="text-sm text-primary hover:underline flex items-center gap-1.5">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9l-7-7z"/><path d="M13 2v7h7"/></svg>
                 {resume.name}
@@ -172,14 +357,20 @@ function ApplicationDetailSidebar({
           </div>
           <div className="p-4">
             <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Stage</label>
-            <div className="flex flex-wrap gap-1">
-              {STAGES.map((s) => (
-                <button key={s} onClick={() => onStageChange(app._id, s)}
-                  className={`px-2 py-0.5 text-[11px] font-medium rounded-full border transition-all ${app.stage === s ? badgeCls[s] + " border-current" : "bg-muted border-border text-muted-foreground hover:border-primary hover:text-primary"}`}>
-                  {s}
-                </button>
-              ))}
-            </div>
+            {isEditing ? (
+              <select className="input-premium !h-8 text-sm" value={form.stage || app.stage} onChange={(e) => updateFormField("stage", e.target.value)}>
+                {STAGES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            ) : (
+              <div className="flex flex-wrap gap-1">
+                {STAGES.map((s) => (
+                  <button key={s} onClick={() => onStageChange(app._id, s)}
+                    className={`px-2 py-0.5 text-[11px] font-medium rounded-full border transition-all ${app.stage === s ? badgeCls[s] + " border-current" : "bg-muted border-border text-muted-foreground hover:border-primary hover:text-primary"}`}>
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -187,7 +378,9 @@ function ApplicationDetailSidebar({
         <div className="grid grid-cols-3 border-b border-border/40">
           <div className="p-4 border-r border-border/40">
             <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Location</label>
-            {app.location ? (
+            {isEditing ? (
+              <input className="input-premium !h-8 text-sm" value={form.location || ""} onChange={(e) => updateFormField("location", e.target.value)} />
+            ) : app.location ? (
               <span className="inline-flex items-center gap-1 text-sm text-foreground">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground shrink-0"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
                 {app.location}
@@ -196,18 +389,28 @@ function ApplicationDetailSidebar({
           </div>
           <div className="p-4 border-r border-border/40">
             <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Salary</label>
-            <p className={`text-sm ${app.salary ? "text-foreground" : "text-muted-foreground"}`}>{app.salary || "None"}</p>
+            {isEditing ? (
+              <input className="input-premium !h-8 text-sm" value={form.salary || ""} onChange={(e) => updateFormField("salary", e.target.value)} />
+            ) : (
+              <p className={`text-sm ${app.salary ? "text-foreground" : "text-muted-foreground"}`}>{app.salary || "None"}</p>
+            )}
           </div>
           <div className="p-4">
             <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Job Type</label>
-            <p className={`text-sm ${app.jobType ? "text-foreground" : "text-muted-foreground"}`}>{app.jobType || "None"}</p>
+            {isEditing ? (
+              <input className="input-premium !h-8 text-sm" value={form.jobType || ""} onChange={(e) => updateFormField("jobType", e.target.value)} />
+            ) : (
+              <p className={`text-sm ${app.jobType ? "text-foreground" : "text-muted-foreground"}`}>{app.jobType || "None"}</p>
+            )}
           </div>
         </div>
 
         {/* ── Row 4: Job Description — full width, always shown ── */}
         <div className="px-4 py-4 border-b border-border/40">
           <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Job Description</label>
-          {app.jobDescription ? (
+          {isEditing ? (
+            <textarea className="input-premium min-h-[110px] text-sm" value={form.jobDescription || app.jobDescription || ""} onChange={(e) => updateFormField("jobDescription", e.target.value)} />
+          ) : app.jobDescription ? (
             <>
               <div className="text-sm text-secondary-foreground whitespace-pre-wrap">
                 {jdExpanded ? app.jobDescription : app.jobDescription.slice(0, 200) + (app.jobDescription.length > 200 ? "..." : "")}
@@ -225,7 +428,20 @@ function ApplicationDetailSidebar({
         <div className="grid grid-cols-2 border-b border-border/40">
           <div className="p-4 border-r border-border/40">
             <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Contact</label>
-            {companyContacts.length > 0 ? (
+            {isEditing ? (
+              <select className="input-premium !h-8 text-sm" value={form.contactId || ""} onChange={(e) => updateFormField("contactId", e.target.value)}>
+                <option value="">None</option>
+                {companyContacts.map((c) => <option key={c._id} value={c._id}>{c.name} - {c.role}</option>)}
+              </select>
+            ) : selectedContact ? (
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-[9px] font-bold text-muted-foreground shrink-0">{selectedContact.name[0]}</div>
+                <div className="min-w-0">
+                  <p className="text-sm text-foreground truncate">{selectedContact.name}</p>
+                  <p className="text-[10px] text-muted-foreground truncate">{selectedContact.role}</p>
+                </div>
+              </div>
+            ) : companyContacts.length > 0 ? (
               <div className="space-y-2">
                 {companyContacts.slice(0, 3).map((c) => (
                   <div key={c._id} className="flex items-center gap-2">
@@ -257,7 +473,9 @@ function ApplicationDetailSidebar({
         {/* ── Row 6: Notes — full width, always shown ── */}
         <div className="px-4 py-4 border-b border-border/40">
           <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Notes</label>
-          {app.notes ? (
+          {isEditing ? (
+            <textarea className="input-premium min-h-[100px] text-sm" value={form.notes || ""} onChange={(e) => updateFormField("notes", e.target.value)} />
+          ) : app.notes ? (
             <p className="text-sm text-secondary-foreground whitespace-pre-wrap">{app.notes}</p>
           ) : <p className="text-sm text-muted-foreground">None</p>}
         </div>
@@ -276,6 +494,12 @@ function ApplicationDetailSidebar({
             </div>
           ) : <p className="text-sm text-muted-foreground">None</p>}
         </div>
+        {isEditing && (
+          <div className="sticky bottom-0 bg-card border-t border-border px-4 py-3 flex items-center justify-end gap-2">
+            <button type="button" onClick={cancelInlineEdit} className="btn-secondary">Cancel</button>
+            <button type="button" onClick={saveInlineEdit} disabled={savingInline} className="btn-accent disabled:opacity-50">{savingInline ? "Saving..." : "Save changes"}</button>
+          </div>
+        )}
       </div>
       </div>
     </div>
@@ -302,6 +526,8 @@ export default function Applications() {
   const [pag, setPag] = useState<Pagination>({ page: 1, limit: 25, total: 0, pages: 0 });
   const [sort, setSort] = useState<SortConfig>({ field: "createdAt", order: "desc" });
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [multiSelectEnabled, setMultiSelectEnabled] = useState(false);
+  const [selectedAppIds, setSelectedAppIds] = useState<Set<string>>(new Set());
   const [sidebarApp, setSidebarApp] = useState<Application | null>(null);
   const [sidebarResume, setSidebarResume] = useState<Resume | null>(null);
   const { confirm: confirmDelete, confirmState, handleConfirm: onConfirm, handleCancel: onCancel } = useConfirm();
@@ -366,6 +592,12 @@ export default function Applications() {
       }
     } catch {}
   };
+  const handleSidebarSave = async (id: string, data: SidebarEditForm) => {
+    await applicationsAPI.update(id, data);
+    await fetchData();
+    const updated = await applicationsAPI.getOne(id);
+    setSidebarApp(updated);
+  };
 
   const handleDelete = async (id: string) => { const ok = await confirmDelete("This application will be permanently deleted.", { title: "Delete application?", confirmLabel: "Delete" }); if (!ok) return; await applicationsAPI.delete(id); toast.success("Deleted"); await fetchData(); };
   const handleUnarchive = async (id: string) => { await applicationsAPI.unarchive(id); toast.success("Unarchived"); await fetchData(); };
@@ -373,6 +605,9 @@ export default function Applications() {
   const toggleExpand = (company: string) => setExpanded((prev) => { const next = new Set(prev); if (next.has(company)) next.delete(company); else next.add(company); return next; });
 
   const filtered = filter === "All" ? apps : apps.filter((a) => a.stage === filter);
+  const visibleAppIds = useMemo(() => filtered.map((a) => a._id), [filtered]);
+  const selectedCount = selectedAppIds.size;
+  const allVisibleSelected = visibleAppIds.length > 0 && visibleAppIds.every((id) => selectedAppIds.has(id));
   const stageCounts = STAGES.reduce((acc, s) => { acc[s] = apps.filter((a) => a.stage === s).length; return acc; }, {} as Record<string, number>);
 
   // Group by company
@@ -385,6 +620,78 @@ export default function Applications() {
     }
     return Array.from(map.entries());
   }, [filtered]);
+
+  useEffect(() => {
+    setSelectedAppIds((prev) => {
+      if (prev.size === 0) return prev;
+      const validIds = new Set(apps.map((app) => app._id));
+      const next = new Set(Array.from(prev).filter((id) => validIds.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [apps]);
+
+  useEffect(() => {
+    if (!multiSelectEnabled) return;
+    const expandedCompanies = grouped.filter(([, companyApps]) => companyApps.length > 1).map(([company]) => company);
+    setExpanded(new Set(expandedCompanies));
+  }, [multiSelectEnabled, grouped]);
+
+  const toggleMultiSelectMode = () => {
+    setMultiSelectEnabled((prev) => {
+      if (prev) setSelectedAppIds(new Set());
+      else {
+        setSidebarApp(null);
+        setSidebarResume(null);
+      }
+      return !prev;
+    });
+  };
+  const toggleAppSelection = (id: string) => {
+    setSelectedAppIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const toggleSelectAllVisible = () => {
+    setSelectedAppIds((prev) => {
+      if (allVisibleSelected) return new Set(Array.from(prev).filter((id) => !visibleAppIds.includes(id)));
+      const next = new Set(prev);
+      visibleAppIds.forEach((id) => next.add(id));
+      return next;
+    });
+  };
+  const handleBulkArchive = async () => {
+    if (selectedCount === 0) return;
+    const ok = await confirmDelete(`Archive ${selectedCount} selected application${selectedCount === 1 ? "" : "s"}?`, { title: "Archive selected applications?", confirmLabel: "Archive", danger: false });
+    if (!ok) return;
+    await Promise.all(Array.from(selectedAppIds).map((id) => applicationsAPI.archive(id, "manual")));
+    toast.success(`Archived ${selectedCount} application${selectedCount === 1 ? "" : "s"}`);
+    setSelectedAppIds(new Set());
+    setMultiSelectEnabled(false);
+    await fetchData();
+  };
+  const handleBulkUnarchive = async () => {
+    if (selectedCount === 0) return;
+    const ok = await confirmDelete(`Unarchive ${selectedCount} selected application${selectedCount === 1 ? "" : "s"}?`, { title: "Unarchive selected applications?", confirmLabel: "Unarchive", danger: false });
+    if (!ok) return;
+    await Promise.all(Array.from(selectedAppIds).map((id) => applicationsAPI.unarchive(id)));
+    toast.success(`Unarchived ${selectedCount} application${selectedCount === 1 ? "" : "s"}`);
+    setSelectedAppIds(new Set());
+    setMultiSelectEnabled(false);
+    await fetchData();
+  };
+  const handleBulkDelete = async () => {
+    if (selectedCount === 0) return;
+    const ok = await confirmDelete(`This will permanently delete ${selectedCount} selected application${selectedCount === 1 ? "" : "s"}.`, { title: "Delete selected applications?", confirmLabel: "Delete" });
+    if (!ok) return;
+    await Promise.all(Array.from(selectedAppIds).map((id) => applicationsAPI.delete(id)));
+    toast.success(`Deleted ${selectedCount} application${selectedCount === 1 ? "" : "s"}`);
+    setSelectedAppIds(new Set());
+    setMultiSelectEnabled(false);
+    await fetchData();
+  };
 
   if (loading) return <div className="fade-up"><SkeletonStats /><SkeletonTable rows={8} /></div>;
 
@@ -422,10 +729,33 @@ export default function Applications() {
           <input className="input-premium max-w-[280px]" placeholder="Search company or role..." value={search} onChange={(e) => setSearch(e.target.value)} />
           <div className="flex flex-wrap gap-1.5">
             {["All", ...STAGES].map((s) => (
-              <button key={s} onClick={() => setFilter(s)} className={`inline-flex items-center gap-1 px-3 py-1 text-[13px] font-medium rounded-full border transition-all ${filter === s ? "bg-primary/10 border-primary text-primary" : "bg-card border-border text-muted-foreground hover:border-primary hover:text-primary"}`}>
+              <button
+                key={s}
+                onClick={() => setFilter(s)}
+                disabled={multiSelectEnabled}
+                className={`inline-flex items-center gap-1 px-3 py-1 text-[13px] font-medium rounded-full border transition-all disabled:opacity-45 disabled:cursor-not-allowed ${filter === s ? "bg-primary/10 border-primary text-primary" : "bg-card border-border text-muted-foreground hover:border-primary hover:text-primary"}`}
+              >
                 {s}{s !== "All" && <span className="text-[11px] bg-muted px-1.5 rounded-full">{stageCounts[s] || 0}</span>}
               </button>
             ))}
+          </div>
+          <div className="ml-auto flex items-center gap-2">
+            {multiSelectEnabled && <span className="text-xs text-muted-foreground">{selectedCount} selected</span>}
+            <button onClick={toggleMultiSelectMode} className={multiSelectEnabled ? "btn-secondary border-primary text-primary" : "btn-secondary"}>
+              {multiSelectEnabled ? "Cancel selection" : "Select multiple"}
+            </button>
+            {multiSelectEnabled && (
+              <>
+                <button
+                  onClick={archiveTab === "archived" ? handleBulkUnarchive : handleBulkArchive}
+                  disabled={selectedCount === 0}
+                  className="btn-secondary disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {archiveTab === "archived" ? "Unarchive" : "Archive"}
+                </button>
+                <button onClick={handleBulkDelete} disabled={selectedCount === 0} className="btn-secondary border-danger text-danger hover:bg-danger/10 disabled:opacity-40 disabled:cursor-not-allowed">Delete</button>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -436,17 +766,27 @@ export default function Applications() {
           <p className="text-sm">{search || filter !== "All" ? "Try adjusting filters" : "Add your first application"}</p>
         </div>
       ) : (
-        <div className="card-premium overflow-hidden">
+        <div className="card-premium card-no-lift overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead><tr className="border-b border-border">
-                <th className="w-8 px-2 py-3" />
+                <th className="w-8 px-2 py-3">
+                  {multiSelectEnabled && (
+                    <input
+                      type="checkbox"
+                      checked={allVisibleSelected}
+                      onChange={toggleSelectAllVisible}
+                      aria-label="Select all visible applications"
+                      className="h-4 w-4 accent-primary cursor-pointer"
+                    />
+                  )}
+                </th>
                 {[{ l: "Company", f: "company" }, { l: "Role", f: "role" }, { l: "Stage", f: "stage" }, { l: "Resume", f: "" }, { l: "Applied", f: "applicationDate" }].map((h) => (
                   <th key={h.l} className={`text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3 ${h.f ? "cursor-pointer hover:text-primary select-none" : ""}`} onClick={() => h.f && toggleSort(h.f)}>
                     <span className="inline-flex items-center">{h.l}{h.f && <SortArrow field={h.f} sort={sort} />}</span>
                   </th>
                 ))}
-                <th className="w-20 px-4 py-3" />
+                <th className="w-20 px-4 py-3">{multiSelectEnabled ? "" : null}</th>
               </tr></thead>
               <tbody className="divide-y divide-border">
                 {grouped.map(([company, companyApps]) => {
@@ -459,22 +799,36 @@ export default function Applications() {
                     return (
                       <tr key={firstApp._id} className="hover:bg-muted/50 transition-colors group">
                         <td className="px-2 py-3">
-                          <div className="w-5 h-5 flex items-center justify-center">
-                            <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-muted-foreground/20"><path d="M4 2l5 5-5 5" /></svg>
-                          </div>
+                          {multiSelectEnabled ? (
+                            <input
+                              type="checkbox"
+                              checked={selectedAppIds.has(firstApp._id)}
+                              onChange={() => toggleAppSelection(firstApp._id)}
+                              aria-label={`Select ${firstApp.company} ${firstApp.role}`}
+                              className="h-4 w-4 accent-primary cursor-pointer"
+                            />
+                          ) : (
+                            <div className="w-5 h-5 flex items-center justify-center">
+                              <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-muted-foreground/20"><path d="M4 2l5 5-5 5" /></svg>
+                            </div>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <span className="text-sm font-medium text-foreground">{firstApp.company}</span>
                           {firstApp.jobUrl && <a href={firstApp.jobUrl} target="_blank" rel="noopener noreferrer" className="ml-1.5 text-muted-foreground/50 hover:text-primary inline-flex opacity-0 group-hover:opacity-100 transition-opacity"><svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M9 6.5v3a1 1 0 01-1 1H3a1 1 0 01-1-1V4.5a1 1 0 011-1h3"/><polyline points="7,1.5 10.5,1.5 10.5,5"/><line x1="5.5" y1="6.5" x2="10.5" y2="1.5"/></svg></a>}
                         </td>
-                        <td className="px-4 py-3 max-w-[200px]"><button onClick={() => setSidebarApp(firstApp)} className="text-sm text-primary hover:underline text-left truncate block max-w-full" title={firstApp.role}>{firstApp.role}</button></td>
+                        <td className="px-4 py-3 max-w-[200px]"><button onClick={() => { if (!multiSelectEnabled) setSidebarApp(firstApp); }} className={`text-sm text-left truncate block max-w-full ${multiSelectEnabled ? "text-muted-foreground cursor-default" : "text-primary hover:underline"}`} title={firstApp.role}>{firstApp.role}</button></td>
                         <td className="px-4 py-3"><span className={`inline-block px-2.5 py-0.5 text-xs font-medium rounded-full ${badgeCls[firstApp.stage]}`}>{firstApp.stage}</span></td>
                         <td className="px-4 py-3 text-[13px] text-muted-foreground">{(() => { const r = resumes.find((r) => r._id === firstApp.resumeId); return r ? <button onClick={() => setSidebarResume(r)} className="text-primary hover:underline text-left flex items-center gap-1"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9l-7-7z"/><path d="M13 2v7h7"/></svg>{r.name}</button> : "—"; })()}</td>
                         <td className="px-4 py-3 text-[13px] text-muted-foreground">{fmt(firstApp.applicationDate)}</td>
-                        <td className="px-4 py-3"><div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => { setEditing(firstApp); setModal(true); }} className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary transition-colors"><svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M8.5 2.5l3 3L4.5 12.5H1.5v-3z"/></svg></button>
-                          <button onClick={() => handleDelete(firstApp._id)} className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-danger hover:border-danger transition-colors"><svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="2,4 12,4"/><path d="M5 4V2.5a.5.5 0 01.5-.5h3a.5.5 0 01.5.5V4"/><path d="M3 4l.75 8.5a1 1 0 001 .5h4.5a1 1 0 001-.5L11 4"/></svg></button>
-                        </div></td>
+                        <td className="px-4 py-3">
+                          {!multiSelectEnabled && (
+                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button onClick={() => { setEditing(firstApp); setModal(true); }} className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary transition-colors"><svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M8.5 2.5l3 3L4.5 12.5H1.5v-3z"/></svg></button>
+                              <button onClick={() => handleDelete(firstApp._id)} className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-danger hover:border-danger transition-colors"><svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="2,4 12,4"/><path d="M5 4V2.5a.5.5 0 01.5-.5h3a.5.5 0 01.5.5V4"/><path d="M3 4l.75 8.5a1 1 0 001 .5h4.5a1 1 0 001-.5L11 4"/></svg></button>
+                            </div>
+                          )}
+                        </td>
                       </tr>
                     );
                   }
@@ -484,12 +838,34 @@ export default function Applications() {
                     <Fragment key={company}>
                       <tr className="hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => toggleExpand(company)}>
                         <td className="px-2 py-3">
-                          <button className="w-5 h-5 flex items-center justify-center rounded text-muted-foreground hover:text-primary transition-colors">
-                            <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
-                              className={`transition-transform duration-200 ${isExpanded ? "rotate-90" : ""}`}>
-                              <path d="M4 2l5 5-5 5" />
-                            </svg>
-                          </button>
+                          {multiSelectEnabled ? (
+                            <input
+                              type="checkbox"
+                              checked={companyApps.every((app) => selectedAppIds.has(app._id))}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={() => {
+                                const companyIds = companyApps.map((app) => app._id);
+                                const allSelected = companyIds.every((id) => selectedAppIds.has(id));
+                                setSelectedAppIds((prev) => {
+                                  const next = new Set(prev);
+                                  companyIds.forEach((id) => {
+                                    if (allSelected) next.delete(id);
+                                    else next.add(id);
+                                  });
+                                  return next;
+                                });
+                              }}
+                              aria-label={`Select all applications for ${company}`}
+                              className="h-4 w-4 accent-primary cursor-pointer"
+                            />
+                          ) : (
+                            <button className="w-5 h-5 flex items-center justify-center rounded text-muted-foreground hover:text-primary transition-colors">
+                              <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+                                className={`transition-transform duration-200 ${isExpanded ? "rotate-90" : ""}`}>
+                                <path d="M4 2l5 5-5 5" />
+                              </svg>
+                            </button>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <span className="text-sm font-medium text-foreground">{company}</span>
@@ -506,22 +882,36 @@ export default function Applications() {
                       {isExpanded && companyApps.map((a) => (
                         <tr key={a._id} className="hover:bg-muted/50 transition-colors group bg-muted/30">
                           <td className="px-2 py-2.5">
-                            <div className="w-5 h-5 flex items-center justify-center">
-                              <svg width="10" height="10" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-muted-foreground/30"><path d="M2 1v5h6"/></svg>
-                            </div>
+                            {multiSelectEnabled ? (
+                              <input
+                                type="checkbox"
+                                checked={selectedAppIds.has(a._id)}
+                                onChange={() => toggleAppSelection(a._id)}
+                                aria-label={`Select ${a.company} ${a.role}`}
+                                className="h-4 w-4 accent-primary cursor-pointer"
+                              />
+                            ) : (
+                              <div className="w-5 h-5 flex items-center justify-center">
+                                <svg width="10" height="10" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-muted-foreground/30"><path d="M2 1v5h6"/></svg>
+                              </div>
+                            )}
                           </td>
                           <td className="px-4 py-2.5">
                             <span className="text-[13px] text-muted-foreground">{a.company}</span>
                             {a.jobUrl && <a href={a.jobUrl} target="_blank" rel="noopener noreferrer" className="ml-1.5 text-muted-foreground/50 hover:text-primary inline-flex opacity-0 group-hover:opacity-100 transition-opacity"><svg width="10" height="10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M7 5v2.5a.8.8 0 01-.8.8H2.5a.8.8 0 01-.8-.8V3.8a.8.8 0 01.8-.8H5"/><polyline points="6,1.2 8.8,1.2 8.8,4"/><line x1="4.5" y1="5.3" x2="8.8" y2="1.2"/></svg></a>}
                           </td>
-                          <td className="px-4 py-2.5 max-w-[200px]"><button onClick={() => setSidebarApp(a)} className="text-sm text-primary hover:underline text-left truncate block max-w-full" title={a.role}>{a.role}</button></td>
+                          <td className="px-4 py-2.5 max-w-[200px]"><button onClick={() => { if (!multiSelectEnabled) setSidebarApp(a); }} className={`text-sm text-left truncate block max-w-full ${multiSelectEnabled ? "text-muted-foreground cursor-default" : "text-primary hover:underline"}`} title={a.role}>{a.role}</button></td>
                           <td className="px-4 py-2.5"><span className={`inline-block px-2.5 py-0.5 text-xs font-medium rounded-full ${badgeCls[a.stage]}`}>{a.stage}</span></td>
                           <td className="px-4 py-2.5 text-[13px] text-muted-foreground">{(() => { const r = resumes.find((r) => r._id === a.resumeId); return r ? <button onClick={(e) => { e.stopPropagation(); setSidebarResume(r); }} className="text-primary hover:underline text-left flex items-center gap-1"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9l-7-7z"/><path d="M13 2v7h7"/></svg>{r.name}</button> : "—"; })()}</td>
                           <td className="px-4 py-2.5 text-[13px] text-muted-foreground">{fmt(a.applicationDate)}</td>
-                          <td className="px-4 py-2.5"><div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onClick={(e) => { e.stopPropagation(); setEditing(a); setModal(true); }} className="w-7 h-7 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary transition-colors"><svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M8.5 2.5l3 3L4.5 12.5H1.5v-3z"/></svg></button>
-                            <button onClick={(e) => { e.stopPropagation(); handleDelete(a._id); }} className="w-7 h-7 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-danger hover:border-danger transition-colors"><svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="2,4 10,4"/><path d="M4 4V2.5a.5.5 0 01.5-.5h3a.5.5 0 01.5.5V4"/><path d="M3 4l.6 7a.8.8 0 00.8.4h3.2a.8.8 0 00.8-.4L9 4"/></svg></button>
-                          </div></td>
+                          <td className="px-4 py-2.5">
+                            {!multiSelectEnabled && (
+                              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button onClick={(e) => { e.stopPropagation(); setEditing(a); setModal(true); }} className="w-7 h-7 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary transition-colors"><svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M8.5 2.5l3 3L4.5 12.5H1.5v-3z"/></svg></button>
+                                <button onClick={(e) => { e.stopPropagation(); handleDelete(a._id); }} className="w-7 h-7 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-danger hover:border-danger transition-colors"><svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="2,4 10,4"/><path d="M4 4V2.5a.5.5 0 01.5-.5h3a.5.5 0 01.5.5V4"/><path d="M3 4l.6 7a.8.8 0 00.8.4h3.2a.8.8 0 00.8-.4L9 4"/></svg></button>
+                              </div>
+                            )}
+                          </td>
                         </tr>
                       ))}
                     </Fragment>
@@ -544,6 +934,7 @@ export default function Applications() {
           onClose={() => { setSidebarApp(null); setSidebarResume(null); }}
           onStageChange={handleStageChange}
           onViewResume={(r) => setSidebarResume(r)}
+          onSaveInline={handleSidebarSave}
         />
       )}
       {sidebarResume && sidebarResume.fileUrl && <ResumePreview fileUrl={sidebarResume.fileUrl} name={sidebarResume.name} fileName={sidebarResume.fileName} onClose={() => setSidebarResume(null)} />}

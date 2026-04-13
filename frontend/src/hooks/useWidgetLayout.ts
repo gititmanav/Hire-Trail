@@ -1,7 +1,7 @@
 /**
  * Persists dashboard widget layout and visibility in localStorage (react-grid-layout).
  */
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import type { Layout } from "react-grid-layout";
 
 export interface WidgetConfig { id: string; type: string; title: string; }
@@ -9,6 +9,7 @@ export interface WidgetConfig { id: string; type: string; title: string; }
 const SK = "hiretrail-widget-layout";
 const SV = "hiretrail-widget-visible";
 const SL = "hiretrail-dashboard-locked";
+const keyForUser = (base: string, userId?: string | null) => (userId ? `${base}:${userId}` : base);
 
 export const ALL_WIDGETS: WidgetConfig[] = [
   { id: "stats", type: "stats", title: "Key Metrics" },
@@ -35,26 +36,32 @@ const DEFAULT_LAYOUT: Layout[] = [
   { i: "follow-ups", x: 0, y: 20, w: 6, h: 4, minW: 4, minH: 3 },
 ];
 
-function loadLayout(): Layout[] {
-  try { const s = localStorage.getItem(SK); if (s) return JSON.parse(s); } catch {}
+function loadLayout(userId?: string | null): Layout[] {
+  try { const s = localStorage.getItem(keyForUser(SK, userId)); if (s) return JSON.parse(s); } catch {}
   return DEFAULT_LAYOUT;
 }
 
-function loadVisible(): Record<string, boolean> {
-  try { const s = localStorage.getItem(SV); if (s) return JSON.parse(s); } catch {}
+function loadVisible(userId?: string | null): Record<string, boolean> {
+  try { const s = localStorage.getItem(keyForUser(SV, userId)); if (s) return JSON.parse(s); } catch {}
   const d: Record<string, boolean> = {};
   ALL_WIDGETS.forEach((w) => { d[w.id] = true; });
   return d;
 }
 
-function loadLocked(): boolean {
-  try { return localStorage.getItem(SL) === "true"; } catch { return false; }
+function loadLocked(userId?: string | null): boolean {
+  try { return localStorage.getItem(keyForUser(SL, userId)) === "true"; } catch { return false; }
 }
 
-export function useWidgetLayout() {
-  const [layout, setLayout] = useState<Layout[]>(loadLayout);
-  const [visible, setVisible] = useState<Record<string, boolean>>(loadVisible);
-  const [locked, setLocked] = useState(loadLocked);
+export function useWidgetLayout(userId?: string | null) {
+  const [layout, setLayout] = useState<Layout[]>(() => loadLayout(userId));
+  const [visible, setVisible] = useState<Record<string, boolean>>(() => loadVisible(userId));
+  const [locked, setLocked] = useState(() => loadLocked(userId));
+
+  useEffect(() => {
+    setLayout(loadLayout(userId));
+    setVisible(loadVisible(userId));
+    setLocked(loadLocked(userId));
+  }, [userId]);
 
   const onLayoutChange = useCallback((newLayout: Layout[]) => {
     setLayout((prev) => {
@@ -63,15 +70,15 @@ export function useWidgetLayout() {
         return updated ? { ...item, ...updated } : item;
       });
       newLayout.forEach((n) => { if (!merged.find((m) => m.i === n.i)) merged.push(n); });
-      localStorage.setItem(SK, JSON.stringify(merged));
+      localStorage.setItem(keyForUser(SK, userId), JSON.stringify(merged));
       return merged;
     });
-  }, []);
+  }, [userId]);
 
   const toggleWidget = useCallback((id: string) => {
     setVisible((prev) => {
       const next = { ...prev, [id]: !prev[id] };
-      localStorage.setItem(SV, JSON.stringify(next));
+      localStorage.setItem(keyForUser(SV, userId), JSON.stringify(next));
       if (next[id]) {
         setLayout((prevLayout) => {
           const exists = prevLayout.find((l) => l.i === id);
@@ -81,26 +88,26 @@ export function useWidgetLayout() {
           const maxY = prevLayout.reduce((max, l) => Math.max(max, l.y + l.h), 0);
           const newItem = { ...defaultItem, y: maxY };
           const updated = [...prevLayout, newItem];
-          localStorage.setItem(SK, JSON.stringify(updated));
+          localStorage.setItem(keyForUser(SK, userId), JSON.stringify(updated));
           return updated;
         });
       }
       return next;
     });
-  }, []);
+  }, [userId]);
 
   const toggleLock = useCallback(() => {
-    setLocked((prev) => { const next = !prev; localStorage.setItem(SL, String(next)); return next; });
-  }, []);
+    setLocked((prev) => { const next = !prev; localStorage.setItem(keyForUser(SL, userId), String(next)); return next; });
+  }, [userId]);
 
   const resetLayout = useCallback(() => {
     setLayout(DEFAULT_LAYOUT);
-    localStorage.setItem(SK, JSON.stringify(DEFAULT_LAYOUT));
+    localStorage.setItem(keyForUser(SK, userId), JSON.stringify(DEFAULT_LAYOUT));
     const d: Record<string, boolean> = {};
     ALL_WIDGETS.forEach((w) => { d[w.id] = true; });
     setVisible(d);
-    localStorage.setItem(SV, JSON.stringify(d));
-  }, []);
+    localStorage.setItem(keyForUser(SV, userId), JSON.stringify(d));
+  }, [userId]);
 
   return { layout: layout.filter((l) => visible[l.i]), fullLayout: layout, visible, locked, onLayoutChange, toggleWidget, toggleLock, resetLayout };
 }

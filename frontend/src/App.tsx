@@ -44,8 +44,9 @@ function FeatureRoute({ flag, children }: { flag: string; children: React.ReactN
 function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authActionLoading, setAuthActionLoading] = useState(false);
   const [jobSearchState, setJobSearchState] = useState<JobSearchState>(defaultState);
-  const theme = useTheme();
+  const theme = useTheme(user?._id);
 
   const checkAuth = useCallback(async () => {
     try { setUser(await authAPI.getMe()); } catch { setUser(null); } finally { setLoading(false); }
@@ -65,7 +66,10 @@ function App() {
           <Route path="/register" element={user ? <Navigate to={user.role === "admin" ? "/admin" : "/"} replace /> : <Register onLogin={setUser} />} />
 
           {/* Admin panel — own layout, own sidebar */}
-          <Route element={<ProtectedRoute user={user}>{user?.role === "admin" ? <AdminLayout user={user!} onLogout={async () => { try { await authAPI.logout(); } catch { } setUser(null); }} /> : <Navigate to="/" replace />}</ProtectedRoute>}>
+          <Route element={<ProtectedRoute user={user}>{user?.role === "admin" ? <AdminLayout user={user!} onLogout={async () => {
+            setAuthActionLoading(true);
+            try { await authAPI.logout(); } catch { } finally { setUser(null); setAuthActionLoading(false); }
+          }} /> : <Navigate to="/" replace />}</ProtectedRoute>}>
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/users" element={<RBACManagement />} />
             <Route path="/admin/content" element={<ContentModeration />} />
@@ -82,7 +86,10 @@ function App() {
           </Route>
 
           {/* Main app layout */}
-          <Route element={<ProtectedRoute user={user}><Layout user={user!} onLogout={async () => { try { await authAPI.logout(); } catch { } setUser(null); }} /></ProtectedRoute>}>
+          <Route element={<ProtectedRoute user={user}><Layout user={user!} onLogout={async () => {
+            setAuthActionLoading(true);
+            try { await authAPI.logout(); } catch { } finally { setUser(null); setAuthActionLoading(false); }
+          }} /></ProtectedRoute>}>
             <Route path="/" element={user?.role === "admin" ? <Navigate to="/admin" replace /> : <Dashboard />} />
             <Route path="/applications" element={<Applications />} />
             <Route path="/companies" element={<Companies />} />
@@ -97,6 +104,14 @@ function App() {
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        {authActionLoading && (
+          <div className="fixed inset-0 z-[100] bg-background/70 backdrop-blur-sm flex items-center justify-center">
+            <div className="card-premium px-6 py-4 flex items-center gap-3">
+              <div className="spinner" />
+              <span className="text-sm text-foreground">Signing you out...</span>
+            </div>
+          </div>
+        )}
       </JobSearchContext.Provider>
       </FeatureFlagsProvider>
       </UserContext.Provider>
