@@ -66,7 +66,7 @@ export default function ImportModal({ onClose, onImported }: Props) {
         {step === "upload" && (
           <>
             <div
-              className="border-2 border-dashed border-border rounded-xl p-10 text-center hover:border-primary dark:hover:border-primary transition-colors cursor-pointer"
+              className="border-2 border-dashed border-border rounded-xl p-10 text-center hover:border-primary dark:hover:border-primary cursor-pointer"
               onClick={() => inputRef.current?.click()}
               onDragOver={(e) => e.preventDefault()}
               onDrop={handleDrop}
@@ -175,7 +175,7 @@ export default function ImportModal({ onClose, onImported }: Props) {
               <button
                 onClick={handleImport}
                 disabled={importing || parsed.length === 0}
-                className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg transition-colors disabled:opacity-50"
+                className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50"
               >
                 {importing ? "Importing..." : `Import ${parsed.length} applications`}
               </button>

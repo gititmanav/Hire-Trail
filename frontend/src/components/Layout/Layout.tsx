@@ -36,7 +36,9 @@ export default function Layout({ user, onLogout }: Props) {
         />
       </div>
 
-      <div className={`flex-1 flex flex-col transition-all duration-200 md:${collapsed ? "ml-16" : "ml-60"} ${collapsed ? "md:ml-16" : "md:ml-60"}`}>
+      <div
+        className={`flex-1 flex flex-col transition-[margin-left] duration-200 ease-out md:${collapsed ? "ml-16" : "ml-60"} ${collapsed ? "md:ml-16" : "md:ml-60"}`}
+      >
         <Header user={user} onLogout={onLogout} onMobileMenuToggle={() => setMobileOpen(!mobileOpen)} />
         <main className="flex-1">
           <div key={location.pathname} className={`p-4 md:p-6 ${fullWidth ? "" : "max-w-[1200px]"} mx-auto fade-up`}>

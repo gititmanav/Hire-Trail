@@ -26,7 +26,9 @@ const fmt = (d: string) => new Date(d).toLocaleDateString("en-US", { month: "sho
 
 const KanbanCard = memo(function KanbanCard({ app, resumeName, isDragging }: { app: Application; resumeName?: string; isDragging?: boolean }) {
   return (
-    <div className={`card-premium p-3 ${isDragging ? "!shadow-lg ring-2 ring-ring/20 scale-[1.02]" : ""}`}>
+    <div
+      className={`card-premium p-3 ${isDragging ? "!shadow-lg ring-2 ring-ring/20 scale-[1.02]" : ""}`}
+    >
       <h4 className="text-[13px] font-semibold text-foreground mb-0.5 truncate">{app.company}</h4>
       <p className="text-xs text-muted-foreground mb-1.5 truncate">{app.role}</p>
       <div className="flex flex-wrap gap-1 mb-1.5">
@@ -73,9 +75,12 @@ const KanbanColumn = memo(function KanbanColumn({ stage, apps, resumeById }: { s
       <div className={`flex items-center gap-2 px-3 py-2.5 rounded-t-xl ${c.hBg}`}>
         <div className={`w-2.5 h-2.5 rounded-full ${c.dot}`} />
         <span className="text-[13px] font-semibold text-foreground">{stage}</span>
-        <span className="text-[11px] text-muted-foreground ml-auto bg-white/70 bg-card/70 px-2 py-0.5 rounded-full font-semibold">{apps.length}</span>
+        <span className="text-[11px] text-muted-foreground ml-auto bg-white/70 dark:bg-black/25 px-2 py-0.5 rounded-full font-semibold tabular-nums">{apps.length}</span>
       </div>
-      <div ref={setNodeRef} className={`flex-1 p-2 rounded-b-xl border-2 border-dashed transition-colors duration-150 ${c.border} ${c.bg} min-h-[120px] space-y-2 ${isOver ? "!border-primary !bg-accent/5" : ""}`}>
+      <div
+        ref={setNodeRef}
+        className={`flex-1 p-2 rounded-b-xl border-2 border-dashed ${c.border} ${c.bg} min-h-[120px] space-y-2 ${isOver ? "!border-primary !bg-accent/5" : ""}`}
+      >
         <SortableContext items={ids} strategy={verticalListSortingStrategy}>
           {apps.map((app) => (
             <SortableCard key={app._id} app={app} resumeName={app.resumeId ? resumeById[app.resumeId] : undefined} />
@@ -185,7 +190,7 @@ export default function Kanban() {
         </div>
         <div className="flex items-center gap-4">
           {archivedCount > 0 && (
-            <Link to="/applications" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+            <Link to="/applications" className="text-sm text-muted-foreground hover:text-primary">
               Archived: {archivedCount}
             </Link>
           )}

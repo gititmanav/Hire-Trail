@@ -105,7 +105,7 @@ export default function ActionDropdown({
                   }
                 }}
                 disabled={item.disabled}
-                className={`w-full text-left px-4 py-2 text-sm flex items-center gap-2 transition-colors ${
+                className={`w-full text-left px-4 py-2 text-sm flex items-center gap-2 ${
                   item.disabled
                     ? "opacity-50 cursor-not-allowed text-muted-foreground"
                     : "hover:bg-muted"

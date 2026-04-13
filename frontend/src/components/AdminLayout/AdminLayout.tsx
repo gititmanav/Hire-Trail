@@ -54,7 +54,9 @@ export default function AdminLayout({ user, onLogout }: Props) {
       <AdminSidebar collapsed={collapsed} onToggle={() => setCollapsed((p) => !p)} />
 
       {/* Right side: header + content, offset by sidebar width */}
-      <div className={`flex-1 flex flex-col transition-all duration-200 ${collapsed ? "ml-16" : "ml-60"}`}>
+      <div
+        className={`flex-1 flex flex-col transition-[margin-left] duration-200 ease-out ${collapsed ? "ml-16" : "ml-60"}`}
+      >
         {/* Header — sticky within the content column, never overlaps sidebar */}
         <header className="sticky top-0 z-30 glass-header">
           <div className="flex items-center justify-between px-6 h-[60px]">
@@ -67,7 +69,7 @@ export default function AdminLayout({ user, onLogout }: Props) {
               <div className="relative" ref={themeRef}>
                 <button
                   onClick={() => setThemeOpen(!themeOpen)}
-                  className="w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-secondary-foreground transition-all"
+                  className="w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-secondary-foreground"
                   title="Change theme"
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -86,7 +88,7 @@ export default function AdminLayout({ user, onLogout }: Props) {
                     </div>
                     <div className="overflow-y-auto p-2 flex flex-col gap-0.5">
                       {THEMES.filter((t) => t.name.toLowerCase().includes(themeSearch.toLowerCase())).map((t) => (
-                        <button key={t.id} onClick={() => { setTheme(t.id); setThemeOpen(false); setThemeSearch(""); }} className={`flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg transition-all text-left ${themeId === t.id ? "bg-primary/10 ring-1 ring-primary/30" : "hover:bg-muted"}`}>
+                        <button key={t.id} onClick={() => { setTheme(t.id); setThemeOpen(false); setThemeSearch(""); }} className={`flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-left ${themeId === t.id ? "bg-primary/10 ring-1 ring-primary/30" : "hover:bg-muted"}`}>
                           <div className="flex items-center gap-0.5 shrink-0">
                             {(["--primary", "--background", "--card", "--sidebar"] as const).map((v) => (
                               <span key={v} className="w-3.5 h-3.5 rounded-full border border-black/10" style={{ background: previewColor(t, v) }} />
@@ -105,7 +107,7 @@ export default function AdminLayout({ user, onLogout }: Props) {
               <div className="relative" ref={profileRef}>
                 <button
                   onClick={() => setProfileOpen(!profileOpen)}
-                  className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-muted transition-all"
+                  className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-muted"
                 >
                   <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-semibold shadow-sm">{initials}</div>
                   <div className="hidden sm:flex flex-col items-start">
@@ -123,7 +125,7 @@ export default function AdminLayout({ user, onLogout }: Props) {
                     </div>
                     <button
                       onClick={() => { setProfileOpen(false); navigate("/profile"); }}
-                      className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-secondary-foreground hover:bg-muted/50 transition-colors"
+                      className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-secondary-foreground hover:bg-muted/50"
                     >
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="text-muted-foreground"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                       Edit profile
@@ -131,7 +133,7 @@ export default function AdminLayout({ user, onLogout }: Props) {
                     <div className="border-t border-border mt-1 pt-1">
                       <button
                         onClick={() => { setProfileOpen(false); onLogout(); }}
-                        className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-red-500 hover:bg-red-50 hover:bg-destructive/10 transition-colors"
+                        className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-red-500 hover:bg-red-50 hover:bg-destructive/10"
                       >
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
                         Sign out

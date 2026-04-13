@@ -151,7 +151,7 @@ export default function NotificationCenter() {
               ) : notifications.length === 0 ? (
                 <tr><td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">No notifications found</td></tr>
               ) : notifications.map((n) => (
-                <tr key={n._id} className="hover:bg-muted/50 transition-colors">
+                <tr key={n._id} className="hover:bg-muted/50">
                   <td className="px-4 py-3 text-sm font-medium text-foreground">{getUserName(n.userId)}</td>
                   <td className="px-4 py-3">
                     <span className={`inline-block px-2 py-0.5 text-[11px] font-medium rounded-full ${typeBadge[n.type] || ""}`}>
@@ -167,7 +167,7 @@ export default function NotificationCenter() {
                   <td className="px-4 py-3">
                     <button
                       onClick={() => handleDelete(n)}
-                      className="px-3 py-1 text-xs font-medium rounded-lg border border-destructive text-destructive hover:bg-destructive/10 transition-colors"
+                      className="px-3 py-1 text-xs font-medium rounded-lg border border-destructive text-destructive hover:bg-destructive/10"
                     >
                       Delete
                     </button>

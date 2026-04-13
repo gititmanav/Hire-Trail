@@ -133,7 +133,7 @@ export default function ContentModeration() {
           <button
             key={t.key}
             onClick={() => setActiveTab(t.key)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            className={`px-4 py-2 text-sm font-medium border-b-2 ${
               activeTab === t.key
                 ? "border-indigo-500 text-indigo-600 dark:text-indigo-400"
                 : "border-transparent text-muted-foreground hover:text-foreground"

@@ -5,12 +5,16 @@
  * CSS variables are set BEFORE any child useEffect hooks fire. This ensures chart widgets
  * and other components that read CSS variables in effects always get the current values.
  */
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { getTheme } from "../utils/themes.ts";
 import type { Theme } from "../utils/themes.ts";
 
 const STORAGE_KEY = "hiretrail-theme-id";
-const keyForUser = (userId?: string | null) => (userId ? `${STORAGE_KEY}:${userId}` : STORAGE_KEY);
+const keyForUser = (userId?: string | null) =>
+  userId != null && String(userId) !== "" ? `${STORAGE_KEY}:${String(userId)}` : STORAGE_KEY;
+
+/** Survives Strict Mode remounts so we do not clear/reapply CSS variables twice in a row. */
+let lastDomAppliedThemeId: string | null = null;
 
 const ALL_VARS = [
   "--background", "--foreground", "--card", "--card-foreground",
@@ -26,10 +30,7 @@ const ALL_VARS = [
 function applyTheme(theme: Theme) {
   const root = document.documentElement;
 
-  for (const v of ALL_VARS) {
-    root.style.removeProperty(v);
-  }
-
+  // Toggle light/dark before variables so Tailwind `dark:` matches incoming tokens.
   if (theme.isDark) {
     root.classList.add("dark");
   } else {
@@ -40,13 +41,22 @@ function applyTheme(theme: Theme) {
     ? theme.darkVariables
     : theme.variables;
 
-  if (Object.keys(vars).length > 0) {
-    for (const [key, value] of Object.entries(vars)) {
+  // Never strip all variables in one shot — that frame makes `hsl(var(--primary))` etc.
+  // invalid and causes visible flashes (e.g. Kanban column drop zones using accent/primary).
+  for (const key of ALL_VARS) {
+    const value = vars[key as keyof typeof vars];
+    if (value !== undefined && value !== "") {
       root.style.setProperty(key, value);
+    } else {
+      root.style.removeProperty(key);
     }
   }
+}
 
-  root.style.setProperty("transition", "background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease");
+function syncThemeToDocument(theme: Theme) {
+  if (lastDomAppliedThemeId === theme.id) return;
+  lastDomAppliedThemeId = theme.id;
+  applyTheme(theme);
 }
 
 function resolveInitialId(userId?: string | null): string {
@@ -62,26 +72,33 @@ function resolveInitialId(userId?: string | null): string {
 export function useTheme(userId?: string | null) {
   const [themeId, setThemeId] = useState(() => resolveInitialId(userId));
   const currentTheme = getTheme(themeId);
-  const appliedRef = useRef("");
 
   // Apply CSS variables synchronously during render — NOT in useEffect.
   // This guarantees child useEffect hooks (e.g. chart widgets) read fresh values.
-  if (appliedRef.current !== currentTheme.id) {
-    appliedRef.current = currentTheme.id;
-    applyTheme(currentTheme);
-  }
+  syncThemeToDocument(currentTheme);
 
-  // When auth resolves and we know the user, load that user's saved theme.
+  // Keep React state aligned with real theme ids (e.g. legacy "dark" → concrete preset id).
+  useEffect(() => {
+    const canonical = getTheme(themeId).id;
+    if (canonical !== themeId) setThemeId(canonical);
+  }, [themeId]);
+
+  // When auth resolves or the account changes, load that user's saved theme.
+  // Do not depend on themeId: after setTheme(), this would run before the persist
+  // effect updates localStorage, read the stale id, and fight the user's choice (flicker).
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const saved = localStorage.getItem(keyForUser(userId));
-    if (saved && saved !== themeId) setThemeId(saved);
-  }, [userId, themeId]);
+    const raw = localStorage.getItem(keyForUser(userId));
+    if (!raw) return;
+    const canonical = getTheme(raw).id;
+    setThemeId((prev) => (prev === canonical ? prev : canonical));
+  }, [userId]);
 
-  // Persist to localStorage (side effect, so kept in useEffect)
+  // Persist canonical id (side effect, so kept in useEffect)
   useEffect(() => {
-    localStorage.setItem(keyForUser(userId), currentTheme.id);
-  }, [currentTheme, userId]);
+    const canonical = getTheme(themeId).id;
+    localStorage.setItem(keyForUser(userId), canonical);
+  }, [themeId, userId]);
 
   const setTheme = useCallback((id: string) => {
     setThemeId(id);

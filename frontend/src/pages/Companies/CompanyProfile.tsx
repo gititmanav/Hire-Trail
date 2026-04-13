@@ -83,7 +83,7 @@ export default function CompanyProfile() {
 
       <div className="flex gap-1 mb-4 border-b border-border">
         {(["applications", "timeline"] as Tab[]).map((t) => (
-          <button key={t} onClick={() => setTab(t)} className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${tab === t ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
+          <button key={t} onClick={() => setTab(t)} className={`px-4 py-2.5 text-sm font-medium border-b-2 ${tab === t ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
             {t === "applications" ? `Applications (${data.applications.length})` : `Timeline (${timeline.length})`}
           </button>
         ))}

@@ -34,7 +34,7 @@ export default function ScreenshotCarousel() {
           <button
             key={i}
             onClick={() => setActive(i)}
-            className={`w-2 h-2 rounded-full transition-all ${i === active ? "bg-primary w-5" : "bg-muted-foreground/30"}`}
+            className={`w-2 h-2 rounded-full transition-[width] duration-200 ease-out ${i === active ? "bg-primary w-5" : "bg-muted-foreground/30"}`}
           />
         ))}
       </div>

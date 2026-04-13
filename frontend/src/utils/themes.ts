@@ -3012,5 +3012,9 @@ export const THEMES: Theme[] = [
 ];
 
 export function getTheme(id: string): Theme {
-  return THEMES.find((t) => t.id === id) || THEMES[0];
+  // Legacy: toggle + old localStorage used id "dark", but no THEME entry had that id.
+  if (id === "dark") {
+    return THEMES.find((t) => t.isDark) ?? THEMES[0];
+  }
+  return THEMES.find((t) => t.id === id) ?? THEMES[0];
 }
