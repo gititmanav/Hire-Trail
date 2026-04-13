@@ -59,19 +59,21 @@ export const applicationsAPI = {
 export const resumesAPI = {
   getAll: () => api.get<Resume[]>("/resumes").then((r) => r.data),
   getOne: (id: string) => api.get<Resume>(`/resumes/${id}`).then((r) => r.data),
-  create: (data: { name: string; targetRole: string; fileName: string; file?: File | null }) => {
+  create: (data: { name: string; targetRole: string; fileName: string; tags?: string[]; file?: File | null }) => {
     const formData = new FormData();
     formData.append("name", data.name);
     formData.append("targetRole", data.targetRole);
     formData.append("fileName", data.fileName);
+    if (data.tags) formData.append("tags", JSON.stringify(data.tags));
     if (data.file) formData.append("file", data.file);
     return api.post<Resume>("/resumes", formData, { headers: { "Content-Type": "multipart/form-data" } }).then((r) => r.data);
   },
-  update: (id: string, data: { name?: string; targetRole?: string; fileName?: string; file?: File | null }) => {
+  update: (id: string, data: { name?: string; targetRole?: string; fileName?: string; tags?: string[]; file?: File | null }) => {
     const formData = new FormData();
     if (data.name !== undefined) formData.append("name", data.name);
     if (data.targetRole !== undefined) formData.append("targetRole", data.targetRole);
     if (data.fileName !== undefined) formData.append("fileName", data.fileName);
+    if (data.tags !== undefined) formData.append("tags", JSON.stringify(data.tags));
     if (data.file) formData.append("file", data.file);
     return api.put<Resume>(`/resumes/${id}`, formData, { headers: { "Content-Type": "multipart/form-data" } }).then((r) => r.data);
   },

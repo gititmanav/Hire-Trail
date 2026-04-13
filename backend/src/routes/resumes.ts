@@ -78,11 +78,17 @@ router.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
 router.post("/", upload.single("file"), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = getUser(req);
-    const { name, targetRole, fileName } = req.body;
+    const { name, targetRole, fileName, tags } = req.body;
 
     if (!name || !name.trim()) {
       res.status(400).json({ error: "Resume name is required" });
       return;
+    }
+
+    // Parse tags — multipart sends as JSON string
+    let parsedTags: string[] = [];
+    if (tags) {
+      try { parsedTags = typeof tags === "string" ? JSON.parse(tags) : tags; } catch { parsedTags = []; }
     }
 
     let fileUrl = "";
@@ -98,6 +104,7 @@ router.post("/", upload.single("file"), async (req: Request, res: Response, next
       userId: user._id,
       name: name.trim(),
       targetRole: targetRole?.trim() || "",
+      tags: parsedTags.map((t: string) => t.trim()).filter(Boolean),
       fileName: fileName?.trim() || req.file?.originalname || "",
       fileUrl,
       filePublicId,
@@ -114,10 +121,15 @@ router.put("/:id", upload.single("file"), async (req: Request, res: Response, ne
     const resume = await Resume.findOne({ _id: req.params.id, userId: user._id });
     if (!resume) throw new NotFoundError("Resume");
 
-    const { name, targetRole, fileName } = req.body;
+    const { name, targetRole, fileName, tags } = req.body;
     if (name !== undefined) resume.name = name.trim();
     if (targetRole !== undefined) resume.targetRole = targetRole.trim();
     if (fileName !== undefined) resume.fileName = fileName.trim();
+    if (tags !== undefined) {
+      let parsedTags: string[] = [];
+      try { parsedTags = typeof tags === "string" ? JSON.parse(tags) : tags; } catch { parsedTags = []; }
+      resume.tags = parsedTags.map((t: string) => t.trim()).filter(Boolean);
+    }
 
     // If new file uploaded, replace old one
     if (req.file && cloudinaryEnabled()) {

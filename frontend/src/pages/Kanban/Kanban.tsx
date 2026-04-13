@@ -10,9 +10,9 @@ import { SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-
 import { CSS } from "@dnd-kit/utilities";
 import toast from "react-hot-toast";
 import { Link } from "react-router-dom";
-import { applicationsAPI } from "../../utils/api.ts";
+import { applicationsAPI, resumesAPI } from "../../utils/api.ts";
 import { SkeletonCard } from "../../components/Skeleton/Skeleton.tsx";
-import type { Application, Stage } from "../../types";
+import type { Application, Resume, Stage } from "../../types";
 
 const STAGES: Stage[] = ["Applied", "OA", "Interview", "Offer", "Rejected"];
 const CFG: Record<Stage, { dot: string; hBg: string; border: string; bg: string }> = {
@@ -24,26 +24,46 @@ const CFG: Record<Stage, { dot: string; hBg: string; border: string; bg: string 
 };
 const fmt = (d: string) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
-const KanbanCard = memo(function KanbanCard({ app, isDragging }: { app: Application; isDragging?: boolean }) {
+const KanbanCard = memo(function KanbanCard({ app, resumeName, isDragging }: { app: Application; resumeName?: string; isDragging?: boolean }) {
   return (
     <div className={`card-premium p-3 ${isDragging ? "!shadow-lg ring-2 ring-ring/20 scale-[1.02]" : ""}`}>
       <h4 className="text-[13px] font-semibold text-foreground mb-0.5 truncate">{app.company}</h4>
-      <p className="text-xs text-muted-foreground mb-2 truncate">{app.role}</p>
+      <p className="text-xs text-muted-foreground mb-1.5 truncate">{app.role}</p>
+      <div className="flex flex-wrap gap-1 mb-1.5">
+        {app.location?.trim() && (
+          <span className="inline-flex items-center gap-0.5 max-w-full text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-muted/80 text-secondary-foreground border border-border/60 truncate" title={app.location}>
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 opacity-70" aria-hidden>
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+              <circle cx="12" cy="10" r="3" />
+            </svg>
+            <span className="truncate">{app.location}</span>
+          </span>
+        )}
+        {resumeName && (
+          <span className="inline-flex items-center gap-0.5 max-w-full text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20 truncate" title={resumeName}>
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="shrink-0" aria-hidden>
+              <path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9l-7-7z" />
+              <path d="M13 2v7h7" />
+            </svg>
+            <span className="truncate">{resumeName}</span>
+          </span>
+        )}
+      </div>
       <span className="text-[11px] text-muted-foreground">{fmt(app.applicationDate)}</span>
     </div>
   );
 });
 
-function SortableCard({ app }: { app: Application }) {
+function SortableCard({ app, resumeName }: { app: Application; resumeName?: string }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: app._id, data: { type: "card", app } });
   return (
     <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : 1 }} {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing">
-      <KanbanCard app={app} />
+      <KanbanCard app={app} resumeName={resumeName} />
     </div>
   );
 }
 
-const KanbanColumn = memo(function KanbanColumn({ stage, apps }: { stage: Stage; apps: Application[] }) {
+const KanbanColumn = memo(function KanbanColumn({ stage, apps, resumeById }: { stage: Stage; apps: Application[]; resumeById: Record<string, string> }) {
   const c = CFG[stage];
   const { setNodeRef, isOver } = useSortable({ id: `column-${stage}`, data: { type: "column", stage } });
   const ids = useMemo(() => apps.map((a) => a._id), [apps]);
@@ -57,7 +77,9 @@ const KanbanColumn = memo(function KanbanColumn({ stage, apps }: { stage: Stage;
       </div>
       <div ref={setNodeRef} className={`flex-1 p-2 rounded-b-xl border-2 border-dashed transition-colors duration-150 ${c.border} ${c.bg} min-h-[120px] space-y-2 ${isOver ? "!border-primary !bg-accent/5" : ""}`}>
         <SortableContext items={ids} strategy={verticalListSortingStrategy}>
-          {apps.map((app) => <SortableCard key={app._id} app={app} />)}
+          {apps.map((app) => (
+            <SortableCard key={app._id} app={app} resumeName={app.resumeId ? resumeById[app.resumeId] : undefined} />
+          ))}
         </SortableContext>
         {apps.length === 0 && <div className="flex items-center justify-center h-16 text-xs text-muted-foreground dark:text-secondary-foreground">Drop here</div>}
       </div>
@@ -67,6 +89,7 @@ const KanbanColumn = memo(function KanbanColumn({ stage, apps }: { stage: Stage;
 
 export default function Kanban() {
   const [apps, setApps] = useState<Application[]>([]);
+  const [resumes, setResumes] = useState<Resume[]>([]);
   const [archivedCount, setArchivedCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [activeApp, setActiveApp] = useState<Application | null>(null);
@@ -74,14 +97,18 @@ export default function Kanban() {
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
+  const resumeById = useMemo(() => Object.fromEntries(resumes.map((r) => [r._id, r.name])), [resumes]);
+
   const fetchApps = useCallback(async () => {
     try {
-      const [res, arch] = await Promise.all([
+      const [res, arch, rList] = await Promise.all([
         applicationsAPI.getAll({ limit: 999, archived: "false" }),
         applicationsAPI.getAll({ limit: 1, archived: "true" }),
+        resumesAPI.getAll(),
       ]);
       setApps(res.data);
       setArchivedCount(arch.pagination.total);
+      setResumes(rList);
     } catch {} finally { setLoading(false); }
   }, []);
   useEffect(() => { fetchApps(); }, [fetchApps]);
@@ -168,11 +195,17 @@ export default function Kanban() {
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
         <div className="flex gap-4 overflow-x-auto pb-4">
           <SortableContext items={STAGES.map((s) => `column-${s}`)}>
-            {STAGES.map((s) => <KanbanColumn key={s} stage={s} apps={grouped[s]} />)}
+            {STAGES.map((s) => <KanbanColumn key={s} stage={s} apps={grouped[s]} resumeById={resumeById} />)}
           </SortableContext>
         </div>
         <DragOverlay dropAnimation={{ duration: 200, easing: "cubic-bezier(0.16, 1, 0.3, 1)" }}>
-          {activeApp && <KanbanCard app={activeApp} isDragging />}
+          {activeApp && (
+            <KanbanCard
+              app={activeApp}
+              resumeName={activeApp.resumeId ? resumeById[activeApp.resumeId] : undefined}
+              isDragging
+            />
+          )}
         </DragOverlay>
       </DndContext>
     </div>

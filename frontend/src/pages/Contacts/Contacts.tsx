@@ -97,6 +97,9 @@ function OutreachBadge({ status }: { status: ContactOutreachStatus }) {
 }
 
 function ContactCard({ c, onEdit, onDelete }: { c: Contact; onEdit: () => void; onDelete: () => void }) {
+  const [notesExpanded, setNotesExpanded] = useState(false);
+  const hasLongNotes = c.notes && c.notes.length > 120;
+
   return (
     <div className="bg-card border border-border rounded-xl p-5 flex flex-col group">
       <div className="flex items-start gap-2.5 mb-2.5">
@@ -115,7 +118,16 @@ function ContactCard({ c, onEdit, onDelete }: { c: Contact; onEdit: () => void; 
         {c.connectionSource && <span className="inline-block text-xs font-medium bg-muted text-muted-foreground px-2 py-0.5 rounded-full">{c.connectionSource}</span>}
       </div>
       {c.linkedinUrl && <a href={c.linkedinUrl} target="_blank" rel="noopener noreferrer" className="text-[13px] text-primary hover:underline mb-1">LinkedIn profile</a>}
-      {c.notes && <p className="text-[13px] text-muted-foreground line-clamp-3 mb-2">{c.notes}</p>}
+      {c.notes && (
+        <div className="mb-2">
+          <p className={`text-[13px] text-muted-foreground ${notesExpanded ? "" : "line-clamp-3"}`}>{c.notes}</p>
+          {hasLongNotes && (
+            <button onClick={() => setNotesExpanded(!notesExpanded)} className="text-[12px] text-primary hover:underline mt-0.5">
+              {notesExpanded ? "Show less" : "Show more"}
+            </button>
+          )}
+        </div>
+      )}
       <div className="mt-auto pt-2.5 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
         <span>Last contact: {fmt(c.lastContactDate)}</span>
         {c.nextFollowUpDate && <span className={needsFollowUp(c) ? "text-orange-500 font-medium" : ""}>Follow-up: {fmt(c.nextFollowUpDate)}</span>}

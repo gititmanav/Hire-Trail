@@ -11,6 +11,7 @@ import { SkeletonTable, SkeletonStats } from "../../components/Skeleton/Skeleton
 import ResumePreview from "../../components/ResumePreview/ResumePreview.tsx";
 import type { Application, Resume, Contact, Deadline, Stage, ApplicationFormData, Pagination, SortConfig } from "../../types";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal.tsx";
+import ResumeModal from "../../components/ResumeModal/ResumeModal.tsx";
 import { useConfirm } from "../../hooks/useConfirm.ts";
 
 const STAGES: Stage[] = ["Applied", "OA", "Interview", "Offer", "Rejected"];
@@ -27,13 +28,24 @@ function SortArrow({ field, sort }: { field: string; sort: SortConfig }) {
   );
 }
 
-function Modal({ app, resumes, onSave, onClose }: { app: Application | null; resumes: Resume[]; onSave: (d: ApplicationFormData) => Promise<void>; onClose: () => void }) {
-  const [form, setForm] = useState<ApplicationFormData>({ company: app?.company || "", role: app?.role || "", jobUrl: app?.jobUrl || "", stage: app?.stage || "Applied", notes: app?.notes || "", resumeId: app?.resumeId || "", companyId: app?.companyId || "", contactId: app?.contactId || "", outreachStatus: app?.outreachStatus || "none" });
+function Modal({ app, resumes, onSave, onClose, onResumesChanged }: { app: Application | null; resumes: Resume[]; onSave: (d: ApplicationFormData) => Promise<void>; onClose: () => void; onResumesChanged: () => Promise<Resume[]> }) {
+  const [form, setForm] = useState<ApplicationFormData>({ company: app?.company || "", role: app?.role || "", jobUrl: app?.jobUrl || "", stage: app?.stage || "Applied", notes: app?.notes || "", resumeId: app?.resumeId || "", companyId: app?.companyId || "", contactId: app?.contactId || "", outreachStatus: app?.outreachStatus || "none", location: app?.location || "", salary: app?.salary || "", jobType: app?.jobType || "" });
   const [saving, setSaving] = useState(false);
+  const [showResumeModal, setShowResumeModal] = useState(false);
   const u = (k: string, v: string) => setForm({ ...form, [k]: v });
-  useEffect(() => { const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); }; document.addEventListener("keydown", h); return () => document.removeEventListener("keydown", h); }, [onClose]);
+  useEffect(() => { const h = (e: KeyboardEvent) => { if (e.key === "Escape" && !showResumeModal) onClose(); }; document.addEventListener("keydown", h); return () => document.removeEventListener("keydown", h); }, [onClose, showResumeModal]);
+
+  const handleAddResume = async (data: { name: string; targetRole: string; fileName: string; file: File | null }) => {
+    const created = await resumesAPI.create(data);
+    const updated = await onResumesChanged();
+    u("resumeId", created._id);
+    setShowResumeModal(false);
+    toast.success("Resume added");
+    return updated;
+  };
 
   return (
+    <>
     <div className="fixed inset-0 bg-black/45 flex items-center justify-center z-50" onClick={onClose}>
       <div className="card-premium p-6 w-full max-w-[520px] max-h-[90vh] overflow-y-auto animate-in" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5"><h2 className="text-lg font-semibold text-foreground">{app ? "Edit application" : "New application"}</h2><button onClick={onClose} className="w-9 h-9 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted"><svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/></svg></button></div>
@@ -41,15 +53,30 @@ function Modal({ app, resumes, onSave, onClose }: { app: Application | null; res
           <div><label className="block text-sm font-medium text-foreground mb-1.5">Company *</label><input className="input-premium" value={form.company} onChange={(e) => u("company", e.target.value)} required /></div>
           <div><label className="block text-sm font-medium text-foreground mb-1.5">Role *</label><input className="input-premium" value={form.role} onChange={(e) => u("role", e.target.value)} required /></div>
           <div><label className="block text-sm font-medium text-foreground mb-1.5">Job URL</label><input type="url" className="input-premium" value={form.jobUrl} onChange={(e) => u("jobUrl", e.target.value)} /></div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div><label className="block text-sm font-medium text-foreground mb-1.5">Location</label><input className="input-premium" value={form.location || ""} onChange={(e) => u("location", e.target.value)} placeholder="City, remote, etc." /></div>
+            <div><label className="block text-sm font-medium text-foreground mb-1.5">Salary</label><input className="input-premium" value={form.salary || ""} onChange={(e) => u("salary", e.target.value)} placeholder="e.g. $120k–$150k" /></div>
+            <div><label className="block text-sm font-medium text-foreground mb-1.5">Job type</label><input className="input-premium" value={form.jobType || ""} onChange={(e) => u("jobType", e.target.value)} placeholder="Full-time, internship…" /></div>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div><label className="block text-sm font-medium text-foreground mb-1.5">Stage</label><select className="input-premium" value={form.stage} onChange={(e) => u("stage", e.target.value)}>{STAGES.map((s) => <option key={s}>{s}</option>)}</select></div>
-            <div><label className="block text-sm font-medium text-foreground mb-1.5">Resume</label><select className="input-premium" value={form.resumeId} onChange={(e) => u("resumeId", e.target.value)}><option value="">None</option>{resumes.map((r) => <option key={r._id} value={r._id}>{r.name}</option>)}</select></div>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">Resume</label>
+              <div className="flex gap-1.5">
+                <select className="input-premium flex-1" value={form.resumeId} onChange={(e) => u("resumeId", e.target.value)}><option value="">None</option>{resumes.map((r) => <option key={r._id} value={r._id}>{r.name}</option>)}</select>
+                <button type="button" onClick={() => setShowResumeModal(true)} title="Add new resume" className="w-9 h-9 shrink-0 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary transition-colors">
+                  <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg>
+                </button>
+              </div>
+            </div>
           </div>
           <div><label className="block text-sm font-medium text-foreground mb-1.5">Notes</label><textarea className="input-premium min-h-[80px] resize-y" value={form.notes} onChange={(e) => u("notes", e.target.value)} /></div>
           <div className="flex justify-end gap-2 pt-4 border-t border-border"><button type="button" onClick={onClose} className="btn-secondary">Cancel</button><button type="submit" disabled={saving} className="btn-accent disabled:opacity-50">{saving ? "Saving..." : app ? "Update" : "Add application"}</button></div>
         </form>
       </div>
     </div>
+    {showResumeModal && <ResumeModal resume={null} existingTags={[...new Set(resumes.flatMap((r) => r.tags || []))].sort()} onSave={handleAddResume as any} onClose={() => setShowResumeModal(false)} />}
+    </>
   );
 }
 
@@ -101,7 +128,7 @@ function ApplicationDetailSidebar({
     <div className="fixed inset-0 z-40 flex justify-end" onClick={handleClose}>
       <div className={`absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300 ${open ? "opacity-100" : "opacity-0"}`} />
       <div
-        className={`relative w-[420px] h-full bg-card shadow-2xl flex flex-col border-l border-border transition-transform duration-300 ${open ? "translate-x-0" : "translate-x-full"}`}
+        className={`relative w-[560px] h-full bg-card shadow-2xl flex flex-col border-l border-border transition-transform duration-300 ${open ? "translate-x-0" : "translate-x-full"}`}
         onClick={(e) => e.stopPropagation()}
       >
       <div className="sticky top-0 bg-card border-b border-border px-6 py-4 flex items-center justify-between shrink-0">
@@ -111,113 +138,134 @@ function ApplicationDetailSidebar({
         </button>
       </div>
 
-      <div className="p-6 space-y-5 overflow-y-auto flex-1">
-        {/* Company */}
-        <div>
-          <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Company</label>
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-foreground">{app.company}</span>
-            {app.jobUrl && <a href={app.jobUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-xs">Visit</a>}
-          </div>
-          {(app.location || app.salary || app.jobType) && (
-            <div className="flex flex-wrap gap-1.5 mt-2">
-              {app.location && <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-full bg-muted text-muted-foreground"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>{app.location}</span>}
-              {app.salary && <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-full bg-muted text-muted-foreground">{app.salary}</span>}
-              {app.jobType && <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-full bg-muted text-muted-foreground">{app.jobType}</span>}
+      <div className="overflow-y-auto flex-1">
+        {/* ── Row 1: Company | Applied ── */}
+        <div className="grid grid-cols-2 border-b border-border/40">
+          <div className="p-4 border-r border-border/40">
+            <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Company</label>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-foreground">{app.company}</span>
+              {app.jobUrl && <a href={app.jobUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-[11px]">Visit</a>}
             </div>
-          )}
-        </div>
-
-        {/* Stage tags */}
-        <div>
-          <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 block">Stage</label>
-          <div className="flex flex-wrap gap-1.5">
-            {STAGES.map((s) => (
-              <button key={s} onClick={() => onStageChange(app._id, s)}
-                className={`px-3 py-1 text-xs font-medium rounded-full border transition-all ${app.stage === s ? badgeCls[s] + " border-current" : "bg-muted border-border text-muted-foreground hover:border-primary hover:text-primary"}`}>
-                {s}
-              </button>
-            ))}
+          </div>
+          <div className="p-4">
+            <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Applied</label>
+            <p className="text-sm text-foreground">
+              {fmt(app.applicationDate)}
+              <span className="text-muted-foreground text-xs ml-1">
+                {new Date(app.applicationDate).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+              </span>
+            </p>
           </div>
         </div>
 
-        {/* Date */}
-        <div>
-          <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Applied</label>
-          <p className="text-sm text-secondary-foreground">{fmt(app.applicationDate)}</p>
-        </div>
-
-        {/* Job Description */}
-        {app.jobDescription && (
-          <div>
-            <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Job Description</label>
-            <div className="text-sm text-secondary-foreground whitespace-pre-wrap">
-              {jdExpanded ? app.jobDescription : app.jobDescription.slice(0, 150) + (app.jobDescription.length > 150 ? "..." : "")}
+        {/* ── Row 2: Resume | Stage ── */}
+        <div className="grid grid-cols-2 border-b border-border/40">
+          <div className="p-4 border-r border-border/40">
+            <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Resume</label>
+            {resume ? (
+              <button onClick={() => onViewResume(resume)} className="text-sm text-primary hover:underline flex items-center gap-1.5">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9l-7-7z"/><path d="M13 2v7h7"/></svg>
+                {resume.name}
+              </button>
+            ) : <p className="text-sm text-muted-foreground">None</p>}
+          </div>
+          <div className="p-4">
+            <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Stage</label>
+            <div className="flex flex-wrap gap-1">
+              {STAGES.map((s) => (
+                <button key={s} onClick={() => onStageChange(app._id, s)}
+                  className={`px-2 py-0.5 text-[11px] font-medium rounded-full border transition-all ${app.stage === s ? badgeCls[s] + " border-current" : "bg-muted border-border text-muted-foreground hover:border-primary hover:text-primary"}`}>
+                  {s}
+                </button>
+              ))}
             </div>
-            {app.jobDescription.length > 150 && (
-              <button onClick={() => setJdExpanded(!jdExpanded)} className="text-xs text-primary hover:underline mt-1">
-                {jdExpanded ? "Show less" : "Show more"}
-              </button>
-            )}
           </div>
-        )}
+        </div>
 
-        {/* Resume */}
-        <div>
-          <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Resume</label>
-          {resume ? (
-            <button onClick={() => onViewResume(resume)} className="text-sm text-primary hover:underline flex items-center gap-1">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9l-7-7z"/><path d="M13 2v7h7"/></svg>
-              {resume.name}
-            </button>
+        {/* ── Row 3: Location | Salary | Job Type ── */}
+        <div className="grid grid-cols-3 border-b border-border/40">
+          <div className="p-4 border-r border-border/40">
+            <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Location</label>
+            {app.location ? (
+              <span className="inline-flex items-center gap-1 text-sm text-foreground">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground shrink-0"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                {app.location}
+              </span>
+            ) : <p className="text-sm text-muted-foreground">None</p>}
+          </div>
+          <div className="p-4 border-r border-border/40">
+            <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Salary</label>
+            <p className={`text-sm ${app.salary ? "text-foreground" : "text-muted-foreground"}`}>{app.salary || "None"}</p>
+          </div>
+          <div className="p-4">
+            <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Job Type</label>
+            <p className={`text-sm ${app.jobType ? "text-foreground" : "text-muted-foreground"}`}>{app.jobType || "None"}</p>
+          </div>
+        </div>
+
+        {/* ── Row 4: Job Description — full width, always shown ── */}
+        <div className="px-4 py-4 border-b border-border/40">
+          <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Job Description</label>
+          {app.jobDescription ? (
+            <>
+              <div className="text-sm text-secondary-foreground whitespace-pre-wrap">
+                {jdExpanded ? app.jobDescription : app.jobDescription.slice(0, 200) + (app.jobDescription.length > 200 ? "..." : "")}
+              </div>
+              {app.jobDescription.length > 200 && (
+                <button onClick={() => setJdExpanded(!jdExpanded)} className="text-xs text-primary hover:underline mt-1.5">
+                  {jdExpanded ? "Show less" : "Show more"}
+                </button>
+              )}
+            </>
           ) : <p className="text-sm text-muted-foreground">None</p>}
         </div>
 
-        {/* Contact */}
-        <div>
-          <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Company Contact</label>
-          {companyContacts.length > 0 ? (
-            <div className="space-y-2">
-              {companyContacts.slice(0, 3).map((c) => (
-                <div key={c._id} className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold text-muted-foreground">{c.name[0]}</div>
-                  <div>
-                    <p className="text-sm text-foreground">{c.name}</p>
-                    <p className="text-[11px] text-muted-foreground">{c.role} · {c.connectionSource}</p>
+        {/* ── Row 5: Contact | Deadlines ── */}
+        <div className="grid grid-cols-2 border-b border-border/40">
+          <div className="p-4 border-r border-border/40">
+            <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Contact</label>
+            {companyContacts.length > 0 ? (
+              <div className="space-y-2">
+                {companyContacts.slice(0, 3).map((c) => (
+                  <div key={c._id} className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-[9px] font-bold text-muted-foreground shrink-0">{c.name[0]}</div>
+                    <div className="min-w-0">
+                      <p className="text-sm text-foreground truncate">{c.name}</p>
+                      <p className="text-[10px] text-muted-foreground truncate">{c.role}</p>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          ) : <p className="text-sm text-muted-foreground">None</p>}
-        </div>
-
-        {/* Deadlines */}
-        <div>
-          <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Follow-up Deadlines</label>
-          {appDeadlines.length > 0 ? (
-            <div className="space-y-1.5">
-              {appDeadlines.map((d) => (
-                <div key={d._id} className="flex items-center justify-between text-sm">
-                  <span className="text-secondary-foreground">{d.type}</span>
-                  <span className="text-xs text-muted-foreground">{fmt(d.dueDate)}</span>
-                </div>
-              ))}
-            </div>
-          ) : <p className="text-sm text-muted-foreground">None</p>}
-        </div>
-
-        {/* Notes */}
-        {app.notes && (
-          <div>
-            <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Notes</label>
-            <p className="text-sm text-secondary-foreground whitespace-pre-wrap">{app.notes}</p>
+                ))}
+              </div>
+            ) : <p className="text-sm text-muted-foreground">None</p>}
           </div>
-        )}
+          <div className="p-4">
+            <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Deadlines</label>
+            {appDeadlines.length > 0 ? (
+              <div className="space-y-1.5">
+                {appDeadlines.map((d) => (
+                  <div key={d._id} className="text-sm">
+                    <span className="text-secondary-foreground">{d.type}</span>
+                    <span className="text-[10px] text-muted-foreground ml-1.5">{fmt(d.dueDate)}</span>
+                  </div>
+                ))}
+              </div>
+            ) : <p className="text-sm text-muted-foreground">None</p>}
+          </div>
+        </div>
 
-        {/* Stage History */}
-        {app.stageHistory.length > 0 && (
-          <div>
-            <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 block">Stage History</label>
+        {/* ── Row 6: Notes — full width, always shown ── */}
+        <div className="px-4 py-4 border-b border-border/40">
+          <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Notes</label>
+          {app.notes ? (
+            <p className="text-sm text-secondary-foreground whitespace-pre-wrap">{app.notes}</p>
+          ) : <p className="text-sm text-muted-foreground">None</p>}
+        </div>
+
+        {/* ── Row 7: Stage History — full width, always shown ── */}
+        <div className="px-4 py-4">
+          <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2 block">Stage History</label>
+          {app.stageHistory.length > 0 ? (
             <div className="space-y-1.5">
               {app.stageHistory.map((sh, i) => (
                 <div key={i} className="flex items-center gap-2 text-sm">
@@ -226,8 +274,8 @@ function ApplicationDetailSidebar({
                 </div>
               ))}
             </div>
-          </div>
-        )}
+          ) : <p className="text-sm text-muted-foreground">None</p>}
+        </div>
       </div>
       </div>
     </div>
@@ -311,7 +359,7 @@ export default function Applications() {
   const handleStageChange = async (id: string, stage: Stage) => {
     try {
       await applicationsAPI.update(id, { stage });
-      toast.success("Stage updated");
+      toast.success(`Stage updated to ${stage}`);
       await fetchData();
       if (sidebarApp && sidebarApp._id === id) {
         setSidebarApp((prev) => prev ? { ...prev, stage } : null);
@@ -419,7 +467,7 @@ export default function Applications() {
                           <span className="text-sm font-medium text-foreground">{firstApp.company}</span>
                           {firstApp.jobUrl && <a href={firstApp.jobUrl} target="_blank" rel="noopener noreferrer" className="ml-1.5 text-muted-foreground/50 hover:text-primary inline-flex opacity-0 group-hover:opacity-100 transition-opacity"><svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M9 6.5v3a1 1 0 01-1 1H3a1 1 0 01-1-1V4.5a1 1 0 011-1h3"/><polyline points="7,1.5 10.5,1.5 10.5,5"/><line x1="5.5" y1="6.5" x2="10.5" y2="1.5"/></svg></a>}
                         </td>
-                        <td className="px-4 py-3"><button onClick={() => setSidebarApp(firstApp)} className="text-sm text-primary hover:underline text-left">{firstApp.role}</button></td>
+                        <td className="px-4 py-3 max-w-[200px]"><button onClick={() => setSidebarApp(firstApp)} className="text-sm text-primary hover:underline text-left truncate block max-w-full" title={firstApp.role}>{firstApp.role}</button></td>
                         <td className="px-4 py-3"><span className={`inline-block px-2.5 py-0.5 text-xs font-medium rounded-full ${badgeCls[firstApp.stage]}`}>{firstApp.stage}</span></td>
                         <td className="px-4 py-3 text-[13px] text-muted-foreground">{(() => { const r = resumes.find((r) => r._id === firstApp.resumeId); return r ? <button onClick={() => setSidebarResume(r)} className="text-primary hover:underline text-left flex items-center gap-1"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9l-7-7z"/><path d="M13 2v7h7"/></svg>{r.name}</button> : "—"; })()}</td>
                         <td className="px-4 py-3 text-[13px] text-muted-foreground">{fmt(firstApp.applicationDate)}</td>
@@ -447,7 +495,7 @@ export default function Applications() {
                           <span className="text-sm font-medium text-foreground">{company}</span>
                           <span className="ml-2 text-[11px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">{companyApps.length} apps</span>
                         </td>
-                        <td className="px-4 py-3 text-[13px] text-muted-foreground">{isExpanded ? "" : companyApps.map((a) => a.role).join(", ")}</td>
+                        <td className="px-4 py-3 text-[13px] text-muted-foreground max-w-[200px]"><span className="truncate block" title={companyApps.map((a) => a.role).join(", ")}>{isExpanded ? "" : companyApps.map((a) => a.role).join(", ")}</span></td>
                         <td className="px-4 py-3">
                           <div className="flex gap-1">{[...new Set(companyApps.map((a) => a.stage))].map((s) => <span key={s} className={`inline-block px-2 py-0.5 text-[11px] font-medium rounded-full ${badgeCls[s]}`}>{s}</span>)}</div>
                         </td>
@@ -466,7 +514,7 @@ export default function Applications() {
                             <span className="text-[13px] text-muted-foreground">{a.company}</span>
                             {a.jobUrl && <a href={a.jobUrl} target="_blank" rel="noopener noreferrer" className="ml-1.5 text-muted-foreground/50 hover:text-primary inline-flex opacity-0 group-hover:opacity-100 transition-opacity"><svg width="10" height="10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M7 5v2.5a.8.8 0 01-.8.8H2.5a.8.8 0 01-.8-.8V3.8a.8.8 0 01.8-.8H5"/><polyline points="6,1.2 8.8,1.2 8.8,4"/><line x1="4.5" y1="5.3" x2="8.8" y2="1.2"/></svg></a>}
                           </td>
-                          <td className="px-4 py-2.5"><button onClick={() => setSidebarApp(a)} className="text-sm text-primary hover:underline text-left">{a.role}</button></td>
+                          <td className="px-4 py-2.5 max-w-[200px]"><button onClick={() => setSidebarApp(a)} className="text-sm text-primary hover:underline text-left truncate block max-w-full" title={a.role}>{a.role}</button></td>
                           <td className="px-4 py-2.5"><span className={`inline-block px-2.5 py-0.5 text-xs font-medium rounded-full ${badgeCls[a.stage]}`}>{a.stage}</span></td>
                           <td className="px-4 py-2.5 text-[13px] text-muted-foreground">{(() => { const r = resumes.find((r) => r._id === a.resumeId); return r ? <button onClick={(e) => { e.stopPropagation(); setSidebarResume(r); }} className="text-primary hover:underline text-left flex items-center gap-1"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9l-7-7z"/><path d="M13 2v7h7"/></svg>{r.name}</button> : "—"; })()}</td>
                           <td className="px-4 py-2.5 text-[13px] text-muted-foreground">{fmt(a.applicationDate)}</td>
@@ -500,7 +548,7 @@ export default function Applications() {
       )}
       {sidebarResume && sidebarResume.fileUrl && <ResumePreview fileUrl={sidebarResume.fileUrl} name={sidebarResume.name} fileName={sidebarResume.fileName} onClose={() => setSidebarResume(null)} />}
 
-      {modal && <Modal app={editing} resumes={resumes} onSave={handleSave} onClose={() => { setModal(false); setEditing(null); }} />}
+      {modal && <Modal app={editing} resumes={resumes} onSave={handleSave} onClose={() => { setModal(false); setEditing(null); }} onResumesChanged={async () => { const r = await resumesAPI.getAll(); setResumes(r); return r; }} />}
       {importModal && <ImportModal onClose={() => setImportModal(false)} onImported={fetchData} />}
       {confirmState.open && <ConfirmModal title={confirmState.title} message={confirmState.message} confirmLabel={confirmState.confirmLabel} danger={confirmState.danger} onConfirm={onConfirm} onCancel={onCancel} />}
     </div>
