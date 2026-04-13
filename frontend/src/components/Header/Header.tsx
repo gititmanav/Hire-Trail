@@ -1,10 +1,12 @@
-/** Top bar: theme picker, user menu, optional job-search affordances. */
-import { useState, useRef, useEffect, useContext } from "react";
+/** Top bar: theme picker, extension download, user menu. */
+import { useState, useRef, useEffect, useContext, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { ThemeContext } from "../../App.tsx";
 import { THEMES, getTheme } from "../../utils/themes.ts";
 import type { Theme } from "../../utils/themes.ts";
 import type { User } from "../../types";
+
+const EXT_DISMISSED_KEY = "hiretrail-ext-banner-dismissed";
 
 const FB: Record<string, [string, string]> = {
   "--primary": ["217 91% 60%", "217 91% 60%"],
@@ -32,6 +34,14 @@ export default function Header({ user, onLogout }: Props) {
   const { themeId, setTheme } = useContext(ThemeContext);
   const navigate = useNavigate();
   const initials = user.name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
+  const [extHighlight, setExtHighlight] = useState(() => !localStorage.getItem(EXT_DISMISSED_KEY));
+
+  const handleExtDownload = useCallback(() => {
+    if (extHighlight) {
+      localStorage.setItem(EXT_DISMISSED_KEY, "1");
+      setExtHighlight(false);
+    }
+  }, [extHighlight]);
 
   // Click-outside for user menu
   useEffect(() => { const h = (e: MouseEvent) => { if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false); }; document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h); }, []);
@@ -43,7 +53,33 @@ export default function Header({ user, onLogout }: Props) {
   return (
     <header className="glass-header">
       <div className="flex items-center justify-between px-6 py-2.5">
-        <div />
+        {/* Extension download CTA */}
+        <div className="flex items-center">
+          <a
+            href="/extension.zip"
+            download="HireTrail-Extension.zip"
+            onClick={handleExtDownload}
+            title="Download the browser extension to track jobs from LinkedIn, Indeed, Glassdoor & more with one click"
+            className={`group flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+              extHighlight
+                ? "ext-cta-highlight bg-primary text-primary-foreground shadow-md hover:shadow-lg hover:brightness-110"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted"
+            }`}
+          >
+            {/* Puzzle-piece icon */}
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={extHighlight ? "text-primary-foreground" : ""}>
+              <path d="M19.439 7.85c-.049 0-.195.01-.293.01C17.442 7.86 16 6.474 16 4.711c0-.312.043-.604.132-.878C15.548 3.6 14.748 3.5 14 3.5h-2c-.633 0-1.236.068-1.815.192C10.068 3.898 10 4.29 10 4.711 10 6.474 8.507 7.86 6.8 7.86c-.098 0-.244-.01-.293-.01C5.577 8.525 5 9.616 5 10.861v1.278c0 .633.068 1.236.192 1.815.207.117.599.185 1.02.185C7.974 14.139 9.36 15.632 9.36 17.339c0 .098-.01.244-.01.293.675.93 1.766 1.507 3.011 1.507h1.278c1.245 0 2.336-.577 3.011-1.507 0-.049-.01-.195-.01-.293 0-1.707 1.386-3.2 3.149-3.2.421 0 .813.068 1.02.185A7.77 7.77 0 0021 12.5v-1.639c0-1.245-.577-2.336-1.507-3.011h-.054z" />
+            </svg>
+            <span className="hidden sm:inline">
+              {extHighlight ? "Get the Extension" : "Download Extension"}
+            </span>
+            {extHighlight && (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="hidden sm:block">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="7,10 12,15 17,10" /><line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+            )}
+          </a>
+        </div>
         <div className="flex items-center gap-2">
           {/* Theme picker */}
           <div className="relative" ref={themeRef}>

@@ -2,40 +2,79 @@
   if (document.getElementById("hiretrail-fab")) return;
 
   const scrapers = {
-    "linkedin.com": () => ({
-      title: document.querySelector(".job-details-jobs-unified-top-card__job-title")?.textContent?.trim()
-        || document.querySelector("h1")?.textContent?.trim() || "",
-      company: document.querySelector(".job-details-jobs-unified-top-card__company-name")?.textContent?.trim()
-        || document.querySelector(".jobs-unified-top-card__company-name")?.textContent?.trim() || "",
-      jobDescription: (document.querySelector(".jobs-description__content") || document.querySelector("#job-details"))?.innerText?.trim() || "",
-      location: document.querySelector(".tvm__text")?.textContent?.trim()
-        || document.querySelector(".job-details-jobs-unified-top-card__bullet")?.textContent?.trim() || "",
-      salary: document.querySelector("[class*='salary']")?.textContent?.trim()
-        || document.querySelector(".job-details-jobs-unified-top-card__job-insight span")?.textContent?.trim() || "",
-      jobType: "",
-    }),
-    "indeed.com": () => ({
-      title: document.querySelector('[data-testid="jobsearch-JobInfoHeader-title"]')?.textContent?.trim()
-        || document.querySelector("h1")?.textContent?.trim() || "",
-      company: document.querySelector('[data-testid="inlineHeader-companyName"]')?.textContent?.trim()
-        || document.querySelector(".jobsearch-InlineCompanyRating-companyHeader")?.textContent?.trim() || "",
-      jobDescription: document.querySelector("#jobDescriptionText")?.innerText?.trim() || "",
-      location: document.querySelector('[data-testid="jobsearch-JobInfoHeader-companyLocation"]')?.textContent?.trim()
-        || document.querySelector('[data-testid="job-location"]')?.textContent?.trim() || "",
-      salary: document.querySelector(".salary-snippet")?.textContent?.trim()
-        || document.querySelector("#salaryInfoAndJobType span")?.textContent?.trim() || "",
-      jobType: document.querySelector(".jobsearch-JobMetadataHeader-item")?.textContent?.trim() || "",
-    }),
-    "greenhouse.io": () => ({
-      title: document.querySelector(".app-title")?.textContent?.trim()
-        || document.querySelector("h1")?.textContent?.trim() || "",
-      company: document.querySelector(".company-name")?.textContent?.trim() || "",
-      jobDescription: document.querySelector("#content .body")?.innerText?.trim()
-        || document.querySelector("#content")?.innerText?.trim() || "",
-      location: document.querySelector(".location")?.textContent?.trim() || "",
-      salary: "",
-      jobType: "",
-    }),
+    "linkedin.com": () => {
+      // Scope selectors to LinkedIn's own containers to avoid third-party extension
+      // injections (e.g., Jobright) that add their own h1/h2 elements into the DOM.
+      const topCard = document.querySelector(".job-details-jobs-unified-top-card__container--two-pane")
+        || document.querySelector(".jobs-unified-top-card");
+
+      const title = topCard?.querySelector(".job-details-jobs-unified-top-card__job-title h1")?.textContent?.trim()
+        || topCard?.querySelector(".job-details-jobs-unified-top-card__job-title")?.textContent?.trim()
+        || topCard?.querySelector("h1 a")?.textContent?.trim()
+        || topCard?.querySelector("h1")?.textContent?.trim()
+        || document.querySelector(".job-details-jobs-unified-top-card__job-title")?.textContent?.trim() || "";
+
+      const company = topCard?.querySelector(".job-details-jobs-unified-top-card__company-name a")?.textContent?.trim()
+        || topCard?.querySelector(".job-details-jobs-unified-top-card__company-name")?.textContent?.trim()
+        || document.querySelector(".jobs-unified-top-card__company-name")?.textContent?.trim() || "";
+
+      // For JD, only read LinkedIn's own description content, not injected elements
+      const jdEl = document.querySelector(".jobs-description__content .jobs-box__html-content")
+        || document.querySelector("#job-details")
+        || document.querySelector(".jobs-description__content");
+      const jobDescription = jdEl?.innerText?.trim() || "";
+
+      const location = topCard?.querySelector(".tvm__text")?.textContent?.trim()
+        || topCard?.querySelector(".job-details-jobs-unified-top-card__bullet")?.textContent?.trim()
+        || document.querySelector(".tvm__text")?.textContent?.trim() || "";
+
+      const salary = document.querySelector("[class*='salary']")?.textContent?.trim()
+        || document.querySelector(".job-details-jobs-unified-top-card__job-insight span")?.textContent?.trim() || "";
+
+      return { title, company, jobDescription, location, salary, jobType: "" };
+    },
+    "indeed.com": () => {
+      const container = document.querySelector(".jobsearch-ViewjobPaneWrapper")
+        || document.querySelector(".jobsearch-JobComponent");
+
+      const title = container?.querySelector('[data-testid="jobsearch-JobInfoHeader-title"]')?.textContent?.trim()
+        || container?.querySelector("h2.jobsearch-JobInfoHeader-title")?.textContent?.trim()
+        || document.querySelector('[data-testid="jobsearch-JobInfoHeader-title"]')?.textContent?.trim() || "";
+
+      const company = container?.querySelector('[data-testid="inlineHeader-companyName"] a')?.textContent?.trim()
+        || container?.querySelector('[data-testid="inlineHeader-companyName"]')?.textContent?.trim()
+        || document.querySelector(".jobsearch-InlineCompanyRating-companyHeader")?.textContent?.trim() || "";
+
+      const location = container?.querySelector('[data-testid="inlineHeader-companyLocation"]')?.textContent?.trim()
+        || document.querySelector('[data-testid="jobsearch-JobInfoHeader-companyLocation"]')?.textContent?.trim()
+        || document.querySelector('[data-testid="job-location"]')?.textContent?.trim() || "";
+
+      const salary = document.querySelector("#salaryInfoAndJobType span")?.textContent?.trim()
+        || document.querySelector(".salary-snippet")?.textContent?.trim() || "";
+
+      const jobType = document.querySelector('#salaryInfoAndJobType .css-1u1g3ig')?.textContent?.trim()
+        || document.querySelector(".jobsearch-JobMetadataHeader-item")?.textContent?.trim() || "";
+
+      return { title, company, jobDescription: document.querySelector("#jobDescriptionText")?.innerText?.trim() || "", location, salary, jobType };
+    },
+    "greenhouse.io": () => {
+      // New Greenhouse layout uses .job__title h1, old uses .app-title
+      const title = document.querySelector(".job__title h1")?.textContent?.trim()
+        || document.querySelector(".app-title")?.textContent?.trim()
+        || document.querySelector(".job-post-container h1")?.textContent?.trim() || "";
+
+      const company = document.querySelector(".company-name")?.textContent?.trim()
+        || document.querySelector('.job-post-container .logo img')?.alt?.replace(/\s*logo\s*/i, "")?.trim() || "";
+
+      const jobDescription = document.querySelector(".job__description")?.innerText?.trim()
+        || document.querySelector("#content .body")?.innerText?.trim()
+        || document.querySelector("#content")?.innerText?.trim() || "";
+
+      const location = document.querySelector(".job__location")?.textContent?.trim()
+        || document.querySelector(".location")?.textContent?.trim() || "";
+
+      return { title, company, jobDescription, location, salary: "", jobType: "" };
+    },
     "lever.co": () => ({
       title: document.querySelector(".posting-headline h2")?.textContent?.trim() || "",
       company: document.querySelector(".posting-headline .sort-by-time")?.textContent?.trim()
@@ -46,15 +85,31 @@
       salary: "",
       jobType: document.querySelector(".commitment")?.textContent?.trim() || "",
     }),
-    "glassdoor.com": () => ({
-      title: document.querySelector('[data-test="job-title"]')?.textContent?.trim()
-        || document.querySelector("h1")?.textContent?.trim() || "",
-      company: document.querySelector('[data-test="employer-name"]')?.textContent?.trim() || "",
-      jobDescription: document.querySelector('[data-test="description"]')?.innerText?.trim() || "",
-      location: document.querySelector('[data-test="job-location"]')?.textContent?.trim() || "",
-      salary: document.querySelector('[data-test="detailSalary"]')?.textContent?.trim() || "",
-      jobType: "",
-    }),
+    "glassdoor.com": () => {
+      // Glassdoor redesigned — title is now h1 inside the job details header
+      const header = document.querySelector('[data-test="job-details-header"]')
+        || document.querySelector(".JobDetails_jobDetailsHeader__Hd9M3");
+
+      const title = header?.querySelector("h1")?.textContent?.trim()
+        || document.querySelector('[data-test="job-title"]')?.textContent?.trim()
+        || document.querySelector("#jd-job-title")?.textContent?.trim() || "";
+
+      // Company name is inside the employer profile heading
+      const company = header?.querySelector('[class*="EmployerProfile_employerNameHeading"] h4')?.textContent?.trim()
+        || header?.querySelector('[class*="EmployerProfile_employerInfo"] h4')?.textContent?.trim()
+        || document.querySelector('[data-test="employer-name"]')?.textContent?.trim() || "";
+
+      // JD is inside a blurred/expandable container
+      const jobDescription = document.querySelector('[class*="JobDetails_jobDescription"] > div')?.innerText?.trim()
+        || document.querySelector('[data-test="description"]')?.innerText?.trim() || "";
+
+      const location = document.querySelector('[data-test="location"]')?.textContent?.trim()
+        || document.querySelector('[data-test="job-location"]')?.textContent?.trim() || "";
+
+      const salary = document.querySelector('[data-test="detailSalary"]')?.textContent?.trim() || "";
+
+      return { title, company, jobDescription, location, salary, jobType: "" };
+    },
     "myworkdayjobs.com": () => {
       // Try JSON-LD structured data first (available before JS renders)
       const jsonLd = (() => {
@@ -65,10 +120,10 @@
         return null;
       })();
 
-      // DOM selectors (available after SPA renders)
-      const title = document.querySelector('a[data-automation-id="jobTitle"]')?.textContent?.trim()
-        || document.querySelector('[data-automation-id="jobPostingHeader"]')?.textContent?.trim()
-        || document.querySelector("h2")?.textContent?.trim()
+      // DOM selectors scoped to job details section to avoid third-party injections
+      const jobDetails = document.querySelector('[data-automation-id="jobDetails"]');
+      const title = jobDetails?.querySelector('[data-automation-id="jobPostingHeader"]')?.textContent?.trim()
+        || document.querySelector('a[data-automation-id="jobTitle"]')?.textContent?.trim()
         || jsonLd?.title || "";
 
       const company = (() => {
@@ -79,11 +134,13 @@
         return sub.charAt(0).toUpperCase() + sub.slice(1);
       })();
 
-      const jobDescription = document.querySelector('[data-automation-id="richTextBody"]')?.innerText?.trim()
+      const jobDescription = jobDetails?.querySelector('[data-automation-id="jobPostingDescription"]')?.innerText?.trim()
+        || document.querySelector('[data-automation-id="richTextBody"]')?.innerText?.trim()
         || document.querySelector('[data-automation-id="jobPostingDescription"]')?.innerText?.trim()
         || jsonLd?.description || "";
 
-      const location = document.querySelector('[data-automation-id="jobPostingLocation"]')?.textContent?.trim()
+      const location = document.querySelector('[data-automation-id="locations"] dd')?.textContent?.trim()
+        || document.querySelector('[data-automation-id="jobPostingLocation"]')?.textContent?.trim()
         || document.querySelector('[data-automation-id="locations"]')?.textContent?.trim()
         || jsonLd?.jobLocation?.address?.addressLocality || "";
 
