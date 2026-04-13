@@ -8,7 +8,7 @@ import MongoStore from "connect-mongo";
 import passport from "passport";
 import helmet from "helmet";
 import { fileURLToPath } from "url";
-import { dirname, join } from "path";
+import { dirname, extname, join } from "path";
 
 import { env } from "./config/env.js";
 import { connectDB } from "./config/db.js";
@@ -134,8 +134,14 @@ app.use(
   })
 );
 
-// SPA fallback — always revalidate index.html so deploys take effect immediately.
-app.get("*", (_req, res) => {
+// SPA fallback — serve index only for app routes (not hashed assets/files).
+app.get("*", (req, res) => {
+  // If a request looks like a file path (e.g. /assets/index-abc123.css), don't
+  // return index.html. This prevents MIME errors on stale asset URLs after deploy.
+  if (extname(req.path)) {
+    return res.status(404).end();
+  }
+
   res.set("Cache-Control", "no-cache, no-store, must-revalidate");
   res.set("Pragma", "no-cache");
   res.set("Expires", "0");
