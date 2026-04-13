@@ -20,7 +20,7 @@ const dueCls = (d: string, done: boolean) => {
   return "bg-muted text-muted-foreground";
 };
 const inputCls = "w-full px-3 py-2 text-sm bg-card border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring";
-const btnIcon = "w-9 h-9 flex items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted transition-colors";
+const btnIcon = "w-9 h-9 flex items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted";
 
 function Modal({ deadline: dl, applications: apps, onSave, onClose }: { deadline: Deadline | null; applications: Application[]; onSave: (d: DeadlineFormData) => Promise<void>; onClose: () => void }) {
   const [form, setForm] = useState<DeadlineFormData>({ applicationId: dl?.applicationId || "", type: dl?.type || "", dueDate: dl?.dueDate ? new Date(dl.dueDate).toISOString().split("T")[0] : "", notes: dl?.notes || "" });
@@ -49,12 +49,12 @@ function PaginationBar({ page, pag, setPage }: { page: number; pag: Pagination; 
     <div className="flex items-center justify-between px-4 py-3 border-t border-border">
       <span className="text-sm text-muted-foreground">Showing {(pag.page - 1) * pag.limit + 1}–{Math.min(pag.page * pag.limit, pag.total)} of {pag.total}</span>
       <div className="flex gap-1">
-        <button disabled={page <= 1} onClick={() => setPage(page - 1)} className="px-3 py-1.5 text-sm border border-border rounded-lg disabled:opacity-30 hover:bg-muted text-secondary-foreground transition-colors">Prev</button>
+        <button disabled={page <= 1} onClick={() => setPage(page - 1)} className="px-3 py-1.5 text-sm border border-border rounded-lg disabled:opacity-30 hover:bg-muted text-secondary-foreground">Prev</button>
         {Array.from({ length: Math.min(pag.pages, 5) }, (_, i) => {
           const p = pag.pages <= 5 ? i + 1 : page <= 3 ? i + 1 : page >= pag.pages - 2 ? pag.pages - 4 + i : page - 2 + i;
-          return <button key={p} onClick={() => setPage(p)} className={`w-9 h-9 text-sm rounded-lg transition-colors ${p === page ? "bg-primary text-primary-foreground" : "border border-border text-secondary-foreground hover:bg-muted"}`}>{p}</button>;
+          return <button key={p} onClick={() => setPage(p)} className={`w-9 h-9 text-sm rounded-lg ${p === page ? "bg-primary text-primary-foreground" : "border border-border text-secondary-foreground hover:bg-muted"}`}>{p}</button>;
         })}
-        <button disabled={page >= pag.pages} onClick={() => setPage(page + 1)} className="px-3 py-1.5 text-sm border border-border rounded-lg disabled:opacity-30 hover:bg-muted text-secondary-foreground transition-colors">Next</button>
+        <button disabled={page >= pag.pages} onClick={() => setPage(page + 1)} className="px-3 py-1.5 text-sm border border-border rounded-lg disabled:opacity-30 hover:bg-muted text-secondary-foreground">Next</button>
       </div>
     </div>
   );
@@ -114,7 +114,7 @@ export default function Deadlines() {
 
       <div className="sticky top-[57px] z-20 bg-background/95 backdrop-blur-sm -mx-8 px-8 flex gap-1 border-b border-border mb-4">
         {([["upcoming", "Upcoming", uc], ["overdue", "Overdue", oc], ["completed", "Completed", cc], ["all", "All", 0]] as [string, string, number][]).map(([k, l, c]) => (
-          <button key={k} onClick={() => { setPage(1); setFilter(k); }} className={`inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${filter === k ? "text-primary border-primary" : "text-muted-foreground border-transparent hover:text-foreground"}`}>{l}{c > 0 && <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-full ${k === "overdue" ? "bg-danger-light text-danger" : "bg-muted text-muted-foreground"}`}>{c}</span>}</button>
+          <button key={k} onClick={() => { setPage(1); setFilter(k); }} className={`inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium border-b-2 -mb-px ${filter === k ? "text-primary border-primary" : "text-muted-foreground border-transparent hover:text-foreground"}`}>{l}{c > 0 && <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-full ${k === "overdue" ? "bg-danger-light text-danger" : "bg-muted text-muted-foreground"}`}>{c}</span>}</button>
         ))}
       </div>
 
@@ -133,7 +133,7 @@ export default function Deadlines() {
         <div className="bg-card border border-border rounded-xl divide-y divide-border">
           {deadlines.map((d) => (
             <div key={d._id} className={`flex items-center gap-3 px-5 py-3 group ${d.completed ? "opacity-50" : ""} ${!d.completed && daysN(d.dueDate) < 0 ? "bg-red-50/50 dark:bg-red-950/20" : ""}`}>
-              <button onClick={() => toggle(d)} className={`w-[22px] h-[22px] rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${d.completed ? "bg-success border-success text-white" : "border-border hover:border-primary"}`}>
+              <button onClick={() => toggle(d)} className={`w-[22px] h-[22px] rounded-full border-2 flex items-center justify-center shrink-0 ${d.completed ? "bg-success border-success text-white" : "border-border hover:border-primary"}`}>
                 {d.completed && <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="2,6 5,9 10,3" /></svg>}
               </button>
               <div className="flex-1 min-w-0">

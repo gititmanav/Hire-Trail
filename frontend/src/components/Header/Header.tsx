@@ -87,7 +87,7 @@ export default function Header({ user, onLogout, onMobileMenuToggle }: Props) {
         {/* Mobile hamburger + Extension download CTA */}
         <div className="flex items-center">
           {onMobileMenuToggle && (
-            <button onClick={onMobileMenuToggle} className="md:hidden w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors mr-1">
+            <button onClick={onMobileMenuToggle} className="md:hidden w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground mr-1">
               <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><line x1="3" y1="5" x2="17" y2="5"/><line x1="3" y1="10" x2="17" y2="10"/><line x1="3" y1="15" x2="17" y2="15"/></svg>
             </button>
           )}
@@ -96,7 +96,7 @@ export default function Header({ user, onLogout, onMobileMenuToggle }: Props) {
             download="HireTrail-Extension.zip"
             onClick={handleExtDownload}
             title="Download the browser extension to track jobs from LinkedIn, Indeed, Glassdoor & more with one click"
-            className={`group flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+            className={`group flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-[transform,box-shadow,filter] duration-200 ${
               extHighlight
                 ? "ext-cta-highlight bg-primary text-primary-foreground shadow-md hover:shadow-lg hover:brightness-110"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted"
@@ -128,7 +128,7 @@ export default function Header({ user, onLogout, onMobileMenuToggle }: Props) {
           >
             <button
               type="button"
-              className="flex items-center gap-1 px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-muted"
+              className="flex items-center gap-1 px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground rounded-md hover:bg-muted"
               onClick={() => {
                 if (typeof matchMedia !== "undefined" && matchMedia("(pointer: coarse)").matches) {
                   setSitesOpen((o) => !o);
@@ -138,7 +138,7 @@ export default function Header({ user, onLogout, onMobileMenuToggle }: Props) {
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
               Where it works
             </button>
-            <div className={`absolute left-0 top-full mt-1 w-[240px] card-premium z-50 transition-all duration-200 origin-top-left ${sitesOpen ? "opacity-100 scale-100 pointer-events-auto" : "opacity-0 scale-95 pointer-events-none"}`}>
+            <div className={`absolute left-0 top-full mt-1 w-[240px] card-premium z-50 transition-[opacity,transform] duration-200 origin-top-left ${sitesOpen ? "opacity-100 scale-100 pointer-events-auto" : "opacity-0 scale-95 pointer-events-none"}`}>
               <div className="p-3 pb-2 border-b border-border">
                 <p className="text-xs font-semibold text-foreground">Supported job boards</p>
                 <p className="text-[11px] text-muted-foreground mt-0.5">One-click tracking on these sites</p>
@@ -158,7 +158,7 @@ export default function Header({ user, onLogout, onMobileMenuToggle }: Props) {
         <div className="flex items-center gap-2">
           {/* Theme picker */}
           <div className="relative" ref={themeRef}>
-            <button onClick={() => setThemeOpen(!themeOpen)} className="w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-secondary-foreground transition-all" title="Change theme">
+            <button onClick={() => setThemeOpen(!themeOpen)} className="w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-secondary-foreground" title="Change theme">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.93 0 1.5-.75 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-1 0-.83.67-1.5 1.5-1.5H16c3.31 0 6-2.69 6-6 0-5.52-4.48-9.5-10-9.5z" />
                 <circle cx="7.5" cy="11.5" r="1.5" fill="currentColor" />
@@ -184,7 +184,7 @@ export default function Header({ user, onLogout, onMobileMenuToggle }: Props) {
                     <button
                       key={t.id}
                       onClick={() => { setTheme(t.id); setThemeOpen(false); setThemeSearch(""); }}
-                      className={`flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg transition-all text-left ${
+                      className={`flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-left ${
                         themeId === t.id
                           ? "bg-primary/10 ring-1 ring-primary/30"
                           : "hover:bg-muted"
@@ -206,7 +206,7 @@ export default function Header({ user, onLogout, onMobileMenuToggle }: Props) {
 
           {/* User menu */}
           <div className="relative" ref={menuRef}>
-            <button onClick={() => setMenuOpen(!menuOpen)} className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-muted transition-all">
+            <button onClick={() => setMenuOpen(!menuOpen)} className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-muted">
               <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-semibold shadow-sm">{initials}</div>
               <div className="hidden sm:flex flex-col items-start">
                 <span className="text-[13px] font-medium text-foreground leading-tight">{user.name}</span>
@@ -218,14 +218,14 @@ export default function Header({ user, onLogout, onMobileMenuToggle }: Props) {
             {menuOpen && (
               <div className="absolute right-0 top-full mt-1.5 w-56 card-premium py-1.5 animate-in z-50">
                 <div className="px-3 py-2 border-b border-border mb-1"><p className="text-sm font-medium text-foreground">{user.name}</p><p className="text-xs text-muted-foreground">{user.email}</p></div>
-                <button onClick={() => { setMenuOpen(false); navigate("/profile"); }} className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-secondary-foreground hover:bg-muted/50 transition-colors">
+                <button onClick={() => { setMenuOpen(false); navigate("/profile"); }} className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-secondary-foreground hover:bg-muted/50">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="text-muted-foreground"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Edit profile
                 </button>
-                <button onClick={() => { setMenuOpen(false); navigate("/settings"); }} className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-secondary-foreground hover:bg-muted/50 transition-colors">
+                <button onClick={() => { setMenuOpen(false); navigate("/settings"); }} className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-secondary-foreground hover:bg-muted/50">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="text-muted-foreground"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>Settings
                 </button>
                 <div className="border-t border-border mt-1 pt-1">
-                  <button onClick={() => void handleLogout()} disabled={loggingOut} className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-red-500 hover:bg-red-50 hover:bg-destructive/10 transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+                  <button onClick={() => void handleLogout()} disabled={loggingOut} className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-red-500 hover:bg-red-50 hover:bg-destructive/10 disabled:opacity-60 disabled:cursor-not-allowed">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>{loggingOut ? "Signing out..." : "Sign out"}
                   </button>
                 </div>

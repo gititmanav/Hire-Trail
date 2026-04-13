@@ -184,11 +184,11 @@ export default function Dashboard() {
                   toast.error("Failed to archive some applications");
                 } finally { setArchiving(false); }
               }}
-              className="px-3 py-1 text-xs font-medium rounded-lg bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50 transition-colors"
+              className="px-3 py-1 text-xs font-medium rounded-lg bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50"
             >
               {archiving ? "Archiving..." : "Archive all"}
             </button>
-            <button onClick={() => setStaleBannerDismissed(true)} className="px-3 py-1 text-xs font-medium rounded-lg border border-amber-300 dark:border-amber-600 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-800/40 transition-colors">
+            <button onClick={() => setStaleBannerDismissed(true)} className="px-3 py-1 text-xs font-medium rounded-lg border border-amber-300 dark:border-amber-600 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-800/40">
               Dismiss
             </button>
           </div>
@@ -206,7 +206,7 @@ export default function Dashboard() {
               setRejectionBannerDismissed(true);
               try { await notificationsAPI.markAllRead(); } catch {}
             }}
-            className="px-3 py-1 text-xs font-medium rounded-lg border border-red-300 dark:border-red-600 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-800/40 transition-colors shrink-0"
+            className="px-3 py-1 text-xs font-medium rounded-lg border border-red-300 dark:border-red-600 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-800/40 shrink-0"
           >
             Dismiss
           </button>
@@ -217,7 +217,7 @@ export default function Dashboard() {
         <h1 className="text-2xl font-bold text-foreground tracking-tight">Dashboard</h1>
         <div className="flex items-center gap-2">
           <button data-tour="lock-btn" onClick={toggleLock} className={`btn-secondary !px-2.5 ${locked ? "!border-primary !text-primary dark:!text-primary" : ""}`} title={locked ? "Unlock dashboard" : "Lock dashboard"}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="transition-all duration-300">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
               {locked ? (<><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></>) : (<><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 019.9-1"/></>)}
             </svg>
           </button>

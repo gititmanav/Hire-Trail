@@ -68,7 +68,7 @@ function Modal({ app, resumes, onSave, onClose, onResumesChanged }: { app: Appli
               <label className="block text-sm font-medium text-foreground mb-1.5">Resume</label>
               <div className="flex gap-1.5">
                 <select className="input-premium flex-1" value={form.resumeId} onChange={(e) => u("resumeId", e.target.value)}><option value="">None</option>{resumes.map((r) => <option key={r._id} value={r._id}>{r.name}</option>)}</select>
-                <button type="button" onClick={() => setShowResumeModal(true)} title="Add new resume" className="w-9 h-9 shrink-0 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary transition-colors">
+                <button type="button" onClick={() => setShowResumeModal(true)} title="Add new resume" className="w-9 h-9 shrink-0 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary">
                   <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg>
                 </button>
               </div>
@@ -93,7 +93,7 @@ function PaginationBar({ page, pag, setPage }: { page: number; pag: Pagination; 
         <button disabled={page <= 1} onClick={() => setPage(page - 1)} className="px-3 py-1.5 text-sm border border-border rounded-lg disabled:opacity-30 hover:bg-muted text-secondary-foreground">Prev</button>
         {Array.from({ length: Math.min(pag.pages, 5) }, (_, i) => {
           const p = pag.pages <= 5 ? i + 1 : page <= 3 ? i + 1 : page >= pag.pages - 2 ? pag.pages - 4 + i : page - 2 + i;
-          return <button key={p} onClick={() => setPage(p)} className={`w-9 h-9 text-sm rounded-lg transition-colors ${p === page ? "bg-primary text-primary-foreground" : "border border-border text-secondary-foreground hover:bg-muted"}`}>{p}</button>;
+          return <button key={p} onClick={() => setPage(p)} className={`w-9 h-9 text-sm rounded-lg ${p === page ? "bg-primary text-primary-foreground" : "border border-border text-secondary-foreground hover:bg-muted"}`}>{p}</button>;
         })}
         <button disabled={page >= pag.pages} onClick={() => setPage(page + 1)} className="px-3 py-1.5 text-sm border border-border rounded-lg disabled:opacity-30 hover:bg-muted text-secondary-foreground">Next</button>
       </div>
@@ -298,7 +298,7 @@ function ApplicationDetailSidebar({
         onMouseDown={handleResizeStart}
         title={`Drag to resize (${SIDEBAR_MIN_WIDTH}px–${SIDEBAR_MAX_WIDTH}px)`}
       >
-        <div className="h-full w-full transition-colors group-hover:bg-primary/20" />
+        <div className="h-full w-full group-hover:bg-primary/20" />
       </div>
       <div className="sticky top-0 bg-card border-b border-border px-6 py-4 flex items-center justify-between shrink-0">
         <h2 className="text-lg font-semibold text-foreground truncate">{app.role}</h2>
@@ -365,7 +365,7 @@ function ApplicationDetailSidebar({
               <div className="flex flex-wrap gap-1">
                 {STAGES.map((s) => (
                   <button key={s} onClick={() => onStageChange(app._id, s)}
-                    className={`px-2 py-0.5 text-[11px] font-medium rounded-full border transition-all ${app.stage === s ? badgeCls[s] + " border-current" : "bg-muted border-border text-muted-foreground hover:border-primary hover:text-primary"}`}>
+                    className={`px-2 py-0.5 text-[11px] font-medium rounded-full border ${app.stage === s ? badgeCls[s] + " border-current" : "bg-muted border-border text-muted-foreground hover:border-primary hover:text-primary"}`}>
                     {s}
                   </button>
                 ))}
@@ -717,7 +717,7 @@ export default function Applications() {
           <button
             key={tab}
             onClick={() => { setArchiveTab(tab); setPage(1); setFilter("All"); }}
-            className={`pb-2 text-sm font-medium border-b-2 transition-colors ${archiveTab === tab ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+            className={`pb-2 text-sm font-medium border-b-2 ${archiveTab === tab ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
           >
             {label} <span className="text-xs ml-1 text-muted-foreground">({count})</span>
           </button>
@@ -733,7 +733,7 @@ export default function Applications() {
                 key={s}
                 onClick={() => setFilter(s)}
                 disabled={multiSelectEnabled}
-                className={`inline-flex items-center gap-1 px-3 py-1 text-[13px] font-medium rounded-full border transition-all disabled:opacity-45 disabled:cursor-not-allowed ${filter === s ? "bg-primary/10 border-primary text-primary" : "bg-card border-border text-muted-foreground hover:border-primary hover:text-primary"}`}
+                className={`inline-flex items-center gap-1 px-3 py-1 text-[13px] font-medium rounded-full border disabled:opacity-45 disabled:cursor-not-allowed ${filter === s ? "bg-primary/10 border-primary text-primary" : "bg-card border-border text-muted-foreground hover:border-primary hover:text-primary"}`}
               >
                 {s}{s !== "All" && <span className="text-[11px] bg-muted px-1.5 rounded-full">{stageCounts[s] || 0}</span>}
               </button>
@@ -797,7 +797,7 @@ export default function Applications() {
                   if (!isMulti) {
                     // Single application - normal row with disabled chevron
                     return (
-                      <tr key={firstApp._id} className="hover:bg-muted/50 transition-colors group">
+                      <tr key={firstApp._id} className="hover:bg-muted/50 group">
                         <td className="px-2 py-3">
                           {multiSelectEnabled ? (
                             <input
@@ -824,8 +824,8 @@ export default function Applications() {
                         <td className="px-4 py-3">
                           {!multiSelectEnabled && (
                             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button onClick={() => { setEditing(firstApp); setModal(true); }} className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary transition-colors"><svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M8.5 2.5l3 3L4.5 12.5H1.5v-3z"/></svg></button>
-                              <button onClick={() => handleDelete(firstApp._id)} className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-danger hover:border-danger transition-colors"><svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="2,4 12,4"/><path d="M5 4V2.5a.5.5 0 01.5-.5h3a.5.5 0 01.5.5V4"/><path d="M3 4l.75 8.5a1 1 0 001 .5h4.5a1 1 0 001-.5L11 4"/></svg></button>
+                              <button onClick={() => { setEditing(firstApp); setModal(true); }} className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary"><svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M8.5 2.5l3 3L4.5 12.5H1.5v-3z"/></svg></button>
+                              <button onClick={() => handleDelete(firstApp._id)} className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-danger hover:border-danger"><svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="2,4 12,4"/><path d="M5 4V2.5a.5.5 0 01.5-.5h3a.5.5 0 01.5.5V4"/><path d="M3 4l.75 8.5a1 1 0 001 .5h4.5a1 1 0 001-.5L11 4"/></svg></button>
                             </div>
                           )}
                         </td>
@@ -836,7 +836,7 @@ export default function Applications() {
                   // Multi-application company: header + expandable children
                   return (
                     <Fragment key={company}>
-                      <tr className="hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => toggleExpand(company)}>
+                      <tr className="hover:bg-muted/50 cursor-pointer" onClick={() => toggleExpand(company)}>
                         <td className="px-2 py-3">
                           {multiSelectEnabled ? (
                             <input
@@ -859,7 +859,7 @@ export default function Applications() {
                               className="h-4 w-4 accent-primary cursor-pointer"
                             />
                           ) : (
-                            <button className="w-5 h-5 flex items-center justify-center rounded text-muted-foreground hover:text-primary transition-colors">
+                            <button className="w-5 h-5 flex items-center justify-center rounded text-muted-foreground hover:text-primary">
                               <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
                                 className={`transition-transform duration-200 ${isExpanded ? "rotate-90" : ""}`}>
                                 <path d="M4 2l5 5-5 5" />
@@ -880,7 +880,7 @@ export default function Applications() {
                         <td className="px-4 py-3" />
                       </tr>
                       {isExpanded && companyApps.map((a) => (
-                        <tr key={a._id} className="hover:bg-muted/50 transition-colors group bg-muted/30">
+                        <tr key={a._id} className="hover:bg-muted/50 group bg-muted/30">
                           <td className="px-2 py-2.5">
                             {multiSelectEnabled ? (
                               <input
@@ -907,8 +907,8 @@ export default function Applications() {
                           <td className="px-4 py-2.5">
                             {!multiSelectEnabled && (
                               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button onClick={(e) => { e.stopPropagation(); setEditing(a); setModal(true); }} className="w-7 h-7 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary transition-colors"><svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M8.5 2.5l3 3L4.5 12.5H1.5v-3z"/></svg></button>
-                                <button onClick={(e) => { e.stopPropagation(); handleDelete(a._id); }} className="w-7 h-7 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-danger hover:border-danger transition-colors"><svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="2,4 10,4"/><path d="M4 4V2.5a.5.5 0 01.5-.5h3a.5.5 0 01.5.5V4"/><path d="M3 4l.6 7a.8.8 0 00.8.4h3.2a.8.8 0 00.8-.4L9 4"/></svg></button>
+                                <button onClick={(e) => { e.stopPropagation(); setEditing(a); setModal(true); }} className="w-7 h-7 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary"><svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M8.5 2.5l3 3L4.5 12.5H1.5v-3z"/></svg></button>
+                                <button onClick={(e) => { e.stopPropagation(); handleDelete(a._id); }} className="w-7 h-7 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-danger hover:border-danger"><svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="2,4 10,4"/><path d="M4 4V2.5a.5.5 0 01.5-.5h3a.5.5 0 01.5.5V4"/><path d="M3 4l.6 7a.8.8 0 00.8.4h3.2a.8.8 0 00.8-.4L9 4"/></svg></button>
                               </div>
                             )}
                           </td>

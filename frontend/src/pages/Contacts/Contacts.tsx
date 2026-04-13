@@ -27,7 +27,7 @@ const OUTREACH_COLORS: Record<ContactOutreachStatus, string> = {
 const fmt = (d: string) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 const ini = (n: string) => n.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
 const inputCls = "w-full px-3 py-2 text-sm bg-card border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring";
-const btnIcon = "w-9 h-9 flex items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted transition-colors";
+const btnIcon = "w-9 h-9 flex items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted";
 const normalizeOutreachStatus = (status?: ContactOutreachStatus | null): ContactOutreachStatus => status || "not_contacted";
 
 function needsFollowUp(c: Contact): boolean {
@@ -81,12 +81,12 @@ function PaginationBar({ page, pag, setPage }: { page: number; pag: Pagination; 
     <div className="flex items-center justify-between mt-4">
       <span className="text-sm text-muted-foreground">Showing {(pag.page - 1) * pag.limit + 1}–{Math.min(pag.page * pag.limit, pag.total)} of {pag.total}</span>
       <div className="flex gap-1">
-        <button disabled={page <= 1} onClick={() => setPage(page - 1)} className="px-3 py-1.5 text-sm border border-border rounded-lg disabled:opacity-30 hover:bg-muted text-secondary-foreground transition-colors">Prev</button>
+        <button disabled={page <= 1} onClick={() => setPage(page - 1)} className="px-3 py-1.5 text-sm border border-border rounded-lg disabled:opacity-30 hover:bg-muted text-secondary-foreground">Prev</button>
         {Array.from({ length: Math.min(pag.pages, 5) }, (_, i) => {
           const p = pag.pages <= 5 ? i + 1 : page <= 3 ? i + 1 : page >= pag.pages - 2 ? pag.pages - 4 + i : page - 2 + i;
-          return <button key={p} onClick={() => setPage(p)} className={`w-9 h-9 text-sm rounded-lg transition-colors ${p === page ? "bg-primary text-primary-foreground" : "border border-border text-secondary-foreground hover:bg-muted"}`}>{p}</button>;
+          return <button key={p} onClick={() => setPage(p)} className={`w-9 h-9 text-sm rounded-lg ${p === page ? "bg-primary text-primary-foreground" : "border border-border text-secondary-foreground hover:bg-muted"}`}>{p}</button>;
         })}
-        <button disabled={page >= pag.pages} onClick={() => setPage(page + 1)} className="px-3 py-1.5 text-sm border border-border rounded-lg disabled:opacity-30 hover:bg-muted text-secondary-foreground transition-colors">Next</button>
+        <button disabled={page >= pag.pages} onClick={() => setPage(page + 1)} className="px-3 py-1.5 text-sm border border-border rounded-lg disabled:opacity-30 hover:bg-muted text-secondary-foreground">Next</button>
       </div>
     </div>
   );
@@ -197,8 +197,8 @@ export default function Contacts() {
         </h1>
         <div className="flex items-center gap-2">
           <div className="flex rounded-lg border border-border overflow-hidden">
-            <button onClick={() => setViewMode("person")} className={`px-3 py-1.5 text-xs font-medium transition-colors ${viewMode === "person" ? "bg-primary text-primary-foreground" : "bg-card text-secondary-foreground hover:bg-muted"}`}>By Person</button>
-            <button onClick={() => setViewMode("company")} className={`px-3 py-1.5 text-xs font-medium transition-colors ${viewMode === "company" ? "bg-primary text-primary-foreground" : "bg-card text-secondary-foreground hover:bg-muted"}`}>By Company</button>
+            <button onClick={() => setViewMode("person")} className={`px-3 py-1.5 text-xs font-medium ${viewMode === "person" ? "bg-primary text-primary-foreground" : "bg-card text-secondary-foreground hover:bg-muted"}`}>By Person</button>
+            <button onClick={() => setViewMode("company")} className={`px-3 py-1.5 text-xs font-medium ${viewMode === "company" ? "bg-primary text-primary-foreground" : "bg-card text-secondary-foreground hover:bg-muted"}`}>By Company</button>
           </div>
           <button onClick={() => { setEditing(null); setModal(true); }} className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary hover:bg-primary/90 text-white text-sm font-medium rounded-lg"><svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="8" y1="3" x2="8" y2="13" /><line x1="3" y1="8" x2="13" y2="8" /></svg>Add contact</button>
         </div>
@@ -210,7 +210,7 @@ export default function Contacts() {
           <div className="flex flex-wrap gap-1.5">
             <button
               onClick={() => setStatusFilter("All")}
-              className={`inline-flex items-center gap-1 px-3 py-1 text-[13px] font-medium rounded-full border transition-all ${statusFilter === "All" ? "bg-primary/10 border-primary text-primary" : "bg-card border-border text-muted-foreground hover:border-primary hover:text-primary"}`}
+              className={`inline-flex items-center gap-1 px-3 py-1 text-[13px] font-medium rounded-full border ${statusFilter === "All" ? "bg-primary/10 border-primary text-primary" : "bg-card border-border text-muted-foreground hover:border-primary hover:text-primary"}`}
             >
               All
             </button>
@@ -218,7 +218,7 @@ export default function Contacts() {
               <button
                 key={s.value}
                 onClick={() => setStatusFilter(s.value)}
-                className={`inline-flex items-center gap-1 px-3 py-1 text-[13px] font-medium rounded-full border transition-all ${statusFilter === s.value ? "bg-primary/10 border-primary text-primary" : "bg-card border-border text-muted-foreground hover:border-primary hover:text-primary"}`}
+                className={`inline-flex items-center gap-1 px-3 py-1 text-[13px] font-medium rounded-full border ${statusFilter === s.value ? "bg-primary/10 border-primary text-primary" : "bg-card border-border text-muted-foreground hover:border-primary hover:text-primary"}`}
               >
                 {s.label}
                 <span className="text-[11px] bg-muted px-1.5 rounded-full">{statusCounts[s.value] || 0}</span>
@@ -259,7 +259,7 @@ export default function Contacts() {
                         if (next.has(company)) next.delete(company); else next.add(company);
                         return next;
                       })}
-                      className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-muted/50 transition-colors"
+                      className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-muted/50"
                     >
                       <div className="flex items-center gap-2.5">
                         <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className={`text-muted-foreground transition-transform ${isExpanded ? "rotate-90" : ""}`}><path d="M6 4l4 4-4 4" /></svg>

@@ -58,7 +58,7 @@ function AppDetailSidebar({ app, resumes, contacts, deadlines, onClose, onStageC
           <div className="flex flex-wrap gap-1.5">
             {STAGES.map((s) => (
               <button key={s} onClick={() => onStageChange(app._id, s)}
-                className={`px-3 py-1 text-xs font-medium rounded-full border transition-all ${app.stage === s ? badgeCls[s] + " border-current" : "bg-muted border-border text-muted-foreground hover:border-primary hover:text-primary"}`}>
+                className={`px-3 py-1 text-xs font-medium rounded-full border ${app.stage === s ? badgeCls[s] + " border-current" : "bg-muted border-border text-muted-foreground hover:border-primary hover:text-primary"}`}>
                 {s}
               </button>
             ))}
@@ -157,7 +157,7 @@ function CompanyAppsSidebar({ company, onClose, onSelectApp }: {
         ) : (
           <div className="space-y-2">
             {apps.map((a) => (
-              <button key={a._id} onClick={() => onSelectApp(a)} className="w-full text-left p-3 rounded-lg border border-border hover:border-primary hover:bg-primary/5 transition-all">
+              <button key={a._id} onClick={() => onSelectApp(a)} className="w-full text-left p-3 rounded-lg border border-border hover:border-primary hover:bg-primary/5">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-foreground">{a.role}</span>
                   <span className={`inline-block px-2 py-0.5 text-[11px] font-medium rounded-full ${badgeCls[a.stage]}`}>{a.stage}</span>

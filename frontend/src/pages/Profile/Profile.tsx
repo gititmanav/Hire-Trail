@@ -60,8 +60,8 @@ function ReportRejectionModal({ onClose }: { onClose: () => void }) {
             <input type="date" className={inputCls} value={dateReceived} onChange={(e) => setDateReceived(e.target.value)} required />
           </div>
           <div className="flex justify-end gap-2 pt-4 border-t border-border">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium border border-border rounded-lg text-secondary-foreground hover:bg-muted transition-colors">Cancel</button>
-            <button type="submit" disabled={submitting} className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg transition-colors disabled:opacity-50">{submitting ? "Submitting..." : "Submit"}</button>
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium border border-border rounded-lg text-secondary-foreground hover:bg-muted">Cancel</button>
+            <button type="submit" disabled={submitting} className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50">{submitting ? "Submitting..." : "Submit"}</button>
           </div>
         </form>
       </div>
@@ -175,7 +175,7 @@ export default function Profile() {
             <input type="email" className={inputCls} value={email} onChange={(e) => setEmail(e.target.value)} required />
           </div>
           <div className="flex justify-end">
-            <button type="submit" disabled={saving} className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg transition-colors disabled:opacity-50">
+            <button type="submit" disabled={saving} className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50">
               {saving ? "Saving..." : "Save changes"}
             </button>
           </div>
@@ -194,7 +194,7 @@ export default function Profile() {
             <input type="password" className={inputCls} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} minLength={6} required />
           </div>
           <div className="flex justify-end">
-            <button type="submit" disabled={saving} className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg transition-colors disabled:opacity-50">
+            <button type="submit" disabled={saving} className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50">
               Change password
             </button>
           </div>
@@ -229,7 +229,7 @@ export default function Profile() {
             onChange={(e) => setThemeUrl(e.target.value)}
             type="url"
           />
-          <button type="submit" disabled={importing} className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg transition-colors disabled:opacity-50 whitespace-nowrap">
+          <button type="submit" disabled={importing} className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50 whitespace-nowrap">
             {importing ? "Importing..." : "Import"}
           </button>
         </form>
@@ -237,16 +237,16 @@ export default function Profile() {
         {themes.length > 0 && (
           <div className="space-y-2 mb-4">
             {themes.map((t) => (
-              <div key={t.name} className={`flex items-center justify-between p-3 rounded-lg border transition-all ${activeTheme === t.name ? "border-primary bg-primary/10" : "border-border"}`}>
+              <div key={t.name} className={`flex items-center justify-between p-3 rounded-lg border ${activeTheme === t.name ? "border-primary bg-primary/10" : "border-border"}`}>
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-foreground truncate">{t.name}</p>
                   <p className="text-[11px] text-muted-foreground truncate">{t.url}</p>
                 </div>
                 <div className="flex items-center gap-1.5 ml-3">
                   {activeTheme !== t.name && (
-                    <button onClick={() => { applyTheme(t.name); toast.success(`Applied "${t.name}"`); }} className="px-2.5 py-1 text-xs font-medium text-primary border border-primary rounded-md hover:bg-primary/10 transition-colors">Apply</button>
+                    <button onClick={() => { applyTheme(t.name); toast.success(`Applied "${t.name}"`); }} className="px-2.5 py-1 text-xs font-medium text-primary border border-primary rounded-md hover:bg-primary/10">Apply</button>
                   )}
-                  <button onClick={() => { removeTheme(t.name); toast.success("Theme removed"); }} className="px-2.5 py-1 text-xs font-medium text-destructive border border-destructive rounded-md hover:bg-destructive/10 transition-colors">Remove</button>
+                  <button onClick={() => { removeTheme(t.name); toast.success("Theme removed"); }} className="px-2.5 py-1 text-xs font-medium text-destructive border border-destructive rounded-md hover:bg-destructive/10">Remove</button>
                 </div>
               </div>
             ))}
@@ -254,7 +254,7 @@ export default function Profile() {
         )}
 
         {activeTheme && (
-          <button onClick={() => { resetToDefault(); toast.success("Reset to default theme"); }} className="text-sm text-muted-foreground hover:text-primary transition-colors">
+          <button onClick={() => { resetToDefault(); toast.success("Reset to default theme"); }} className="text-sm text-muted-foreground hover:text-primary">
             Reset to default theme
           </button>
         )}
@@ -291,7 +291,7 @@ export default function Profile() {
                   } catch { toast.error("Scan failed"); }
                   finally { setGmailLoading(false); }
                 }}
-                className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg transition-colors disabled:opacity-50"
+                className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50"
               >
                 {gmailLoading ? "Scanning..." : "Scan now"}
               </button>
@@ -306,11 +306,11 @@ export default function Profile() {
                   } catch { toast.error("Failed to disconnect"); }
                   finally { setGmailLoading(false); }
                 }}
-                className="px-4 py-2 text-sm font-medium border border-border rounded-lg text-secondary-foreground hover:bg-muted transition-colors disabled:opacity-50"
+                className="px-4 py-2 text-sm font-medium border border-border rounded-lg text-secondary-foreground hover:bg-muted disabled:opacity-50"
               >
                 Disconnect
               </button>
-              <button onClick={() => setRejectionModal(true)} className="px-4 py-2 text-sm font-medium border border-border rounded-lg text-secondary-foreground hover:bg-muted transition-colors">
+              <button onClick={() => setRejectionModal(true)} className="px-4 py-2 text-sm font-medium border border-border rounded-lg text-secondary-foreground hover:bg-muted">
                 Report a rejection
               </button>
             </div>
@@ -326,11 +326,11 @@ export default function Profile() {
                   window.location.href = url;
                 } catch { toast.error("Failed to start Gmail connection"); setGmailLoading(false); }
               }}
-              className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg transition-colors disabled:opacity-50"
+              className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50"
             >
               {gmailLoading ? "Connecting..." : "Connect Gmail"}
             </button>
-            <button onClick={() => setRejectionModal(true)} className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg transition-colors">
+            <button onClick={() => setRejectionModal(true)} className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg">
               Report a rejection
             </button>
           </div>

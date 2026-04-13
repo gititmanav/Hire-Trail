@@ -105,7 +105,7 @@ export default function ResumeModal({ resume, existingTags = [], onSave, onClose
               {tags.map((t, i) => (
                 <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-primary/10 text-primary">
                   {t}
-                  <button type="button" onClick={() => removeTag(i)} className="hover:text-destructive transition-colors">
+                  <button type="button" onClick={() => removeTag(i)} className="hover:text-destructive">
                     <svg width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="2" y1="2" x2="8" y2="8"/><line x1="8" y1="2" x2="2" y2="8"/></svg>
                   </button>
                 </span>
@@ -139,7 +139,7 @@ export default function ResumeModal({ resume, existingTags = [], onSave, onClose
                     key={s}
                     type="button"
                     onMouseDown={(e) => { e.preventDefault(); addTag(s); }}
-                    className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm text-left transition-colors ${
+                    className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm text-left ${
                       i === highlightIdx
                         ? "bg-primary/10 text-primary"
                         : "text-foreground hover:bg-muted"
@@ -156,7 +156,7 @@ export default function ResumeModal({ resume, existingTags = [], onSave, onClose
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">PDF file <span className="text-muted-foreground font-normal">(optional)</span></label>
             <div
-              className="border-2 border-dashed border-border rounded-xl p-6 text-center hover:border-primary transition-colors cursor-pointer"
+              className="border-2 border-dashed border-border rounded-xl p-6 text-center hover:border-primary cursor-pointer"
               onClick={() => fileRef.current?.click()}
               onDragOver={(e) => e.preventDefault()}
               onDrop={handleDrop}

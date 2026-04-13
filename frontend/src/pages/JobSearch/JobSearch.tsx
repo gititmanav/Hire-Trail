@@ -116,12 +116,12 @@ export default function JobSearch() {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          <button type="button" onClick={() => update({ remote: !s.remote })} className={`inline-flex items-center gap-1.5 px-3 py-1 text-[13px] font-medium rounded-full border transition-all ${s.remote ? "bg-primary/10 border-primary text-primary" : "bg-card border-border text-muted-foreground hover:border-primary"}`}>
+          <button type="button" onClick={() => update({ remote: !s.remote })} className={`inline-flex items-center gap-1.5 px-3 py-1 text-[13px] font-medium rounded-full border ${s.remote ? "bg-primary/10 border-primary text-primary" : "bg-card border-border text-muted-foreground hover:border-primary"}`}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="3" width="20" height="14" rx="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" /></svg>
             Remote only
           </button>
           {DATE_OPTIONS.map((opt) => (
-            <button key={opt.value} type="button" onClick={() => update({ datePosted: opt.value })} className={`px-3 py-1 text-[13px] font-medium rounded-full border transition-all ${s.datePosted === opt.value ? "bg-primary/10 border-primary text-primary" : "bg-card border-border text-muted-foreground hover:border-primary"}`}>
+            <button key={opt.value} type="button" onClick={() => update({ datePosted: opt.value })} className={`px-3 py-1 text-[13px] font-medium rounded-full border ${s.datePosted === opt.value ? "bg-primary/10 border-primary text-primary" : "bg-card border-border text-muted-foreground hover:border-primary"}`}>
               {opt.label}
             </button>
           ))}

@@ -120,7 +120,7 @@ export default function GmailManagement() {
               ) : users.length === 0 ? (
                 <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">No Gmail-connected users found</td></tr>
               ) : users.map((u) => (
-                <tr key={u._id} className="hover:bg-muted/50 transition-colors">
+                <tr key={u._id} className="hover:bg-muted/50">
                   <td className="px-4 py-3 text-sm font-medium text-foreground">{u.name}</td>
                   <td className="px-4 py-3 text-sm text-secondary-foreground">{u.email}</td>
                   <td className="px-4 py-3 text-sm text-secondary-foreground">{u.gmailEmail || "—"}</td>
@@ -130,13 +130,13 @@ export default function GmailManagement() {
                       <button
                         disabled={scanning === u._id}
                         onClick={() => handleScan(u._id)}
-                        className="px-3 py-1 text-xs font-medium rounded-lg border border-primary text-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
+                        className="px-3 py-1 text-xs font-medium rounded-lg border border-primary text-primary hover:bg-primary/10 disabled:opacity-50"
                       >
                         {scanning === u._id ? "Scanning..." : "Scan"}
                       </button>
                       <button
                         onClick={() => handleDisconnect(u)}
-                        className="px-3 py-1 text-xs font-medium rounded-lg border border-destructive text-destructive hover:bg-destructive/10 transition-colors"
+                        className="px-3 py-1 text-xs font-medium rounded-lg border border-destructive text-destructive hover:bg-destructive/10"
                       >
                         Disconnect
                       </button>

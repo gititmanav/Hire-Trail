@@ -62,7 +62,7 @@ export default function ConfirmModal({
           <button
             ref={confirmRef}
             onClick={onConfirm}
-            className={`inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+            className={`inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg transition-[transform,box-shadow,filter] ${
               danger
                 ? "bg-red-500 hover:bg-red-600 text-white"
                 : "btn-accent"

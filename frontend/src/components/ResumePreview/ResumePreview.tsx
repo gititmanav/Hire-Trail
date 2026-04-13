@@ -106,7 +106,7 @@ export default function ResumePreview({ fileUrl, name, fileName, onClose }: Prop
           onMouseDown={handleResizeStart}
           title={`Drag to resize (${RESUME_SIDEBAR_MIN_WIDTH}px–${RESUME_SIDEBAR_MAX_WIDTH}px)`}
         >
-          <div className="h-full w-full transition-colors group-hover:bg-primary/20" />
+          <div className="h-full w-full group-hover:bg-primary/20" />
         </div>
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-border shrink-0">
           <h2 className="text-[15px] font-semibold text-foreground truncate mr-3">{name}</h2>
@@ -119,7 +119,7 @@ export default function ResumePreview({ fileUrl, name, fileName, onClose }: Prop
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="mr-1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               Download
             </a>
-            <button onClick={handleClose} className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted transition-colors">
+            <button onClick={handleClose} className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted">
               <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/></svg>
             </button>
           </div>

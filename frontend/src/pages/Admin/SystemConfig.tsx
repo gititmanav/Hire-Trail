@@ -60,7 +60,7 @@ function SettingRow({
               onSave(setting.key, next).finally(() => setSaving(false));
             }}
             disabled={saving}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-ring/40 ${
+            className={`relative inline-flex h-6 w-11 items-center rounded-full focus:outline-none focus:ring-2 focus:ring-ring/40 ${
               value
                 ? "bg-primary"
                 : "bg-muted-foreground/30"

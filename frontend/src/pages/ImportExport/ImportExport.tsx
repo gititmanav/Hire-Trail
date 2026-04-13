@@ -59,7 +59,7 @@ function ExportSection() {
           <label className="block text-sm font-medium text-foreground mb-1.5">Data type</label>
           <div className="flex gap-2">
             {(["applications", "contacts"] as const).map((t) => (
-              <button key={t} onClick={() => setType(t)} className={`px-4 py-2 text-sm font-medium rounded-lg border transition-all ${type === t ? "bg-primary/10 border-primary text-primary" : "bg-card border-border text-muted-foreground hover:border-border"}`}>
+              <button key={t} onClick={() => setType(t)} className={`px-4 py-2 text-sm font-medium rounded-lg border ${type === t ? "bg-primary/10 border-primary text-primary" : "bg-card border-border text-muted-foreground hover:border-border"}`}>
                 {t.charAt(0).toUpperCase() + t.slice(1)}
               </button>
             ))}
@@ -76,7 +76,7 @@ function ExportSection() {
               <label className="block text-sm font-medium text-foreground mb-1.5">Filter by stage <span className="text-muted-foreground font-normal">(optional)</span></label>
               <div className="flex flex-wrap gap-1.5">
                 {STAGES.map((s) => (
-                  <button key={s} onClick={() => toggleStage(s)} className={`px-3 py-1 text-[13px] font-medium rounded-full border transition-all ${stages.includes(s) ? "bg-primary/10 border-primary text-primary" : "bg-card border-border text-muted-foreground hover:border-border"}`}>{s}</button>
+                  <button key={s} onClick={() => toggleStage(s)} className={`px-3 py-1 text-[13px] font-medium rounded-full border ${stages.includes(s) ? "bg-primary/10 border-primary text-primary" : "bg-card border-border text-muted-foreground hover:border-border"}`}>{s}</button>
                 ))}
               </div>
             </div>
@@ -157,13 +157,13 @@ function ImportSection({ onDone }: { onDone: () => void }) {
             <label className="block text-sm font-medium text-foreground mb-1.5">Data type</label>
             <div className="flex gap-2">
               {(["applications", "contacts"] as const).map((t) => (
-                <button key={t} onClick={() => setType(t)} className={`px-4 py-2 text-sm font-medium rounded-lg border transition-all ${type === t ? "bg-primary/10 border-primary text-primary" : "bg-card border-border text-muted-foreground hover:border-border"}`}>
+                <button key={t} onClick={() => setType(t)} className={`px-4 py-2 text-sm font-medium rounded-lg border ${type === t ? "bg-primary/10 border-primary text-primary" : "bg-card border-border text-muted-foreground hover:border-border"}`}>
                   {t.charAt(0).toUpperCase() + t.slice(1)}
                 </button>
               ))}
             </div>
           </div>
-          <div className="border-2 border-dashed border-border rounded-xl p-8 text-center hover:border-primary dark:hover:border-primary transition-colors cursor-pointer" onClick={() => inputRef.current?.click()} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f?.name.endsWith(".csv")) handleFile(f); else toast.error("CSV files only"); }}>
+          <div className="border-2 border-dashed border-border rounded-xl p-8 text-center hover:border-primary dark:hover:border-primary cursor-pointer" onClick={() => inputRef.current?.click()} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f?.name.endsWith(".csv")) handleFile(f); else toast.error("CSV files only"); }}>
             <svg className="mx-auto mb-3 text-muted-foreground dark:text-secondary-foreground" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
             <p className="text-sm font-medium text-secondary-foreground mb-1">Drop CSV here or click to browse</p>
             <p className="text-xs text-muted-foreground">{type === "applications" ? "Company, Role, Stage, Job URL, Application Date, Notes" : "Name, Company, Role, LinkedIn URL, Connection Source, Notes"}</p>

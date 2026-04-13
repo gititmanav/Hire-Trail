@@ -68,14 +68,14 @@ export default function FollowUpWidget({ contacts, onFollowUp, onSnooze }: Props
               <div className="flex gap-1 shrink-0">
                 <button
                   onClick={() => onFollowUp(c._id)}
-                  className="px-2 py-1 text-[11px] font-medium rounded-md bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors"
+                  className="px-2 py-1 text-[11px] font-medium rounded-md bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/50"
                   title="Mark followed up"
                 >
                   Done
                 </button>
                 <button
                   onClick={() => onSnooze(c._id)}
-                  className="px-2 py-1 text-[11px] font-medium rounded-md bg-muted text-muted-foreground hover:bg-border hover:bg-muted transition-colors"
+                  className="px-2 py-1 text-[11px] font-medium rounded-md bg-muted text-muted-foreground hover:bg-border hover:bg-muted"
                   title="Snooze 3 days"
                 >
                   +3d
