@@ -1,0 +1,78 @@
+.resume-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  height: 100%;
+}
+
+.resume-preview-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.resume-preview-name {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.resume-preview-role {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.resume-preview-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.resume-preview-facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 12px;
+  margin: 6px 0 0;
+  font-size: 13px;
+}
+
+.resume-preview-facts dt {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.resume-preview-facts dd {
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.resume-preview-frame {
+  flex: 1;
+  min-height: 320px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-secondary);
+  display: flex;
+}
+
+.resume-preview-iframe {
+  flex: 1;
+  width: 100%;
+  border: 0;
+  min-height: 420px;
+}
+
+.resume-preview-empty {
+  margin: auto;
+  text-align: center;
+  padding: 24px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.resume-preview-hint {
+  font-size: 12px;
+  margin-top: 4px;
+}

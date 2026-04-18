@@ -1,0 +1,171 @@
+.application-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.application-detail-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.application-detail-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.application-detail-heading h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.application-detail-company {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.application-detail-link {
+  font-size: 13px;
+  color: var(--accent);
+  text-decoration: none;
+  align-self: flex-start;
+}
+
+.application-detail-link:hover,
+.application-detail-link:focus-visible {
+  text-decoration: underline;
+}
+
+.application-detail-section h4 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.application-detail-facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 12px;
+  margin: 0;
+  font-size: 13px;
+}
+
+.application-detail-facts dt {
+  color: var(--text-muted);
+}
+
+.application-detail-facts dd {
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.application-detail-resume {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--text-primary);
+}
+
+.application-detail-resume:hover,
+.application-detail-resume:focus-visible {
+  border-color: var(--accent);
+}
+
+.application-detail-resume-name {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.application-detail-resume-role {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.application-detail-contacts {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.application-detail-contacts li {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+}
+
+.application-detail-contact-name {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.application-detail-contact-role {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.application-detail-timeline {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.application-detail-timeline li {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  padding: 6px 10px;
+  background: var(--bg-secondary);
+  border-radius: 6px;
+}
+
+.application-detail-timeline-stage {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.application-detail-timeline-date {
+  color: var(--text-muted);
+}
+
+.application-detail-notes {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  background: var(--bg-secondary);
+  border-radius: 6px;
+  padding: 10px;
+}
+
+.application-detail-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 8px;
+}

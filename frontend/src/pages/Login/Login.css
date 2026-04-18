@@ -1,2 +1,23 @@
-/* Login page — base auth styles from App.css */
-/* Additional login-specific styles can go here */
+/* Login page — base auth styles live in App.css */
+
+.btn-demo {
+  width: 100%;
+  justify-content: center;
+  margin-top: 16px;
+  font-weight: 500;
+  border-style: dashed;
+}
+
+.btn-demo:hover:not(:disabled),
+.btn-demo:focus-visible:not(:disabled) {
+  border-style: solid;
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.auth-demo-hint {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+}

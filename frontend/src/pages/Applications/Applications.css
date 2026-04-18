@@ -29,7 +29,8 @@
   transition: all var(--transition);
 }
 
-.filter-chip:hover {
+.filter-chip:hover,
+.filter-chip:focus-visible {
   border-color: var(--accent);
   color: var(--accent);
 }
@@ -53,6 +54,63 @@
   color: var(--accent-dark);
 }
 
+.filter-chip-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+/* Stage-specific chip coloring */
+.filter-chip-stage-applied {
+  --chip-color: #1a6cc9;
+  --chip-bg: rgba(26, 108, 201, 0.1);
+}
+.filter-chip-stage-oa {
+  --chip-color: #9a5a0d;
+  --chip-bg: rgba(154, 90, 13, 0.12);
+}
+.filter-chip-stage-interview {
+  --chip-color: #3d3aa0;
+  --chip-bg: rgba(83, 74, 183, 0.12);
+}
+.filter-chip-stage-offer {
+  --chip-color: #157a58;
+  --chip-bg: rgba(21, 122, 88, 0.12);
+}
+.filter-chip-stage-rejected {
+  --chip-color: #b92827;
+  --chip-bg: rgba(201, 48, 46, 0.12);
+}
+
+.filter-chip[class*="filter-chip-stage-"] {
+  color: var(--chip-color);
+}
+
+.filter-chip[class*="filter-chip-stage-"]:hover:not(.filter-chip-active),
+.filter-chip[class*="filter-chip-stage-"]:focus-visible:not(.filter-chip-active) {
+  background: var(--chip-bg);
+  border-color: var(--chip-color);
+  color: var(--chip-color);
+}
+
+.filter-chip[class*="filter-chip-stage-"].filter-chip-active {
+  background: var(--chip-color);
+  border-color: var(--chip-color);
+  color: #fff;
+}
+
+.filter-chip[class*="filter-chip-stage-"].filter-chip-active .filter-chip-dot {
+  background: #fff;
+}
+
+.filter-chip[class*="filter-chip-stage-"].filter-chip-active .filter-chip-count {
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+
 .form-row {
   display: flex;
   gap: 12px;
@@ -70,6 +128,125 @@
   color: var(--text-muted);
 }
 
-.job-link:hover {
+.job-link:hover,
+.job-link:focus-visible {
   color: var(--accent);
+}
+
+.application-row-link {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-weight: 500;
+  font-size: inherit;
+}
+
+.application-row-link:hover,
+.application-row-link:focus-visible {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.application-row-nested td:first-child {
+  padding-left: 36px;
+}
+
+.application-row-company {
+  font-weight: 500;
+}
+
+.application-group-row {
+  background: var(--bg-secondary);
+}
+
+.application-group-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  padding: 4px 0;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: inherit;
+  text-align: left;
+}
+
+.application-group-toggle:hover,
+.application-group-toggle:focus-visible {
+  color: var(--accent);
+}
+
+.application-group-caret {
+  display: inline-flex;
+  width: 14px;
+  font-size: 13px;
+  transition: transform 0.15s ease;
+  color: var(--text-muted);
+}
+
+.application-group-caret-open {
+  transform: rotate(90deg);
+}
+
+.application-group-count {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.application-stage-bar {
+  display: flex;
+  width: 100%;
+  max-width: 280px;
+  height: 22px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+}
+
+.application-stage-segment {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  transition: filter 0.15s ease;
+}
+
+.application-stage-segment + .application-stage-segment {
+  border-left: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.application-stage-bar:hover .application-stage-segment {
+  filter: brightness(1.05);
+}
+
+.application-stage-segment-label {
+  line-height: 1;
+}
+
+.stage-applied {
+  background: #1a6cc9;
+}
+
+.stage-oa {
+  background: #9a5a0d;
+}
+
+.stage-interview {
+  background: #3d3aa0;
+}
+
+.stage-offer {
+  background: #157a58;
+}
+
+.stage-rejected {
+  background: #b92827;
 }

@@ -9,13 +9,20 @@ function Layout({ user, onLogout }) {
 
   return (
     <div className="app-layout">
+      <a href="#main-content" className="skip-link">
+        Skip to main content
+      </a>
       <Sidebar
         user={user}
         onLogout={onLogout}
         collapsed={collapsed}
         onToggle={() => setCollapsed(!collapsed)}
       />
-      <main className={`app-content ${collapsed ? "sidebar-collapsed" : ""}`}>
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className={`app-content ${collapsed ? "sidebar-collapsed" : ""}`}
+      >
         <div className="page-wrapper">
           <Outlet />
         </div>

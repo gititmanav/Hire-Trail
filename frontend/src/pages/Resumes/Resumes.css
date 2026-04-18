@@ -1,8 +1,49 @@
 /* Resumes page */
 
+.resumes-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.resumes-toolbar .form-input {
+  max-width: 420px;
+}
+
+.resumes-tag-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag-chip-filter {
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.tag-chip-filter:hover,
+.tag-chip-filter:focus-visible {
+  background: var(--border);
+}
+
+.tag-chip-filter-active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.tag-chip-clear {
+  cursor: pointer;
+  border-style: dashed;
+  color: var(--text-muted);
+}
+
 .resume-card {
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
 .resume-card-header {
@@ -10,6 +51,31 @@
   align-items: flex-start;
   justify-content: space-between;
   margin-bottom: 12px;
+}
+
+.resume-card-body-button {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  color: inherit;
+}
+
+.resume-card-body-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.resume-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 6px 0;
 }
 
 .resume-icon {
@@ -46,6 +112,7 @@
   font-size: 12px;
   color: var(--text-muted);
   margin-bottom: 8px;
+  word-break: break-word;
 }
 
 .resume-meta {
@@ -62,4 +129,11 @@
 .resume-usage {
   font-weight: 500;
   color: var(--text-secondary);
+}
+
+.form-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  display: inline-block;
 }

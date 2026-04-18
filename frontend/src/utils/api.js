@@ -20,6 +20,18 @@ async function request(endpoint, options = {}) {
   return data;
 }
 
+async function multipart(endpoint, formData, method = "POST") {
+  const res = await fetch(`${API_BASE}${endpoint}`, {
+    method,
+    body: formData,
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error || "Something went wrong");
+  }
+  return data;
+}
+
 // Auth
 export const authAPI = {
   login: (email, password) =>
@@ -57,19 +69,22 @@ export const applicationsAPI = {
 };
 
 // Resumes
+function buildResumeForm({ name, targetRole, tags, file }) {
+  const fd = new FormData();
+  if (name !== undefined) fd.append("name", name);
+  if (targetRole !== undefined) fd.append("targetRole", targetRole);
+  if (tags !== undefined) fd.append("tags", JSON.stringify(tags || []));
+  if (file) fd.append("file", file);
+  return fd;
+}
+
 export const resumesAPI = {
   getAll: () => request("/resumes"),
   getOne: (id) => request(`/resumes/${id}`),
-  create: (data) =>
-    request("/resumes", {
-      method: "POST",
-      body: JSON.stringify(data),
-    }),
+  getTags: () => request("/resumes/tags"),
+  create: (data) => multipart("/resumes", buildResumeForm(data), "POST"),
   update: (id, data) =>
-    request(`/resumes/${id}`, {
-      method: "PUT",
-      body: JSON.stringify(data),
-    }),
+    multipart(`/resumes/${id}`, buildResumeForm(data), "PUT"),
   delete: (id) => request(`/resumes/${id}`, { method: "DELETE" }),
 };
 

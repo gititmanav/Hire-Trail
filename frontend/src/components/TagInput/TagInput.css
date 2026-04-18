@@ -1,0 +1,114 @@
+.tag-input-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tag-input-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.tag-input-field {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  min-height: 40px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg, #fff);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.tag-input-field:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(55, 138, 221, 0.15);
+}
+
+.tag-input-control {
+  flex: 1;
+  min-width: 120px;
+  border: 0;
+  outline: none;
+  background: transparent;
+  font-size: 13px;
+  color: var(--text-primary);
+  padding: 4px 0;
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid var(--border);
+}
+
+.tag-chip-static {
+  background: rgba(55, 138, 221, 0.08);
+  color: var(--accent);
+  border-color: rgba(55, 138, 221, 0.18);
+}
+
+.tag-chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  padding: 0;
+  cursor: pointer;
+  border-radius: 50%;
+}
+
+.tag-chip-remove:hover,
+.tag-chip-remove:focus-visible {
+  background: var(--border);
+  color: var(--text-primary);
+}
+
+.tag-input-suggestions {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  margin-top: 4px;
+  padding: 4px;
+  background: var(--bg, #fff);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(15, 20, 30, 0.08);
+  list-style: none;
+  max-height: 220px;
+  overflow-y: auto;
+  z-index: 20;
+}
+
+.tag-input-suggestion {
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.tag-input-suggestion:hover,
+.tag-input-suggestion:focus-visible {
+  background: var(--bg-secondary);
+}

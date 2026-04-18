@@ -13,18 +13,18 @@
   --sidebar-width: 240px;
   --sidebar-collapsed-width: 64px;
 
-  /* Accent */
-  --accent: #378add;
+  /* Accent — meets WCAG AA on white and light-gray backgrounds */
+  --accent: #155fb0;
   --accent-light: #e6f1fb;
-  --accent-dark: #185fa5;
-  --accent-hover: #2a7acc;
+  --accent-dark: #0f4685;
+  --accent-hover: #124f93;
 
-  /* Semantic */
-  --success: #1d9e75;
+  /* Semantic — darkened to pass AA on white */
+  --success: #157a58;
   --success-light: #e1f5ee;
-  --warning: #ef9f27;
+  --warning: #8a5a0b;
   --warning-light: #faeeda;
-  --danger: #e24b4a;
+  --danger: #c9302e;
   --danger-light: #fcebeb;
 
   /* Neutrals */
@@ -32,8 +32,8 @@
   --bg-secondary: #f7f8fa;
   --bg-page: #f0f2f5;
   --text-primary: #1a1a2e;
-  --text-secondary: #5a6170;
-  --text-muted: #8c919e;
+  --text-secondary: #4b515f;
+  --text-muted: #5e6573;
   --border: #e2e5ea;
   --border-hover: #ccd0d8;
 
@@ -54,12 +54,25 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
+  font-feature-settings: "cv11", "ss01";
   background: var(--bg-page);
   color: var(--text-primary);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: "Plus Jakarta Sans", "Inter", system-ui, sans-serif;
+  font-feature-settings: normal;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+  font-weight: 700;
 }
 
 a {
@@ -67,13 +80,39 @@ a {
   text-decoration: none;
 }
 
-a:hover {
+a:hover,
+a:focus-visible {
   text-decoration: underline;
 }
 
 button {
   cursor: pointer;
   font-family: inherit;
+}
+
+/* Unified keyboard focus ring across the app */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Skip link (keyboard users can jump past the sidebar) */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 8px;
+  padding: 6px 12px;
+  background: var(--accent);
+  color: #fff;
+  z-index: 200;
+  border-radius: 6px;
+  transition: top 0.15s ease;
+}
+
+.skip-link:focus {
+  top: 8px;
+  text-decoration: none;
 }
 
 /* ---- Layout shell ---- */
@@ -94,9 +133,8 @@ button {
 }
 
 .page-wrapper {
-  padding: 32px;
-  max-width: 1200px;
-  margin: 0 auto;
+  padding: 28px 32px;
+  width: 100%;
 }
 
 /* ---- Page header ---- */
@@ -186,16 +224,6 @@ button {
 .btn-secondary:hover {
   background: var(--bg-secondary);
   border-color: var(--border-hover);
-}
-
-.btn-danger {
-  background: var(--bg-primary);
-  color: var(--danger);
-  border-color: var(--danger);
-}
-
-.btn-danger:hover {
-  background: var(--danger-light);
 }
 
 .btn-sm {
@@ -499,6 +527,19 @@ button {
   margin-top: 20px;
   font-size: 14px;
   color: var(--text-secondary);
+}
+
+/* ---- Screen-reader only (visually hidden, still in accessibility tree) ---- */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* ---- Loading spinner ---- */

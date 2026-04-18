@@ -1,7 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 import PropTypes from "prop-types";
 import { deadlinesAPI, applicationsAPI } from "../../utils/api.js";
+import Pagination from "../../components/Pagination/Pagination.jsx";
 import "./Deadlines.css";
+
+const DEADLINE_PAGE_SIZE = 25;
 
 const DEADLINE_TYPES = [
   "OA due date",
@@ -166,6 +169,11 @@ function Deadlines() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [filter, setFilter] = useState("upcoming");
+  const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    setPage(1);
+  }, [filter]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -251,6 +259,11 @@ function Deadlines() {
     if (filter === "completed") return d.completed;
     return true;
   });
+  const totalPages = Math.max(1, Math.ceil(filtered.length / DEADLINE_PAGE_SIZE));
+  const paged = filtered.slice(
+    (page - 1) * DEADLINE_PAGE_SIZE,
+    page * DEADLINE_PAGE_SIZE
+  );
 
   const upcomingCount = deadlines.filter(
     (d) => !d.completed && new Date(d.dueDate) >= now
@@ -348,7 +361,7 @@ function Deadlines() {
       ) : (
         <div className="card">
           <div className="deadline-list-full">
-            {filtered.map((d) => (
+            {paged.map((d) => (
               <div
                 key={d._id}
                 className={`deadline-row ${d.completed ? "deadline-row-completed" : ""}`}
@@ -418,6 +431,16 @@ function Deadlines() {
             ))}
           </div>
         </div>
+      )}
+
+      {filtered.length > 0 && (
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          totalItems={filtered.length}
+          itemLabel="deadlines"
+        />
       )}
 
       {modalOpen && (

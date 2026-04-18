@@ -77,35 +77,6 @@
   white-space: nowrap;
 }
 
-/* ---- Section divider between Dashboard and Analytics ---- */
-.section-divider {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin: 40px 0 24px;
-  padding-top: 32px;
-  border-top: 1px solid var(--border);
-}
-
-.section-divider h1 {
-  font-size: 24px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-/* ---- Analytics section (embedded in dashboard) ---- */
-.analytics-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-
-@media (max-width: 900px) {
-  .analytics-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
 .analytics-section-title {
   font-size: 15px;
   font-weight: 600;

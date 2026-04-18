@@ -1,0 +1,83 @@
+.dashboard-grid-wrapper {
+  position: relative;
+}
+
+.dashboard-grid-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.dashboard-grid-item {
+  position: relative;
+  display: flex;
+}
+
+.dashboard-grid-item > *:not(.dashboard-grid-handle) {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+}
+
+.dashboard-grid-handle {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 22px;
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+  cursor: move;
+  letter-spacing: -1px;
+  font-size: 12px;
+  user-select: none;
+}
+
+.dashboard-grid-editing .dashboard-grid-item {
+  outline: 1px dashed var(--accent);
+  outline-offset: -1px;
+  border-radius: 8px;
+}
+
+.dashboard-grid-editing .react-resizable-handle::after {
+  border-color: var(--accent);
+}
+
+/* react-grid-layout safety: cards fill the cell and chart-children flex-grow
+   so Recharts' ResponsiveContainer has a definite parent height. */
+.dashboard-grid-item .card {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.dashboard-grid-item .card > .card-section-header,
+.dashboard-grid-item .card > .analytics-section-title {
+  flex: none;
+}
+
+.dashboard-grid-item .card > .chart-container {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+  width: 100%;
+}
+
+.dashboard-grid-item .card > .table-wrapper,
+.dashboard-grid-item .card > .conversion-list,
+.dashboard-grid-item .card > .deadline-list,
+.dashboard-grid-item .card > .empty-state {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}

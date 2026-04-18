@@ -29,6 +29,19 @@ function Login({ onLogin }) {
     window.location.href = "/api/auth/google";
   };
 
+  const handleDemoLogin = async () => {
+    setError("");
+    setLoading(true);
+    try {
+      const user = await authAPI.login("demo@hiretrail.com", "password123");
+      onLogin(user);
+    } catch (err) {
+      setError(err.message || "Demo login failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="auth-page">
       <div className="auth-card">
@@ -106,6 +119,18 @@ function Login({ onLogin }) {
             {loading ? "Signing in..." : "Sign in"}
           </button>
         </form>
+
+        <button
+          type="button"
+          className="btn btn-secondary btn-demo"
+          onClick={handleDemoLogin}
+          disabled={loading}
+        >
+          Log in as Demo User
+        </button>
+        <p className="auth-demo-hint">
+          Seeded with 650 applications, 220 contacts, 180 deadlines
+        </p>
 
         <p className="auth-footer">
           Don&apos;t have an account?{" "}

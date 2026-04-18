@@ -42,10 +42,18 @@ router.get("/:id", async (req, res) => {
   }
 });
 
+function sanitizeIdList(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((v) => typeof v === "string")
+    .filter((v) => ObjectId.isValid(v));
+}
+
 // POST create application
 router.post("/", async (req, res) => {
   try {
-    const { company, role, jobUrl, stage, notes, resumeId } = req.body;
+    const { company, role, jobUrl, stage, notes, resumeId, contactIds } =
+      req.body;
 
     if (!company || !role) {
       return res
@@ -64,6 +72,7 @@ router.post("/", async (req, res) => {
       stageHistory: [{ stage: stage || "Applied", date: now }],
       notes: notes || "",
       resumeId: resumeId || null,
+      contactIds: sanitizeIdList(contactIds),
       createdAt: now,
       updatedAt: now,
     };
@@ -91,7 +100,8 @@ router.put("/:id", async (req, res) => {
       return res.status(404).json({ error: "Application not found" });
     }
 
-    const { company, role, jobUrl, stage, notes, resumeId } = req.body;
+    const { company, role, jobUrl, stage, notes, resumeId, contactIds } =
+      req.body;
     const now = new Date();
 
     const updates = {
@@ -102,6 +112,10 @@ router.put("/:id", async (req, res) => {
       resumeId: resumeId ?? existing.resumeId,
       updatedAt: now,
     };
+
+    if (contactIds !== undefined) {
+      updates.contactIds = sanitizeIdList(contactIds);
+    }
 
     // Track stage changes with timestamps
     if (stage && stage !== existing.stage) {

@@ -41,6 +41,17 @@ const RESUME_ROLES = [
   "Full Stack", "Backend", "Frontend", "Platform", "DevOps",
 ];
 
+const RESUME_TAGS = [
+  ["swe", "generalist"],
+  ["swe", "senior"],
+  ["swe", "startup"],
+  ["data", "pipelines"],
+  ["ml", "research"],
+  ["full-stack", "startup"],
+  ["backend", "infra"],
+  ["frontend", "react"],
+];
+
 const CONTACT_NAMES = [
   "Sarah Chen", "James Wilson", "Priya Patel", "Michael Brown",
   "Emily Rodriguez", "David Kim", "Amanda Foster", "Ryan Thompson",
@@ -121,7 +132,12 @@ async function seed() {
         userId,
         name: RESUME_NAMES[i],
         targetRole: RESUME_ROLES[i] || "General",
-        fileName: `${RESUME_NAMES[i].toLowerCase().replace(/ /g, "_")}.pdf`,
+        tags: RESUME_TAGS[i] || [],
+        fileName: "",
+        fileType: "",
+        fileSize: 0,
+        cloudinaryUrl: "",
+        cloudinaryPublicId: "",
         uploadDate: now,
         createdAt: now,
         updatedAt: now,
@@ -133,10 +149,46 @@ async function seed() {
     );
     console.log(`Created ${resumeIds.length} resumes`);
 
-    // Create applications (600+)
-    const appDocs = [];
     const startDate = new Date("2025-01-15");
     const endDate = new Date("2025-10-15");
+
+    // Create contacts (200+) BEFORE applications so we can link them
+    const contactDocs = [];
+    for (let i = 0; i < 220; i++) {
+      const contactDate = randomDate(startDate, endDate);
+      contactDocs.push({
+        userId,
+        name: randomItem(CONTACT_NAMES),
+        company: randomItem(COMPANIES),
+        role: randomItem(CONTACT_ROLES_LIST),
+        type: "person",
+        linkedinUrl: `https://linkedin.com/in/person-${1000 + i}`,
+        connectionSource: randomItem(CONNECTION_SOURCES),
+        lastContactDate: contactDate,
+        notes:
+          Math.random() > 0.5
+            ? "Great conversation, will follow up next week"
+            : "",
+        createdAt: contactDate,
+        updatedAt: contactDate,
+      });
+    }
+    const contactsResult = await db
+      .collection("contacts")
+      .insertMany(contactDocs);
+    const contactIdsAll = Object.values(contactsResult.insertedIds).map((id) =>
+      id.toString()
+    );
+    // Index contacts by company for linking
+    const contactsByCompany = {};
+    contactDocs.forEach((c, idx) => {
+      if (!contactsByCompany[c.company]) contactsByCompany[c.company] = [];
+      contactsByCompany[c.company].push(contactIdsAll[idx]);
+    });
+    console.log(`Created ${contactDocs.length} contacts`);
+
+    // Create applications (600+)
+    const appDocs = [];
 
     for (let i = 0; i < 650; i++) {
       const stage = weightedStage();
@@ -171,9 +223,25 @@ async function seed() {
         });
       }
 
+      const company = randomItem(COMPANIES);
+      // Link 0-2 contacts — prefer contacts from the same company, with a
+      // fallback to random contacts so linkage isn't too sparse.
+      const linkedContacts = [];
+      if (Math.random() > 0.35) {
+        const sameCompany = contactsByCompany[company] || [];
+        if (sameCompany.length > 0) {
+          linkedContacts.push(randomItem(sameCompany));
+        } else {
+          linkedContacts.push(randomItem(contactIdsAll));
+        }
+        if (Math.random() > 0.7) {
+          linkedContacts.push(randomItem(contactIdsAll));
+        }
+      }
+
       appDocs.push({
         userId,
-        company: randomItem(COMPANIES),
+        company,
         role: randomItem(ROLES),
         jobUrl: `https://careers.example.com/job/${100000 + i}`,
         applicationDate: appDate,
@@ -181,6 +249,7 @@ async function seed() {
         stageHistory,
         notes: Math.random() > 0.6 ? "Referred by alumni" : "",
         resumeId: randomItem(resumeIds),
+        contactIds: [...new Set(linkedContacts)],
         createdAt: appDate,
         updatedAt: new Date(
           appDate.getTime() + Math.random() * 30 * 24 * 60 * 60 * 1000
@@ -189,29 +258,6 @@ async function seed() {
     }
     await db.collection("applications").insertMany(appDocs);
     console.log(`Created ${appDocs.length} applications`);
-
-    // Create contacts (200+)
-    const contactDocs = [];
-    for (let i = 0; i < 220; i++) {
-      const contactDate = randomDate(startDate, endDate);
-      contactDocs.push({
-        userId,
-        name: randomItem(CONTACT_NAMES),
-        company: randomItem(COMPANIES),
-        role: randomItem(CONTACT_ROLES_LIST),
-        linkedinUrl: `https://linkedin.com/in/person-${1000 + i}`,
-        connectionSource: randomItem(CONNECTION_SOURCES),
-        lastContactDate: contactDate,
-        notes:
-          Math.random() > 0.5
-            ? "Great conversation, will follow up next week"
-            : "",
-        createdAt: contactDate,
-        updatedAt: contactDate,
-      });
-    }
-    await db.collection("contacts").insertMany(contactDocs);
-    console.log(`Created ${contactDocs.length} contacts`);
 
     // Create deadlines (150+)
     const deadlineDocs = [];

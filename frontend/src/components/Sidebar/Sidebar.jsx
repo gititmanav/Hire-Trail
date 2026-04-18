@@ -61,17 +61,6 @@ function Sidebar({ user, onLogout, collapsed, onToggle }) {
         </svg>
       ),
     },
-    {
-      to: "/analytics",
-      label: "Analytics",
-      icon: (
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <line x1="5" y1="16" x2="5" y2="10" />
-          <line x1="10" y1="16" x2="10" y2="4" />
-          <line x1="15" y1="16" x2="15" y2="8" />
-        </svg>
-      ),
-    },
   ];
 
   const initials = user?.name

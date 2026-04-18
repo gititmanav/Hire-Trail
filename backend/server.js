@@ -19,16 +19,40 @@ dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+const PORT = process.env.PORT || 5050;
+const isServerless = Boolean(process.env.VERCEL);
+
+// Lazy DB init — safe to call many times. Serverless cold starts will pay
+// the first call; subsequent invocations reuse the cached promise.
+let dbReady;
+export async function ensureDB() {
+  if (!dbReady) {
+    dbReady = (async () => {
+      await connectDB();
+      configurePassport();
+    })();
+  }
+  return dbReady;
+}
 
 const app = express();
-const PORT = process.env.PORT || 5050;
 
-// Body parsing
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.set("trust proxy", 1);
 
-// Session config — stored in MongoDB
+// On serverless, every request waits for DB + passport before continuing.
+if (isServerless) {
+  app.use(async (req, res, next) => {
+    try {
+      await ensureDB();
+      next();
+    } catch (err) {
+      next(err);
+    }
+  });
+}
+
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "hiretrail-dev-secret",
@@ -38,7 +62,7 @@ app.use(
       client: client,
       dbName: "HireTrail",
       collectionName: "sessions",
-      ttl: 24 * 60 * 60, // 1 day
+      ttl: 24 * 60 * 60,
     }),
     proxy: process.env.NODE_ENV === "production",
     cookie: {
@@ -50,11 +74,9 @@ app.use(
   })
 );
 
-// Passport
 app.use(passport.initialize());
 app.use(passport.session());
 
-// API routes
 app.use("/api/auth", authRoutes);
 app.use("/api/applications", applicationRoutes);
 app.use("/api/resumes", resumeRoutes);
@@ -62,21 +84,20 @@ app.use("/api/contacts", contactRoutes);
 app.use("/api/deadlines", deadlineRoutes);
 app.use("/api/analytics", analyticsRoutes);
 
-// Serve React build in production
-const clientBuildPath = join(__dirname, "..", "frontend", "dist");
-app.use(express.static(clientBuildPath));
-app.get("*", (req, res) => {
-  res.sendFile(join(clientBuildPath, "index.html"));
-});
+// On local/standalone runs, serve the Vite build. Vercel rewrites static
+// assets directly from /frontend/dist via vercel.json.
+if (!isServerless) {
+  const clientBuildPath = join(__dirname, "..", "frontend", "dist");
+  app.use(express.static(clientBuildPath));
+  app.get("*", (req, res) => {
+    res.sendFile(join(clientBuildPath, "index.html"));
+  });
 
-// Start server after DB connection
-async function start() {
-  await connectDB();
-  configurePassport();
-
-  app.listen(PORT, () => {
-    console.log(`HireTrail server running on port ${PORT}`);
+  ensureDB().then(() => {
+    app.listen(PORT, () => {
+      console.log(`HireTrail server running on port ${PORT}`);
+    });
   });
 }
 
-start();
+export default app;
