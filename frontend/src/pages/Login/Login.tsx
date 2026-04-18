@@ -1,8 +1,8 @@
-import { useState, FormEvent } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect, FormEvent } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import { AxiosError } from "axios";
-import { authAPI } from "../../utils/api.ts";
+import { authAPI, settingsAPI } from "../../utils/api.ts";
 import { getGoogleOAuthUrl } from "../../config/apiBase.ts";
 import type { User } from "../../types";
 import { AUTH_BRAND_LOGO_CLASS, AUTH_BRAND_LOGO_MOBILE_CLASS } from "../../components/LogoMark/LogoMark.tsx";
@@ -12,10 +12,19 @@ const DEMO_EMAIL = "demo@hiretrail.com";
 const DEMO_PASSWORD = "password123";
 
 export default function Login({ onLogin }: { onLogin: (u: User) => void }) {
+  const [searchParams] = useSearchParams();
+  const [maintenanceBanner, setMaintenanceBanner] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState("");
+
+  useEffect(() => {
+    if (searchParams.get("maintenance") === "1") setMaintenanceBanner(true);
+    void settingsAPI.getMaintenanceStatus().then(({ maintenanceMode }) => {
+      if (maintenanceMode) setMaintenanceBanner(true);
+    }).catch(() => {});
+  }, [searchParams]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -26,11 +35,19 @@ export default function Login({ onLogin }: { onLogin: (u: User) => void }) {
       toast.success(`Welcome back, ${u.name}!`);
       onLogin(u);
     } catch (error) {
-      const status = (error as AxiosError<{ error?: string }>).response?.status;
-      const message = (error as AxiosError<{ error?: string }>).response?.data?.error;
-      const friendly = status === 401 ? "Incorrect email or password." : (message || "Unable to sign in right now. Please try again.");
+      const ax = error as AxiosError<{ error?: string; code?: string }>;
+      const status = ax.response?.status;
+      const message = ax.response?.data?.error;
+      const code = ax.response?.data?.code;
+      const friendly =
+        code === "MAINTENANCE"
+          ? (message || "Scheduled maintenance is in progress.")
+          : status === 401
+            ? "Incorrect email or password."
+            : (message || "Unable to sign in right now. Please try again.");
       setFormError(friendly);
-      toast.error(friendly);
+      if (code === "MAINTENANCE") setMaintenanceBanner(true);
+      else toast.error(friendly);
     } finally {
       setLoading(false);
     }
@@ -111,6 +128,15 @@ export default function Login({ onLogin }: { onLogin: (u: User) => void }) {
 
           <h1 className="text-2xl font-bold text-foreground mb-1">Welcome back</h1>
           <p className="text-sm text-muted-foreground mb-7">Sign in to your account to continue</p>
+
+          {maintenanceBanner && (
+            <div
+              role="status"
+              className="mb-6 rounded-lg border border-amber-500/50 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-left text-sm text-amber-900 dark:text-amber-100"
+            >
+              Scheduled maintenance is in progress. Only authorized sign-in is available. If you are the site administrator, use your Google account to continue.
+            </div>
+          )}
 
           <button type="button" onClick={() => { window.location.href = getGoogleOAuthUrl(); }}
             className="w-full flex items-center justify-center gap-2.5 px-4 py-2.5 border border-border rounded-lg text-sm font-medium text-foreground bg-card hover:bg-muted shadow-sm">

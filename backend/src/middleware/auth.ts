@@ -4,6 +4,27 @@ import { AuthError } from "../errors/AppError.js";
 import { IUser, User } from "../models/User.js";
 import { env } from "../config/env.js";
 
+/** Session cookie or Bearer JWT — for maintenance middleware (does not attach user if unauthenticated). */
+export async function tryGetAuthedUser(req: Request): Promise<IUser | null> {
+  if (req.isAuthenticated() && req.user) {
+    return req.user as IUser;
+  }
+  const authHeader = req.headers.authorization;
+  if (authHeader?.startsWith("Bearer ")) {
+    try {
+      const token = authHeader.slice(7);
+      const payload = jwt.verify(token, env.SESSION_SECRET) as { userId: string };
+      const user = await User.findById(payload.userId);
+      if (user && !user.deleted && !user.suspended) {
+        return user;
+      }
+    } catch {
+      /* invalid token */
+    }
+  }
+  return null;
+}
+
 export async function ensureAuth(
   req: Request,
   _res: Response,

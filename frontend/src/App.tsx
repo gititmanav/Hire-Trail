@@ -2,7 +2,7 @@
  * Root router: session bootstrap, protected shell, job-search UI state, theme context.
  */
 import { useState, useEffect, useCallback, createContext } from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import Layout from "./components/Layout/Layout.tsx";
 import ProtectedRoute from "./components/ProtectedRoute/ProtectedRoute.tsx";
 import AdminLayout from "./components/AdminLayout/AdminLayout.tsx";
@@ -27,6 +27,7 @@ import {
 import { authAPI } from "./utils/api.ts";
 import { useTheme } from "./hooks/useTheme.ts";
 import { FeatureFlagsProvider, useFeatureFlags } from "./hooks/useFeatureFlags.tsx";
+import type { AxiosError } from "axios";
 import type { User } from "./types";
 import { JobSearchContext, defaultState } from "./hooks/useJobSearchState.ts";
 import type { JobSearchState } from "./hooks/useJobSearchState.ts";
@@ -42,6 +43,7 @@ function FeatureRoute({ flag, children }: { flag: string; children: React.ReactN
 }
 
 function App() {
+  const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [authActionLoading, setAuthActionLoading] = useState(false);
@@ -49,8 +51,20 @@ function App() {
   const theme = useTheme(user?._id);
 
   const checkAuth = useCallback(async () => {
-    try { setUser(await authAPI.getMe()); } catch { setUser(null); } finally { setLoading(false); }
-  }, []);
+    try {
+      setUser(await authAPI.getMe());
+    } catch (err) {
+      const ax = err as AxiosError<{ code?: string }>;
+      if (ax.response?.status === 503 && ax.response?.data?.code === "MAINTENANCE") {
+        setUser(null);
+        navigate("/login?maintenance=1", { replace: true });
+      } else {
+        setUser(null);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [navigate]);
   useEffect(() => { checkAuth(); }, [checkAuth]);
 
   if (loading) return <div className="spinner" style={{ minHeight: "100vh" }} />;

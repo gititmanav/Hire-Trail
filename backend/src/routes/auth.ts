@@ -12,6 +12,11 @@ import { isAdminEmail } from "../utils/admin.js";
 import { AdminLoginEvent } from "../models/AdminLoginEvent.js";
 import { ensureAuth, getUser } from "../middleware/auth.js";
 import { Resume } from "../models/Resume.js";
+import {
+  getMaintenanceMode,
+  isMaintenanceBypassEmail,
+  MAINTENANCE_AUTH_MESSAGE,
+} from "../services/maintenance.js";
 
 const router = Router();
 
@@ -32,6 +37,10 @@ router.post(
   validate(registerSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
+      if (await getMaintenanceMode()) {
+        throw new AppError("Registration is disabled during scheduled maintenance.", 503);
+      }
+
       const { name, email, password } = req.body;
 
       const existing = await User.findOne({ email: email.toLowerCase() });
@@ -77,10 +86,13 @@ router.post(
   (req: Request, res: Response, next: NextFunction) => {
     passport.authenticate(
       "local",
-      (err: Error | null, user: any, info: { message: string }) => {
+      (err: Error | null, user: any, info: { message?: string }) => {
         if (err) return next(err);
         if (!user) {
-          return res.status(401).json({ error: info.message });
+          if (info?.message === MAINTENANCE_AUTH_MESSAGE) {
+            return res.status(503).json({ error: info.message, code: "MAINTENANCE" });
+          }
+          return res.status(401).json({ error: info?.message || "Invalid credentials" });
         }
         req.login(user, (loginErr) => {
           if (loginErr) return next(loginErr);
@@ -156,9 +168,16 @@ router.get("/google", passport.authenticate("google", { scope: ["profile", "emai
 
 // Google OAuth: callback after consent
 router.get("/google/callback", (req: Request, res: Response, next: NextFunction) => {
-  passport.authenticate("google", (err: Error | null, user: any) => {
-    if (err || !user) {
+  passport.authenticate("google", (err: Error | null, user: any, info?: { message?: string }) => {
+    if (err) {
       console.error("Google OAuth error:", err);
+      return res.redirect(`${env.CLIENT_URL}/login`);
+    }
+    if (!user) {
+      if (info?.message === MAINTENANCE_AUTH_MESSAGE) {
+        return res.redirect(`${env.CLIENT_URL}/login?maintenance=1`);
+      }
+      console.error("Google OAuth: no user");
       return res.redirect(`${env.CLIENT_URL}/login`);
     }
     req.login(user, (loginErr) => {
@@ -198,6 +217,9 @@ router.post(
       if (user.suspended) {
         return res.status(403).json({ error: "Account suspended" });
       }
+      if ((await getMaintenanceMode()) && !isMaintenanceBypassEmail(user.email)) {
+        return res.status(503).json({ error: MAINTENANCE_AUTH_MESSAGE, code: "MAINTENANCE" });
+      }
       const token = jwt.sign({ userId: user._id.toString() }, env.SESSION_SECRET, { expiresIn: "30d" });
       res.json({
         token,
@@ -228,6 +250,9 @@ router.post(
         const doc = await User.findById(user._id).lean();
         if (!doc) throw new AppError("Not found", 404);
         if (doc.suspended) return res.status(403).json({ error: "Account suspended" });
+        if ((await getMaintenanceMode()) && !isMaintenanceBypassEmail(doc.email)) {
+          return res.status(503).json({ error: MAINTENANCE_AUTH_MESSAGE, code: "MAINTENANCE" });
+        }
 
         const token = jwt.sign({ userId: doc._id.toString() }, env.SESSION_SECRET, { expiresIn: "30d" });
         return res.json({
@@ -266,6 +291,9 @@ router.post(
       const doc = await User.findById(userId).lean();
       if (!doc) throw new AppError("User not found", 404);
       if (doc.suspended) return res.status(403).json({ error: "Account suspended" });
+      if ((await getMaintenanceMode()) && !isMaintenanceBypassEmail(doc.email)) {
+        return res.status(503).json({ error: MAINTENANCE_AUTH_MESSAGE, code: "MAINTENANCE" });
+      }
 
       const token = jwt.sign({ userId: doc._id.toString() }, env.SESSION_SECRET, { expiresIn: "30d" });
       res.json({
@@ -302,21 +330,31 @@ router.post(
 
       if (!profile.email) throw new AppError("Google account has no email", 400);
 
-      // Same user lookup/create logic as passport Google strategy
+      const maintenance = await getMaintenanceMode();
+      const emailLower = profile.email.toLowerCase();
+
       let user = await User.findOne({ googleId: profile.id });
 
-      if (!user) {
-        // Check if email exists from local signup — link accounts
-        user = await User.findOne({ email: profile.email.toLowerCase() });
+      if (user) {
+        if (maintenance && !isMaintenanceBypassEmail(user.email)) {
+          return res.status(503).json({ error: MAINTENANCE_AUTH_MESSAGE, code: "MAINTENANCE" });
+        }
+      } else {
+        user = await User.findOne({ email: emailLower });
         if (user) {
+          if (maintenance && !isMaintenanceBypassEmail(user.email)) {
+            return res.status(503).json({ error: MAINTENANCE_AUTH_MESSAGE, code: "MAINTENANCE" });
+          }
           user.googleId = profile.id;
           if (isAdminEmail(user.email)) user.role = "admin";
           await user.save();
         } else {
-          // Create new user
+          if (maintenance && !isMaintenanceBypassEmail(emailLower)) {
+            return res.status(503).json({ error: MAINTENANCE_AUTH_MESSAGE, code: "MAINTENANCE" });
+          }
           user = await User.create({
             name: profile.name,
-            email: profile.email.toLowerCase(),
+            email: emailLower,
             googleId: profile.id,
             password: null,
             role: isAdminEmail(profile.email) ? "admin" : "user",

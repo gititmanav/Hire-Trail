@@ -8,6 +8,11 @@ import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { User, IUser } from "../models/User.js";
 import { env } from "./env.js";
 import { isAdminEmail } from "../utils/admin.js";
+import {
+  getMaintenanceMode,
+  isMaintenanceBypassEmail,
+  MAINTENANCE_AUTH_MESSAGE,
+} from "../services/maintenance.js";
 
 export function configurePassport(): void {
   passport.serializeUser((user, done) => {
@@ -46,6 +51,10 @@ export function configurePassport(): void {
             return done(null, false, { message: "Incorrect password" });
           }
 
+          if ((await getMaintenanceMode()) && !isMaintenanceBypassEmail(user.email)) {
+            return done(null, false, { message: MAINTENANCE_AUTH_MESSAGE });
+          }
+
           return done(null, user);
         } catch (err) {
           return done(err);
@@ -65,9 +74,16 @@ export function configurePassport(): void {
         },
         async (_accessToken, _refreshToken, profile, done) => {
           try {
+            const maintenance = await getMaintenanceMode();
+
             // Check if Google account already linked
             const existingUser = await User.findOne({ googleId: profile.id });
-            if (existingUser) return done(null, existingUser);
+            if (existingUser) {
+              if (maintenance && !isMaintenanceBypassEmail(existingUser.email)) {
+                return done(null, false, { message: MAINTENANCE_AUTH_MESSAGE });
+              }
+              return done(null, existingUser);
+            }
 
             // Check if email exists from local signup
             const emailUser = await User.findOne({
@@ -75,6 +91,9 @@ export function configurePassport(): void {
             });
 
             if (emailUser) {
+              if (maintenance && !isMaintenanceBypassEmail(emailUser.email)) {
+                return done(null, false, { message: MAINTENANCE_AUTH_MESSAGE });
+              }
               emailUser.googleId = profile.id;
               if (isAdminEmail(emailUser.email)) {
                 emailUser.role = "admin";
@@ -83,13 +102,18 @@ export function configurePassport(): void {
               return done(null, emailUser);
             }
 
+            const rawEmail = profile.emails?.[0]?.value;
+            if (maintenance && !isMaintenanceBypassEmail(rawEmail)) {
+              return done(null, false, { message: MAINTENANCE_AUTH_MESSAGE });
+            }
+
             // Create new user
             const newUser = await User.create({
               name: profile.displayName,
-              email: profile.emails?.[0]?.value,
+              email: rawEmail,
               googleId: profile.id,
               password: null,
-              role: isAdminEmail(profile.emails?.[0]?.value) ? "admin" : "user",
+              role: isAdminEmail(rawEmail) ? "admin" : "user",
             });
 
             return done(null, newUser);

@@ -24,7 +24,9 @@ export const api = axios.create({
 
 api.interceptors.response.use(
   (r) => r,
-  (error: AxiosError<{ error: string }>) => {
+  (error: AxiosError<{ error: string; code?: string }>) => {
+    const code = error.response?.data?.code;
+    if (code === "MAINTENANCE") return Promise.reject(error);
     const msg = error.response?.data?.error || error.message || "Something went wrong";
     if (error.response?.status === 401 && error.config?.url?.includes("/auth/me")) return Promise.reject(error);
     if (error.response?.status === 429) toast.error("Too many requests. Please slow down.");
@@ -137,6 +139,7 @@ export const analyticsAPI = {
 };
 
 export const settingsAPI = {
+  getMaintenanceStatus: () => api.get<{ maintenanceMode: boolean }>("/settings/maintenance-status").then((r) => r.data),
   getFeatureFlags: () => api.get<{ flags: Record<string, boolean> }>("/settings/features").then((r) => r.data),
 };
 

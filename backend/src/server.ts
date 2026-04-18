@@ -15,6 +15,7 @@ import { connectDB } from "./config/db.js";
 import { configurePassport } from "./config/passport.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { apiLimiter } from "./middleware/rateLimiter.js";
+import { rejectMaintenanceForNonBypass } from "./middleware/maintenanceMode.js";
 
 import authRoutes from "./routes/auth.js";
 import applicationRoutes from "./routes/applications.js";
@@ -107,6 +108,7 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 app.use("/api", apiLimiter);
+app.use("/api", rejectMaintenanceForNonBypass);
 
 app.use("/api/auth", authRoutes);
 app.use("/api/applications", applicationRoutes);

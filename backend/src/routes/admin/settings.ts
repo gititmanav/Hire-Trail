@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { SystemSettings, DEFAULT_SETTINGS } from "../../models/SystemSettings.js";
 import { getUser } from "../../middleware/auth.js";
+import { clearMaintenanceModeCache } from "../../services/maintenance.js";
 import { logAudit, getClientInfo } from "../../utils/auditLog.js";
 import { validate } from "../../middleware/validate.js";
 import { systemSettingSchema } from "../../validators/admin.js";
@@ -62,6 +63,10 @@ router.put("/", validate(systemSettingSchema), async (req: Request, res: Respons
       resourceId: setting._id, oldValue: { key, value: oldValue }, newValue: { key, value },
       ipAddress, userAgent,
     });
+
+    if (key === "maintenance_mode") {
+      clearMaintenanceModeCache();
+    }
 
     res.json({ message: "Setting updated", setting });
   } catch (err) {
