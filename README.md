@@ -5,8 +5,10 @@
 
 ## Authors
 
-- **Manav Kaneria** — Applications & Resume Module (Full Stack)
-- **Tisha Anil Patel** — Contacts, Deadlines & Analytics Module (Full Stack)
+- **Manav Kaneria** — Applications & Resumes module (full stack)
+- **Tisha Anil Patel** — Contacts & Deadlines module (full stack)
+
+Dashboard, authentication, accessibility pass, and usability study were worked on jointly.
 
 ## Class
 
@@ -14,7 +16,7 @@
 
 ## Links
 
-- **Live App:** [https://hire-trail.onrender.com](https://hire-trail.onrender.com)
+- **Live App:** [https://hire-trail-webdev.vercel.app](https://hire-trail-webdev.vercel.app)
 - **Demo Video:** [https://youtu.be/gXdi4DEMhLw](https://youtu.be/gXdi4DEMhLw)
 - **Presentation Slides:** [https://docs.google.com/presentation/d/1EP8yyFO1Fp1cxK44g_lF3OL5UuxNCs7SAX7Zh3UlRoQ/edit?usp=sharing](https://docs.google.com/presentation/d/1EP8yyFO1Fp1cxK44g_lF3OL5UuxNCs7SAX7Zh3UlRoQ/edit?usp=sharing)
 - **Design Document:** [https://drive.google.com/file/d/1uuVTc4PUYyaIpMTHK6DkAzHOQYuqdx5U/view?usp=sharing](https://drive.google.com/file/d/1uuVTc4PUYyaIpMTHK6DkAzHOQYuqdx5U/view?usp=sharing)
@@ -23,68 +25,71 @@
 
 ## Project Objective
 
-HireTrail is a browser-based job search management platform designed for students and early-career professionals navigating internship and full-time recruiting cycles. It goes beyond basic application tracking by combining five interconnected modules into a single command center:
+HireTrail is a browser-based job-search command center for students and early-career professionals navigating internship and full-time recruiting cycles. It combines five interconnected modules into a single application:
 
-- Track applications through every hiring stage with timestamped history
-- Version resumes and measure which version gets the best response rate
-- Log contacts, referrals, and recruiters per company with conversation notes
+- Track applications through every hiring stage with timestamped history and stage-by-stage drill-down
+- Version resumes with tags, upload PDFs, preview them inline, and measure response rate per version
+- Log contacts, referrals, and recruiters per company, toggle between People and Companies views, and link them to applications
 - Manage deadlines with urgency-based color coding and completion tracking
-- Analyze your entire funnel with conversion rates, weekly trends, and resume performance breakdowns
+- Customize a draggable dashboard that aggregates funnel conversion, weekly trends, and resume performance
 
-The goal is to replace the scattered spreadsheets, sticky notes, and email threads that most students use during recruiting season with a structured, data-driven workflow.
+The goal is to replace the scattered spreadsheets, sticky notes, and email threads that most students use during recruiting season.
 
 ---
 
 ## Features
 
 ### Dashboard
-- At-a-glance stat cards showing total applications, in-progress count, offers, and rejections
+- At-a-glance stat cards: total applications, in-progress, offers, rejections
 - Recent applications table with stage badges
 - Upcoming deadlines sorted by urgency
-- Embedded analytics section with funnel chart, conversion rates, weekly trend, and resume performance
+- Embedded analytics: funnel chart, stage-to-stage conversion rates, weekly application trend, resume response-rate breakdown
+- **Customizable layout** — toggle edit mode to drag and resize widgets, layout persisted per user
 
 ### Applications (Manav)
-- Full CRUD — create, view, edit, and delete job applications
-- Each application tracks: company, role, job URL, application date, current stage, notes, and linked resume version
-- Stage options: Applied, OA, Interview, Offer, Rejected
-- Every stage change is timestamped in a stage history array for timeline visibility
-- Filter by stage with count badges
-- Search by company or role name
-- Direct link to job postings via external URL
+- Full CRUD with a detail sidebar that shows notes, linked resume, linked contacts, and full stage-change history
+- Stage options: Applied, OA, Interview, Offer, Rejected — every change timestamped
+- Filter by stage with count badges (color-coded to match the rest of the app)
+- Search by company or role
+- **Company grouping** — applications at the same company collapse into a single row with a stacked stage bar; expand the caret to see individual rows
+- Pagination for large application lists
 
 ### Resumes (Manav)
-- Full CRUD for resume versions (metadata-based)
-- Each version stores: name, target role type, and file name
-- Card grid layout showing all versions with upload dates
-- Live usage count per resume pulled from an aggregation pipeline
-- Linked to applications — each application tags exactly one resume version
+- Full CRUD with real file upload — PDF/Word hosted on Cloudinary
+- **Tags** on each resume version with autocomplete; **tag-filter chips** at the top of the page
+- **Inline preview** — open a Cloudinary-hosted resume in a side panel without leaving the page
+- Live usage count per version, computed with a MongoDB aggregation pipeline
+- Linked to applications — each application references one resume version
 
 ### Contacts (Tisha)
-- Full CRUD for contacts at each company
-- Each contact stores: name, company, role, LinkedIn URL, connection source, last contact date, and conversation notes
+- Full CRUD — name, company, role, LinkedIn URL, connection source, last contact date, notes
 - Connection sources: Cold email, Referral, Career fair, LinkedIn, Professor intro, Alumni network
-- Card grid with avatar initials, search by name or company
+- **People / Companies toggle** — flip between a person-centric grid and a company-rollup view
+- Contact detail sidebar
+- Search by name or company
 
 ### Deadlines (Tisha)
-- Full CRUD for deadlines linked to applications
-- Deadline types: OA due date, Follow-up reminder, Interview prep, Offer decision, Thank you note
-- Tab-based filtering: Upcoming, Overdue, Completed, All
-- Color-coded urgency badges (overdue = red, urgent = amber, soon = blue, normal = gray)
+- Full CRUD — deadlines linked to applications
+- Types: OA due date, Follow-up reminder, Interview prep, Offer decision, Thank you note
+- Tab filtering: Upcoming, Overdue, Completed, All
+- Color-coded urgency (overdue red, urgent amber, soon blue, normal gray)
 - One-click completion toggle with visual strikethrough
 
-### Analytics (Tisha)
-- Application funnel bar chart (Applied → OA → Interview → Offer)
-- Stage-to-stage conversion rates with progress bars
-- Applications over time — weekly trend line chart
-- Resume performance table — response rate per resume version with visual bars
-- Summary stat cards: response rate, offer rate, rejection rate
-
 ### Authentication
-- Passport.js Local strategy (email + password with bcrypt hashing)
-- Passport.js Google OAuth 2.0 strategy
-- Session management stored in MongoDB via connect-mongo
-- Auto-login after registration
-- Protected routes — all API endpoints require authentication
+- Passport.js Local (email + password, bcrypt hashing)
+- Passport.js Google OAuth 2.0
+- **"Log in as Demo User"** button on the landing page — no signup needed to explore the app
+- Server-side sessions stored in MongoDB via connect-mongo
+- Protected routes — every API endpoint requires authentication
+
+### Onboarding
+- First-time login triggers a guided tour that walks new users through the sidebar, dashboard customization, and the five main modules
+
+### Accessibility & Design
+- WCAG AA compliant color palette — verified with axe DevTools across all pages
+- Keyboard navigation throughout; focus indicators on every interactive element
+- Proper heading hierarchy, landmark regions, and aria attributes
+- Plus Jakarta Sans (headings) + Inter (body) — loaded via Google Fonts
 
 ---
 
@@ -92,18 +97,21 @@ The goal is to replace the scattered spreadsheets, sticky notes, and email threa
 
 | Layer | Technology |
 |---|---|
-| Frontend | React 18 with hooks, client-side rendering only |
+| Frontend | React 18 with hooks |
 | Routing | React Router DOM v6 |
 | Charts | Recharts |
+| Dashboard layout | react-grid-layout |
 | Type Checking | PropTypes |
 | Backend | Node.js + Express (ES Modules) |
 | Database | MongoDB Atlas with the native driver |
+| File storage | Cloudinary (resumes) |
+| Multipart uploads | multer |
 | Authentication | Passport.js (Local + Google OAuth 2.0) |
 | Sessions | express-session + connect-mongo |
 | Password Hashing | bcrypt |
 | Linting | ESLint |
 | Formatting | Prettier |
-| Deployment | Render |
+| Deployment | Vercel (serverless) |
 
 **Not used (per course rules):** Axios, Mongoose, CORS, or any other prohibited library.
 
@@ -115,12 +123,18 @@ The goal is to replace the scattered spreadsheets, sticky notes, and email threa
 |---|---|---|
 | `users` | Shared | Create (register), Read (auth) |
 | `applications` | Manav | Full CRUD + stage history tracking |
-| `resumes` | Manav | Full CRUD + aggregation for usage counts |
+| `resumes` | Manav | Full CRUD + tags + Cloudinary file refs + usage aggregation |
 | `contacts` | Tisha | Full CRUD |
 | `deadlines` | Tisha | Full CRUD + completion toggling |
 | `sessions` | System | Managed by connect-mongo |
 
-Database is seeded with **1,000+ synthetic records** across all collections.
+Database is seeded with **1,000+ synthetic records** (a demo user, 180 deadlines, hundreds of applications/contacts/resumes) via `node backend/seed.js`.
+
+---
+
+## Usability Study
+
+Six 45-minute moderated sessions were conducted (three per team member) following Prof. Guerra-Gomez's 5/10/5/tasks/Likert/5 format: warm-up and consent, free exploration and user-story listing, persona framing, three hands-on tasks with per-task Likert probes, and a wrap-up with overall ratings and open feedback. Findings were synthesized into a prioritized MoSCoW issue list; the top items (contact-linking searchability affordance, resume reassignment discoverability, company-group caret discoverability) were addressed before submission. Session recordings and the full report were submitted separately on Canvas.
 
 ---
 
@@ -128,52 +142,61 @@ Database is seeded with **1,000+ synthetic records** across all collections.
 
 ```
 hiretrail/
+├── api/
+│   └── index.js               # Vercel serverless entrypoint
 ├── backend/
 │   ├── config/
 │   │   ├── db.js              # MongoDB native driver connection
-│   │   └── passport.js        # Local + Google OAuth strategies
+│   │   ├── passport.js        # Local + Google OAuth strategies
+│   │   └── cloudinary.js      # Cloudinary configuration
 │   ├── middleware/
 │   │   └── auth.js            # Route protection middleware
 │   ├── routes/
-│   │   ├── auth.js            # Register, login, logout, Google OAuth
-│   │   ├── applications.js    # Applications CRUD
-│   │   ├── resumes.js         # Resumes CRUD + aggregation
+│   │   ├── auth.js            # Register, login, logout, Google OAuth, demo login
+│   │   ├── applications.js    # Applications CRUD + stage history
+│   │   ├── resumes.js         # Resumes CRUD + tags + file upload
 │   │   ├── contacts.js        # Contacts CRUD
 │   │   ├── deadlines.js       # Deadlines CRUD
 │   │   └── analytics.js       # Aggregation pipelines
-│   ├── server.js              # Express app entry point
+│   ├── server.js              # Express app entry (supports local + serverless)
 │   ├── seed.js                # Synthetic data seeder (1,000+ records)
 │   ├── .env.example           # Environment variable template
-│   ├── .eslintrc.cjs          # Backend ESLint config
 │   └── package.json
 ├── frontend/
 │   ├── public/
 │   │   └── favicon.svg
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── Layout/        # Sidebar + content wrapper
-│   │   │   ├── Sidebar/       # Collapsible navigation sidebar
-│   │   │   └── ProtectedRoute/# Auth guard for routes
+│   │   │   ├── ApplicationDetail/
+│   │   │   ├── DashboardGrid/      # Draggable/resizable layout wrapper
+│   │   │   ├── DetailSidebar/      # Shared slide-in detail panel
+│   │   │   ├── Layout/             # Sidebar + content wrapper
+│   │   │   ├── MultiSelect/        # Searchable multi-select (contacts etc.)
+│   │   │   ├── OnboardingTour/     # First-login guided tour
+│   │   │   ├── Pagination/
+│   │   │   ├── ProtectedRoute/
+│   │   │   ├── ResumePreview/      # Inline Cloudinary PDF preview
+│   │   │   ├── Sidebar/            # Main navigation
+│   │   │   └── TagInput/           # Tag chips with autocomplete
 │   │   ├── pages/
-│   │   │   ├── Login/         # Login page (local + Google)
-│   │   │   ├── Register/      # Registration page
-│   │   │   ├── Dashboard/     # Overview + embedded analytics
-│   │   │   ├── Applications/  # Application tracker with CRUD modal
-│   │   │   ├── Resumes/       # Resume version manager
-│   │   │   ├── Contacts/      # Contact relationship tracker
-│   │   │   ├── Deadlines/     # Deadline manager with urgency
-│   │   │   └── Analytics/     # Full analytics dashboard
+│   │   │   ├── Login/
+│   │   │   ├── Register/
+│   │   │   ├── Dashboard/          # Overview + embedded analytics + customizable grid
+│   │   │   ├── Applications/       # Tracker with CRUD + company grouping
+│   │   │   ├── Resumes/            # Version manager with tags + preview
+│   │   │   ├── Contacts/           # People/Companies toggle
+│   │   │   └── Deadlines/
 │   │   ├── utils/
-│   │   │   └── api.js         # Centralized fetch wrapper
-│   │   ├── App.jsx            # Root component with routing
-│   │   ├── App.css            # Global styles (Slate blue palette)
-│   │   └── main.jsx           # Entry point
-│   ├── .eslintrc.cjs          # Frontend ESLint config
-│   ├── vite.config.js         # Vite config with API proxy
+│   │   │   └── api.js              # Centralized fetch wrapper
+│   │   ├── App.jsx                 # Root component with routing
+│   │   ├── App.css                 # Global design tokens
+│   │   └── main.jsx
+│   ├── vite.config.js              # Vite config with API proxy
 │   └── package.json
+├── vercel.json                     # Vercel rewrites + build config
 ├── .gitignore
 ├── .prettierrc
-├── LICENSE                    # MIT
+├── LICENSE                         # MIT
 ├── README.md
 └── screenshot.png
 ```
@@ -186,81 +209,80 @@ hiretrail/
 
 - Node.js 18+
 - MongoDB Atlas account
-- (Optional) Google Cloud Console project for OAuth
+- Cloudinary account (for resume file uploads)
+- Google Cloud Console project (optional, for OAuth)
 
 ### Setup
 
 1. **Clone the repository**
 
-```bash
-git clone https://github.com/gititmanav/Hire-Trail.git
-cd Hire-Trail
-```
+   ```bash
+   git clone https://github.com/gititmanav/Hire-Trail.git
+   cd Hire-Trail
+   ```
 
 2. **Install dependencies**
 
-```bash
-cd backend && npm install
-cd ../frontend && npm install
-```
+   ```bash
+   npm run install-all
+   ```
 
 3. **Configure environment**
 
-```bash
-cd backend
-cp .env.example .env
-```
+   ```bash
+   cd backend
+   cp .env.example .env
+   ```
 
-Edit `backend/.env` with your credentials:
+   Edit `backend/.env`:
 
-```
-MONGO_URI=mongodb+srv://<user>:<password>@<cluster>.mongodb.net/HireTrail?retryWrites=true&w=majority
-SESSION_SECRET=any-random-string-here
-CLIENT_URL=http://localhost:5173
-PORT=5050
-```
+   ```
+   MONGO_URI=mongodb+srv://<user>:<password>@<cluster>.mongodb.net/HireTrail?retryWrites=true&w=majority
+   SESSION_SECRET=any-random-string-here
+   CLIENT_URL=http://localhost:5173
+   PORT=5050
 
-For Google OAuth (optional):
+   CLOUDINARY_CLOUD_NAME=your-cloud-name
+   CLOUDINARY_API_KEY=your-api-key
+   CLOUDINARY_API_SECRET=your-api-secret
+   ```
 
-```
-GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
-GOOGLE_CALLBACK_URL=http://localhost:5050/api/auth/google/callback
-```
+   For Google OAuth (optional):
+
+   ```
+   GOOGLE_CLIENT_ID=your-google-client-id
+   GOOGLE_CLIENT_SECRET=your-google-client-secret
+   GOOGLE_CALLBACK_URL=http://localhost:5050/api/auth/google/callback
+   ```
 
 4. **Seed the database**
 
-```bash
-cd backend
-node seed.js
-```
+   ```bash
+   npm run seed
+   ```
 
-This creates a demo user and 1,000+ synthetic records. Login credentials: `demo@hiretrail.com` / `password123`
+   Creates a demo user (`demo@hiretrail.com` / `password123`) and 1,000+ synthetic records. The landing page also has a one-click "Log in as Demo User" button.
 
 5. **Run in development**
 
-Terminal 1:
-```bash
-cd backend
-npm run dev
-```
+   Terminal 1:
+   ```bash
+   cd backend && node --watch server.js
+   ```
 
-Terminal 2:
-```bash
-cd frontend
-npm run dev
-```
+   Terminal 2:
+   ```bash
+   cd frontend && npm run dev
+   ```
 
-Open [http://localhost:5173](http://localhost:5173)
+   Open [http://localhost:5173](http://localhost:5173)
 
 6. **Build for production**
 
-```bash
-cd frontend
-npm run build
-cd ../backend
-npm start
-```
+   ```bash
+   npm run build
+   npm start
+   ```
 
 ---
 
