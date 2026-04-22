@@ -1,7 +1,7 @@
 # HireTrail — Internship & Job Application Command Center
 
-![HireTrail Screenshot](screenshot.png)
-![HireTrail Screenshot](screenshot2.png)
+![HireTrail Screenshot](Dashboard.png)
+
 
 ## Authors
 
@@ -17,8 +17,8 @@ Dashboard, authentication, accessibility pass, and usability study were worked o
 ## Links
 
 - **Live App:** [https://hire-trail-webdev.vercel.app](https://hire-trail-webdev.vercel.app)
-- **Demo Video:** [https://youtu.be/gXdi4DEMhLw](https://youtu.be/gXdi4DEMhLw)
-- **Presentation Slides:** [https://docs.google.com/presentation/d/1EP8yyFO1Fp1cxK44g_lF3OL5UuxNCs7SAX7Zh3UlRoQ/edit?usp=sharing](https://docs.google.com/presentation/d/1EP8yyFO1Fp1cxK44g_lF3OL5UuxNCs7SAX7Zh3UlRoQ/edit?usp=sharing)
+- **Demo Video:** [https://youtu.be/UzHFvBVHmAU](https://youtu.be/UzHFvBVHmAU)
+- **Presentation Slides:** [https://docs.google.com/presentation/d/1hBM-F78uZf_RNo_QnOaIeW8N_BfmcGZc-HNcTAZpB3g/edit?usp=sharing](https://docs.google.com/presentation/d/1hBM-F78uZf_RNo_QnOaIeW8N_BfmcGZc-HNcTAZpB3g/edit?usp=sharing)
 - **Design Document:** [https://drive.google.com/file/d/1uuVTc4PUYyaIpMTHK6DkAzHOQYuqdx5U/view?usp=sharing](https://drive.google.com/file/d/1uuVTc4PUYyaIpMTHK6DkAzHOQYuqdx5U/view?usp=sharing)
 
 ---
