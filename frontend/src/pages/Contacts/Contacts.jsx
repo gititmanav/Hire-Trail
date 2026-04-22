@@ -268,7 +268,9 @@ function ContactDetail({ contact, apps }) {
               <li key={a._id}>
                 <span className="contact-detail-app-role">{a.role}</span>
                 <span className="contact-detail-app-company">{a.company}</span>
-                <span className={`badge badge-${(a.stage || "Applied").toLowerCase()}`}>
+                <span
+                  className={`badge badge-${(a.stage || "Applied").toLowerCase()}`}
+                >
                   {a.stage}
                 </span>
               </li>
@@ -297,7 +299,7 @@ ContactDetail.propTypes = {
       company: PropTypes.string,
       role: PropTypes.string,
       stage: PropTypes.string,
-    })
+    }),
   ),
 };
 
@@ -448,7 +450,7 @@ function Contacts() {
       map.get(key).contacts.push(c);
     });
     return Array.from(map.values()).sort((a, b) =>
-      a.company.localeCompare(b.company)
+      a.company.localeCompare(b.company),
     );
   }, [filteredContacts]);
 
@@ -462,20 +464,18 @@ function Contacts() {
 
   const selectedContact = useMemo(
     () => contacts.find((c) => c._id === selectedContactId) || null,
-    [contacts, selectedContactId]
+    [contacts, selectedContactId],
   );
 
   const appsForContact = useMemo(() => {
     if (!selectedContactId) return [];
-    return apps.filter((a) =>
-      (a.contactIds || []).includes(selectedContactId)
-    );
+    return apps.filter((a) => (a.contactIds || []).includes(selectedContactId));
   }, [apps, selectedContactId]);
 
   const companyData = useMemo(() => {
     if (!selectedCompany) return null;
     const companyContacts = contacts.filter(
-      (c) => (c.company || "") === selectedCompany
+      (c) => (c.company || "") === selectedCompany,
     );
     const companyApps = apps.filter((a) => a.company === selectedCompany);
     return { contacts: companyContacts, apps: companyApps };
@@ -581,9 +581,7 @@ function Contacts() {
               <circle cx="24" cy="16" r="7" />
               <path d="M12 40v-3a8 8 0 018-8h8a8 8 0 018 8v3" />
             </svg>
-            <h3>
-              {contacts.length === 0 ? "No contacts yet" : "No matches"}
-            </h3>
+            <h3>{contacts.length === 0 ? "No contacts yet" : "No matches"}</h3>
             <p>
               {contacts.length === 0
                 ? "Track recruiters, referrals, and hiring managers"

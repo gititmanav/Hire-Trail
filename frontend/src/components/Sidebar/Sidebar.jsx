@@ -11,7 +11,16 @@ function Sidebar({ user, onLogout, collapsed, onToggle }) {
       to: "/",
       label: "Dashboard",
       icon: (
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 20 20"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <rect x="2" y="2" width="7" height="8" rx="1" />
           <rect x="11" y="2" width="7" height="5" rx="1" />
           <rect x="2" y="12" width="7" height="6" rx="1" />
@@ -23,7 +32,16 @@ function Sidebar({ user, onLogout, collapsed, onToggle }) {
       to: "/applications",
       label: "Applications",
       icon: (
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 20 20"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <rect x="3" y="2" width="14" height="16" rx="2" />
           <line x1="7" y1="6" x2="13" y2="6" />
           <line x1="7" y1="9" x2="13" y2="9" />
@@ -35,7 +53,16 @@ function Sidebar({ user, onLogout, collapsed, onToggle }) {
       to: "/resumes",
       label: "Resumes",
       icon: (
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 20 20"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <path d="M12 2H5a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7l-5-5z" />
           <polyline points="12,2 12,7 17,7" />
         </svg>
@@ -45,7 +72,16 @@ function Sidebar({ user, onLogout, collapsed, onToggle }) {
       to: "/contacts",
       label: "Contacts",
       icon: (
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 20 20"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <circle cx="10" cy="7" r="3" />
           <path d="M4 17v-1a4 4 0 014-4h4a4 4 0 014 4v1" />
         </svg>
@@ -55,7 +91,16 @@ function Sidebar({ user, onLogout, collapsed, onToggle }) {
       to: "/deadlines",
       label: "Deadlines",
       icon: (
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 20 20"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <circle cx="10" cy="10" r="7" />
           <polyline points="10,6 10,10 13,12" />
         </svg>
@@ -88,7 +133,15 @@ function Sidebar({ user, onLogout, collapsed, onToggle }) {
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 18 18"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          >
             {collapsed ? (
               <>
                 <line x1="3" y1="4" x2="15" y2="4" />
@@ -153,7 +206,15 @@ function Sidebar({ user, onLogout, collapsed, onToggle }) {
                 onLogout();
               }}
             >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              >
                 <path d="M6 14H3a1 1 0 01-1-1V3a1 1 0 011-1h3" />
                 <polyline points="10,11 14,8 10,5" />
                 <line x1="14" y1="8" x2="6" y2="8" />

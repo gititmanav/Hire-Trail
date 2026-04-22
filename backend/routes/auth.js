@@ -109,7 +109,7 @@ router.get("/me", (req, res) => {
 // Google OAuth — initiate
 router.get(
   "/google",
-  passport.authenticate("google", { scope: ["profile", "email"] })
+  passport.authenticate("google", { scope: ["profile", "email"] }),
 );
 
 // Google OAuth — callback
@@ -119,14 +119,14 @@ router.get("/google/callback", (req, res, next) => {
     if (err || !user) {
       console.error("Google OAuth error:", err);
       return res.redirect(
-        (process.env.CLIENT_URL || "http://localhost:5173") + "/login"
+        (process.env.CLIENT_URL || "http://localhost:5173") + "/login",
       );
     }
     req.login(user, (loginErr) => {
       if (loginErr) {
         console.error("Google login error:", loginErr);
         return res.redirect(
-          (process.env.CLIENT_URL || "http://localhost:5173") + "/login"
+          (process.env.CLIENT_URL || "http://localhost:5173") + "/login",
         );
       }
       return res.redirect(process.env.CLIENT_URL || "http://localhost:5173");

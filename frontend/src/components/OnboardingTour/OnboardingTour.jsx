@@ -193,10 +193,7 @@ function OnboardingTour({ steps, onClose }) {
             Skip
           </button>
         </div>
-        <h2
-          id={`onboarding-title-${index}`}
-          className="onboarding-title"
-        >
+        <h2 id={`onboarding-title-${index}`} className="onboarding-title">
           {step.title}
         </h2>
         <p id={`onboarding-body-${index}`} className="onboarding-body">
@@ -230,7 +227,7 @@ OnboardingTour.propTypes = {
       target: PropTypes.string,
       title: PropTypes.string.isRequired,
       body: PropTypes.string.isRequired,
-    })
+    }),
   ).isRequired,
   onClose: PropTypes.func.isRequired,
 };

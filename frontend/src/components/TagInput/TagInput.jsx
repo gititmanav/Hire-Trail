@@ -10,7 +10,8 @@ function TagInput({ value, onChange, suggestions, placeholder, label }) {
 
   const filteredSuggestions = suggestions.filter(
     (s) =>
-      !value.includes(s) && s.toLowerCase().includes(input.trim().toLowerCase())
+      !value.includes(s) &&
+      s.toLowerCase().includes(input.trim().toLowerCase()),
   );
 
   const addTag = (raw) => {

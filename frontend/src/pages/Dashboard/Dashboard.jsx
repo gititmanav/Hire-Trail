@@ -130,7 +130,7 @@ function Dashboard() {
 
   const daysUntil = (dateStr) => {
     const diff = Math.ceil(
-      (new Date(dateStr) - new Date()) / (1000 * 60 * 60 * 24)
+      (new Date(dateStr) - new Date()) / (1000 * 60 * 60 * 24),
     );
     if (diff === 0) return "Today";
     if (diff === 1) return "Tomorrow";
@@ -167,8 +167,7 @@ function Dashboard() {
 
   const resumeData = resumePerformance.map((rp) => {
     const resume = resumes.find((r) => r._id === rp._id);
-    const rate =
-      rp.total > 0 ? Math.round((rp.responses / rp.total) * 100) : 0;
+    const rate = rp.total > 0 ? Math.round((rp.responses / rp.total) * 100) : 0;
     return {
       name: resume ? resume.name : "Unknown",
       total: rp.total,
@@ -500,7 +499,7 @@ function Dashboard() {
                       (funnel.Interview || 0) +
                       (funnel.Offer || 0)) /
                       activeTotal) *
-                      100
+                      100,
                   )
                 : 0}
               %

@@ -47,9 +47,7 @@ router.post("/", async (req, res) => {
     const { applicationId, type, dueDate, notes } = req.body;
 
     if (!type || !dueDate) {
-      return res
-        .status(400)
-        .json({ error: "Type and due date are required" });
+      return res.status(400).json({ error: "Type and due date are required" });
     }
 
     const now = new Date();

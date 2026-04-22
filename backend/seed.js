@@ -9,36 +9,99 @@ const client = new MongoClient(uri);
 
 // Seed data pools
 const COMPANIES = [
-  "Google", "Meta", "Amazon", "Apple", "Microsoft", "Netflix", "Stripe",
-  "Airbnb", "Uber", "Lyft", "Spotify", "Slack", "Dropbox", "Twilio",
-  "Snowflake", "Databricks", "Palantir", "Coinbase", "Robinhood", "Square",
-  "Shopify", "Atlassian", "Salesforce", "Adobe", "Oracle", "IBM",
-  "Goldman Sachs", "JPMorgan", "Morgan Stanley", "Bloomberg", "Citadel",
-  "Two Sigma", "Jane Street", "HRT", "DRW", "Nvidia", "Intel", "AMD",
-  "Tesla", "SpaceX", "Figma", "Notion", "Linear", "Vercel", "Supabase",
-  "Datadog", "Cloudflare", "Elastic", "MongoDB Inc", "Confluent",
+  "Google",
+  "Meta",
+  "Amazon",
+  "Apple",
+  "Microsoft",
+  "Netflix",
+  "Stripe",
+  "Airbnb",
+  "Uber",
+  "Lyft",
+  "Spotify",
+  "Slack",
+  "Dropbox",
+  "Twilio",
+  "Snowflake",
+  "Databricks",
+  "Palantir",
+  "Coinbase",
+  "Robinhood",
+  "Square",
+  "Shopify",
+  "Atlassian",
+  "Salesforce",
+  "Adobe",
+  "Oracle",
+  "IBM",
+  "Goldman Sachs",
+  "JPMorgan",
+  "Morgan Stanley",
+  "Bloomberg",
+  "Citadel",
+  "Two Sigma",
+  "Jane Street",
+  "HRT",
+  "DRW",
+  "Nvidia",
+  "Intel",
+  "AMD",
+  "Tesla",
+  "SpaceX",
+  "Figma",
+  "Notion",
+  "Linear",
+  "Vercel",
+  "Supabase",
+  "Datadog",
+  "Cloudflare",
+  "Elastic",
+  "MongoDB Inc",
+  "Confluent",
 ];
 
 const ROLES = [
-  "Software Engineer Intern", "SWE Intern", "Backend Engineer Intern",
-  "Frontend Engineer Intern", "Full Stack Intern", "Data Engineer Intern",
-  "ML Engineer Intern", "Platform Engineer Intern", "DevOps Intern",
-  "Infrastructure Intern", "SRE Intern", "Mobile Engineer Intern",
-  "iOS Engineer Intern", "Android Engineer Intern",
-  "Software Development Engineer Intern", "Cloud Engineer Intern",
+  "Software Engineer Intern",
+  "SWE Intern",
+  "Backend Engineer Intern",
+  "Frontend Engineer Intern",
+  "Full Stack Intern",
+  "Data Engineer Intern",
+  "ML Engineer Intern",
+  "Platform Engineer Intern",
+  "DevOps Intern",
+  "Infrastructure Intern",
+  "SRE Intern",
+  "Mobile Engineer Intern",
+  "iOS Engineer Intern",
+  "Android Engineer Intern",
+  "Software Development Engineer Intern",
+  "Cloud Engineer Intern",
 ];
 
 const STAGES = ["Applied", "OA", "Interview", "Offer", "Rejected"];
 
 const RESUME_NAMES = [
-  "SWE Resume v1", "SWE Resume v2", "SWE Resume v3",
-  "Data Engineering Resume", "ML Resume", "Full Stack Resume",
-  "Backend Focus Resume", "Frontend Focus Resume",
+  "SWE Resume v1",
+  "SWE Resume v2",
+  "SWE Resume v3",
+  "Data Engineering Resume",
+  "ML Resume",
+  "Full Stack Resume",
+  "Backend Focus Resume",
+  "Frontend Focus Resume",
 ];
 
 const RESUME_ROLES = [
-  "Software Engineering", "Data Engineering", "Machine Learning",
-  "Full Stack", "Backend", "Frontend", "Platform", "DevOps",
+  "Software Engineering",
+  "Data Engineering",
+  "Machine Learning",
+  "Full Stack",
+  "Backend",
+  "Frontend",
+  "Platform",
+  "DevOps",
 ];
 
 const RESUME_TAGS = [
@@ -53,31 +116,68 @@ const RESUME_TAGS = [
 ];
 
 const CONTACT_NAMES = [
-  "Sarah Chen", "James Wilson", "Priya Patel", "Michael Brown",
-  "Emily Rodriguez", "David Kim", "Amanda Foster", "Ryan Thompson",
-  "Jessica Martinez", "Kevin O'Brien", "Rachel Lee", "Andrew Davis",
-  "Samantha Wright", "Daniel Park", "Olivia Johnson", "Chris Anderson",
-  "Megan Taylor", "Brandon Nguyen", "Lauren Scott", "Tyler Washington",
-  "Hannah Garcia", "Nathan Miller", "Sophia Clark", "Justin Harris",
-  "Ashley Robinson", "Mark Lewis", "Kayla Walker", "Sean Murphy",
-  "Elizabeth Moore", "Patrick Sullivan",
+  "Sarah Chen",
+  "James Wilson",
+  "Priya Patel",
+  "Michael Brown",
+  "Emily Rodriguez",
+  "David Kim",
+  "Amanda Foster",
+  "Ryan Thompson",
+  "Jessica Martinez",
+  "Kevin O'Brien",
+  "Rachel Lee",
+  "Andrew Davis",
+  "Samantha Wright",
+  "Daniel Park",
+  "Olivia Johnson",
+  "Chris Anderson",
+  "Megan Taylor",
+  "Brandon Nguyen",
+  "Lauren Scott",
+  "Tyler Washington",
+  "Hannah Garcia",
+  "Nathan Miller",
+  "Sophia Clark",
+  "Justin Harris",
+  "Ashley Robinson",
+  "Mark Lewis",
+  "Kayla Walker",
+  "Sean Murphy",
+  "Elizabeth Moore",
+  "Patrick Sullivan",
 ];
 
 const CONTACT_ROLES_LIST = [
-  "Recruiter", "Senior Recruiter", "University Recruiter",
-  "Hiring Manager", "Engineering Manager", "Tech Lead",
-  "Staff Engineer", "HR Coordinator", "Talent Acquisition",
+  "Recruiter",
+  "Senior Recruiter",
+  "University Recruiter",
+  "Hiring Manager",
+  "Engineering Manager",
+  "Tech Lead",
+  "Staff Engineer",
+  "HR Coordinator",
+  "Talent Acquisition",
   "Campus Recruiter",
 ];
 
 const CONNECTION_SOURCES = [
-  "Cold email", "Referral", "Career fair", "LinkedIn",
-  "Professor intro", "Alumni network", "Other",
+  "Cold email",
+  "Referral",
+  "Career fair",
+  "LinkedIn",
+  "Professor intro",
+  "Alumni network",
+  "Other",
 ];
 
 const DEADLINE_TYPES = [
-  "OA due date", "Follow-up reminder", "Interview prep",
-  "Offer decision", "Thank you note", "Other",
+  "OA due date",
+  "Follow-up reminder",
+  "Interview prep",
+  "Offer decision",
+  "Thank you note",
+  "Other",
 ];
 
 function randomItem(arr) {
@@ -86,13 +186,13 @@ function randomItem(arr) {
 
 function randomDate(start, end) {
   return new Date(
-    start.getTime() + Math.random() * (end.getTime() - start.getTime())
+    start.getTime() + Math.random() * (end.getTime() - start.getTime()),
   );
 }
 
 function weightedStage() {
   const r = Math.random();
-  if (r < 0.40) return "Applied";
+  if (r < 0.4) return "Applied";
   if (r < 0.55) return "Rejected";
   if (r < 0.72) return "OA";
   if (r < 0.88) return "Interview";
@@ -145,7 +245,7 @@ async function seed() {
     }
     const resumeResult = await db.collection("resumes").insertMany(resumeDocs);
     const resumeIds = Object.values(resumeResult.insertedIds).map((id) =>
-      id.toString()
+      id.toString(),
     );
     console.log(`Created ${resumeIds.length} resumes`);
 
@@ -177,7 +277,7 @@ async function seed() {
       .collection("contacts")
       .insertMany(contactDocs);
     const contactIdsAll = Object.values(contactsResult.insertedIds).map((id) =>
-      id.toString()
+      id.toString(),
     );
     // Index contacts by company for linking
     const contactsByCompany = {};
@@ -217,9 +317,7 @@ async function seed() {
         const rejectAfter = Math.floor(Math.random() * 30) + 3;
         stageHistory.push({
           stage: "Rejected",
-          date: new Date(
-            appDate.getTime() + rejectAfter * 24 * 60 * 60 * 1000
-          ),
+          date: new Date(appDate.getTime() + rejectAfter * 24 * 60 * 60 * 1000),
         });
       }
 
@@ -252,7 +350,7 @@ async function seed() {
         contactIds: [...new Set(linkedContacts)],
         createdAt: appDate,
         updatedAt: new Date(
-          appDate.getTime() + Math.random() * 30 * 24 * 60 * 60 * 1000
+          appDate.getTime() + Math.random() * 30 * 24 * 60 * 60 * 1000,
         ),
       });
     }
@@ -272,7 +370,7 @@ async function seed() {
     for (let i = 0; i < 180; i++) {
       const dueDate = randomDate(
         new Date("2025-03-01"),
-        new Date("2025-12-31")
+        new Date("2025-12-31"),
       );
       const completed = Math.random() > 0.6;
       deadlineDocs.push({
@@ -281,8 +379,7 @@ async function seed() {
         type: randomItem(DEADLINE_TYPES),
         dueDate,
         completed,
-        notes:
-          Math.random() > 0.5 ? "Check email for details" : "",
+        notes: Math.random() > 0.5 ? "Check email for details" : "",
         createdAt: new Date(dueDate.getTime() - 7 * 24 * 60 * 60 * 1000),
         updatedAt: dueDate,
       });

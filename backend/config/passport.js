@@ -54,8 +54,8 @@ function configurePassport() {
         } catch (err) {
           return done(err);
         }
-      }
-    )
+      },
+    ),
   );
 
   // Google OAuth strategy
@@ -89,7 +89,7 @@ function configurePassport() {
                 .collection("users")
                 .updateOne(
                   { _id: emailUser._id },
-                  { $set: { googleId: profile.id } }
+                  { $set: { googleId: profile.id } },
                 );
               const updated = await db
                 .collection("users")
@@ -112,8 +112,8 @@ function configurePassport() {
           } catch (err) {
             return done(err);
           }
-        }
-      )
+        },
+      ),
     );
   }
 }

@@ -45,12 +45,24 @@ function DeadlineModal({ deadline, applications, onSave, onClose }) {
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-overlay" onClick={onClose} role="presentation">
+      <div
+        className="modal-content"
+        onClick={(e) => e.stopPropagation()}
+        role="presentation"
+      >
         <div className="modal-header">
           <h2>{deadline ? "Edit deadline" : "New deadline"}</h2>
           <button className="btn-icon" onClick={onClose} aria-label="Close">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            >
               <line x1="4" y1="4" x2="12" y2="12" />
               <line x1="12" y1="4" x2="4" y2="12" />
             </svg>
@@ -124,7 +136,11 @@ function DeadlineModal({ deadline, applications, onSave, onClose }) {
           </div>
 
           <div className="modal-footer">
-            <button type="button" className="btn btn-secondary" onClick={onClose}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={onClose}
+            >
               Cancel
             </button>
             <button type="submit" className="btn btn-primary" disabled={saving}>
@@ -151,7 +167,7 @@ DeadlineModal.propTypes = {
       _id: PropTypes.string,
       company: PropTypes.string,
       role: PropTypes.string,
-    })
+    }),
   ).isRequired,
   onSave: PropTypes.func.isRequired,
   onClose: PropTypes.func.isRequired,
@@ -223,7 +239,7 @@ function Deadlines() {
 
   const daysUntil = (dateStr) => {
     const diff = Math.ceil(
-      (new Date(dateStr) - new Date()) / (1000 * 60 * 60 * 24)
+      (new Date(dateStr) - new Date()) / (1000 * 60 * 60 * 24),
     );
     return diff;
   };
@@ -254,22 +270,26 @@ function Deadlines() {
 
   const now = new Date();
   const filtered = deadlines.filter((d) => {
-    if (filter === "upcoming") return !d.completed && new Date(d.dueDate) >= now;
+    if (filter === "upcoming")
+      return !d.completed && new Date(d.dueDate) >= now;
     if (filter === "overdue") return !d.completed && new Date(d.dueDate) < now;
     if (filter === "completed") return d.completed;
     return true;
   });
-  const totalPages = Math.max(1, Math.ceil(filtered.length / DEADLINE_PAGE_SIZE));
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filtered.length / DEADLINE_PAGE_SIZE),
+  );
   const paged = filtered.slice(
     (page - 1) * DEADLINE_PAGE_SIZE,
-    page * DEADLINE_PAGE_SIZE
+    page * DEADLINE_PAGE_SIZE,
   );
 
   const upcomingCount = deadlines.filter(
-    (d) => !d.completed && new Date(d.dueDate) >= now
+    (d) => !d.completed && new Date(d.dueDate) >= now,
   ).length;
   const overdueCount = deadlines.filter(
-    (d) => !d.completed && new Date(d.dueDate) < now
+    (d) => !d.completed && new Date(d.dueDate) < now,
   ).length;
   const completedCount = deadlines.filter((d) => d.completed).length;
 
@@ -288,7 +308,15 @@ function Deadlines() {
             setModalOpen(true);
           }}
         >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+          >
             <line x1="8" y1="3" x2="8" y2="13" />
             <line x1="3" y1="8" x2="13" y2="8" />
           </svg>
@@ -338,7 +366,14 @@ function Deadlines() {
       {filtered.length === 0 ? (
         <div className="card">
           <div className="empty-state">
-            <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="var(--text-muted)" strokeWidth="1.5">
+            <svg
+              width="48"
+              height="48"
+              viewBox="0 0 48 48"
+              fill="none"
+              stroke="var(--text-muted)"
+              strokeWidth="1.5"
+            >
               <circle cx="24" cy="24" r="16" />
               <polyline points="24,14 24,24 31,28" />
             </svg>
@@ -372,7 +407,15 @@ function Deadlines() {
                   aria-label={d.completed ? "Mark incomplete" : "Mark complete"}
                 >
                   {d.completed && (
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 12 12"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    >
                       <polyline points="2,6 5,9 10,3" />
                     </svg>
                   )}
@@ -391,7 +434,9 @@ function Deadlines() {
                 </div>
 
                 <div className="deadline-row-right">
-                  <span className={`deadline-due-badge ${getDueClass(d.dueDate, d.completed)}`}>
+                  <span
+                    className={`deadline-due-badge ${getDueClass(d.dueDate, d.completed)}`}
+                  >
                     {d.completed ? "Done" : getDueLabel(d.dueDate)}
                   </span>
                   <span className="deadline-row-date">
@@ -409,7 +454,15 @@ function Deadlines() {
                     title="Edit"
                     aria-label="Edit deadline"
                   >
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 14 14"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                    >
                       <path d="M8.5 2.5l3 3L4.5 12.5H1.5v-3z" />
                     </svg>
                   </button>
@@ -420,7 +473,15 @@ function Deadlines() {
                     aria-label="Delete deadline"
                     style={{ color: "var(--danger)" }}
                   >
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 14 14"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                    >
                       <polyline points="2,4 12,4" />
                       <path d="M5 4V2.5a.5.5 0 01.5-.5h3a.5.5 0 01.5.5V4" />
                       <path d="M3 4l.75 8.5a1 1 0 001 .5h4.5a1 1 0 001-.5L11 4" />

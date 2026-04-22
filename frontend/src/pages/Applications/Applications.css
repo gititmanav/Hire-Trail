@@ -90,7 +90,9 @@
 }
 
 .filter-chip[class*="filter-chip-stage-"]:hover:not(.filter-chip-active),
-.filter-chip[class*="filter-chip-stage-"]:focus-visible:not(.filter-chip-active) {
+.filter-chip[class*="filter-chip-stage-"]:focus-visible:not(
+    .filter-chip-active
+  ) {
   background: var(--chip-bg);
   border-color: var(--chip-color);
   color: var(--chip-color);
@@ -106,7 +108,8 @@
   background: #fff;
 }
 
-.filter-chip[class*="filter-chip-stage-"].filter-chip-active .filter-chip-count {
+.filter-chip[class*="filter-chip-stage-"].filter-chip-active
+  .filter-chip-count {
   background: rgba(255, 255, 255, 0.22);
   color: #fff;
 }

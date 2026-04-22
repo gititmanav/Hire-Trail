@@ -64,7 +64,7 @@ function DashboardGrid({ items, defaultLayouts }) {
           {item.node}
         </div>
       )),
-    [items, editMode]
+    [items, editMode],
   );
 
   return (
@@ -124,7 +124,7 @@ DashboardGrid.propTypes = {
     PropTypes.shape({
       key: PropTypes.string.isRequired,
       node: PropTypes.node.isRequired,
-    })
+    }),
   ).isRequired,
   defaultLayouts: PropTypes.object.isRequired,
 };

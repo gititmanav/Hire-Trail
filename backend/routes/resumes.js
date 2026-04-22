@@ -44,7 +44,9 @@ router.get("/", async (req, res) => {
     const appCounts = await db
       .collection("applications")
       .aggregate([
-        { $match: { userId: req.user._id.toString(), resumeId: { $ne: null } } },
+        {
+          $match: { userId: req.user._id.toString(), resumeId: { $ne: null } },
+        },
         { $group: { _id: "$resumeId", count: { $sum: 1 } } },
       ])
       .toArray();
@@ -100,7 +102,8 @@ router.get("/:id", async (req, res) => {
 
 function parseTags(raw) {
   if (!raw) return [];
-  if (Array.isArray(raw)) return raw.map((t) => String(t).trim()).filter(Boolean);
+  if (Array.isArray(raw))
+    return raw.map((t) => String(t).trim()).filter(Boolean);
   try {
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) {
@@ -116,131 +119,139 @@ function parseTags(raw) {
 }
 
 // POST create resume (accepts multipart for file upload or JSON without file)
-router.post("/", (req, res, next) => {
-  upload.single("file")(req, res, (err) => {
-    if (err) return res.status(400).json({ error: err.message });
-    next();
-  });
-}, async (req, res) => {
-  try {
-    const { name, targetRole } = req.body;
-    const tags = parseTags(req.body.tags);
+router.post(
+  "/",
+  (req, res, next) => {
+    upload.single("file")(req, res, (err) => {
+      if (err) return res.status(400).json({ error: err.message });
+      next();
+    });
+  },
+  async (req, res) => {
+    try {
+      const { name, targetRole } = req.body;
+      const tags = parseTags(req.body.tags);
 
-    if (!name) {
-      return res.status(400).json({ error: "Resume name is required" });
-    }
-
-    const now = new Date();
-    const userId = req.user._id.toString();
-    const newResume = {
-      userId,
-      name,
-      targetRole: targetRole || "",
-      tags,
-      fileName: "",
-      fileType: "",
-      fileSize: 0,
-      cloudinaryUrl: "",
-      cloudinaryPublicId: "",
-      uploadDate: now,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    if (req.file) {
-      if (!isCloudinaryConfigured()) {
-        return res
-          .status(500)
-          .json({ error: "File storage is not configured on this server" });
+      if (!name) {
+        return res.status(400).json({ error: "Resume name is required" });
       }
-      const result = await uploadBuffer(req.file.buffer, {
-        folder: `hiretrail/resumes/${userId}`,
-        filename: req.file.originalname,
-      });
-      newResume.fileName = req.file.originalname;
-      newResume.fileType = req.file.mimetype;
-      newResume.fileSize = req.file.size;
-      newResume.cloudinaryUrl = result.secure_url;
-      newResume.cloudinaryPublicId = result.public_id;
-    }
 
-    const db = getDB();
-    const result = await db.collection("resumes").insertOne(newResume);
-    newResume._id = result.insertedId;
-    return res.status(201).json(newResume);
-  } catch (err) {
-    console.error("Create resume error:", err);
-    return res.status(500).json({ error: err.message || "Server error" });
-  }
-});
+      const now = new Date();
+      const userId = req.user._id.toString();
+      const newResume = {
+        userId,
+        name,
+        targetRole: targetRole || "",
+        tags,
+        fileName: "",
+        fileType: "",
+        fileSize: 0,
+        cloudinaryUrl: "",
+        cloudinaryPublicId: "",
+        uploadDate: now,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      if (req.file) {
+        if (!isCloudinaryConfigured()) {
+          return res
+            .status(500)
+            .json({ error: "File storage is not configured on this server" });
+        }
+        const result = await uploadBuffer(req.file.buffer, {
+          folder: `hiretrail/resumes/${userId}`,
+          filename: req.file.originalname,
+        });
+        newResume.fileName = req.file.originalname;
+        newResume.fileType = req.file.mimetype;
+        newResume.fileSize = req.file.size;
+        newResume.cloudinaryUrl = result.secure_url;
+        newResume.cloudinaryPublicId = result.public_id;
+      }
+
+      const db = getDB();
+      const result = await db.collection("resumes").insertOne(newResume);
+      newResume._id = result.insertedId;
+      return res.status(201).json(newResume);
+    } catch (err) {
+      console.error("Create resume error:", err);
+      return res.status(500).json({ error: err.message || "Server error" });
+    }
+  },
+);
 
 // PUT update resume (metadata and optionally replace file)
-router.put("/:id", (req, res, next) => {
-  upload.single("file")(req, res, (err) => {
-    if (err) return res.status(400).json({ error: err.message });
-    next();
-  });
-}, async (req, res) => {
-  try {
-    const db = getDB();
-    const existing = await db.collection("resumes").findOne({
-      _id: new ObjectId(req.params.id),
-      userId: req.user._id.toString(),
+router.put(
+  "/:id",
+  (req, res, next) => {
+    upload.single("file")(req, res, (err) => {
+      if (err) return res.status(400).json({ error: err.message });
+      next();
     });
-
-    if (!existing) {
-      return res.status(404).json({ error: "Resume not found" });
-    }
-
-    const { name, targetRole } = req.body;
-    const updates = {
-      name: name ?? existing.name,
-      targetRole: targetRole ?? existing.targetRole,
-      updatedAt: new Date(),
-    };
-
-    if (req.body.tags !== undefined) {
-      updates.tags = parseTags(req.body.tags);
-    }
-
-    if (req.file) {
-      if (!isCloudinaryConfigured()) {
-        return res
-          .status(500)
-          .json({ error: "File storage is not configured on this server" });
-      }
-      // Remove old asset if present
-      if (existing.cloudinaryPublicId) {
-        try {
-          await destroyAsset(existing.cloudinaryPublicId);
-        } catch (e) {
-          console.warn("Cloudinary destroy failed:", e.message);
-        }
-      }
-      const result = await uploadBuffer(req.file.buffer, {
-        folder: `hiretrail/resumes/${req.user._id.toString()}`,
-        filename: req.file.originalname,
+  },
+  async (req, res) => {
+    try {
+      const db = getDB();
+      const existing = await db.collection("resumes").findOne({
+        _id: new ObjectId(req.params.id),
+        userId: req.user._id.toString(),
       });
-      updates.fileName = req.file.originalname;
-      updates.fileType = req.file.mimetype;
-      updates.fileSize = req.file.size;
-      updates.cloudinaryUrl = result.secure_url;
-      updates.cloudinaryPublicId = result.public_id;
+
+      if (!existing) {
+        return res.status(404).json({ error: "Resume not found" });
+      }
+
+      const { name, targetRole } = req.body;
+      const updates = {
+        name: name ?? existing.name,
+        targetRole: targetRole ?? existing.targetRole,
+        updatedAt: new Date(),
+      };
+
+      if (req.body.tags !== undefined) {
+        updates.tags = parseTags(req.body.tags);
+      }
+
+      if (req.file) {
+        if (!isCloudinaryConfigured()) {
+          return res
+            .status(500)
+            .json({ error: "File storage is not configured on this server" });
+        }
+        // Remove old asset if present
+        if (existing.cloudinaryPublicId) {
+          try {
+            await destroyAsset(existing.cloudinaryPublicId);
+          } catch (e) {
+            console.warn("Cloudinary destroy failed:", e.message);
+          }
+        }
+        const result = await uploadBuffer(req.file.buffer, {
+          folder: `hiretrail/resumes/${req.user._id.toString()}`,
+          filename: req.file.originalname,
+        });
+        updates.fileName = req.file.originalname;
+        updates.fileType = req.file.mimetype;
+        updates.fileSize = req.file.size;
+        updates.cloudinaryUrl = result.secure_url;
+        updates.cloudinaryPublicId = result.public_id;
+      }
+
+      await db
+        .collection("resumes")
+        .updateOne({ _id: new ObjectId(req.params.id) }, { $set: updates });
+
+      const updated = await db
+        .collection("resumes")
+        .findOne({ _id: new ObjectId(req.params.id) });
+      return res.json(updated);
+    } catch (err) {
+      console.error("Update resume error:", err);
+      return res.status(500).json({ error: err.message || "Server error" });
     }
-
-    await db
-      .collection("resumes")
-      .updateOne({ _id: new ObjectId(req.params.id) }, { $set: updates });
-
-    const updated = await db
-      .collection("resumes")
-      .findOne({ _id: new ObjectId(req.params.id) });
-    return res.json(updated);
-  } catch (err) {
-    console.error("Update resume error:", err);
-    return res.status(500).json({ error: err.message || "Server error" });
-  }
-});
+  },
+);
 
 // DELETE resume
 router.delete("/:id", async (req, res) => {

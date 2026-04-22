@@ -51,11 +51,7 @@ function ResumeModal({ resume, existingTags, onSave, onClose }) {
   };
 
   return (
-    <div
-      className="modal-overlay"
-      onClick={onClose}
-      role="presentation"
-    >
+    <div className="modal-overlay" onClick={onClose} role="presentation">
       <div
         className="modal-content"
         onClick={(e) => e.stopPropagation()}
@@ -150,9 +146,7 @@ function ResumeModal({ resume, existingTags, onSave, onClose }) {
               onChange={handleFile}
             />
             {resume?.fileName && !file && (
-              <span className="form-hint">
-                Current: {resume.fileName}
-              </span>
+              <span className="form-hint">Current: {resume.fileName}</span>
             )}
           </div>
 
@@ -249,7 +243,7 @@ function Resumes() {
 
   const toggleTag = (tag) => {
     setActiveTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
     );
   };
 
@@ -273,7 +267,7 @@ function Resumes() {
 
   const previewResume = useMemo(
     () => resumes.find((r) => r._id === previewId) || null,
-    [resumes, previewId]
+    [resumes, previewId],
   );
 
   if (loading) {
@@ -323,7 +317,11 @@ function Resumes() {
             onChange={(e) => setSearch(e.target.value)}
           />
           {tags.length > 0 && (
-            <div className="resumes-tag-filter" role="group" aria-label="Filter by tag">
+            <div
+              className="resumes-tag-filter"
+              role="group"
+              aria-label="Filter by tag"
+            >
               {tags.map((tag) => {
                 const active = activeTags.includes(tag);
                 return (

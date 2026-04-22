@@ -47,9 +47,7 @@ function AuthedShell({ user, onLogout, showTour, onTourClose }) {
   return (
     <>
       <Layout user={user} onLogout={onLogout} />
-      {showTour && (
-        <OnboardingTour steps={TOUR_STEPS} onClose={onTourClose} />
-      )}
+      {showTour && <OnboardingTour steps={TOUR_STEPS} onClose={onTourClose} />}
     </>
   );
 }
@@ -117,11 +115,7 @@ function App() {
       <Route
         path="/login"
         element={
-          user ? (
-            <Navigate to="/" replace />
-          ) : (
-            <Login onLogin={handleLogin} />
-          )
+          user ? <Navigate to="/" replace /> : <Login onLogin={handleLogin} />
         }
       />
       <Route

@@ -20,7 +20,9 @@ function ApplicationDetail({ app, resume, contacts, onOpenResume, onEdit }) {
       <section className="application-detail-section">
         <div className="application-detail-heading">
           <h3>{app.role}</h3>
-          <span className={`badge badge-${(app.stage || "Applied").toLowerCase()}`}>
+          <span
+            className={`badge badge-${(app.stage || "Applied").toLowerCase()}`}
+          >
             {app.stage}
           </span>
         </div>
@@ -54,7 +56,9 @@ function ApplicationDetail({ app, resume, contacts, onOpenResume, onEdit }) {
             className="application-detail-resume"
             onClick={() => onOpenResume(resume._id)}
           >
-            <span className="application-detail-resume-name">{resume.name}</span>
+            <span className="application-detail-resume-name">
+              {resume.name}
+            </span>
             {resume.targetRole && (
               <span className="application-detail-resume-role">
                 {resume.targetRole}
@@ -131,7 +135,7 @@ ApplicationDetail.propTypes = {
     applicationDate: PropTypes.string,
     updatedAt: PropTypes.string,
     stageHistory: PropTypes.arrayOf(
-      PropTypes.shape({ stage: PropTypes.string, date: PropTypes.string })
+      PropTypes.shape({ stage: PropTypes.string, date: PropTypes.string }),
     ),
     notes: PropTypes.string,
   }),
@@ -146,7 +150,7 @@ ApplicationDetail.propTypes = {
       name: PropTypes.string,
       role: PropTypes.string,
       company: PropTypes.string,
-    })
+    }),
   ),
   onOpenResume: PropTypes.func,
   onEdit: PropTypes.func,

@@ -1,10 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import PropTypes from "prop-types";
-import {
-  applicationsAPI,
-  resumesAPI,
-  contactsAPI,
-} from "../../utils/api.js";
+import { applicationsAPI, resumesAPI, contactsAPI } from "../../utils/api.js";
 import DetailSidebar from "../../components/DetailSidebar/DetailSidebar.jsx";
 import ApplicationDetail from "../../components/ApplicationDetail/ApplicationDetail.jsx";
 import ResumePreview from "../../components/ResumePreview/ResumePreview.jsx";
@@ -223,7 +219,7 @@ ApplicationModal.propTypes = {
     contactIds: PropTypes.arrayOf(PropTypes.string),
   }),
   resumes: PropTypes.arrayOf(
-    PropTypes.shape({ _id: PropTypes.string, name: PropTypes.string })
+    PropTypes.shape({ _id: PropTypes.string, name: PropTypes.string }),
   ).isRequired,
   contacts: PropTypes.arrayOf(
     PropTypes.shape({
@@ -231,7 +227,7 @@ ApplicationModal.propTypes = {
       name: PropTypes.string,
       company: PropTypes.string,
       role: PropTypes.string,
-    })
+    }),
   ).isRequired,
   onSave: PropTypes.func.isRequired,
   onClose: PropTypes.func.isRequired,
@@ -370,14 +366,14 @@ function Applications() {
     // sort each group's apps by applicationDate desc
     arr.forEach((g) => {
       g.apps.sort(
-        (a, b) => new Date(b.applicationDate) - new Date(a.applicationDate)
+        (a, b) => new Date(b.applicationDate) - new Date(a.applicationDate),
       );
     });
     // sort groups by most-recent app in group desc
     arr.sort(
       (a, b) =>
         new Date(b.apps[0].applicationDate) -
-        new Date(a.apps[0].applicationDate)
+        new Date(a.apps[0].applicationDate),
     );
     return arr;
   }, [filtered]);
@@ -396,7 +392,7 @@ function Applications() {
 
   const selectedApp = useMemo(
     () => apps.find((a) => a._id === selectedAppId) || null,
-    [apps, selectedAppId]
+    [apps, selectedAppId],
   );
 
   const selectedResume = useMemo(() => {
@@ -413,7 +409,7 @@ function Applications() {
 
   const previewResume = useMemo(
     () => resumes.find((r) => r._id === previewResumeId) || null,
-    [resumes, previewResumeId]
+    [resumes, previewResumeId],
   );
 
   if (loading) {
@@ -525,9 +521,7 @@ function Applications() {
       stageCounts[a.stage] = (stageCounts[a.stage] || 0) + 1;
     });
     const present = STAGES.filter((s) => stageCounts[s]);
-    const summary = present
-      .map((s) => `${stageCounts[s]} ${s}`)
-      .join(", ");
+    const summary = present.map((s) => `${stageCounts[s]} ${s}`).join(", ");
     const newest = group.apps[0];
 
     return (
@@ -621,7 +615,11 @@ function Applications() {
           onChange={(e) => setSearchTerm(e.target.value)}
           style={{ maxWidth: 280 }}
         />
-        <div className="stage-filters" role="group" aria-label="Filter by stage">
+        <div
+          className="stage-filters"
+          role="group"
+          aria-label="Filter by stage"
+        >
           {["All", ...STAGES].map((s) => {
             const stageClass =
               s === "All" ? "" : `filter-chip-stage-${s.toLowerCase()}`;
@@ -636,10 +634,7 @@ function Applications() {
                 aria-pressed={filterStage === s}
               >
                 {s !== "All" && (
-                  <span
-                    className="filter-chip-dot"
-                    aria-hidden="true"
-                  />
+                  <span className="filter-chip-dot" aria-hidden="true" />
                 )}
                 {s}
                 {s !== "All" && (
@@ -717,7 +712,7 @@ function Applications() {
                     const rows = [renderGroupRow(group)];
                     if (expandedCompanies.has(group.key)) {
                       group.apps.forEach((a) =>
-                        rows.push(renderAppRow(a, { indent: true }))
+                        rows.push(renderAppRow(a, { indent: true })),
                       );
                     }
                     return rows;

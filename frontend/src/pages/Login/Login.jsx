@@ -133,8 +133,7 @@ function Login({ onLogin }) {
         </p>
 
         <p className="auth-footer">
-          Don&apos;t have an account?{" "}
-          <Link to="/register">Create one</Link>
+          Don&apos;t have an account? <Link to="/register">Create one</Link>
         </p>
       </div>
     </div>

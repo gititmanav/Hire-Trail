@@ -56,9 +56,7 @@ router.post("/", async (req, res) => {
       req.body;
 
     if (!company || !role) {
-      return res
-        .status(400)
-        .json({ error: "Company and role are required" });
+      return res.status(400).json({ error: "Company and role are required" });
     }
 
     const now = new Date();

@@ -20,7 +20,7 @@ function MultiSelect({ options, value, onChange, label, placeholder }) {
   }, [open]);
 
   const filtered = options.filter((o) =>
-    o.label.toLowerCase().includes(query.trim().toLowerCase())
+    o.label.toLowerCase().includes(query.trim().toLowerCase()),
   );
 
   const toggle = (optionValue) => {
@@ -142,7 +142,7 @@ MultiSelect.propTypes = {
       value: PropTypes.string.isRequired,
       label: PropTypes.string.isRequired,
       sub: PropTypes.string,
-    })
+    }),
   ).isRequired,
   value: PropTypes.arrayOf(PropTypes.string).isRequired,
   onChange: PropTypes.func.isRequired,

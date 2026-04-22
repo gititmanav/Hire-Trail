@@ -43,7 +43,11 @@ router.get("/", async (req, res) => {
             total: { $sum: 1 },
             responses: {
               $sum: {
-                $cond: [{ $in: ["$stage", ["OA", "Interview", "Offer"]] }, 1, 0],
+                $cond: [
+                  { $in: ["$stage", ["OA", "Interview", "Offer"]] },
+                  1,
+                  0,
+                ],
               },
             },
           },

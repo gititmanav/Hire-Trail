@@ -48,9 +48,7 @@ router.post("/", async (req, res) => {
       req.body;
 
     if (!name || !company) {
-      return res
-        .status(400)
-        .json({ error: "Name and company are required" });
+      return res.status(400).json({ error: "Name and company are required" });
     }
 
     const now = new Date();
@@ -90,8 +88,15 @@ router.put("/:id", async (req, res) => {
       return res.status(404).json({ error: "Contact not found" });
     }
 
-    const { name, company, role, linkedinUrl, connectionSource, lastContactDate, notes } =
-      req.body;
+    const {
+      name,
+      company,
+      role,
+      linkedinUrl,
+      connectionSource,
+      lastContactDate,
+      notes,
+    } = req.body;
 
     const updates = {
       name: name ?? existing.name,

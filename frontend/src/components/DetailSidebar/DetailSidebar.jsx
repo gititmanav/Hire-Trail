@@ -17,7 +17,7 @@ function DetailSidebar({ open, title, onClose, children, width }) {
       }
       if (e.key === "Tab" && panelRef.current) {
         const focusables = panelRef.current.querySelectorAll(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
         );
         if (focusables.length === 0) return;
         const first = focusables[0];
@@ -34,7 +34,7 @@ function DetailSidebar({ open, title, onClose, children, width }) {
 
     document.addEventListener("keydown", handleKey);
     const firstFocusable = panelRef.current?.querySelector(
-      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
     );
     firstFocusable?.focus();
 

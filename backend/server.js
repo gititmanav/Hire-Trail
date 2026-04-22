@@ -71,7 +71,7 @@ app.use(
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
     },
-  })
+  }),
 );
 
 app.use(passport.initialize());
