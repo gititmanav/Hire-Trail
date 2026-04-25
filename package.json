@@ -9,7 +9,11 @@
     "dev:backend": "cd backend && npm run dev",
     "dev:frontend": "cd frontend && npm run dev",
     "seed": "cd backend && npm run seed",
-    "render-build": "npm run install-all && cd backend && npm run build && cd ../frontend && npm run build"
+    "render-build": "npm run install-all && cd backend && npm run build && cd ../frontend && npm run build",
+    "test:extension": "node --test extension/tests/*.test.js"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "jsdom": "^29.0.2"
+  }
 }

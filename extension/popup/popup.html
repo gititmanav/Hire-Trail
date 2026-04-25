@@ -64,6 +64,22 @@
       <div class="stats">
         <p id="track-count">Ready to track jobs</p>
       </div>
+      <div class="diagnostics">
+        <div class="diagnostics-header">
+          <p class="diagnostics-title">Diagnostics</p>
+          <button id="clear-diagnostics" class="link-btn" type="button">Clear</button>
+        </div>
+        <p id="diag-summary" class="diag-summary">Loading diagnostics...</p>
+        <p id="diag-last-error" class="diag-last-error"></p>
+        <div class="llm-controls">
+          <label class="llm-toggle">
+            <input type="checkbox" id="llm-enabled">
+            <span>Enable optional LLM tags</span>
+          </label>
+          <input id="llm-endpoint" type="url" placeholder="https://.../enrich (optional endpoint)">
+          <p class="llm-help">If configured, extension will attempt LLM enrichment and gracefully fall back to rule-based tags.</p>
+        </div>
+      </div>
       <div class="actions">
         <a id="open-app" class="btn btn-primary" target="_blank">Open HireTrail</a>
         <button id="logout-btn" class="btn btn-secondary">Log out</button>

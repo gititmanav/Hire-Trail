@@ -1,5 +1,11 @@
 (() => {
   if (document.getElementById("hiretrail-fab")) return;
+  const core = window.HireTrailExtractionCore;
+  const extractorConfig = window.HireTrailExtractorsConfig;
+  if (!core || !extractorConfig?.buildExtractorRegistry) return;
+  let lastTrackedUrl = "";
+  let isFabInitialized = false;
+  const FAB_TOP_RATIO_KEY = "fabTopRatio";
 
   const scrapers = {
     "linkedin.com": () => {
@@ -149,6 +155,7 @@
       return { title, company, jobDescription, location, salary: "", jobType };
     },
   };
+  const extractorRegistry = extractorConfig.buildExtractorRegistry(scrapers);
 
   // Wait for a selector to appear (for SPAs like Workday). Supports comma-separated selectors.
   function waitForSelector(selector, timeout = 8000) {
@@ -166,29 +173,20 @@
 
   function scrape() {
     const host = window.location.hostname;
-    for (const [domain, fn] of Object.entries(scrapers)) {
-      if (host.includes(domain)) return fn();
+    for (const extractor of extractorRegistry) {
+      if (host.includes(extractor.domain)) return extractor.scrape();
     }
     return { title: document.title, company: "", jobDescription: "", location: "", salary: "", jobType: "" };
   }
 
-  // Apply button selectors for auto-detect
-  const applySelectors = {
-    "linkedin.com": ['button[aria-label*="Apply"]', '.jobs-apply-button'],
-    "indeed.com": ['.indeed-apply-button'],
-    "greenhouse.io": ['.apply-button', '#apply_button'],
-    "lever.co": ['.postings-btn-submit'],
-    "glassdoor.com": ['button[data-test="apply-button"]'],
-    "myworkdayjobs.com": ['button[data-automation-id="applyButton"]'],
-  };
+  function scrapeWithFallback() {
+    return core.scrapeWithFallback(scrape, document, window.location);
+  }
 
   // Auto-detect Apply button clicks
   function setupApplyDetection() {
     const host = window.location.hostname;
-    let selectors = [];
-    for (const [domain, sels] of Object.entries(applySelectors)) {
-      if (host.includes(domain)) { selectors = sels; break; }
-    }
+    const selectors = extractorRegistry.find((extractor) => host.includes(extractor.domain))?.applySelectors || [];
     if (selectors.length === 0) return;
 
     let debounceTimer = null;
@@ -203,10 +201,17 @@
       try {
         const authRes = await chrome.runtime.sendMessage({ type: "CHECK_AUTH" });
         if (!authRes || !authRes.authenticated) return;
-        const data = scrape();
-        data.url = window.location.href;
+        const data = scrapeWithFallback();
+        if (!core.isLikelyJobPage(
+          data,
+          window.location.hostname,
+          window.location.pathname,
+          document.body?.innerText?.slice(0, 3000) || "",
+        )) return;
+        if (lastTrackedUrl === data.url) return;
         const result = await chrome.runtime.sendMessage({ type: "TRACK_JOB", data });
         if (result && result.success) {
+          lastTrackedUrl = data.url;
           showStatus("Auto-tracked!", "success");
         }
         // Silent on 409 duplicate
@@ -226,23 +231,103 @@
   }
 
   function initFAB() {
+    if (isFabInitialized) return;
+    isFabInitialized = true;
     // Create floating action button
     const fab = document.createElement("div");
     fab.id = "hiretrail-fab";
     fab.innerHTML = `
       <div style="
-        position: fixed; bottom: 24px; right: 24px; z-index: 999999;
+        position: fixed; right: 0; top: 10vh; z-index: 999999;
         width: 52px; height: 52px; border-radius: 50%;
         background: #378add; color: #fff;
         display: flex; align-items: center; justify-content: center;
         cursor: pointer; box-shadow: 0 4px 14px rgba(55, 138, 221, 0.4);
         font-weight: 700; font-size: 18px; font-family: -apple-system, sans-serif;
-        transition: all 0.2s ease;
+        transition: box-shadow 0.2s ease, transform 0.2s ease, background 0.2s ease;
+        border-top-right-radius: 0;
+        border-bottom-right-radius: 0;
+        touch-action: none;
       " id="hiretrail-btn">H</div>
     `;
     document.body.appendChild(fab);
 
     const btn = document.getElementById("hiretrail-btn");
+    let dragState = {
+      pointerId: null,
+      dragging: false,
+      moved: false,
+      startY: 0,
+      startTop: 0,
+    };
+
+    function clampFabTop(topPx) {
+      const margin = 8;
+      const maxTop = Math.max(margin, window.innerHeight - btn.offsetHeight - margin);
+      return Math.min(maxTop, Math.max(margin, topPx));
+    }
+
+    function applyFabTop(topPx) {
+      btn.style.top = `${clampFabTop(topPx)}px`;
+    }
+
+    function persistFabTop(topPx) {
+      const ratio = clampFabTop(topPx) / Math.max(window.innerHeight, 1);
+      chrome.storage.local.set({ [FAB_TOP_RATIO_KEY]: ratio }).catch(() => {});
+    }
+
+    // Restore persisted vertical position for a consistent cross-site experience.
+    chrome.storage.local.get([FAB_TOP_RATIO_KEY]).then((result) => {
+      const ratio = typeof result[FAB_TOP_RATIO_KEY] === "number" ? result[FAB_TOP_RATIO_KEY] : 0.1;
+      applyFabTop(window.innerHeight * ratio);
+    }).catch(() => {
+      applyFabTop(window.innerHeight * 0.1);
+    });
+
+    btn.addEventListener("pointerdown", (event) => {
+      dragState.pointerId = event.pointerId;
+      dragState.dragging = false;
+      dragState.moved = false;
+      dragState.startY = event.clientY;
+      dragState.startTop = parseFloat(btn.style.top) || btn.getBoundingClientRect().top;
+      btn.setPointerCapture(event.pointerId);
+      btn.style.cursor = "grabbing";
+      btn.style.transition = "box-shadow 0.1s ease, background 0.2s ease";
+    });
+
+    btn.addEventListener("pointermove", (event) => {
+      if (dragState.pointerId !== event.pointerId) return;
+      const deltaY = event.clientY - dragState.startY;
+      if (!dragState.dragging && Math.abs(deltaY) > 4) {
+        dragState.dragging = true;
+        dragState.moved = true;
+      }
+      if (!dragState.dragging) return;
+      event.preventDefault();
+      applyFabTop(dragState.startTop + deltaY);
+    });
+
+    function finishDrag(event) {
+      if (dragState.pointerId !== event.pointerId) return;
+      if (dragState.dragging) {
+        const currentTop = parseFloat(btn.style.top) || btn.getBoundingClientRect().top;
+        persistFabTop(currentTop);
+      }
+      dragState.pointerId = null;
+      dragState.dragging = false;
+      btn.style.cursor = "pointer";
+      btn.style.transition = "box-shadow 0.2s ease, transform 0.2s ease, background 0.2s ease";
+      setTimeout(() => {
+        dragState.moved = false;
+      }, 120);
+    }
+
+    btn.addEventListener("pointerup", finishDrag);
+    btn.addEventListener("pointercancel", finishDrag);
+    window.addEventListener("resize", () => {
+      const currentTop = parseFloat(btn.style.top) || btn.getBoundingClientRect().top;
+      applyFabTop(currentTop);
+    });
 
     btn.addEventListener("mouseenter", () => {
       btn.style.transform = "scale(1.1)";
@@ -254,6 +339,7 @@
     });
 
     btn.addEventListener("click", async () => {
+      if (dragState.moved || dragState.dragging) return;
       try {
         const authRes = await chrome.runtime.sendMessage({ type: "CHECK_AUTH" });
         if (!authRes || !authRes.authenticated) {
@@ -261,8 +347,16 @@
           return;
         }
 
-        const data = scrape();
-        data.url = window.location.href;
+        const data = scrapeWithFallback();
+        if (!core.isLikelyJobPage(
+          data,
+          window.location.hostname,
+          window.location.pathname,
+          document.body?.innerText?.slice(0, 3000) || "",
+        )) {
+          showStatus("This page does not look like a job posting yet", "warning");
+          return;
+        }
 
         btn.style.opacity = "0.6";
         btn.style.pointerEvents = "none";
@@ -271,6 +365,7 @@
         const result = await chrome.runtime.sendMessage({ type: "TRACK_JOB", data });
 
         if (result && result.success) {
+          lastTrackedUrl = data.url;
           showStatus("Tracked!", "success");
           btn.style.background = "#1d9e75";
           btn.textContent = "\u2713";
@@ -330,4 +425,14 @@
   const style = document.createElement("style");
   style.textContent = `@keyframes hiretrail-fadein { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }`;
   document.head.appendChild(style);
+
+  // SPA-safe route observer: reset auto-track guard whenever URL changes.
+  let observedUrl = window.location.href;
+  const routeObserver = new MutationObserver(() => {
+    if (window.location.href !== observedUrl) {
+      observedUrl = window.location.href;
+      lastTrackedUrl = "";
+    }
+  });
+  routeObserver.observe(document.documentElement, { childList: true, subtree: true });
 })();

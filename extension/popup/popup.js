@@ -15,6 +15,11 @@ const userName = document.getElementById("user-name");
 const userEmail = document.getElementById("user-email");
 const openAppLink = document.getElementById("open-app");
 const logoutBtn = document.getElementById("logout-btn");
+const diagSummary = document.getElementById("diag-summary");
+const diagLastError = document.getElementById("diag-last-error");
+const clearDiagnosticsBtn = document.getElementById("clear-diagnostics");
+const llmEnabledInput = document.getElementById("llm-enabled");
+const llmEndpointInput = document.getElementById("llm-endpoint");
 
 function initials(name) {
   return name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
@@ -52,6 +57,41 @@ function showLoggedIn(user) {
     chrome.storage.local.set({ badgeCount: 0 });
     chrome.action.setBadgeText({ text: "" });
   });
+
+  renderDiagnostics();
+}
+
+async function getDiagnostics() {
+  try {
+    const response = await chrome.runtime.sendMessage({ type: "GET_TELEMETRY" });
+    return response || { events: [], status: {} };
+  } catch {
+    return { events: [], status: {} };
+  }
+}
+
+function formatDiagnostics(status = {}) {
+  const success = status.successCount || 0;
+  const errors = status.errorCount || 0;
+  return `Success: ${success}  Errors: ${errors}`;
+}
+
+async function renderDiagnostics() {
+  if (!diagSummary || !diagLastError) return;
+  const { status } = await getDiagnostics();
+  diagSummary.textContent = formatDiagnostics(status);
+  if (status.lastErrorCode) {
+    diagLastError.textContent = `${status.lastErrorCode}: ${status.lastErrorMessage || "Unknown error"}`;
+  } else {
+    diagLastError.textContent = "No recent errors";
+  }
+
+  const { llmEnrichmentEnabled = false, llmEnrichmentEndpoint = "" } = await chrome.storage.local.get([
+    "llmEnrichmentEnabled",
+    "llmEnrichmentEndpoint",
+  ]);
+  if (llmEnabledInput) llmEnabledInput.checked = Boolean(llmEnrichmentEnabled);
+  if (llmEndpointInput) llmEndpointInput.value = String(llmEnrichmentEndpoint || "");
 }
 
 /**
@@ -166,5 +206,24 @@ logoutBtn.addEventListener("click", async () => {
   await chrome.storage.local.remove(["token", "user"]);
   showLogin();
 });
+
+if (clearDiagnosticsBtn) {
+  clearDiagnosticsBtn.addEventListener("click", async () => {
+    await chrome.runtime.sendMessage({ type: "CLEAR_TELEMETRY" });
+    await renderDiagnostics();
+  });
+}
+
+if (llmEnabledInput) {
+  llmEnabledInput.addEventListener("change", async () => {
+    await chrome.storage.local.set({ llmEnrichmentEnabled: llmEnabledInput.checked });
+  });
+}
+
+if (llmEndpointInput) {
+  llmEndpointInput.addEventListener("blur", async () => {
+    await chrome.storage.local.set({ llmEnrichmentEndpoint: llmEndpointInput.value.trim() });
+  });
+}
 
 checkAuth();
