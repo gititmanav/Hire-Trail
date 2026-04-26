@@ -239,20 +239,31 @@
     fab.innerHTML = `
       <div style="
         position: fixed; right: 0; top: 10vh; z-index: 999999;
-        width: 52px; height: 52px; border-radius: 50%;
-        background: #378add; color: #fff;
+        width: 52px; height: 52px;
+        border-radius: 14px;
+        border-top-right-radius: 0; border-bottom-right-radius: 0;
+        background: #2b2f36; color: #fff;
         display: flex; align-items: center; justify-content: center;
-        cursor: pointer; box-shadow: 0 4px 14px rgba(55, 138, 221, 0.4);
-        font-weight: 700; font-size: 18px; font-family: -apple-system, sans-serif;
-        transition: box-shadow 0.2s ease, transform 0.2s ease, background 0.2s ease;
-        border-top-right-radius: 0;
-        border-bottom-right-radius: 0;
+        cursor: pointer;
+        box-shadow: 0 10px 26px rgba(0,0,0,0.22), 0 2px 0 rgba(255,255,255,0.05) inset;
+        font-weight: 800; font-size: 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        transition: box-shadow 0.2s ease, transform 0.2s ease, background 0.2s ease, filter 0.2s ease;
         touch-action: none;
-      " id="hiretrail-btn">H</div>
+      " id="hiretrail-btn" aria-label="HireTrail tracker">
+        <span id="hiretrail-glyph" style="display:flex; align-items:center; justify-content:center;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 2.4l1.35 5.35 4.95-2.5-2.5 4.95 5.35 1.35-5.35 1.35 2.5 4.95-4.95-2.5L12 21.6l-1.35-5.35-4.95 2.5 2.5-4.95L2.85 12l5.35-1.35-2.5-4.95 4.95 2.5L12 2.4z"
+              fill="#D7FF3A" opacity="0.98"/>
+            <path d="M12 2.4l1.35 5.35 4.95-2.5-2.5 4.95 5.35 1.35-5.35 1.35 2.5 4.95-4.95-2.5L12 21.6l-1.35-5.35-4.95 2.5 2.5-4.95L2.85 12l5.35-1.35-2.5-4.95 4.95 2.5L12 2.4z"
+              stroke="#D7FF3A" stroke-width="0.6" stroke-linejoin="round"/>
+          </svg>
+        </span>
+      </div>
     `;
     document.body.appendChild(fab);
 
     const btn = document.getElementById("hiretrail-btn");
+    const glyph = document.getElementById("hiretrail-glyph");
     let dragState = {
       pointerId: null,
       dragging: false,
@@ -260,6 +271,50 @@
       startY: 0,
       startTop: 0,
     };
+
+    function setFabVisual(state) {
+      if (!btn || !glyph) return;
+      const setText = (t) => { glyph.textContent = t; };
+      const setStar = () => {
+        glyph.innerHTML = `
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 2.4l1.35 5.35 4.95-2.5-2.5 4.95 5.35 1.35-5.35 1.35 2.5 4.95-4.95-2.5L12 21.6l-1.35-5.35-4.95 2.5 2.5-4.95L2.85 12l5.35-1.35-2.5-4.95 4.95 2.5L12 2.4z"
+              fill="#D7FF3A" opacity="0.98"/>
+            <path d="M12 2.4l1.35 5.35 4.95-2.5-2.5 4.95 5.35 1.35-5.35 1.35 2.5 4.95-4.95-2.5L12 21.6l-1.35-5.35-4.95 2.5 2.5-4.95L2.85 12l5.35-1.35-2.5-4.95 4.95 2.5L12 2.4z"
+              stroke="#D7FF3A" stroke-width="0.6" stroke-linejoin="round"/>
+          </svg>
+        `;
+      };
+
+      if (state === "loading") {
+        setText("…");
+        btn.style.background = "#22262d";
+        return;
+      }
+      if (state === "success") {
+        setText("\u2713");
+        btn.style.background = "#0f2a19";
+        btn.style.color = "#d9ffe6";
+        return;
+      }
+      if (state === "duplicate") {
+        setText("\u2713");
+        btn.style.background = "#2a240f";
+        btn.style.color = "#fff1cc";
+        return;
+      }
+      if (state === "error") {
+        setText("!");
+        btn.style.background = "#2b1414";
+        btn.style.color = "#ffd7d7";
+        return;
+      }
+
+      // idle
+      setStar();
+      btn.style.background = "#2b2f36";
+      btn.style.color = "#ffffff";
+    }
 
     function clampFabTop(topPx) {
       const margin = 8;
@@ -330,12 +385,14 @@
     });
 
     btn.addEventListener("mouseenter", () => {
-      btn.style.transform = "scale(1.1)";
-      btn.style.boxShadow = "0 6px 20px rgba(55, 138, 221, 0.5)";
+      btn.style.transform = "translateX(-2px) scale(1.06)";
+      btn.style.boxShadow = "0 14px 34px rgba(0,0,0,0.28), 0 2px 0 rgba(255,255,255,0.06) inset";
+      btn.style.filter = "brightness(1.06)";
     });
     btn.addEventListener("mouseleave", () => {
-      btn.style.transform = "scale(1)";
-      btn.style.boxShadow = "0 4px 14px rgba(55, 138, 221, 0.4)";
+      btn.style.transform = "translateX(0) scale(1)";
+      btn.style.boxShadow = "0 10px 26px rgba(0,0,0,0.22), 0 2px 0 rgba(255,255,255,0.05) inset";
+      btn.style.filter = "none";
     });
 
     btn.addEventListener("click", async () => {
@@ -360,37 +417,34 @@
 
         btn.style.opacity = "0.6";
         btn.style.pointerEvents = "none";
-        btn.textContent = "...";
+        setFabVisual("loading");
 
         const result = await chrome.runtime.sendMessage({ type: "TRACK_JOB", data });
 
         if (result && result.success) {
           lastTrackedUrl = data.url;
           showStatus("Tracked!", "success");
-          btn.style.background = "#1d9e75";
-          btn.textContent = "\u2713";
+          setFabVisual("success");
         } else if (result && result.duplicate) {
           showStatus("Already tracked!", "warning");
-          btn.style.background = "#f59e0b";
-          btn.textContent = "\u2713";
+          setFabVisual("duplicate");
         } else {
           showStatus(result?.error || "Failed", "error");
-          btn.style.background = "#e24b4a";
-          btn.textContent = "!";
+          setFabVisual("error");
         }
       } catch (err) {
         showStatus("Refresh page & try again", "error");
-        btn.style.background = "#e24b4a";
-        btn.textContent = "!";
+        setFabVisual("error");
       } finally {
         setTimeout(() => {
-          btn.style.background = "#378add";
-          btn.textContent = "H";
+          setFabVisual("idle");
           btn.style.opacity = "1";
           btn.style.pointerEvents = "auto";
         }, 2000);
       }
     });
+
+    setFabVisual("idle");
 
     // Setup auto-detect after FAB
     setupApplyDetection();
@@ -401,7 +455,7 @@
     if (existing) existing.remove();
 
     const colors = {
-      success: "#1d9e75",
+      success: "#1e3a8a",
       error: "#e24b4a",
       warning: "#f59e0b",
     };

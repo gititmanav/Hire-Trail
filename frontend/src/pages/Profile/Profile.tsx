@@ -2,7 +2,6 @@
 import { useState, useEffect, FormEvent } from "react";
 import toast from "react-hot-toast";
 import { api, applicationsAPI, emailAPI } from "../../utils/api.ts";
-import { useThemeImport } from "../../hooks/useThemeImport.ts";
 import type { User } from "../../types";
 
 const inputCls = "w-full px-3 py-2 text-sm bg-card border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring";
@@ -80,8 +79,6 @@ export default function Profile() {
   const [rejectionModal, setRejectionModal] = useState(false);
   const [gmailStatus, setGmailStatus] = useState<{ connected: boolean; email: string | null; lastSyncAt: string | null }>({ connected: false, email: null, lastSyncAt: null });
   const [gmailLoading, setGmailLoading] = useState(false);
-  const [themeUrl, setThemeUrl] = useState("");
-  const { themes, activeTheme, importing, importTheme, applyTheme, removeTheme, resetToDefault } = useThemeImport();
 
   useEffect(() => {
     Promise.all([
@@ -199,65 +196,6 @@ export default function Profile() {
             </button>
           </div>
         </form>
-      </div>
-
-      {/* Theme Import */}
-      <div className="bg-card border border-border rounded-xl p-6 mb-4">
-        <h3 className="text-base font-semibold text-foreground mb-4">Theme</h3>
-        <p className="text-sm text-muted-foreground mb-4">
-          Import a custom theme from <a href="https://tweakcn.com/editor/theme" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">tweakcn.com</a>. Paste the theme URL below.
-        </p>
-
-        <form
-          onSubmit={async (e: FormEvent) => {
-            e.preventDefault();
-            if (!themeUrl.trim()) return;
-            try {
-              const theme = await importTheme(themeUrl.trim());
-              toast.success(`Theme "${theme.name}" imported`);
-              setThemeUrl("");
-            } catch (err: any) {
-              toast.error(err.message || "Failed to import theme");
-            }
-          }}
-          className="flex gap-2 mb-4"
-        >
-          <input
-            className={inputCls}
-            placeholder="https://tweakcn.com/editor/theme?theme=bubblegum"
-            value={themeUrl}
-            onChange={(e) => setThemeUrl(e.target.value)}
-            type="url"
-          />
-          <button type="submit" disabled={importing} className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50 whitespace-nowrap">
-            {importing ? "Importing..." : "Import"}
-          </button>
-        </form>
-
-        {themes.length > 0 && (
-          <div className="space-y-2 mb-4">
-            {themes.map((t) => (
-              <div key={t.name} className={`flex items-center justify-between p-3 rounded-lg border ${activeTheme === t.name ? "border-primary bg-primary/10" : "border-border"}`}>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-foreground truncate">{t.name}</p>
-                  <p className="text-[11px] text-muted-foreground truncate">{t.url}</p>
-                </div>
-                <div className="flex items-center gap-1.5 ml-3">
-                  {activeTheme !== t.name && (
-                    <button onClick={() => { applyTheme(t.name); toast.success(`Applied "${t.name}"`); }} className="px-2.5 py-1 text-xs font-medium text-primary border border-primary rounded-md hover:bg-primary/10">Apply</button>
-                  )}
-                  <button onClick={() => { removeTheme(t.name); toast.success("Theme removed"); }} className="px-2.5 py-1 text-xs font-medium text-destructive border border-destructive rounded-md hover:bg-destructive/10">Remove</button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {activeTheme && (
-          <button onClick={() => { resetToDefault(); toast.success("Reset to default theme"); }} className="text-sm text-muted-foreground hover:text-primary">
-            Reset to default theme
-          </button>
-        )}
       </div>
 
       {/* Email Integration */}

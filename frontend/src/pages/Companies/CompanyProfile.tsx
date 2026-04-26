@@ -48,20 +48,20 @@ export default function CompanyProfile() {
 
   return (
     <div>
-      <button onClick={() => navigate("/companies")} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-primary mb-4">
+      <button onClick={() => navigate("/companies")} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4">
         <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M10 3L5 8l5 5" /></svg>
         Back to Companies
       </button>
 
       <div className="bg-card border border-border rounded-xl p-6 mb-6">
         <div className="flex items-start gap-4">
-          <div className="w-14 h-14 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+          <div className="w-14 h-14 rounded-xl bg-muted text-muted-foreground flex items-center justify-center shrink-0">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
           </div>
           <div className="flex-1">
             <h1 className="text-2xl font-semibold text-foreground">{data.name}</h1>
             <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
-              {data.website && <a href={data.website} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{data.domain || data.website.replace(/^https?:\/\//, "")}</a>}
+              {data.website && <a href={data.website} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground hover:underline">{data.domain || data.website.replace(/^https?:\/\//, "")}</a>}
             </div>
           </div>
         </div>

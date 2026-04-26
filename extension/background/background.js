@@ -498,7 +498,7 @@ async function trackJob(data) {
     const newCount = badgeCount + 1;
     await chrome.storage.local.set({ badgeCount: newCount });
     chrome.action.setBadgeText({ text: String(newCount) });
-    chrome.action.setBadgeBackgroundColor({ color: "#378add" });
+    chrome.action.setBadgeBackgroundColor({ color: "#3b82f6" });
     const status = (await getTelemetry()).status;
     await appendTelemetryEvent({
       level: "info",

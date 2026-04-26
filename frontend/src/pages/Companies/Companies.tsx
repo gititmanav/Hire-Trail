@@ -9,7 +9,7 @@ import ResumePreview from "../../components/ResumePreview/ResumePreview.tsx";
 import type { Company, Application, Resume, Contact, Deadline, Stage, Pagination } from "../../types";
 
 const STAGES: Stage[] = ["Applied", "OA", "Interview", "Offer", "Rejected"];
-const badgeCls: Record<Stage, string> = { Applied: "bg-primary/10 text-primary", OA: "bg-warning-light text-yellow-800", Interview: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300", Offer: "bg-success-light text-emerald-800", Rejected: "bg-danger-light text-red-800" };
+const badgeCls: Record<Stage, string> = { Applied: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300", OA: "bg-warning-light text-yellow-800", Interview: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300", Offer: "bg-success-light text-emerald-800", Rejected: "bg-danger-light text-red-800" };
 const fmt = (d: string) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
 /* ─── Slide-in Panel with backdrop ─── */
@@ -50,7 +50,7 @@ function AppDetailSidebar({ app, resumes, contacts, deadlines, onClose, onStageC
           <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Company</label>
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium text-foreground">{app.company}</span>
-            {app.jobUrl && <a href={app.jobUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-xs">Visit</a>}
+            {app.jobUrl && <a href={app.jobUrl} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground hover:underline text-xs">Visit</a>}
           </div>
         </div>
         <div>
@@ -71,7 +71,7 @@ function AppDetailSidebar({ app, resumes, contacts, deadlines, onClose, onStageC
         <div>
           <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Resume</label>
           {resume ? (
-            <button onClick={() => onViewResume(resume)} className="text-sm text-primary hover:underline flex items-center gap-1">
+            <button onClick={() => onViewResume(resume)} className="text-sm text-muted-foreground hover:text-foreground hover:underline flex items-center gap-1">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9l-7-7z"/><path d="M13 2v7h7"/></svg>
               {resume.name}
             </button>
@@ -252,7 +252,7 @@ export default function Companies() {
                     <div className="flex-1 min-w-0">
                       <h3 className="text-sm font-semibold text-foreground truncate">{c.name}</h3>
                       {c.website ? (
-                        <a href={c.website} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline truncate block">{c.domain || c.website}</a>
+                        <a href={c.website} target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:text-foreground hover:underline truncate block">{c.domain || c.website}</a>
                       ) : (
                         <p className="text-xs text-muted-foreground">No website</p>
                       )}
@@ -263,7 +263,7 @@ export default function Companies() {
                     <span className="text-xs text-muted-foreground">
                       {c.applicationCount || 0} application{(c.applicationCount || 0) !== 1 ? "s" : ""}
                     </span>
-                    <button onClick={() => setSidebarCompany(c)} className="text-xs text-primary hover:underline flex items-center gap-1">
+                    <button onClick={() => setSidebarCompany(c)} className="text-xs text-muted-foreground hover:text-foreground hover:underline flex items-center gap-1">
                       View apps
                       <svg width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 1l5 4-5 4"/></svg>
                     </button>

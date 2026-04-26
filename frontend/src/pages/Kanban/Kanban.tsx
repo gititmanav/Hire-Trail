@@ -16,7 +16,7 @@ import type { Application, Resume, Stage } from "../../types";
 
 const STAGES: Stage[] = ["Applied", "OA", "Interview", "Offer", "Rejected"];
 const CFG: Record<Stage, { dot: string; hBg: string; border: string; bg: string }> = {
-  Applied: { dot: "bg-primary", hBg: "bg-blue-50 dark:bg-blue-900/20", border: "border-blue-200/60 dark:border-blue-800/40", bg: "bg-blue-50/30 dark:bg-blue-950/20" },
+  Applied: { dot: "bg-blue-500", hBg: "bg-blue-50 dark:bg-blue-900/20", border: "border-blue-200/60 dark:border-blue-800/40", bg: "bg-blue-50/30 dark:bg-blue-950/20" },
   OA: { dot: "bg-warning", hBg: "bg-amber-50 dark:bg-amber-900/20", border: "border-amber-200/60 dark:border-amber-800/40", bg: "bg-amber-50/30 dark:bg-amber-950/20" },
   Interview: { dot: "bg-purple-500", hBg: "bg-purple-50 dark:bg-purple-900/20", border: "border-purple-200/60 dark:border-purple-800/40", bg: "bg-purple-50/30 dark:bg-purple-950/20" },
   Offer: { dot: "bg-success", hBg: "bg-emerald-50 dark:bg-emerald-900/20", border: "border-emerald-200/60 dark:border-emerald-800/40", bg: "bg-emerald-50/30 dark:bg-emerald-950/20" },
@@ -42,7 +42,7 @@ const KanbanCard = memo(function KanbanCard({ app, resumeName, isDragging }: { a
           </span>
         )}
         {resumeName && (
-          <span className="inline-flex items-center gap-0.5 max-w-full text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20 truncate" title={resumeName}>
+          <span className="inline-flex items-center gap-0.5 max-w-full text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-muted text-foreground border border-border truncate" title={resumeName}>
             <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="shrink-0" aria-hidden>
               <path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9l-7-7z" />
               <path d="M13 2v7h7" />
@@ -71,7 +71,7 @@ const KanbanColumn = memo(function KanbanColumn({ stage, apps, resumeById }: { s
   const ids = useMemo(() => apps.map((a) => a._id), [apps]);
 
   return (
-    <div className="flex flex-col min-w-[240px] max-w-[280px] flex-1">
+    <div className="flex flex-col min-w-[240px] flex-1">
       <div className={`flex items-center gap-2 px-3 py-2.5 rounded-t-xl ${c.hBg}`}>
         <div className={`w-2.5 h-2.5 rounded-full ${c.dot}`} />
         <span className="text-[13px] font-semibold text-foreground">{stage}</span>
@@ -79,7 +79,7 @@ const KanbanColumn = memo(function KanbanColumn({ stage, apps, resumeById }: { s
       </div>
       <div
         ref={setNodeRef}
-        className={`flex-1 p-2 rounded-b-xl border-2 border-dashed ${c.border} ${c.bg} min-h-[120px] space-y-2 ${isOver ? "!border-primary !bg-accent/5" : ""}`}
+        className={`flex-1 p-2 rounded-b-xl border-2 border-dashed ${c.border} ${c.bg} min-h-[120px] space-y-2 ${isOver ? "!border-foreground/25 !bg-muted/40" : ""}`}
       >
         <SortableContext items={ids} strategy={verticalListSortingStrategy}>
           {apps.map((app) => (
@@ -190,7 +190,7 @@ export default function Kanban() {
         </div>
         <div className="flex items-center gap-4">
           {archivedCount > 0 && (
-            <Link to="/applications" className="text-sm text-muted-foreground hover:text-primary">
+            <Link to="/applications" className="text-sm text-muted-foreground hover:text-foreground">
               Archived: {archivedCount}
             </Link>
           )}

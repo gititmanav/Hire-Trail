@@ -28,7 +28,7 @@ export default function FollowUpWidget({ contacts, onFollowUp, onSnooze }: Props
         <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
           Needs attention
         </span>
-        <Link to="/contacts" className="text-xs text-primary hover:underline">
+        <Link to="/contacts" className="text-xs text-muted-foreground hover:text-foreground hover:underline">
           View all
         </Link>
       </div>

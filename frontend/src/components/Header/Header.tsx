@@ -2,8 +2,6 @@
 import { useState, useRef, useEffect, useContext, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { ThemeContext } from "../../App.tsx";
-import { THEMES, getTheme } from "../../utils/themes.ts";
-import type { Theme } from "../../utils/themes.ts";
 import type { User } from "../../types";
 
 const EXT_DISMISSED_KEY = "hiretrail-ext-banner-dismissed";
@@ -17,30 +15,12 @@ const SUPPORTED_SITES = [
   { name: "Workday", domain: "myworkdayjobs.com", color: "#005CB9" },
 ];
 
-const FB: Record<string, [string, string]> = {
-  "--primary": ["217 91% 60%", "217 91% 60%"],
-  "--background": ["0 0% 100%", "0 0% 9%"],
-  "--card": ["0 0% 100%", "0 0% 15%"],
-  "--sidebar": ["210 20% 98%", "0 0% 9%"],
-};
-
-function previewColor(theme: Theme, v: string): string {
-  const src = theme.isDark && theme.darkVariables ? theme.darkVariables : theme.variables;
-  const val = src[v];
-  if (val) return `hsl(${val})`;
-  const fb = FB[v];
-  return fb ? `hsl(${fb[theme.isDark ? 1 : 0]})` : "#888";
-}
-
 interface Props { user: User; onLogout: () => Promise<void>; onMobileMenuToggle?: () => void; }
 
 export default function Header({ user, onLogout, onMobileMenuToggle }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [themeOpen, setThemeOpen] = useState(false);
-  const [themeSearch, setThemeSearch] = useState("");
   const menuRef = useRef<HTMLDivElement>(null);
-  const themeRef = useRef<HTMLDivElement>(null);
-  const { themeId, setTheme } = useContext(ThemeContext);
+  const { dark, toggle } = useContext(ThemeContext);
   const navigate = useNavigate();
   const initials = user.name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
   const [extHighlight, setExtHighlight] = useState(() => !localStorage.getItem(EXT_DISMISSED_KEY));
@@ -57,10 +37,8 @@ export default function Header({ user, onLogout, onMobileMenuToggle }: Props) {
 
   // Click-outside for user menu
   useEffect(() => { const h = (e: MouseEvent) => { if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false); }; document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h); }, []);
-  // Click-outside for theme picker
-  useEffect(() => { const h = (e: MouseEvent) => { if (themeRef.current && !themeRef.current.contains(e.target as Node)) setThemeOpen(false); }; document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h); }, []);
   // Escape closes menus
-  useEffect(() => { const h = (e: KeyboardEvent) => { if (e.key === "Escape") { setMenuOpen(false); setThemeOpen(false); setSitesOpen(false); } }; document.addEventListener("keydown", h); return () => document.removeEventListener("keydown", h); }, []);
+  useEffect(() => { const h = (e: KeyboardEvent) => { if (e.key === "Escape") { setMenuOpen(false); setSitesOpen(false); } }; document.addEventListener("keydown", h); return () => document.removeEventListener("keydown", h); }, []);
   // Click-outside for supported-sites popover (esp. mobile tap-to-toggle)
   useEffect(() => {
     const h = (e: MouseEvent) => {
@@ -156,53 +134,26 @@ export default function Header({ user, onLogout, onMobileMenuToggle }: Props) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {/* Theme picker */}
-          <div className="relative" ref={themeRef}>
-            <button onClick={() => setThemeOpen(!themeOpen)} className="w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-secondary-foreground" title="Change theme">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.93 0 1.5-.75 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-1 0-.83.67-1.5 1.5-1.5H16c3.31 0 6-2.69 6-6 0-5.52-4.48-9.5-10-9.5z" />
-                <circle cx="7.5" cy="11.5" r="1.5" fill="currentColor" />
-                <circle cx="12" cy="7.5" r="1.5" fill="currentColor" />
-                <circle cx="16.5" cy="11.5" r="1.5" fill="currentColor" />
+          <button
+            onClick={() => toggle()}
+            className="w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-secondary-foreground"
+            title={dark ? "Switch to light mode" : "Switch to dark mode"}
+            aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
+          >
+            {dark ? (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="4" />
+                <path d="M12 2v2" /><path d="M12 20v2" />
+                <path d="m4.93 4.93 1.41 1.41" /><path d="m17.66 17.66 1.41 1.41" />
+                <path d="M2 12h2" /><path d="M20 12h2" />
+                <path d="m6.34 17.66-1.41 1.41" /><path d="m19.07 4.93-1.41 1.41" />
               </svg>
-            </button>
-
-            {themeOpen && (
-              <div className="absolute right-0 top-full mt-1.5 w-[300px] card-premium animate-in z-50 flex flex-col max-h-[70vh]">
-                <div className="p-3 pb-2 border-b border-border shrink-0">
-                  <input
-                    className="w-full px-2.5 py-1.5 text-sm bg-muted border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                    placeholder="Search themes..."
-                    value={themeSearch}
-                    onChange={(e) => setThemeSearch(e.target.value)}
-                    autoFocus
-                  />
-                  <p className="text-[11px] text-muted-foreground mt-1.5 px-0.5">{THEMES.length} themes</p>
-                </div>
-                <div className="overflow-y-auto p-2 flex flex-col gap-0.5">
-                  {THEMES.filter((t) => t.name.toLowerCase().includes(themeSearch.toLowerCase())).map((t) => (
-                    <button
-                      key={t.id}
-                      onClick={() => { setTheme(t.id); setThemeOpen(false); setThemeSearch(""); }}
-                      className={`flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-left ${
-                        themeId === t.id
-                          ? "bg-primary/10 ring-1 ring-primary/30"
-                          : "hover:bg-muted"
-                      }`}
-                    >
-                      <div className="flex items-center gap-0.5 shrink-0">
-                        {(["--primary", "--background", "--card", "--sidebar"] as const).map((v) => (
-                          <span key={v} className="w-3.5 h-3.5 rounded-full border border-black/10" style={{ background: previewColor(t, v) }} />
-                        ))}
-                      </div>
-                      <span className="text-[12px] font-medium text-foreground leading-tight truncate">{t.name}</span>
-                      {themeId === t.id && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="ml-auto text-primary shrink-0"><polyline points="20,6 9,17 4,12"/></svg>}
-                    </button>
-                  ))}
-                </div>
-              </div>
+            ) : (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z" />
+              </svg>
             )}
-          </div>
+          </button>
 
           {/* User menu */}
           <div className="relative" ref={menuRef}>

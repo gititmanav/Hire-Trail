@@ -1,7 +1,7 @@
 import { useRef, useEffect, useContext } from "react";
 import { Doughnut } from "react-chartjs-2";
 import { ThemeContext } from "../../App.tsx";
-import { chartColors, mutedFgColor } from "../../utils/chartSetup.ts";
+import { stageColor, mutedFgColor } from "../../utils/chartSetup.ts";
 import type { AnalyticsData, Stage } from "../../types";
 import type { Chart as ChartJS } from "chart.js";
 
@@ -13,13 +13,13 @@ export default function PieWidget({ data }: Props) {
   const chartRef = useRef<ChartJS<"doughnut">>(null);
   const { funnel: f, total } = data;
 
-  const colors = chartColors();
+  const colors = STAGES.map((s) => stageColor(s));
   const muted = mutedFgColor();
 
   useEffect(() => {
     const chart = chartRef.current;
     if (!chart) return;
-    const c = chartColors();
+    const c = STAGES.map((s) => stageColor(s));
     const m = mutedFgColor();
     chart.data.datasets[0].backgroundColor = c;
     if (chart.options.plugins?.legend?.labels) (chart.options.plugins.legend.labels as any).color = m;

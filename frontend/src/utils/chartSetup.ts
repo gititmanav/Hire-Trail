@@ -24,9 +24,36 @@ export function chartColors(): string[] {
     cssVar("--chart-1") || "#378ADD",
     cssVar("--chart-2") || "#EF9F27",
     cssVar("--chart-3") || "#7F77DD",
-    cssVar("--chart-4") || "#1D9E75",
+    cssVar("--chart-4") || "#1E3A8A",
     cssVar("--chart-5") || "#E24B4A",
   ];
+}
+
+function isDarkMode(): boolean {
+  return document.documentElement.classList.contains("dark");
+}
+
+const STAGE_COLORS_LIGHT: Record<string, string> = {
+  applied: "#3b82f6",
+  oa: "#f59e0b",
+  interview: "#8b5cf6",
+  offer: "#3b82f6",
+  rejected: "#f43f5e",
+};
+
+const STAGE_COLORS_DARK: Record<string, string> = {
+  applied: "#60a5fa",
+  oa: "#fbbf24",
+  interview: "#a78bfa",
+  offer: "#60a5fa",
+  rejected: "#fb7185",
+};
+
+/** Semantic stage colors to keep analytics meaning consistent across charts. */
+export function stageColor(stage: string): string {
+  const key = stage.toLowerCase();
+  const palette = isDarkMode() ? STAGE_COLORS_DARK : STAGE_COLORS_LIGHT;
+  return palette[key] || chartColors()[0];
 }
 
 /** Get the primary color from CSS variables. */

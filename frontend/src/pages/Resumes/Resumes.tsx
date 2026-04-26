@@ -11,24 +11,61 @@ import type { Resume } from "../../types";
 
 const fmt = (d: string) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
-// Rotating tag colors — derived from stage palette
-const TAG_COLORS = [
-  { bg: "bg-primary/10", text: "text-primary", border: "border-primary/30" },                                             // blue
-  { bg: "bg-purple-100 dark:bg-purple-900/30", text: "text-purple-700 dark:text-purple-300", border: "border-purple-300 dark:border-purple-700" }, // purple
-  { bg: "bg-amber-100 dark:bg-amber-900/30", text: "text-amber-700 dark:text-amber-300", border: "border-amber-300 dark:border-amber-700" },      // yellow/amber
-  { bg: "bg-emerald-100 dark:bg-emerald-900/30", text: "text-emerald-700 dark:text-emerald-300", border: "border-emerald-300 dark:border-emerald-700" }, // green
-  { bg: "bg-rose-100 dark:bg-rose-900/30", text: "text-rose-700 dark:text-rose-300", border: "border-rose-300 dark:border-rose-700" },             // red/rose
-  { bg: "bg-cyan-100 dark:bg-cyan-900/30", text: "text-cyan-700 dark:text-cyan-300", border: "border-cyan-300 dark:border-cyan-700" },             // cyan
-  { bg: "bg-orange-100 dark:bg-orange-900/30", text: "text-orange-700 dark:text-orange-300", border: "border-orange-300 dark:border-orange-700" }, // orange
-];
+type TagColor = { bg: string; text: string; border: string };
 
-function getTagColor(tag: string, allTags: string[]) {
-  const idx = allTags.indexOf(tag);
-  return TAG_COLORS[idx >= 0 ? idx % TAG_COLORS.length : 0];
+const DEFAULT_TAG_COLOR: TagColor = {
+  bg: "hsl(210 25% 93%)",
+  text: "hsl(215 18% 32%)",
+  border: "hsl(210 20% 73%)",
+};
+
+function hashTag(tag: string) {
+  const normalized = tag.trim().toLowerCase();
+  let hash = 0;
+  for (let i = 0; i < normalized.length; i += 1) {
+    hash = (hash * 31 + normalized.charCodeAt(i)) >>> 0;
+  }
+  return hash;
 }
 
-function ResumeCard({ r, isPrimary, allTags, setAsPrimary, setEditing, setModal, handleDelete, setPreviewResume }: {
-  r: Resume; isPrimary: boolean; allTags: string[];
+function buildTagColorMap(tags: string[]): Record<string, TagColor> {
+  const colorMap: Record<string, TagColor> = {};
+  const usedSlots = new Set<string>();
+  const bgLightness = [92, 88, 84, 80];
+  const textLightness = [30, 26, 22, 18];
+  const borderLightness = [70, 64, 58, 52];
+
+  tags.forEach((tag) => {
+    const seed = hashTag(tag);
+
+    // Deterministically find an unused color slot so no two tags share a chip color.
+    for (let step = 0; step < 360 * bgLightness.length; step += 1) {
+      const hue = (seed + (step * 37)) % 360;
+      const toneIdx = Math.floor(step / 360);
+      const slotKey = `${hue}-${toneIdx}`;
+      if (usedSlots.has(slotKey)) continue;
+
+      usedSlots.add(slotKey);
+      colorMap[tag] = {
+        bg: `hsl(${hue} 85% ${bgLightness[toneIdx]}%)`,
+        text: `hsl(${hue} 62% ${textLightness[toneIdx]}%)`,
+        border: `hsl(${hue} 55% ${borderLightness[toneIdx]}%)`,
+      };
+      break;
+    }
+
+    if (!colorMap[tag]) colorMap[tag] = DEFAULT_TAG_COLOR;
+  });
+
+  return colorMap;
+}
+
+function getTagColor(tag: string, tagColorMap: Record<string, TagColor>) {
+  return tagColorMap[tag] ?? DEFAULT_TAG_COLOR;
+}
+
+function ResumeCard({ r, isPrimary, tagColorMap, setAsPrimary, setEditing, setModal, handleDelete, setPreviewResume }: {
+  r: Resume; isPrimary: boolean; tagColorMap: Record<string, TagColor>;
   setAsPrimary: (id: string | null) => void; setEditing: (r: Resume) => void; setModal: (v: boolean) => void;
   handleDelete: (id: string) => void; setPreviewResume: (r: Resume) => void;
 }) {
@@ -40,7 +77,20 @@ function ResumeCard({ r, isPrimary, allTags, setAsPrimary, setEditing, setModal,
             <path d="M12 2H5a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7l-5-5z"/><polyline points="12,2 12,7 17,7"/>
           </svg>
         </div>
-        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="flex gap-1 opacity-100">
+          <button
+            onClick={() => r.fileUrl && setPreviewResume(r)}
+            title={r.fileUrl ? "Preview PDF" : "No file to preview"}
+            className={`w-8 h-8 flex items-center justify-center rounded-lg border border-border ${
+              r.fileUrl ? "text-muted-foreground hover:text-primary hover:border-primary" : "text-muted-foreground/50 cursor-not-allowed opacity-60"
+            }`}
+            disabled={!r.fileUrl}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+          </button>
           {isPrimary ? (
             <button onClick={() => setAsPrimary(null)} title="Remove as primary" className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-emerald-500 hover:text-red-500 hover:border-red-400">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/><line x1="4" y1="4" x2="20" y2="20" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
@@ -64,26 +114,97 @@ function ResumeCard({ r, isPrimary, allTags, setAsPrimary, setEditing, setModal,
       {r.targetRole && <span className="inline-block text-xs font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full mb-1 w-fit">{r.targetRole}</span>}
       {r.tags && r.tags.length > 0 && (
         <div className="flex flex-wrap gap-1 mb-1">
-          {r.tags.map((t, i) => { const c = getTagColor(t, allTags); return <span key={i} className={`inline-block text-[10px] font-medium px-1.5 py-0.5 rounded ${c.bg} ${c.text}`}>{t}</span>; })}
+          {r.tags.map((t, i) => {
+            const c = getTagColor(t, tagColorMap);
+            return (
+              <span
+                key={i}
+                className="inline-block text-[10px] font-medium px-1.5 py-0.5 rounded border"
+                style={{ backgroundColor: c.bg, color: c.text, borderColor: c.border }}
+              >
+                {t}
+              </span>
+            );
+          })}
         </div>
       )}
       {r.fileName && <span className="text-xs text-muted-foreground mb-1">{r.fileName}</span>}
-      {r.fileUrl ? (
-        <button onClick={() => setPreviewResume(r)} className="inline-flex items-center gap-1.5 text-[13px] text-primary hover:underline mt-1 mb-1">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
-          View PDF
-        </button>
-      ) : (
-        <span className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground dark:text-secondary-foreground mt-1 mb-1 cursor-not-allowed">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9l-7-7z"/><polyline points="13,2 13,9 20,9"/></svg>
-          No file
-        </span>
-      )}
+      {r.fileName && <span className="text-xs text-muted-foreground mb-1">{r.fileName}</span>}
       <div className="mt-auto pt-3 border-t border-border">
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span>Added {fmt(r.uploadDate)}</span>
           <span className="font-medium text-muted-foreground">{r.applicationCount || 0} apps</span>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function ResumeListRow({ r, isPrimary, tagColorMap, setAsPrimary, setEditing, setModal, handleDelete, setPreviewResume }: {
+  r: Resume; isPrimary: boolean; tagColorMap: Record<string, TagColor>;
+  setAsPrimary: (id: string | null) => void; setEditing: (r: Resume) => void; setModal: (v: boolean) => void;
+  handleDelete: (id: string) => void; setPreviewResume: (r: Resume) => void;
+}) {
+  return (
+    <div className={`card-premium p-3 flex items-center gap-3 ${isPrimary ? "ring-2 ring-emerald-500/50 border-emerald-500" : ""}`}>
+      <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${r.fileUrl ? "bg-red-100 dark:bg-red-900/30" : "bg-primary/10"}`}>
+        <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className={r.fileUrl ? "text-red-500" : "text-primary"}>
+          <path d="M12 2H5a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7l-5-5z"/><polyline points="12,2 12,7 17,7"/>
+        </svg>
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2 flex-wrap">
+          <h3 className="text-sm font-semibold text-foreground truncate">{r.name}</h3>
+          {isPrimary && <span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded">Primary</span>}
+          {r.targetRole && <span className="text-[11px] text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">{r.targetRole}</span>}
+        </div>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+          <span>{r.fileName || "No file"}</span>
+          <span>•</span>
+          <span>{r.applicationCount || 0} apps</span>
+          <span>•</span>
+          <span>Added {fmt(r.uploadDate)}</span>
+        </div>
+        {r.tags && r.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-1.5">
+            {r.tags.map((t, i) => {
+              const c = getTagColor(t, tagColorMap);
+              return (
+                <span key={i} className="inline-block text-[10px] font-medium px-1.5 py-0.5 rounded border" style={{ backgroundColor: c.bg, color: c.text, borderColor: c.border }}>
+                  {t}
+                </span>
+              );
+            })}
+          </div>
+        )}
+      </div>
+      <div className="flex items-center gap-1 shrink-0">
+        <button
+          onClick={() => r.fileUrl && setPreviewResume(r)}
+          title={r.fileUrl ? "Preview PDF" : "No file to preview"}
+          className={`w-8 h-8 flex items-center justify-center rounded-lg border border-border ${
+            r.fileUrl ? "text-muted-foreground hover:text-primary hover:border-primary" : "text-muted-foreground/50 cursor-not-allowed opacity-60"
+          }`}
+          disabled={!r.fileUrl}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z" />
+            <circle cx="12" cy="12" r="3" />
+          </svg>
+        </button>
+        {isPrimary ? (
+          <button onClick={() => setAsPrimary(null)} title="Remove primary" className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-emerald-500 hover:text-red-500 hover:border-red-400">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/><line x1="4" y1="4" x2="20" y2="20" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
+          </button>
+        ) : (
+          <button onClick={() => setAsPrimary(r._id)} title="Set primary" className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-emerald-500 hover:border-emerald-400">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          </button>
+        )}
+        <button onClick={() => { setEditing(r); setModal(true); }} title="Edit" className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary"><svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M8.5 2.5l3 3L4.5 12.5H1.5v-3z"/></svg></button>
+        {!r.isProtected && (
+          <button onClick={() => handleDelete(r._id)} title="Delete" className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-danger hover:border-danger"><svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="2,4 12,4"/><path d="M5 4V2.5a.5.5 0 01.5-.5h3a.5.5 0 01.5.5V4"/><path d="M3 4l.75 8.5a1 1 0 001 .5h4.5a1 1 0 001-.5L11 4"/></svg></button>
+        )}
       </div>
     </div>
   );
@@ -98,6 +219,8 @@ export default function Resumes() {
   const [primaryResumeId, setPrimaryResumeId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [selectedTag, setSelectedTag] = useState("All");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [sortBy, setSortBy] = useState<"recent" | "name" | "usage">("recent");
   const { confirm: confirmDelete, confirmState, handleConfirm: onConfirm, handleCancel: onCancel } = useConfirm();
 
   const fetchResumes = useCallback(async () => {
@@ -164,48 +287,23 @@ export default function Resumes() {
     });
   }, [resumes, primaryResumeId]);
 
-  // Filter by search query (name, targetRole, or tags)
+  // Filter by search query (name, targetRole, or tags), then sort for faster scanning.
   const filteredResumes = useMemo(() => {
     const byTag = selectedTag === "All"
       ? sortedResumes
       : sortedResumes.filter((r) => r.tags?.includes(selectedTag));
     const q = search.trim().toLowerCase();
-    if (!q) return byTag;
-    return byTag.filter((r) =>
+    const searched = !q ? byTag : byTag.filter((r) =>
       r.name.toLowerCase().includes(q)
       || r.targetRole.toLowerCase().includes(q)
       || r.tags?.some((t) => t.toLowerCase().includes(q))
     );
-  }, [sortedResumes, search, selectedTag]);
-
-  // Group resumes by tag — a resume can appear in multiple groups
-  // Primary resume's group(s) float to the top
-  const tagGroups = useMemo(() => {
-    const groups: { tag: string; resumes: Resume[] }[] = [];
-    const tagSet = new Set<string>();
-    const untagged: Resume[] = [];
-
-    filteredResumes.forEach((r) => {
-      if (!r.tags || r.tags.length === 0) { untagged.push(r); return; }
-      r.tags.forEach((t) => tagSet.add(t));
+    return [...searched].sort((a, b) => {
+      if (sortBy === "name") return a.name.localeCompare(b.name);
+      if (sortBy === "usage") return (b.applicationCount || 0) - (a.applicationCount || 0);
+      return new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime();
     });
-
-    // Build ordered groups — primary resume's tag groups first
-    const primaryTags = new Set(filteredResumes.find((r) => r._id === primaryResumeId)?.tags || []);
-    const allTags = Array.from(tagSet).sort();
-    const priorityTags = allTags.filter((t) => primaryTags.has(t));
-    const otherTags = allTags.filter((t) => !primaryTags.has(t));
-
-    [...priorityTags, ...otherTags].forEach((tag) => {
-      const grouped = filteredResumes.filter((r) => r.tags?.includes(tag));
-      groups.push({ tag, resumes: grouped });
-    });
-    if (untagged.length > 0) groups.push({ tag: "", resumes: untagged });
-
-    return groups;
-  }, [filteredResumes, primaryResumeId]);
-
-  const hasAnyTags = tagGroups.length > 1 || (tagGroups.length === 1 && tagGroups[0].tag !== "");
+  }, [sortedResumes, search, selectedTag, sortBy]);
 
   // Collect all unique tags across resumes for autocomplete
   const allExistingTags = useMemo(() => {
@@ -213,6 +311,9 @@ export default function Resumes() {
     resumes.forEach((r) => r.tags?.forEach((t) => s.add(t)));
     return Array.from(s).sort();
   }, [resumes]);
+  const tagColorMap = useMemo(() => buildTagColorMap(allExistingTags), [allExistingTags]);
+  const primaryResume = useMemo(() => filteredResumes.find((r) => r._id === primaryResumeId) ?? null, [filteredResumes, primaryResumeId]);
+  const nonPrimaryResumes = useMemo(() => filteredResumes.filter((r) => r._id !== primaryResumeId), [filteredResumes, primaryResumeId]);
 
   useEffect(() => {
     if (selectedTag !== "All" && !allExistingTags.includes(selectedTag)) {
@@ -235,9 +336,10 @@ export default function Resumes() {
       </div>
 
       {resumes.length > 0 && (
-        <div className="mb-6">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="relative">
+        <div className="sticky top-3 z-10 mb-6 rounded-xl border border-border/70 bg-card/80 backdrop-blur px-3 py-3 shadow-sm">
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <div className="relative">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
               <input
                 className="input-premium !pl-9 w-[280px]"
@@ -250,7 +352,52 @@ export default function Resumes() {
                   <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="3" x2="11" y2="11"/><line x1="11" y1="3" x2="3" y2="11"/></svg>
                 </button>
               )}
+              </div>
+
+              <div className="ml-auto flex items-center gap-2">
+                <div className="inline-flex items-center rounded-lg border border-border overflow-hidden">
+                  <button
+                    onClick={() => setViewMode("grid")}
+                    className={`w-10 h-10 flex items-center justify-center ${viewMode === "grid" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"}`}
+                    title="Grid view"
+                    aria-label="Grid view"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <rect x="3" y="3" width="7" height="7" rx="1" />
+                      <rect x="14" y="3" width="7" height="7" rx="1" />
+                      <rect x="3" y="14" width="7" height="7" rx="1" />
+                      <rect x="14" y="14" width="7" height="7" rx="1" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => setViewMode("list")}
+                    className={`w-10 h-10 flex items-center justify-center border-l border-border ${viewMode === "list" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"}`}
+                    title="List view"
+                    aria-label="List view"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <line x1="8" y1="6" x2="21" y2="6" />
+                      <line x1="8" y1="12" x2="21" y2="12" />
+                      <line x1="8" y1="18" x2="21" y2="18" />
+                      <circle cx="4" cy="6" r="1" />
+                      <circle cx="4" cy="12" r="1" />
+                      <circle cx="4" cy="18" r="1" />
+                    </svg>
+                  </button>
+                </div>
+                <select
+                  className="input-premium h-10 text-[13px] w-[150px]"
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as "recent" | "name" | "usage")}
+                  aria-label="Sort resumes"
+                >
+                  <option value="recent">Most recent</option>
+                  <option value="name">Name A-Z</option>
+                  <option value="usage">Most used</option>
+                </select>
+              </div>
             </div>
+
             <div className="flex flex-wrap gap-1.5">
               {["All", ...allExistingTags].map((tag) => (
                 <button
@@ -283,57 +430,39 @@ export default function Resumes() {
             <><h3 className="font-medium text-muted-foreground mb-1">No matches</h3><p className="text-sm">No resumes match your current search and tag filter.</p></>
           )}
         </div>
-      ) : hasAnyTags ? (
-        /* ── Grouped by tag, with primary pinned on top ── */
-        <div className="space-y-6">
-          {/* Primary resume — pinned above all groups */}
-          {primaryResumeId && (() => {
-            const pr = filteredResumes.find((r) => r._id === primaryResumeId);
-            if (!pr) return null;
-            return (
-              <div className="border border-emerald-300 dark:border-emerald-700 rounded-xl p-4 bg-emerald-500/[0.03]">
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300">
+      ) : (
+        <div className="space-y-4">
+          {primaryResume && (
+            <div className="rounded-xl border border-emerald-300 dark:border-emerald-700 bg-emerald-500/[0.03] p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
                     Primary Resume
-                  </span>
+                  </div>
+                  <h3 className="mt-2 text-sm font-semibold text-foreground truncate">{primaryResume.name}</h3>
+                  <p className="text-xs text-muted-foreground truncate">{primaryResume.targetRole || "General purpose"} • {primaryResume.applicationCount || 0} apps</p>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <ResumeCard r={pr} isPrimary allTags={allExistingTags} setAsPrimary={setAsPrimary} setEditing={setEditing} setModal={setModal} handleDelete={handleDelete} setPreviewResume={setPreviewResume} />
+                <div className="flex items-center gap-2 shrink-0">
+                  {primaryResume.fileUrl && (
+                    <button onClick={() => setPreviewResume(primaryResume)} className="btn-secondary !h-9 !px-3 text-xs">Preview</button>
+                  )}
+                  <button onClick={() => { setEditing(primaryResume); setModal(true); }} className="btn-secondary !h-9 !px-3 text-xs">Edit</button>
+                  <button onClick={() => setAsPrimary(null)} className="btn-secondary !h-9 !px-3 text-xs text-emerald-700 dark:text-emerald-300">Unset</button>
                 </div>
-              </div>
-            );
-          })()}
-
-          {/* Tag groups — excluding primary from inside them */}
-          {tagGroups.map((g) => {
-            const groupResumes = g.resumes.filter((r) => r._id !== primaryResumeId);
-            if (groupResumes.length === 0) return null;
-            const tc = g.tag ? getTagColor(g.tag, allExistingTags) : null;
-            return (
-            <div key={g.tag || "__untagged"} className={`border rounded-xl p-4 ${tc ? tc.border : "border-border"}`}>
-              <div className="flex items-center gap-2 mb-3">
-                {tc ? (
-                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full ${tc.bg} ${tc.text}`}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
-                    {g.tag}
-                  </span>
-                ) : (
-                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Untagged</span>
-                )}
-                <span className="text-[11px] text-muted-foreground">{groupResumes.length} resume{groupResumes.length !== 1 ? "s" : ""}</span>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {groupResumes.map((r) => <ResumeCard key={r._id} r={r} isPrimary={false} allTags={allExistingTags} setAsPrimary={setAsPrimary} setEditing={setEditing} setModal={setModal} handleDelete={handleDelete} setPreviewResume={setPreviewResume} />)}
               </div>
             </div>
-            );
-          })}
-        </div>
-      ) : (
-        /* ── Flat grid (no tags) — primary first ── */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredResumes.map((r) => <ResumeCard key={r._id} r={r} isPrimary={primaryResumeId === r._id} allTags={allExistingTags} setAsPrimary={setAsPrimary} setEditing={setEditing} setModal={setModal} handleDelete={handleDelete} setPreviewResume={setPreviewResume} />)}
+          )}
+
+          {viewMode === "grid" ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {nonPrimaryResumes.map((r) => <ResumeCard key={r._id} r={r} isPrimary={false} tagColorMap={tagColorMap} setAsPrimary={setAsPrimary} setEditing={setEditing} setModal={setModal} handleDelete={handleDelete} setPreviewResume={setPreviewResume} />)}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {nonPrimaryResumes.map((r) => <ResumeListRow key={r._id} r={r} isPrimary={false} tagColorMap={tagColorMap} setAsPrimary={setAsPrimary} setEditing={setEditing} setModal={setModal} handleDelete={handleDelete} setPreviewResume={setPreviewResume} />)}
+            </div>
+          )}
         </div>
       )}
 

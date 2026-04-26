@@ -3011,10 +3011,32 @@ export const THEMES: Theme[] = [
   },
 ];
 
+const MODERN_MINIMAL_BASE = THEMES.find((t) => t.id === "modern-minimal") ?? THEMES[0];
+
+const MODERN_MINIMAL_LIGHT: Theme = {
+  ...MODERN_MINIMAL_BASE,
+  id: "default",
+  name: "Modern Minimal",
+  isDark: false,
+  variables: { ...MODERN_MINIMAL_BASE.variables },
+};
+
+const MODERN_MINIMAL_DARK: Theme = {
+  ...MODERN_MINIMAL_BASE,
+  id: "dark",
+  name: "Modern Minimal Dark",
+  isDark: true,
+  variables: {
+    ...(MODERN_MINIMAL_BASE.darkVariables ?? MODERN_MINIMAL_BASE.variables),
+  },
+  darkVariables: undefined,
+};
+
+export const CORE_THEMES: Theme[] = [MODERN_MINIMAL_LIGHT, MODERN_MINIMAL_DARK];
+
 export function getTheme(id: string): Theme {
-  // Legacy: toggle + old localStorage used id "dark", but no THEME entry had that id.
-  if (id === "dark") {
-    return THEMES.find((t) => t.isDark) ?? THEMES[0];
-  }
-  return THEMES.find((t) => t.id === id) ?? THEMES[0];
+  if (id === "dark" || id === "modern-minimal-dark") return MODERN_MINIMAL_DARK;
+  if (id === "default" || id === "modern-minimal") return MODERN_MINIMAL_LIGHT;
+  const legacy = THEMES.find((t) => t.id === id);
+  return legacy?.isDark ? MODERN_MINIMAL_DARK : MODERN_MINIMAL_LIGHT;
 }

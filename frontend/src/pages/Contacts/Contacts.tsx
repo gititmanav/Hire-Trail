@@ -104,7 +104,7 @@ function ContactCard({ c, onEdit, onDelete }: { c: Contact; onEdit: () => void; 
   return (
     <div className="bg-card border border-border rounded-xl p-5 flex flex-col group">
       <div className="flex items-start gap-2.5 mb-2.5">
-        <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[13px] font-semibold shrink-0">{ini(c.name)}</div>
+        <div className="w-10 h-10 rounded-full bg-muted text-secondary-foreground flex items-center justify-center text-[13px] font-semibold shrink-0">{ini(c.name)}</div>
         <div className="flex-1 min-w-0">
           <h3 className="text-[15px] font-semibold text-foreground">{c.name}</h3>
           <p className="text-[13px] text-muted-foreground">{c.role ? `${c.role} at ` : ""}{c.company}</p>
@@ -118,12 +118,12 @@ function ContactCard({ c, onEdit, onDelete }: { c: Contact; onEdit: () => void; 
         {c.outreachStatus && <OutreachBadge status={c.outreachStatus} />}
         {c.connectionSource && <span className="inline-block text-xs font-medium bg-muted text-muted-foreground px-2 py-0.5 rounded-full">{c.connectionSource}</span>}
       </div>
-      {c.linkedinUrl && <a href={c.linkedinUrl} target="_blank" rel="noopener noreferrer" className="text-[13px] text-primary hover:underline mb-1">LinkedIn profile</a>}
+      {c.linkedinUrl && <a href={c.linkedinUrl} target="_blank" rel="noopener noreferrer" className="text-[13px] text-primary hover:text-primary/90 hover:underline mb-1">LinkedIn profile</a>}
       {c.notes && (
         <div className="mb-2">
           <p className={`text-[13px] text-muted-foreground ${notesExpanded ? "" : "line-clamp-3"}`}>{c.notes}</p>
           {hasLongNotes && (
-            <button onClick={() => setNotesExpanded(!notesExpanded)} className="text-[12px] text-primary hover:underline mt-0.5">
+            <button onClick={() => setNotesExpanded(!notesExpanded)} className="text-[12px] text-muted-foreground hover:text-foreground hover:underline mt-0.5">
               {notesExpanded ? "Show less" : "Show more"}
             </button>
           )}
@@ -197,8 +197,8 @@ export default function Contacts() {
         </h1>
         <div className="flex items-center gap-2">
           <div className="flex rounded-lg border border-border overflow-hidden">
-            <button onClick={() => setViewMode("person")} className={`px-3 py-1.5 text-xs font-medium ${viewMode === "person" ? "bg-primary text-primary-foreground" : "bg-card text-secondary-foreground hover:bg-muted"}`}>By Person</button>
-            <button onClick={() => setViewMode("company")} className={`px-3 py-1.5 text-xs font-medium ${viewMode === "company" ? "bg-primary text-primary-foreground" : "bg-card text-secondary-foreground hover:bg-muted"}`}>By Company</button>
+            <button onClick={() => setViewMode("person")} className={`px-3 py-1.5 text-xs font-medium ${viewMode === "person" ? "bg-muted text-foreground" : "bg-card text-secondary-foreground hover:bg-muted"}`}>By Person</button>
+            <button onClick={() => setViewMode("company")} className={`px-3 py-1.5 text-xs font-medium ${viewMode === "company" ? "bg-muted text-foreground" : "bg-card text-secondary-foreground hover:bg-muted"}`}>By Company</button>
           </div>
           <button onClick={() => { setEditing(null); setModal(true); }} className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary hover:bg-primary/90 text-white text-sm font-medium rounded-lg"><svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="8" y1="3" x2="8" y2="13" /><line x1="3" y1="8" x2="13" y2="8" /></svg>Add contact</button>
         </div>
@@ -210,7 +210,7 @@ export default function Contacts() {
           <div className="flex flex-wrap gap-1.5">
             <button
               onClick={() => setStatusFilter("All")}
-              className={`inline-flex items-center gap-1 px-3 py-1 text-[13px] font-medium rounded-full border ${statusFilter === "All" ? "bg-primary/10 border-primary text-primary" : "bg-card border-border text-muted-foreground hover:border-primary hover:text-primary"}`}
+              className={`inline-flex items-center gap-1 px-3 py-1 text-[13px] font-medium rounded-full border ${statusFilter === "All" ? "bg-muted border-border text-foreground" : "bg-card border-border text-muted-foreground hover:border-muted-foreground/40 hover:text-foreground"}`}
             >
               All
             </button>
@@ -218,7 +218,7 @@ export default function Contacts() {
               <button
                 key={s.value}
                 onClick={() => setStatusFilter(s.value)}
-                className={`inline-flex items-center gap-1 px-3 py-1 text-[13px] font-medium rounded-full border ${statusFilter === s.value ? "bg-primary/10 border-primary text-primary" : "bg-card border-border text-muted-foreground hover:border-primary hover:text-primary"}`}
+                className={`inline-flex items-center gap-1 px-3 py-1 text-[13px] font-medium rounded-full border ${statusFilter === s.value ? "bg-muted border-border text-foreground" : "bg-card border-border text-muted-foreground hover:border-muted-foreground/40 hover:text-foreground"}`}
               >
                 {s.label}
                 <span className="text-[11px] bg-muted px-1.5 rounded-full">{statusCounts[s.value] || 0}</span>

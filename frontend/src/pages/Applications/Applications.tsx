@@ -15,7 +15,7 @@ import ResumeModal from "../../components/ResumeModal/ResumeModal.tsx";
 import { useConfirm } from "../../hooks/useConfirm.ts";
 
 const STAGES: Stage[] = ["Applied", "OA", "Interview", "Offer", "Rejected"];
-const badgeCls: Record<Stage, string> = { Applied: "bg-primary/10 text-primary", OA: "bg-warning-light text-yellow-800", Interview: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300", Offer: "bg-success-light text-emerald-800", Rejected: "bg-danger-light text-red-800" };
+const badgeCls: Record<Stage, string> = { Applied: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300", OA: "bg-warning-light text-yellow-800", Interview: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300", Offer: "bg-success-light text-emerald-800", Rejected: "bg-danger-light text-red-800" };
 const fmt = (d: string) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 const SIDEBAR_WIDTH_KEY = "hiretrail-app-sidebar-width";
 const SIDEBAR_MIN_WIDTH = 460;
@@ -25,9 +25,9 @@ type SidebarEditForm = Partial<ApplicationFormData> & { jobDescription?: string 
 function SortArrow({ field, sort }: { field: string; sort: SortConfig }) {
   const active = sort.field === field;
   return (
-    <span className={`inline-flex flex-col ml-1 leading-none ${active ? "text-primary" : "text-muted-foreground dark:text-secondary-foreground"}`}>
-      <svg width="8" height="5" viewBox="0 0 8 5" className={active && sort.order === "asc" ? "text-primary" : ""}><path d="M4 0L8 5H0L4 0Z" fill="currentColor" /></svg>
-      <svg width="8" height="5" viewBox="0 0 8 5" className={`mt-[1px] ${active && sort.order === "desc" ? "text-primary" : ""}`}><path d="M4 5L0 0H8L4 5Z" fill="currentColor" /></svg>
+    <span className={`inline-flex flex-col ml-1 leading-none ${active ? "text-foreground" : "text-muted-foreground dark:text-secondary-foreground"}`}>
+      <svg width="8" height="5" viewBox="0 0 8 5" className={active && sort.order === "asc" ? "text-foreground" : ""}><path d="M4 0L8 5H0L4 0Z" fill="currentColor" /></svg>
+      <svg width="8" height="5" viewBox="0 0 8 5" className={`mt-[1px] ${active && sort.order === "desc" ? "text-foreground" : ""}`}><path d="M4 5L0 0H8L4 5Z" fill="currentColor" /></svg>
     </span>
   );
 }
@@ -68,7 +68,7 @@ function Modal({ app, resumes, onSave, onClose, onResumesChanged }: { app: Appli
               <label className="block text-sm font-medium text-foreground mb-1.5">Resume</label>
               <div className="flex gap-1.5">
                 <select className="input-premium flex-1" value={form.resumeId} onChange={(e) => u("resumeId", e.target.value)}><option value="">None</option>{resumes.map((r) => <option key={r._id} value={r._id}>{r.name}</option>)}</select>
-                <button type="button" onClick={() => setShowResumeModal(true)} title="Add new resume" className="w-9 h-9 shrink-0 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary">
+                <button type="button" onClick={() => setShowResumeModal(true)} title="Add new resume" className="w-9 h-9 shrink-0 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground/40">
                   <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg>
                 </button>
               </div>
@@ -304,7 +304,7 @@ function ApplicationDetailSidebar({
         <h2 className="text-lg font-semibold text-foreground truncate">{app.role}</h2>
         <div className="flex items-center gap-2">
           {!isEditing && (
-            <button onClick={enterEditMode} title="Edit details" className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary">
+            <button onClick={enterEditMode} title="Edit details" className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground/40">
               <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M8.5 2.5l3 3L4.5 12.5H1.5v-3z"/></svg>
             </button>
           )}
@@ -324,7 +324,7 @@ function ApplicationDetailSidebar({
             ) : (
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-foreground">{app.company}</span>
-                {app.jobUrl && <a href={app.jobUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-[11px]">Visit</a>}
+                {app.jobUrl && <a href={app.jobUrl} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground hover:underline text-[11px]">Visit</a>}
               </div>
             )}
           </div>
@@ -349,7 +349,7 @@ function ApplicationDetailSidebar({
                 {resumes.map((r) => <option key={r._id} value={r._id}>{r.name}</option>)}
               </select>
             ) : resume ? (
-              <button onClick={() => onViewResume(resume)} className="text-sm text-primary hover:underline flex items-center gap-1.5">
+              <button onClick={() => onViewResume(resume)} className="text-sm text-muted-foreground hover:text-foreground hover:underline flex items-center gap-1.5">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9l-7-7z"/><path d="M13 2v7h7"/></svg>
                 {resume.name}
               </button>
@@ -365,7 +365,7 @@ function ApplicationDetailSidebar({
               <div className="flex flex-wrap gap-1">
                 {STAGES.map((s) => (
                   <button key={s} onClick={() => onStageChange(app._id, s)}
-                    className={`px-2 py-0.5 text-[11px] font-medium rounded-full border ${app.stage === s ? badgeCls[s] + " border-current" : "bg-muted border-border text-muted-foreground hover:border-primary hover:text-primary"}`}>
+                    className={`px-2 py-0.5 text-[11px] font-medium rounded-full border ${app.stage === s ? badgeCls[s] + " border-current" : "bg-muted border-border text-muted-foreground hover:border-muted-foreground/40 hover:text-foreground"}`}>
                     {s}
                   </button>
                 ))}
@@ -416,7 +416,7 @@ function ApplicationDetailSidebar({
                 {jdExpanded ? app.jobDescription : app.jobDescription.slice(0, 200) + (app.jobDescription.length > 200 ? "..." : "")}
               </div>
               {app.jobDescription.length > 200 && (
-                <button onClick={() => setJdExpanded(!jdExpanded)} className="text-xs text-primary hover:underline mt-1.5">
+                <button onClick={() => setJdExpanded(!jdExpanded)} className="text-xs text-muted-foreground hover:text-foreground hover:underline mt-1.5">
                   {jdExpanded ? "Show less" : "Show more"}
                 </button>
               )}
@@ -733,7 +733,7 @@ export default function Applications() {
                 key={s}
                 onClick={() => setFilter(s)}
                 disabled={multiSelectEnabled}
-                className={`inline-flex items-center gap-1 px-3 py-1 text-[13px] font-medium rounded-full border disabled:opacity-45 disabled:cursor-not-allowed ${filter === s ? "bg-primary/10 border-primary text-primary" : "bg-card border-border text-muted-foreground hover:border-primary hover:text-primary"}`}
+                className={`inline-flex items-center gap-1 px-3 py-1 text-[13px] font-medium rounded-full border disabled:opacity-45 disabled:cursor-not-allowed ${filter === s ? "bg-muted border-border text-foreground" : "bg-card border-border text-muted-foreground hover:border-muted-foreground/40 hover:text-foreground"}`}
               >
                 {s}{s !== "All" && <span className="text-[11px] bg-muted px-1.5 rounded-full">{stageCounts[s] || 0}</span>}
               </button>
@@ -741,7 +741,7 @@ export default function Applications() {
           </div>
           <div className="ml-auto flex items-center gap-2">
             {multiSelectEnabled && <span className="text-xs text-muted-foreground">{selectedCount} selected</span>}
-            <button onClick={toggleMultiSelectMode} className={multiSelectEnabled ? "btn-secondary border-primary text-primary" : "btn-secondary"}>
+            <button onClick={toggleMultiSelectMode} className={multiSelectEnabled ? "btn-secondary border-border text-foreground" : "btn-secondary"}>
               {multiSelectEnabled ? "Cancel selection" : "Select multiple"}
             </button>
             {multiSelectEnabled && (
@@ -782,7 +782,7 @@ export default function Applications() {
                   )}
                 </th>
                 {[{ l: "Company", f: "company" }, { l: "Role", f: "role" }, { l: "Stage", f: "stage" }, { l: "Resume", f: "" }, { l: "Applied", f: "applicationDate" }].map((h) => (
-                  <th key={h.l} className={`text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3 ${h.f ? "cursor-pointer hover:text-primary select-none" : ""}`} onClick={() => h.f && toggleSort(h.f)}>
+                  <th key={h.l} className={`text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground px-4 py-3 ${h.f ? "cursor-pointer hover:text-foreground select-none" : ""}`} onClick={() => h.f && toggleSort(h.f)}>
                     <span className="inline-flex items-center">{h.l}{h.f && <SortArrow field={h.f} sort={sort} />}</span>
                   </th>
                 ))}
@@ -815,16 +815,16 @@ export default function Applications() {
                         </td>
                         <td className="px-4 py-3">
                           <span className="text-sm font-medium text-foreground">{firstApp.company}</span>
-                          {firstApp.jobUrl && <a href={firstApp.jobUrl} target="_blank" rel="noopener noreferrer" className="ml-1.5 text-muted-foreground/50 hover:text-primary inline-flex opacity-0 group-hover:opacity-100 transition-opacity"><svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M9 6.5v3a1 1 0 01-1 1H3a1 1 0 01-1-1V4.5a1 1 0 011-1h3"/><polyline points="7,1.5 10.5,1.5 10.5,5"/><line x1="5.5" y1="6.5" x2="10.5" y2="1.5"/></svg></a>}
+                          {firstApp.jobUrl && <a href={firstApp.jobUrl} target="_blank" rel="noopener noreferrer" className="ml-1.5 text-muted-foreground/50 hover:text-foreground inline-flex opacity-0 group-hover:opacity-100 transition-opacity"><svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M9 6.5v3a1 1 0 01-1 1H3a1 1 0 01-1-1V4.5a1 1 0 011-1h3"/><polyline points="7,1.5 10.5,1.5 10.5,5"/><line x1="5.5" y1="6.5" x2="10.5" y2="1.5"/></svg></a>}
                         </td>
-                        <td className="px-4 py-3 max-w-[200px]"><button onClick={() => { if (!multiSelectEnabled) setSidebarApp(firstApp); }} className={`text-sm text-left truncate block max-w-full ${multiSelectEnabled ? "text-muted-foreground cursor-default" : "text-primary hover:underline"}`} title={firstApp.role}>{firstApp.role}</button></td>
+                        <td className="px-4 py-3 max-w-[200px]"><button onClick={() => { if (!multiSelectEnabled) setSidebarApp(firstApp); }} className={`text-sm text-left truncate block max-w-full ${multiSelectEnabled ? "text-muted-foreground cursor-default" : "text-foreground hover:underline"}`} title={firstApp.role}>{firstApp.role}</button></td>
                         <td className="px-4 py-3"><span className={`inline-block px-2.5 py-0.5 text-xs font-medium rounded-full ${badgeCls[firstApp.stage]}`}>{firstApp.stage}</span></td>
-                        <td className="px-4 py-3 text-[13px] text-muted-foreground">{(() => { const r = resumes.find((r) => r._id === firstApp.resumeId); return r ? <button onClick={() => setSidebarResume(r)} className="text-primary hover:underline text-left flex items-center gap-1"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9l-7-7z"/><path d="M13 2v7h7"/></svg>{r.name}</button> : "—"; })()}</td>
+                        <td className="px-4 py-3 text-[13px] text-muted-foreground">{(() => { const r = resumes.find((r) => r._id === firstApp.resumeId); return r ? <button onClick={() => setSidebarResume(r)} className="text-muted-foreground hover:text-foreground hover:underline text-left flex items-center gap-1"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9l-7-7z"/><path d="M13 2v7h7"/></svg>{r.name}</button> : "—"; })()}</td>
                         <td className="px-4 py-3 text-[13px] text-muted-foreground">{fmt(firstApp.applicationDate)}</td>
                         <td className="px-4 py-3">
                           {!multiSelectEnabled && (
                             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button onClick={() => { setEditing(firstApp); setModal(true); }} className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary"><svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M8.5 2.5l3 3L4.5 12.5H1.5v-3z"/></svg></button>
+                              <button onClick={() => { setEditing(firstApp); setModal(true); }} className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground/40"><svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M8.5 2.5l3 3L4.5 12.5H1.5v-3z"/></svg></button>
                               <button onClick={() => handleDelete(firstApp._id)} className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-danger hover:border-danger"><svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="2,4 12,4"/><path d="M5 4V2.5a.5.5 0 01.5-.5h3a.5.5 0 01.5.5V4"/><path d="M3 4l.75 8.5a1 1 0 001 .5h4.5a1 1 0 001-.5L11 4"/></svg></button>
                             </div>
                           )}
@@ -859,7 +859,7 @@ export default function Applications() {
                               className="h-4 w-4 accent-primary cursor-pointer"
                             />
                           ) : (
-                            <button className="w-5 h-5 flex items-center justify-center rounded text-muted-foreground hover:text-primary">
+                            <button className="w-5 h-5 flex items-center justify-center rounded text-muted-foreground hover:text-foreground">
                               <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
                                 className={`transition-transform duration-200 ${isExpanded ? "rotate-90" : ""}`}>
                                 <path d="M4 2l5 5-5 5" />
@@ -869,7 +869,7 @@ export default function Applications() {
                         </td>
                         <td className="px-4 py-3">
                           <span className="text-sm font-medium text-foreground">{company}</span>
-                          <span className="ml-2 text-[11px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">{companyApps.length} apps</span>
+                          <span className="ml-2 text-[11px] bg-muted text-muted-foreground px-2 py-0.5 rounded-full font-medium">{companyApps.length} apps</span>
                         </td>
                         <td className="px-4 py-3 text-[13px] text-muted-foreground max-w-[200px]"><span className="truncate block" title={companyApps.map((a) => a.role).join(", ")}>{isExpanded ? "" : companyApps.map((a) => a.role).join(", ")}</span></td>
                         <td className="px-4 py-3">
@@ -898,16 +898,16 @@ export default function Applications() {
                           </td>
                           <td className="px-4 py-2.5">
                             <span className="text-[13px] text-muted-foreground">{a.company}</span>
-                            {a.jobUrl && <a href={a.jobUrl} target="_blank" rel="noopener noreferrer" className="ml-1.5 text-muted-foreground/50 hover:text-primary inline-flex opacity-0 group-hover:opacity-100 transition-opacity"><svg width="10" height="10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M7 5v2.5a.8.8 0 01-.8.8H2.5a.8.8 0 01-.8-.8V3.8a.8.8 0 01.8-.8H5"/><polyline points="6,1.2 8.8,1.2 8.8,4"/><line x1="4.5" y1="5.3" x2="8.8" y2="1.2"/></svg></a>}
+                            {a.jobUrl && <a href={a.jobUrl} target="_blank" rel="noopener noreferrer" className="ml-1.5 text-muted-foreground/50 hover:text-foreground inline-flex opacity-0 group-hover:opacity-100 transition-opacity"><svg width="10" height="10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M7 5v2.5a.8.8 0 01-.8.8H2.5a.8.8 0 01-.8-.8V3.8a.8.8 0 01.8-.8H5"/><polyline points="6,1.2 8.8,1.2 8.8,4"/><line x1="4.5" y1="5.3" x2="8.8" y2="1.2"/></svg></a>}
                           </td>
-                          <td className="px-4 py-2.5 max-w-[200px]"><button onClick={() => { if (!multiSelectEnabled) setSidebarApp(a); }} className={`text-sm text-left truncate block max-w-full ${multiSelectEnabled ? "text-muted-foreground cursor-default" : "text-primary hover:underline"}`} title={a.role}>{a.role}</button></td>
+                          <td className="px-4 py-2.5 max-w-[200px]"><button onClick={() => { if (!multiSelectEnabled) setSidebarApp(a); }} className={`text-sm text-left truncate block max-w-full ${multiSelectEnabled ? "text-muted-foreground cursor-default" : "text-foreground hover:underline"}`} title={a.role}>{a.role}</button></td>
                           <td className="px-4 py-2.5"><span className={`inline-block px-2.5 py-0.5 text-xs font-medium rounded-full ${badgeCls[a.stage]}`}>{a.stage}</span></td>
-                          <td className="px-4 py-2.5 text-[13px] text-muted-foreground">{(() => { const r = resumes.find((r) => r._id === a.resumeId); return r ? <button onClick={(e) => { e.stopPropagation(); setSidebarResume(r); }} className="text-primary hover:underline text-left flex items-center gap-1"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9l-7-7z"/><path d="M13 2v7h7"/></svg>{r.name}</button> : "—"; })()}</td>
+                          <td className="px-4 py-2.5 text-[13px] text-muted-foreground">{(() => { const r = resumes.find((r) => r._id === a.resumeId); return r ? <button onClick={(e) => { e.stopPropagation(); setSidebarResume(r); }} className="text-muted-foreground hover:text-foreground hover:underline text-left flex items-center gap-1"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9l-7-7z"/><path d="M13 2v7h7"/></svg>{r.name}</button> : "—"; })()}</td>
                           <td className="px-4 py-2.5 text-[13px] text-muted-foreground">{fmt(a.applicationDate)}</td>
                           <td className="px-4 py-2.5">
                             {!multiSelectEnabled && (
                               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button onClick={(e) => { e.stopPropagation(); setEditing(a); setModal(true); }} className="w-7 h-7 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary"><svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M8.5 2.5l3 3L4.5 12.5H1.5v-3z"/></svg></button>
+                                <button onClick={(e) => { e.stopPropagation(); setEditing(a); setModal(true); }} className="w-7 h-7 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground/40"><svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M8.5 2.5l3 3L4.5 12.5H1.5v-3z"/></svg></button>
                                 <button onClick={(e) => { e.stopPropagation(); handleDelete(a._id); }} className="w-7 h-7 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-danger hover:border-danger"><svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="2,4 10,4"/><path d="M4 4V2.5a.5.5 0 01.5-.5h3a.5.5 0 01.5.5V4"/><path d="M3 4l.6 7a.8.8 0 00.8.4h3.2a.8.8 0 00.8-.4L9 4"/></svg></button>
                               </div>
                             )}

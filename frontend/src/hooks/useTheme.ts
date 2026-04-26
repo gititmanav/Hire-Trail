@@ -60,13 +60,15 @@ function syncThemeToDocument(theme: Theme) {
 }
 
 function resolveInitialId(userId?: string | null): string {
-  if (typeof window === "undefined") return "default";
+  if (typeof window === "undefined") return "modern-minimal";
   const stored = localStorage.getItem(keyForUser(userId));
   if (stored) return stored;
+  const globalStored = localStorage.getItem(STORAGE_KEY);
+  if (globalStored) return globalStored;
   const legacy = localStorage.getItem("hiretrail-theme");
   if (legacy === "dark") return "dark";
   if (window.matchMedia("(prefers-color-scheme: dark)").matches) return "dark";
-  return "default";
+  return "modern-minimal";
 }
 
 export function useTheme(userId?: string | null) {
@@ -89,7 +91,13 @@ export function useTheme(userId?: string | null) {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const raw = localStorage.getItem(keyForUser(userId));
-    if (!raw) return;
+    if (!raw) {
+      const globalRaw = localStorage.getItem(STORAGE_KEY);
+      if (!globalRaw) return;
+      const globalCanonical = getTheme(globalRaw).id;
+      setThemeId((prev) => (prev === globalCanonical ? prev : globalCanonical));
+      return;
+    }
     const canonical = getTheme(raw).id;
     setThemeId((prev) => (prev === canonical ? prev : canonical));
   }, [userId]);
@@ -98,6 +106,7 @@ export function useTheme(userId?: string | null) {
   useEffect(() => {
     const canonical = getTheme(themeId).id;
     localStorage.setItem(keyForUser(userId), canonical);
+    localStorage.setItem(STORAGE_KEY, canonical);
   }, [themeId, userId]);
 
   const setTheme = useCallback((id: string) => {
@@ -107,7 +116,7 @@ export function useTheme(userId?: string | null) {
   const toggle = useCallback((_e?: React.MouseEvent) => {
     setThemeId((prev) => {
       const cur = getTheme(prev);
-      return cur.isDark ? "default" : "dark";
+      return cur.isDark ? "modern-minimal" : "dark";
     });
   }, []);
 
