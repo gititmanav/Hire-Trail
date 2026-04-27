@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, FormEvent } from "react";
 import toast from "react-hot-toast";
 import { deadlinesAPI, applicationsAPI } from "../../utils/api.ts";
 import { SkeletonTable } from "../../components/Skeleton/Skeleton.tsx";
+import ActionDropdown from "../../components/ActionDropdown/ActionDropdown.tsx";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal.tsx";
 import { useConfirm } from "../../hooks/useConfirm.ts";
 import type { Deadline, Application, DeadlineFormData, Pagination } from "../../types";
@@ -25,6 +26,7 @@ const btnIcon = "w-9 h-9 flex items-center justify-center rounded-lg border bord
 function Modal({ deadline: dl, applications: apps, onSave, onClose }: { deadline: Deadline | null; applications: Application[]; onSave: (d: DeadlineFormData) => Promise<void>; onClose: () => void }) {
   const [form, setForm] = useState<DeadlineFormData>({ applicationId: dl?.applicationId || "", type: dl?.type || "", dueDate: dl?.dueDate ? new Date(dl.dueDate).toISOString().split("T")[0] : "", notes: dl?.notes || "" });
   const [saving, setSaving] = useState(false);
+  const selectedApp = apps.find((a) => a._id === form.applicationId);
 
   useEffect(() => { const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); }; document.addEventListener("keydown", h); return () => document.removeEventListener("keydown", h); }, [onClose]);
 
@@ -32,9 +34,61 @@ function Modal({ deadline: dl, applications: apps, onSave, onClose }: { deadline
     <div className="fixed inset-0 bg-black/45 flex items-center justify-center z-50" onClick={onClose}>
       <div className="bg-card rounded-xl p-6 w-full max-w-[520px] max-h-[90vh] overflow-y-auto shadow-2xl animate-in" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5"><h2 className="text-lg font-semibold text-foreground">{dl ? "Edit deadline" : "New deadline"}</h2><button className={btnIcon} onClick={onClose}><svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="4" y1="4" x2="12" y2="12" /><line x1="12" y1="4" x2="4" y2="12" /></svg></button></div>
-        <form onSubmit={(e: FormEvent) => { e.preventDefault(); setSaving(true); onSave(form).catch(() => setSaving(false)); }} className="space-y-4">
-          <div className="grid grid-cols-2 gap-3"><div><label className="block text-sm font-medium text-foreground mb-1.5">Type *</label><select className={inputCls} value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} required><option value="">Select...</option>{TYPES.map((t) => <option key={t}>{t}</option>)}</select></div><div><label className="block text-sm font-medium text-foreground mb-1.5">Due date *</label><input type="date" className={inputCls} value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} required /></div></div>
-          <div><label className="block text-sm font-medium text-foreground mb-1.5">Application</label><select className={inputCls} value={form.applicationId} onChange={(e) => setForm({ ...form, applicationId: e.target.value })}><option value="">None</option>{apps.map((a) => <option key={a._id} value={a._id}>{a.company} — {a.role}</option>)}</select></div>
+        <form
+          onSubmit={(e: FormEvent) => {
+            e.preventDefault();
+            if (!form.type) return toast.error("Please select a deadline type");
+            setSaving(true);
+            onSave(form).catch(() => setSaving(false));
+          }}
+          className="space-y-4"
+        >
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">Type *</label>
+              <ActionDropdown
+                align="left"
+                menuWidth="w-full"
+                searchable
+                searchPlaceholder="Search type..."
+                trigger={
+                  <button className={`${inputCls} h-9 flex items-center justify-between text-left`}>
+                    <span>{form.type || "Select..."}</span>
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="4,6 8,10 12,6" /></svg>
+                  </button>
+                }
+                items={[
+                  { label: "Select...", onClick: () => setForm({ ...form, type: "" }), className: !form.type ? "text-primary font-medium" : undefined },
+                  ...TYPES.map((t) => ({ label: t, onClick: () => setForm({ ...form, type: t }), className: form.type === t ? "text-primary font-medium" : undefined })),
+                ]}
+              />
+            </div>
+            <div><label className="block text-sm font-medium text-foreground mb-1.5">Due date *</label><input type="date" className={inputCls} value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} required /></div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1.5">Application</label>
+            <ActionDropdown
+              align="left"
+              menuWidth="w-full"
+              searchable
+              searchPlaceholder="Search application..."
+              maxVisibleItems={8}
+              trigger={
+                <button className={`${inputCls} h-9 flex items-center justify-between text-left`}>
+                  <span className="truncate">{selectedApp ? `${selectedApp.company} — ${selectedApp.role}` : "None"}</span>
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="4,6 8,10 12,6" /></svg>
+                </button>
+              }
+              items={[
+                { label: "None", onClick: () => setForm({ ...form, applicationId: "" }), className: !form.applicationId ? "text-primary font-medium" : undefined },
+                ...apps.map((a) => ({
+                  label: `${a.company} — ${a.role}`,
+                  onClick: () => setForm({ ...form, applicationId: a._id }),
+                  className: form.applicationId === a._id ? "text-primary font-medium" : undefined,
+                })),
+              ]}
+            />
+          </div>
           <div><label className="block text-sm font-medium text-foreground mb-1.5">Notes</label><textarea className={`${inputCls} min-h-[80px] resize-y`} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></div>
           <div className="flex justify-end gap-2 pt-4 border-t border-border"><button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-foreground border border-border rounded-lg hover:bg-muted">Cancel</button><button type="submit" disabled={saving} className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50">{saving ? "Saving..." : dl ? "Update" : "Add deadline"}</button></div>
         </form>

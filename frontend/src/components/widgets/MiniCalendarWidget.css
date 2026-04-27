@@ -1,0 +1,27 @@
+.mini-calendar-widget .fc {
+  --fc-border-color: color-mix(in srgb, var(--border) 90%, transparent);
+  --fc-page-bg-color: transparent;
+  --fc-neutral-bg-color: color-mix(in srgb, var(--muted) 40%, transparent);
+  --fc-today-bg-color: color-mix(in srgb, var(--primary) 12%, transparent);
+}
+
+.mini-calendar-widget .fc .fc-scrollgrid {
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.mini-calendar-widget .fc .fc-daygrid-day-number,
+.mini-calendar-widget .fc .fc-col-header-cell-cushion {
+  color: var(--foreground);
+  font-size: 0.68rem;
+}
+
+.mini-calendar-widget .fc .fc-daygrid-event {
+  border-radius: 6px;
+  font-size: 0.62rem;
+  padding: 0 2px;
+}
+
+.mini-calendar-widget .fc .fc-daygrid-day-frame {
+  min-height: 2rem;
+}

@@ -21,6 +21,7 @@ export const ALL_WIDGETS: WidgetConfig[] = [
   { id: "recent-apps", type: "recent-apps", title: "Recent Applications" },
   { id: "deadlines", type: "deadlines", title: "Upcoming Deadlines" },
   { id: "follow-ups", type: "follow-ups", title: "Follow-up Queue" },
+  { id: "mini-calendar", type: "mini-calendar", title: "Mini Calendar" },
 ];
 
 // Initial 12-column grid when no saved layout exists (lg breakpoint).
@@ -34,6 +35,7 @@ const DEFAULT_LAYOUT: Layout[] = [
   { i: "trend", x: 0, y: 14, w: 6, h: 6, minW: 4, minH: 5 },
   { i: "conversion", x: 6, y: 14, w: 6, h: 6, minW: 4, minH: 5 },
   { i: "follow-ups", x: 0, y: 20, w: 6, h: 4, minW: 4, minH: 3 },
+  { i: "mini-calendar", x: 6, y: 20, w: 6, h: 6, minW: 4, minH: 5 },
 ];
 
 function loadLayout(userId?: string | null): Layout[] {

@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import toast from "react-hot-toast";
 import { resumesAPI, authAPI } from "../../utils/api.ts";
 import { SkeletonCard } from "../../components/Skeleton/Skeleton.tsx";
+import ActionDropdown from "../../components/ActionDropdown/ActionDropdown.tsx";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal.tsx";
 import ResumePreview from "../../components/ResumePreview/ResumePreview.tsx";
 import ResumeModal from "../../components/ResumeModal/ResumeModal.tsx";
@@ -385,16 +386,25 @@ export default function Resumes() {
                     </svg>
                   </button>
                 </div>
-                <select
-                  className="input-premium h-10 text-[13px] w-[150px]"
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as "recent" | "name" | "usage")}
-                  aria-label="Sort resumes"
-                >
-                  <option value="recent">Most recent</option>
-                  <option value="name">Name A-Z</option>
-                  <option value="usage">Most used</option>
-                </select>
+                <ActionDropdown
+                  align="right"
+                  menuWidth="w-[180px]"
+                  trigger={
+                    <button className="input-premium h-10 text-[13px] w-[180px] flex items-center justify-between text-left">
+                      <span>
+                        {sortBy === "recent" ? "Most recent" : sortBy === "name" ? "Name A-Z" : "Most used"}
+                      </span>
+                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                        <polyline points="4,6 8,10 12,6" />
+                      </svg>
+                    </button>
+                  }
+                  items={[
+                    { label: "Most recent", onClick: () => setSortBy("recent"), className: sortBy === "recent" ? "text-primary font-medium" : undefined },
+                    { label: "Name A-Z", onClick: () => setSortBy("name"), className: sortBy === "name" ? "text-primary font-medium" : undefined },
+                    { label: "Most used", onClick: () => setSortBy("usage"), className: sortBy === "usage" ? "text-primary font-medium" : undefined },
+                  ]}
+                />
               </div>
             </div>
 

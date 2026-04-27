@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useContext } from "react";
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import AdminSidebar from "./AdminSidebar.tsx";
 import { ThemeContext } from "../../App.tsx";
 import type { User } from "../../types";
@@ -11,6 +11,7 @@ export default function AdminLayout({ user, onLogout }: Props) {
   const [profileOpen, setProfileOpen] = useState(false);
   const { dark, toggle } = useContext(ThemeContext);
   const navigate = useNavigate();
+  const location = useLocation();
   const profileRef = useRef<HTMLDivElement>(null);
   const initials = user.name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
 
@@ -41,6 +42,21 @@ export default function AdminLayout({ user, onLogout }: Props) {
               <span className="text-xs bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 px-2 py-0.5 rounded-full font-medium">Admin</span>
             </div>
             <div className="flex items-center gap-2">
+              <button
+                onClick={() => navigate("/calendar")}
+                className={`w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-secondary-foreground ${
+                  location.pathname === "/calendar" ? "bg-muted text-foreground" : ""
+                }`}
+                title="Open calendar"
+                aria-label="Open calendar"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M8 2v3" />
+                  <path d="M16 2v3" />
+                  <rect x="3" y="5" width="18" height="16" rx="2" />
+                  <path d="M3 10h18" />
+                </svg>
+              </button>
               <button
                 onClick={() => toggle()}
                 className="w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-secondary-foreground"

@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, FormEvent } from "react";
 import toast from "react-hot-toast";
 import { contactsAPI } from "../../utils/api.ts";
 import { SkeletonCard } from "../../components/Skeleton/Skeleton.tsx";
+import ActionDropdown from "../../components/ActionDropdown/ActionDropdown.tsx";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal.tsx";
 import { useConfirm } from "../../hooks/useConfirm.ts";
 import type { Contact, ContactFormData, ContactOutreachStatus, Pagination } from "../../types";
@@ -61,10 +62,48 @@ function Modal({ contact, onSave, onClose }: { contact: Contact | null; onSave: 
         <div className="flex items-center justify-between mb-5"><h2 className="text-lg font-semibold text-foreground">{contact ? "Edit contact" : "New contact"}</h2><button className={btnIcon} onClick={onClose}><svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="4" y1="4" x2="12" y2="12" /><line x1="12" y1="4" x2="4" y2="12" /></svg></button></div>
         <form onSubmit={(e: FormEvent) => { e.preventDefault(); setSaving(true); onSave(form).catch(() => setSaving(false)); }} className="space-y-4">
           <div className="grid grid-cols-2 gap-3"><div><label className="block text-sm font-medium text-foreground mb-1.5">Name *</label><input className={inputCls} value={form.name} onChange={(e) => u("name", e.target.value)} required /></div><div><label className="block text-sm font-medium text-foreground mb-1.5">Company *</label><input className={inputCls} value={form.company} onChange={(e) => u("company", e.target.value)} required /></div></div>
-          <div className="grid grid-cols-2 gap-3"><div><label className="block text-sm font-medium text-foreground mb-1.5">Role</label><input className={inputCls} value={form.role} onChange={(e) => u("role", e.target.value)} /></div><div><label className="block text-sm font-medium text-foreground mb-1.5">How connected</label><select className={inputCls} value={form.connectionSource} onChange={(e) => u("connectionSource", e.target.value)}><option value="">Select...</option>{SOURCES.map((s) => <option key={s}>{s}</option>)}</select></div></div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className="block text-sm font-medium text-foreground mb-1.5">Role</label><input className={inputCls} value={form.role} onChange={(e) => u("role", e.target.value)} /></div>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">How connected</label>
+              <ActionDropdown
+                align="left"
+                menuWidth="w-full"
+                searchable
+                searchPlaceholder="Search source..."
+                trigger={
+                  <button className={`${inputCls} h-9 flex items-center justify-between text-left`}>
+                    <span className="truncate">{form.connectionSource || "Select..."}</span>
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="4,6 8,10 12,6" /></svg>
+                  </button>
+                }
+                items={[
+                  { label: "Select...", onClick: () => u("connectionSource", ""), className: !form.connectionSource ? "text-primary font-medium" : undefined },
+                  ...SOURCES.map((s) => ({ label: s, onClick: () => u("connectionSource", s), className: form.connectionSource === s ? "text-primary font-medium" : undefined })),
+                ]}
+              />
+            </div>
+          </div>
           <div><label className="block text-sm font-medium text-foreground mb-1.5">LinkedIn URL</label><input type="url" className={inputCls} value={form.linkedinUrl} onChange={(e) => u("linkedinUrl", e.target.value)} /></div>
           <div className="grid grid-cols-2 gap-3">
-            <div><label className="block text-sm font-medium text-foreground mb-1.5">Outreach status</label><select className={inputCls} value={form.outreachStatus} onChange={(e) => u("outreachStatus", e.target.value)}>{OUTREACH_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}</select></div>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">Outreach status</label>
+              <ActionDropdown
+                align="left"
+                menuWidth="w-full"
+                trigger={
+                  <button className={`${inputCls} h-9 flex items-center justify-between text-left`}>
+                    <span>{OUTREACH_STATUSES.find((s) => s.value === form.outreachStatus)?.label || "Not contacted"}</span>
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="4,6 8,10 12,6" /></svg>
+                  </button>
+                }
+                items={OUTREACH_STATUSES.map((s) => ({
+                  label: s.label,
+                  onClick: () => u("outreachStatus", s.value),
+                  className: form.outreachStatus === s.value ? "text-primary font-medium" : undefined,
+                }))}
+              />
+            </div>
             <div><label className="block text-sm font-medium text-foreground mb-1.5">Follow-up date</label><input type="date" className={inputCls} value={form.nextFollowUpDate} onChange={(e) => u("nextFollowUpDate", e.target.value)} /></div>
           </div>
           <div><label className="block text-sm font-medium text-foreground mb-1.5">Notes</label><textarea className={`${inputCls} min-h-[80px] resize-y`} value={form.notes} onChange={(e) => u("notes", e.target.value)} /></div>

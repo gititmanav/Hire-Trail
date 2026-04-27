@@ -16,6 +16,7 @@ import Resumes from "./pages/Resumes/Resumes.tsx";
 import Contacts from "./pages/Contacts/Contacts.tsx";
 import Companies from "./pages/Companies/Companies.tsx";
 import Deadlines from "./pages/Deadlines/Deadlines.tsx";
+import CalendarPage from "./pages/Calendar/Calendar.tsx";
 import ImportExport from "./pages/ImportExport/ImportExport.tsx";
 import Profile from "./pages/Profile/Profile.tsx";
 import {
@@ -112,6 +113,7 @@ function App() {
             <Route path="/resumes" element={<Resumes />} />
             <Route path="/contacts" element={<Contacts />} />
             <Route path="/deadlines" element={<Deadlines />} />
+            <Route path="/calendar" element={<CalendarPage />} />
             <Route path="/import-export" element={<FeatureRoute flag="feature_csv_import_export"><ImportExport /></FeatureRoute>} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/settings" element={<Profile />} />

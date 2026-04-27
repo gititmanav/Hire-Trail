@@ -7,6 +7,7 @@ import toast from "react-hot-toast";
 import { applicationsAPI, resumesAPI, contactsAPI, deadlinesAPI } from "../../utils/api.ts";
 import { exportToCSV } from "../../utils/csv.ts";
 import ImportModal from "../../components/ImportModal/ImportModal.tsx";
+import ActionDropdown from "../../components/ActionDropdown/ActionDropdown.tsx";
 import { SkeletonTable, SkeletonStats } from "../../components/Skeleton/Skeleton.tsx";
 import ResumePreview from "../../components/ResumePreview/ResumePreview.tsx";
 import type { Application, Resume, Contact, Deadline, Stage, ApplicationFormData, Pagination, SortConfig } from "../../types";
@@ -63,11 +64,50 @@ function Modal({ app, resumes, onSave, onClose, onResumesChanged }: { app: Appli
             <div><label className="block text-sm font-medium text-foreground mb-1.5">Job type</label><input className="input-premium" value={form.jobType || ""} onChange={(e) => u("jobType", e.target.value)} placeholder="Full-time, internship…" /></div>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div><label className="block text-sm font-medium text-foreground mb-1.5">Stage</label><select className="input-premium" value={form.stage} onChange={(e) => u("stage", e.target.value)}>{STAGES.map((s) => <option key={s}>{s}</option>)}</select></div>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">Stage</label>
+              <ActionDropdown
+                align="left"
+                menuWidth="w-full"
+                trigger={
+                  <button className="input-premium h-9 flex items-center justify-between text-left">
+                    <span>{form.stage}</span>
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="4,6 8,10 12,6" /></svg>
+                  </button>
+                }
+                items={STAGES.map((s) => ({
+                  label: s,
+                  onClick: () => u("stage", s),
+                  className: form.stage === s ? "text-primary font-medium" : undefined,
+                }))}
+              />
+            </div>
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">Resume</label>
               <div className="flex gap-1.5">
-                <select className="input-premium flex-1" value={form.resumeId} onChange={(e) => u("resumeId", e.target.value)}><option value="">None</option>{resumes.map((r) => <option key={r._id} value={r._id}>{r.name}</option>)}</select>
+                <div className="flex-1">
+                  <ActionDropdown
+                    align="left"
+                    menuWidth="w-full"
+                    searchable
+                    searchPlaceholder="Search resumes..."
+                    maxVisibleItems={8}
+                    trigger={
+                      <button className="input-premium h-9 flex items-center justify-between text-left">
+                        <span className="truncate">{resumes.find((r) => r._id === form.resumeId)?.name || "None"}</span>
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="4,6 8,10 12,6" /></svg>
+                      </button>
+                    }
+                    items={[
+                      { label: "None", onClick: () => u("resumeId", ""), className: !form.resumeId ? "text-primary font-medium" : undefined },
+                      ...resumes.map((r) => ({
+                        label: r.name,
+                        onClick: () => u("resumeId", r._id),
+                        className: form.resumeId === r._id ? "text-primary font-medium" : undefined,
+                      })),
+                    ]}
+                  />
+                </div>
                 <button type="button" onClick={() => setShowResumeModal(true)} title="Add new resume" className="w-9 h-9 shrink-0 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground/40">
                   <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg>
                 </button>
@@ -344,10 +384,27 @@ function ApplicationDetailSidebar({
           <div className="p-4 border-r border-border/40">
             <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Resume</label>
             {isEditing ? (
-              <select className="input-premium !h-8 text-sm" value={form.resumeId || ""} onChange={(e) => updateFormField("resumeId", e.target.value)}>
-                <option value="">None</option>
-                {resumes.map((r) => <option key={r._id} value={r._id}>{r.name}</option>)}
-              </select>
+              <ActionDropdown
+                align="left"
+                menuWidth="w-full"
+                searchable
+                searchPlaceholder="Search resumes..."
+                maxVisibleItems={8}
+                trigger={
+                  <button className="input-premium !h-8 text-sm flex items-center justify-between text-left">
+                    <span className="truncate">{resumes.find((r) => r._id === form.resumeId)?.name || "None"}</span>
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="4,6 8,10 12,6" /></svg>
+                  </button>
+                }
+                items={[
+                  { label: "None", onClick: () => updateFormField("resumeId", ""), className: !form.resumeId ? "text-primary font-medium" : undefined },
+                  ...resumes.map((r) => ({
+                    label: r.name,
+                    onClick: () => updateFormField("resumeId", r._id),
+                    className: form.resumeId === r._id ? "text-primary font-medium" : undefined,
+                  })),
+                ]}
+              />
             ) : resume ? (
               <button onClick={() => onViewResume(resume)} className="text-sm text-muted-foreground hover:text-foreground hover:underline flex items-center gap-1.5">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9l-7-7z"/><path d="M13 2v7h7"/></svg>
@@ -358,9 +415,21 @@ function ApplicationDetailSidebar({
           <div className="p-4">
             <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Stage</label>
             {isEditing ? (
-              <select className="input-premium !h-8 text-sm" value={form.stage || app.stage} onChange={(e) => updateFormField("stage", e.target.value)}>
-                {STAGES.map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
+              <ActionDropdown
+                align="left"
+                menuWidth="w-full"
+                trigger={
+                  <button className="input-premium !h-8 text-sm flex items-center justify-between text-left">
+                    <span>{form.stage || app.stage}</span>
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="4,6 8,10 12,6" /></svg>
+                  </button>
+                }
+                items={STAGES.map((s) => ({
+                  label: s,
+                  onClick: () => updateFormField("stage", s),
+                  className: (form.stage || app.stage) === s ? "text-primary font-medium" : undefined,
+                }))}
+              />
             ) : (
               <div className="flex flex-wrap gap-1">
                 {STAGES.map((s) => (
@@ -429,10 +498,27 @@ function ApplicationDetailSidebar({
           <div className="p-4 border-r border-border/40">
             <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Contact</label>
             {isEditing ? (
-              <select className="input-premium !h-8 text-sm" value={form.contactId || ""} onChange={(e) => updateFormField("contactId", e.target.value)}>
-                <option value="">None</option>
-                {companyContacts.map((c) => <option key={c._id} value={c._id}>{c.name} - {c.role}</option>)}
-              </select>
+              <ActionDropdown
+                align="left"
+                menuWidth="w-full"
+                searchable
+                searchPlaceholder="Search contacts..."
+                maxVisibleItems={8}
+                trigger={
+                  <button className="input-premium !h-8 text-sm flex items-center justify-between text-left">
+                    <span className="truncate">{contacts.find((c) => c._id === form.contactId)?.name || "None"}</span>
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="4,6 8,10 12,6" /></svg>
+                  </button>
+                }
+                items={[
+                  { label: "None", onClick: () => updateFormField("contactId", ""), className: !form.contactId ? "text-primary font-medium" : undefined },
+                  ...companyContacts.map((c) => ({
+                    label: `${c.name} - ${c.role || "Contact"}`,
+                    onClick: () => updateFormField("contactId", c._id),
+                    className: form.contactId === c._id ? "text-primary font-medium" : undefined,
+                  })),
+                ]}
+              />
             ) : selectedContact ? (
               <div className="flex items-center gap-2">
                 <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-[9px] font-bold text-muted-foreground shrink-0">{selectedContact.name[0]}</div>

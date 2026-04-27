@@ -1,6 +1,6 @@
 /** Top bar: theme picker, extension download, user menu. */
 import { useState, useRef, useEffect, useContext, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { ThemeContext } from "../../App.tsx";
 import type { User } from "../../types";
 
@@ -22,6 +22,7 @@ export default function Header({ user, onLogout, onMobileMenuToggle }: Props) {
   const menuRef = useRef<HTMLDivElement>(null);
   const { dark, toggle } = useContext(ThemeContext);
   const navigate = useNavigate();
+  const location = useLocation();
   const initials = user.name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
   const [extHighlight, setExtHighlight] = useState(() => !localStorage.getItem(EXT_DISMISSED_KEY));
   const [sitesOpen, setSitesOpen] = useState(false);
@@ -134,6 +135,21 @@ export default function Header({ user, onLogout, onMobileMenuToggle }: Props) {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => navigate("/calendar")}
+            className={`w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-secondary-foreground ${
+              location.pathname === "/calendar" ? "bg-muted text-foreground" : ""
+            }`}
+            title="Open calendar"
+            aria-label="Open calendar"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M8 2v3" />
+              <path d="M16 2v3" />
+              <rect x="3" y="5" width="18" height="16" rx="2" />
+              <path d="M3 10h18" />
+            </svg>
+          </button>
           <button
             onClick={() => toggle()}
             className="w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-secondary-foreground"

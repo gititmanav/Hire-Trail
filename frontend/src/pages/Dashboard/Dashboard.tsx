@@ -1,11 +1,13 @@
-import { useState, useEffect, useContext, useCallback } from "react";
+import { useState, useEffect, useContext, useCallback, useMemo } from "react";
 import { Responsive, WidthProvider } from "react-grid-layout";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import { UserContext } from "../../App.tsx";
-import { analyticsAPI, applicationsAPI, authAPI, contactsAPI, deadlinesAPI, resumesAPI, notificationsAPI } from "../../utils/api.ts";
+import type { EventInput } from "@fullcalendar/core";
+import { applicationsAPI, authAPI, companiesAPI, contactsAPI, deadlinesAPI, resumesAPI, notificationsAPI } from "../../utils/api.ts";
 import { useWidgetLayout, ALL_WIDGETS } from "../../hooks/useWidgetLayout.ts";
 import WidgetPicker from "../../components/WidgetPicker/WidgetPicker.tsx";
+import ActionDropdown from "../../components/ActionDropdown/ActionDropdown.tsx";
 import StatsWidget from "../../components/widgets/StatsWidget.tsx";
 import FunnelWidget from "../../components/widgets/FunnelWidget.tsx";
 import ConversionWidget from "../../components/widgets/ConversionWidget.tsx";
@@ -15,9 +17,13 @@ import ResumePerformanceWidget from "../../components/widgets/ResumePerformanceW
 import RecentAppsWidget from "../../components/widgets/RecentAppsWidget.tsx";
 import DeadlinesWidget from "../../components/widgets/DeadlinesWidget.tsx";
 import FollowUpWidget from "../../components/widgets/FollowUpWidget.tsx";
+import MiniCalendarWidget from "../../components/widgets/MiniCalendarWidget.tsx";
 import GuidedTour from "../../components/GuidedTour/GuidedTour.tsx";
 import { SkeletonStats, SkeletonTable } from "../../components/Skeleton/Skeleton.tsx";
-import type { Application, Contact, Deadline, Resume, AnalyticsData, Notification } from "../../types";
+import { STAGES } from "../../utils/stageStyles.ts";
+import { buildAnalyticsFromApplications, filterDashboardApplications, getDashboardCompanies, getRecentApplications, getStageCounts } from "../../utils/dashboardInsights.ts";
+import { buildCalendarEvents } from "../../utils/calendarEvents.ts";
+import type { Application, Company, Contact, Deadline, Resume, AnalyticsData, Notification, Stage } from "../../types";
 import "react-grid-layout/css/styles.css";
 
 const RGL = WidthProvider(Responsive);
@@ -39,6 +45,9 @@ export default function Dashboard() {
   const [archiving, setArchiving] = useState(false);
   const [rejectionNotifs, setRejectionNotifs] = useState<Notification[]>([]);
   const [rejectionBannerDismissed, setRejectionBannerDismissed] = useState(false);
+  const [selectedCompany, setSelectedCompany] = useState("All");
+  const [selectedStage, setSelectedStage] = useState<Stage | "All">("All");
+  const [calendarEvents, setCalendarEvents] = useState<EventInput[]>([]);
 
   const handleTourComplete = useCallback(async () => {
     try {
@@ -62,14 +71,17 @@ export default function Dashboard() {
   useEffect(() => {
     (async () => {
       try {
-        const [a, ap, dl, r, ct] = await Promise.all([
-          analyticsAPI.get(),
-          applicationsAPI.getAll({ limit: 8, sort: "createdAt", order: "desc" }),
+        const [ap, dl, r, ct, co] = await Promise.all([
+          applicationsAPI.getAll({ limit: 1000, sort: "createdAt", order: "desc", archived: "all" }),
           deadlinesAPI.getAll({ limit: 100, status: "upcoming" }),
           resumesAPI.getAll(),
           contactsAPI.getAll({ limit: 100 }),
+          companiesAPI.getAll({ limit: 500 }),
         ]);
-        setStats(a); setApps(ap.data); setResumes(r);
+        const allApps = ap.data;
+        setStats(buildAnalyticsFromApplications(allApps));
+        setApps(allApps);
+        setResumes(r);
 
         // Filter contacts needing follow-up
         const now = new Date(); now.setHours(0, 0, 0, 0);
@@ -87,7 +99,7 @@ export default function Dashboard() {
         setFollowUpContacts(needsFollowUp);
 
         const ninetyDaysAgo = Date.now() - 90 * 24 * 60 * 60 * 1000;
-        const stale = ap.data.filter((app) => {
+        const stale = allApps.filter((app) => {
           if (app.archived || app.stage === "Offer") return false;
           const lastActivity = app.stageHistory.length > 0
             ? Math.max(...app.stageHistory.map((e) => new Date(e.date).getTime()))
@@ -106,6 +118,15 @@ export default function Dashboard() {
           })
             .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()).slice(0, 8)
         );
+        setCalendarEvents(
+          buildCalendarEvents({
+            applications: allApps,
+            deadlines: dl.data,
+            contacts: ct.data,
+            resumes: r,
+            companies: co.data as Company[],
+          })
+        );
         // Fetch recent rejection notifications
         try {
           const notifs = await notificationsAPI.getAll({ limit: 10 });
@@ -115,6 +136,16 @@ export default function Dashboard() {
       } catch {} finally { setLoading(false); }
     })();
   }, []);
+
+  const companyOptions = useMemo(() => getDashboardCompanies(apps), [apps]);
+  const stageCounts = useMemo(() => getStageCounts(apps, selectedCompany), [apps, selectedCompany]);
+  const filteredApps = useMemo(
+    () => filterDashboardApplications(apps, { company: selectedCompany, stage: selectedStage }),
+    [apps, selectedCompany, selectedStage]
+  );
+  const filteredStats = useMemo(() => buildAnalyticsFromApplications(filteredApps), [filteredApps]);
+  const filteredRecentApps = useMemo(() => getRecentApplications(filteredApps), [filteredApps]);
+  const activeStats: AnalyticsData = selectedCompany === "All" && selectedStage === "All" && stats ? stats : filteredStats;
 
   if (loading) return <div className="fade-up"><SkeletonStats /><div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4"><SkeletonTable /><SkeletonTable rows={4} /></div></div>;
 
@@ -137,17 +168,18 @@ export default function Dashboard() {
   };
 
   const render = (id: string) => {
-    if (!stats) return null;
+    if (!activeStats) return null;
     switch (id) {
-      case "stats": return <StatsWidget data={stats} />;
-      case "funnel": return <FunnelWidget data={stats} />;
-      case "conversion": return <ConversionWidget data={stats} />;
-      case "trend": return <TrendWidget data={stats} />;
-      case "pie": return <PieWidget data={stats} />;
-      case "resume-perf": return <ResumePerformanceWidget data={stats} resumes={resumes} />;
-      case "recent-apps": return <RecentAppsWidget apps={apps} />;
+      case "stats": return <StatsWidget data={activeStats} />;
+      case "funnel": return <FunnelWidget data={activeStats} />;
+      case "conversion": return <ConversionWidget data={activeStats} />;
+      case "trend": return <TrendWidget data={activeStats} />;
+      case "pie": return <PieWidget data={activeStats} />;
+      case "resume-perf": return <ResumePerformanceWidget data={activeStats} resumes={resumes} />;
+      case "recent-apps": return <RecentAppsWidget apps={filteredRecentApps} />;
       case "deadlines": return <DeadlinesWidget deadlines={deadlines} />;
       case "follow-ups": return <FollowUpWidget contacts={followUpContacts} onFollowUp={handleFollowUp} onSnooze={handleSnooze} />;
+      case "mini-calendar": return <MiniCalendarWidget events={calendarEvents} />;
       default: return null;
     }
   };
@@ -213,8 +245,63 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-foreground tracking-tight">Dashboard</h1>
+      <div className="flex items-start justify-between mb-6 gap-4">
+        <div className="flex flex-col gap-3 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-2xl font-bold text-foreground tracking-tight">Dashboard</h1>
+            <ActionDropdown
+              align="left"
+              menuWidth="w-56"
+              searchable
+              searchPlaceholder="Search company..."
+              maxVisibleItems={10}
+              trigger={
+                <button className="btn-secondary h-9 min-w-[210px] justify-between">
+                  <span className="truncate text-left">Company: {selectedCompany === "All" ? "All companies" : selectedCompany}</span>
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="shrink-0 text-muted-foreground">
+                    <polyline points="4,6 8,10 12,6" />
+                  </svg>
+                </button>
+              }
+              items={[
+                {
+                  label: "All companies",
+                  onClick: () => setSelectedCompany("All"),
+                  className: selectedCompany === "All" ? "text-primary font-medium" : undefined,
+                },
+                ...companyOptions.map((company) => ({
+                  label: company,
+                  onClick: () => setSelectedCompany(company),
+                  className: selectedCompany === company ? "text-primary font-medium" : undefined,
+                })),
+              ]}
+            />
+            <ActionDropdown
+              align="left"
+              menuWidth="w-52"
+              trigger={
+                <button className="btn-secondary h-9 min-w-[190px] justify-between">
+                  <span className="truncate text-left">Stage: {selectedStage}</span>
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="shrink-0 text-muted-foreground">
+                    <polyline points="4,6 8,10 12,6" />
+                  </svg>
+                </button>
+              }
+              items={[
+                {
+                  label: `All (${selectedCompany === "All" ? apps.length : filteredApps.length})`,
+                  onClick: () => setSelectedStage("All"),
+                  className: selectedStage === "All" ? "text-primary font-medium" : undefined,
+                },
+                ...STAGES.map((stage) => ({
+                  label: `${stage} (${stageCounts[stage]})`,
+                  onClick: () => setSelectedStage(stage),
+                  className: selectedStage === stage ? "text-primary font-medium" : undefined,
+                })),
+              ]}
+            />
+          </div>
+        </div>
         <div className="flex items-center gap-2">
           <button data-tour="lock-btn" onClick={toggleLock} className={`btn-secondary !px-2.5 ${locked ? "!border-primary !text-primary dark:!text-primary" : ""}`} title={locked ? "Unlock dashboard" : "Lock dashboard"}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
