@@ -13,9 +13,9 @@ import type { Application, Resume, Contact, Deadline, Stage, ApplicationFormData
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal.tsx";
 import ResumeModal from "../../components/ResumeModal/ResumeModal.tsx";
 import { useConfirm } from "../../hooks/useConfirm.ts";
+import { STAGES, STAGE_BADGE_CLASS, STAGE_FILTER_ACTIVE_CLASS, STAGE_FILTER_COUNT_CLASS } from "../../utils/stageStyles.ts";
 
-const STAGES: Stage[] = ["Applied", "OA", "Interview", "Offer", "Rejected"];
-const badgeCls: Record<Stage, string> = { Applied: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300", OA: "bg-warning-light text-yellow-800", Interview: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300", Offer: "bg-success-light text-emerald-800", Rejected: "bg-danger-light text-red-800" };
+const badgeCls: Record<Stage, string> = STAGE_BADGE_CLASS;
 const fmt = (d: string) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 const SIDEBAR_WIDTH_KEY = "hiretrail-app-sidebar-width";
 const SIDEBAR_MIN_WIDTH = 460;
@@ -733,9 +733,28 @@ export default function Applications() {
                 key={s}
                 onClick={() => setFilter(s)}
                 disabled={multiSelectEnabled}
-                className={`inline-flex items-center gap-1 px-3 py-1 text-[13px] font-medium rounded-full border disabled:opacity-45 disabled:cursor-not-allowed ${filter === s ? "bg-muted border-border text-foreground" : "bg-card border-border text-muted-foreground hover:border-muted-foreground/40 hover:text-foreground"}`}
+                className={`inline-flex items-center gap-1 px-3 py-1 text-[13px] font-medium rounded-full border disabled:opacity-45 disabled:cursor-not-allowed ${
+                  s === "All"
+                    ? (filter === s
+                      ? "bg-muted border-border text-foreground"
+                      : "bg-card border-border text-muted-foreground hover:border-muted-foreground/40 hover:text-foreground")
+                    : (filter === s
+                      ? `${STAGE_FILTER_ACTIVE_CLASS[s as Stage]} shadow-sm`
+                      : "bg-card border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground/50")
+                }`}
               >
-                {s}{s !== "All" && <span className="text-[11px] bg-muted px-1.5 rounded-full">{stageCounts[s] || 0}</span>}
+                {s}
+                {s !== "All" && (
+                  <span
+                    className={`text-[11px] px-1.5 rounded-full ${
+                      filter === s
+                        ? STAGE_FILTER_COUNT_CLASS[s as Stage]
+                        : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {stageCounts[s] || 0}
+                  </span>
+                )}
               </button>
             ))}
           </div>

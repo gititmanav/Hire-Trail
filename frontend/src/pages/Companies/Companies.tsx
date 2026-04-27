@@ -7,9 +7,9 @@ import { applicationsAPI, companiesAPI, resumesAPI, contactsAPI, deadlinesAPI } 
 import { SkeletonTable } from "../../components/Skeleton/Skeleton.tsx";
 import ResumePreview from "../../components/ResumePreview/ResumePreview.tsx";
 import type { Company, Application, Resume, Contact, Deadline, Stage, Pagination } from "../../types";
+import { STAGES, STAGE_BADGE_CLASS } from "../../utils/stageStyles.ts";
 
-const STAGES: Stage[] = ["Applied", "OA", "Interview", "Offer", "Rejected"];
-const badgeCls: Record<Stage, string> = { Applied: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300", OA: "bg-warning-light text-yellow-800", Interview: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300", Offer: "bg-success-light text-emerald-800", Rejected: "bg-danger-light text-red-800" };
+const badgeCls: Record<Stage, string> = STAGE_BADGE_CLASS;
 const fmt = (d: string) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
 /* ─── Slide-in Panel with backdrop ─── */

@@ -2,15 +2,10 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { companiesAPI } from "../../utils/api.ts";
-import type { CompanyDetail, Application } from "../../types";
+import type { CompanyDetail, Application, Stage } from "../../types";
+import { STAGE_BADGE_CLASS } from "../../utils/stageStyles.ts";
 
-const stageColors: Record<string, string> = {
-  Applied: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
-  OA: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
-  Interview: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
-  Offer: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
-  Rejected: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
-};
+const stageColors: Record<Stage, string> = STAGE_BADGE_CLASS;
 
 const fmt = (d: string) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 

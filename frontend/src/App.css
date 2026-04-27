@@ -277,7 +277,6 @@
   --ring: 217 91.2% 59.8%;
   background:
     radial-gradient(860px 520px at 50% 8%, rgba(59, 130, 246, 0.16), transparent 62%),
-    radial-gradient(420px 300px at 84% 90%, rgba(191, 219, 254, 0.18), transparent 72%),
     linear-gradient(180deg, #161b26 0%, #111723 100%);
 }
 

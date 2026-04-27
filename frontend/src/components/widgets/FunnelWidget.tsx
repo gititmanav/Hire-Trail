@@ -5,7 +5,7 @@ import { stageColor, mutedFgColor, borderColor } from "../../utils/chartSetup.ts
 import type { AnalyticsData, Stage } from "../../types";
 import type { Chart as ChartJS } from "chart.js";
 
-const STAGES: Stage[] = ["Applied", "OA", "Interview", "Offer"];
+const STAGES: Stage[] = ["Applied", "OA", "Interview", "Offer", "Rejected"];
 interface Props { data: AnalyticsData; }
 
 export default function FunnelWidget({ data }: Props) {

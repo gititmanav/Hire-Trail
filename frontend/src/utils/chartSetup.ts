@@ -37,7 +37,7 @@ const STAGE_COLORS_LIGHT: Record<string, string> = {
   applied: "#3b82f6",
   oa: "#f59e0b",
   interview: "#8b5cf6",
-  offer: "#3b82f6",
+  offer: "#10b981",
   rejected: "#f43f5e",
 };
 
@@ -45,7 +45,7 @@ const STAGE_COLORS_DARK: Record<string, string> = {
   applied: "#60a5fa",
   oa: "#fbbf24",
   interview: "#a78bfa",
-  offer: "#60a5fa",
+  offer: "#34d399",
   rejected: "#fb7185",
 };
 

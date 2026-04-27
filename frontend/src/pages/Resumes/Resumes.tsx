@@ -336,7 +336,7 @@ export default function Resumes() {
       </div>
 
       {resumes.length > 0 && (
-        <div className="sticky top-3 z-10 mb-6 rounded-xl border border-border/70 bg-card/80 backdrop-blur px-3 py-3 shadow-sm">
+        <div className="sticky top-3 z-10 mb-6 px-1 py-1">
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-3">
               <div className="relative">
