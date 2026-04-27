@@ -22,10 +22,13 @@ Most job trackers are either too simple (spreadsheet replacement) or too rigid f
 
 | Dashboard (light) | Dashboard (dark) |
 | :---: | :---: |
-| ![Dashboard — light](frontend/public/Dashboard.png) | ![Dashboard — dark](frontend/public/Darkmode%20dashboard.png) |
+| ![Dashboard light](frontend/public/Dashboard.png) | ![Dashboard dark](frontend/public/Dashboard-Darkmode.png) |
 
-![Kanban board](frontend/public/Kanban%20Board.png)
-![Job search](frontend/public/Job%20Search.png)
+| Kanban (light) | Kanban (dark) |
+| :---: | :---: |
+| ![Kanban light](frontend/public/Kanban%20Board.png) | ![Kanban dark](frontend/public/Kanban%20Board%20Dark.png) |
+
+![Resume manager](frontend/public/Resume.png)
 
 ## Feature Set
 
@@ -36,12 +39,14 @@ Most job trackers are either too simple (spreadsheet replacement) or too rigid f
 - **Resumes**: Versioned resume records with PDF uploads (Cloudinary) and performance stats
 - **Contacts and companies**: Keep recruiter/referral contacts organized per company
 - **Deadlines**: Upcoming/overdue/completed states with urgency cues and quick completion
+- **Dark mode support**: Theme-aware experience across dashboards, Kanban, auth pages, and primary navigation
 
 ### Analytics and reporting
 
 - **Dashboard widgets**: Draggable, resizable, show/hide widgets with persisted layout
 - **Pipeline analytics**: Funnel, conversion, stage distribution, trends, and resume-level metrics
 - **Import/export**: CSV import/export workflows for portability and bulk updates
+- **Theme-aware charts**: Chart.js defaults and widget visuals adapt to light/dark mode for readability
 
 ### Automation and integrations
 
@@ -57,6 +62,7 @@ Most job trackers are either too simple (spreadsheet replacement) or too rigid f
 - **Admin modules** for users/RBAC, audit logs, content moderation, storage, system config, announcements
 - **Operational tooling** for invites, backup management, seed management, email templates, and Gmail controls
 - **Feature flags** to progressively roll out modules like Kanban, job search, and import/export
+- **Updated admin shell UI** with consistent sidebar/header patterns and improved responsiveness
 
 ### Browser extension (Chrome, Manifest V3)
 
