@@ -8,3 +8,10 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+declare module "react-big-calendar/lib/addons/dragAndDrop" {
+  /** CJS addon — wraps Calendar; typed loosely because Calendar props are generic. */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function withDragAndDrop(C: any): any;
+  export default withDragAndDrop;
+}

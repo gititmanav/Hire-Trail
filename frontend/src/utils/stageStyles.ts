@@ -25,3 +25,12 @@ export const STAGE_FILTER_COUNT_CLASS: Record<Stage, string> = {
   Offer: "bg-emerald-200/80 text-emerald-800 dark:bg-emerald-800/50 dark:text-emerald-100",
   Rejected: "bg-red-200/80 text-red-800 dark:bg-red-800/50 dark:text-red-100",
 };
+
+/** Solid colors for calendar / chart chips (matches STAGE_BADGE_CLASS intent). */
+export const STAGE_CALENDAR_HEX: Record<Stage, { backgroundColor: string; borderColor: string }> = {
+  Applied: { backgroundColor: "#2563eb", borderColor: "#1d4ed8" },
+  OA: { backgroundColor: "#d97706", borderColor: "#b45309" },
+  Interview: { backgroundColor: "#9333ea", borderColor: "#7e22ce" },
+  Offer: { backgroundColor: "#059669", borderColor: "#047857" },
+  Rejected: { backgroundColor: "#dc2626", borderColor: "#b91c1c" },
+};

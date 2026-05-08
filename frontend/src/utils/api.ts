@@ -113,6 +113,26 @@ export const deadlinesAPI = {
         }
       >("/deadlines", { params })
       .then((r) => r.data),
+
+  /** Fetches every deadline page (API sorts by due date; calendar needs the full set). */
+  async getAllAggregated(params?: { status?: "all" | "upcoming" | "overdue" | "completed" }) {
+    const acc: Deadline[] = [];
+    let page = 1;
+    const limit = 500;
+    for (;;) {
+      const body = await api
+        .get<
+          PaginatedResponse<Deadline> & {
+            counts?: { upcoming: number; overdue: number; completed: number };
+          }
+        >("/deadlines", { params: { ...params, page, limit } })
+        .then((r) => r.data);
+      acc.push(...body.data);
+      if (page >= body.pagination.pages) break;
+      page += 1;
+    }
+    return acc;
+  },
   getOne: (id: string) => api.get<Deadline>(`/deadlines/${id}`).then((r) => r.data),
   create: (data: DeadlineFormData) => api.post<Deadline>("/deadlines", data).then((r) => r.data),
   update: (id: string, data: Partial<DeadlineFormData & { completed: boolean }>) => api.put<Deadline>(`/deadlines/${id}`, data).then((r) => r.data),

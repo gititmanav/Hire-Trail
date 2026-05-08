@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import { UserContext } from "../../App.tsx";
 import type { EventInput } from "@fullcalendar/core";
-import { applicationsAPI, authAPI, companiesAPI, contactsAPI, deadlinesAPI, resumesAPI, notificationsAPI } from "../../utils/api.ts";
+import { applicationsAPI, authAPI, contactsAPI, deadlinesAPI, resumesAPI, notificationsAPI } from "../../utils/api.ts";
 import { useWidgetLayout, ALL_WIDGETS } from "../../hooks/useWidgetLayout.ts";
 import WidgetPicker from "../../components/WidgetPicker/WidgetPicker.tsx";
 import ActionDropdown from "../../components/ActionDropdown/ActionDropdown.tsx";
@@ -23,7 +23,7 @@ import { SkeletonStats, SkeletonTable } from "../../components/Skeleton/Skeleton
 import { STAGES } from "../../utils/stageStyles.ts";
 import { buildAnalyticsFromApplications, filterDashboardApplications, getDashboardCompanies, getRecentApplications, getStageCounts } from "../../utils/dashboardInsights.ts";
 import { buildCalendarEvents } from "../../utils/calendarEvents.ts";
-import type { Application, Company, Contact, Deadline, Resume, AnalyticsData, Notification, Stage } from "../../types";
+import type { Application, Contact, Deadline, Resume, AnalyticsData, Notification, Stage } from "../../types";
 import "react-grid-layout/css/styles.css";
 
 const RGL = WidthProvider(Responsive);
@@ -71,13 +71,12 @@ export default function Dashboard() {
   useEffect(() => {
     (async () => {
       try {
-        const [ap, dl, r, ct, co] = await Promise.all([
+        const [ap, r, ct] = await Promise.all([
           applicationsAPI.getAll({ limit: 1000, sort: "createdAt", order: "desc", archived: "all" }),
-          deadlinesAPI.getAll({ limit: 100, status: "upcoming" }),
           resumesAPI.getAll(),
           contactsAPI.getAll({ limit: 100 }),
-          companiesAPI.getAll({ limit: 500 }),
         ]);
+        const dlAll = await deadlinesAPI.getAllAggregated({ status: "all" });
         const allApps = ap.data;
         setStats(buildAnalyticsFromApplications(allApps));
         setApps(allApps);
@@ -111,7 +110,7 @@ export default function Dashboard() {
         // Compare dates as YYYY-MM-DD strings to avoid timezone shifts
         const todayStr = new Date().toLocaleDateString("en-CA"); // "YYYY-MM-DD" format
         setDeadlines(
-          dl.data.filter((d) => {
+          dlAll.filter((d) => {
             if (d.completed) return false;
             const dueStr = d.dueDate.slice(0, 10); // "YYYY-MM-DD" from ISO string
             return dueStr >= todayStr;
@@ -121,10 +120,7 @@ export default function Dashboard() {
         setCalendarEvents(
           buildCalendarEvents({
             applications: allApps,
-            deadlines: dl.data,
-            contacts: ct.data,
-            resumes: r,
-            companies: co.data as Company[],
+            deadlines: dlAll as Deadline[],
           })
         );
         // Fetch recent rejection notifications

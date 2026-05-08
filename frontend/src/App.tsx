@@ -98,6 +98,7 @@ function App() {
             <Route path="/admin/seed" element={<SeedManagement />} />
             <Route path="/admin/gmail" element={<GmailManagement />} />
             <Route path="/admin/notifications" element={<NotificationCenter />} />
+            <Route path="/admin/calendar" element={<CalendarPage />} />
           </Route>
 
           {/* Main app layout */}

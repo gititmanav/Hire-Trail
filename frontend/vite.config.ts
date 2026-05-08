@@ -7,6 +7,15 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
+    /** Pre-bundle calendar deps so Vite does not serve stale optimize chunks (504 Outdated Optimize Dep). */
+    optimizeDeps: {
+      include: [
+        "react-big-calendar",
+        "react-big-calendar/lib/addons/dragAndDrop",
+        "date-fns",
+        "date-fns/locale",
+      ],
+    },
     server: {
       port: 5173,
       proxy: {

@@ -1,116 +1,160 @@
 import type { EventInput } from "@fullcalendar/core";
-import type { Application, Company, Contact, Deadline, Resume } from "../types";
+import type { Application, Deadline, Stage } from "../types";
+import { STAGE_CALENDAR_HEX } from "./stageStyles.ts";
 
-type CalendarSource = "applications" | "deadlines" | "contacts" | "resumes" | "companies";
+export type CalendarFactor =
+  | "application_submitted"
+  | "stage_change"
+  | "deadline_application"
+  | "deadline_general";
 
 export interface CalendarExtendedProps {
-  source: CalendarSource;
+  factor: CalendarFactor;
   route: string;
   entityId: string;
+  /** Deadlines only — used to disable drag when already completed. */
+  completed?: boolean;
   subtitle?: string;
+  /** Company name on the application (for filtering). */
+  company: string;
+  /** Current pipeline stage of the parent application (for stage filter). */
+  applicationStage: Stage | null;
+  /** For stage-change events, the stage entered on this date. */
+  enteredStage?: Stage;
+  applicationId?: string | null;
 }
 
 interface BuildCalendarEventsParams {
   applications: Application[];
   deadlines: Deadline[];
-  contacts: Contact[];
-  resumes: Resume[];
-  companies: Company[];
 }
 
 const isoDay = (value: string) => value.slice(0, 10);
 
-export function buildCalendarEvents({
-  applications,
-  deadlines,
-  contacts,
-  resumes,
-  companies,
-}: BuildCalendarEventsParams): EventInput[] {
+/** Normalize Mongo/API ids for Map lookup. */
+function idKey(id: unknown): string {
+  if (id == null || id === "") return "";
+  if (typeof id === "string") return id;
+  if (typeof id === "object" && id !== null && "_id" in id) {
+    return String((id as { _id: string })._id);
+  }
+  return String(id);
+}
+
+function dueDateToIsoDay(dueDate: string | Date | undefined | null): string {
+  if (dueDate == null) return "";
+  if (typeof dueDate === "string") return dueDate.slice(0, 10);
+  if (dueDate instanceof Date) return dueDate.toISOString().slice(0, 10);
+  return String(dueDate).slice(0, 10);
+}
+
+const SUBMITTED_CHIP = { backgroundColor: "#475569", borderColor: "#334155" };
+
+function deadlineChipColors(d: Deadline): { backgroundColor: string; borderColor: string } {
+  if (d.completed) {
+    return { backgroundColor: "#059669", borderColor: "#047857" };
+  }
+  const day = dueDateToIsoDay(d.dueDate);
+  if (!day) return { backgroundColor: "#64748b", borderColor: "#475569" };
+  const due = new Date(day + "T12:00:00");
+  due.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (due.getTime() < today.getTime()) {
+    return { backgroundColor: "#dc2626", borderColor: "#991b1b" };
+  }
+  if (due.getTime() === today.getTime()) {
+    return { backgroundColor: "#7c3aed", borderColor: "#6d28d9" };
+  }
+  return { backgroundColor: "#d97706", borderColor: "#b45309" };
+}
+
+/** Skip duplicate "Applied" history row when it falls on the same calendar day as submission. */
+function shouldSkipStageHistoryEntry(app: Application, entry: { stage: Stage; date: string }, index: number): boolean {
+  if (index !== 0) return false;
+  if (entry.stage !== "Applied") return false;
+  return isoDay(entry.date) === isoDay(app.applicationDate);
+}
+
+export function buildCalendarEvents({ applications, deadlines }: BuildCalendarEventsParams): EventInput[] {
   const events: EventInput[] = [];
+  const appById = new Map(applications.map((a) => [idKey(a._id), a]));
 
   for (const app of applications) {
     events.push({
-      id: `app-${app._id}`,
-      title: `${app.company} - ${app.role}`,
+      id: `app-submitted-${app._id}`,
+      title: `Applied · ${app.company} — ${app.role}`,
       start: isoDay(app.applicationDate),
       allDay: true,
-      backgroundColor: "#2563eb",
-      borderColor: "#2563eb",
+      backgroundColor: SUBMITTED_CHIP.backgroundColor,
+      borderColor: SUBMITTED_CHIP.borderColor,
       extendedProps: {
-        source: "applications",
+        factor: "application_submitted",
         route: "/applications",
         entityId: app._id,
-        subtitle: `Stage: ${app.stage}`,
+        subtitle: `Submitted`,
+        company: app.company,
+        applicationStage: app.stage,
+        applicationId: app._id,
       } satisfies CalendarExtendedProps,
+    });
+
+    app.stageHistory.forEach((entry, index) => {
+      if (shouldSkipStageHistoryEntry(app, entry, index)) return;
+      const { backgroundColor, borderColor } = STAGE_CALENDAR_HEX[entry.stage];
+      events.push({
+        id: `app-stage-${app._id}-${index}-${entry.stage}-${isoDay(entry.date)}`,
+        title: `${entry.stage} · ${app.company}`,
+        start: isoDay(entry.date),
+        allDay: true,
+        backgroundColor,
+        borderColor,
+        extendedProps: {
+          factor: "stage_change",
+          route: "/applications",
+          entityId: app._id,
+          subtitle: app.role,
+          company: app.company,
+          applicationStage: app.stage,
+          enteredStage: entry.stage,
+          applicationId: app._id,
+        } satisfies CalendarExtendedProps,
+      });
     });
   }
 
   for (const deadline of deadlines) {
+    const day = dueDateToIsoDay(deadline.dueDate);
+    if (!day) continue;
+    const { backgroundColor, borderColor } = deadlineChipColors(deadline);
+    const aid = idKey(deadline.applicationId);
+    const linkedApp = aid ? appById.get(aid) : undefined;
+    const factor: CalendarFactor = linkedApp ? "deadline_application" : "deadline_general";
+    const title = linkedApp
+      ? `${deadline.type} · ${linkedApp.company}`
+      : deadline.type;
+    const subtitle = linkedApp
+      ? linkedApp.role
+      : deadline.completed
+        ? "Completed"
+        : "Deadline";
+
     events.push({
       id: `deadline-${deadline._id}`,
-      title: deadline.type,
-      start: isoDay(deadline.dueDate),
+      title,
+      start: day,
       allDay: true,
-      backgroundColor: deadline.completed ? "#10b981" : "#f59e0b",
-      borderColor: deadline.completed ? "#10b981" : "#f59e0b",
+      backgroundColor,
+      borderColor,
       extendedProps: {
-        source: "deadlines",
+        factor,
         route: "/deadlines",
         entityId: deadline._id,
-        subtitle: deadline.completed ? "Completed" : "Due",
-      } satisfies CalendarExtendedProps,
-    });
-  }
-
-  for (const contact of contacts) {
-    if (contact.nextFollowUpDate) {
-      events.push({
-        id: `contact-followup-${contact._id}`,
-        title: `Follow up with ${contact.name}`,
-        start: isoDay(contact.nextFollowUpDate),
-        allDay: true,
-        backgroundColor: "#8b5cf6",
-        borderColor: "#8b5cf6",
-        extendedProps: {
-          source: "contacts",
-          route: "/contacts",
-          entityId: contact._id,
-          subtitle: contact.company,
-        } satisfies CalendarExtendedProps,
-      });
-    }
-  }
-
-  for (const resume of resumes) {
-    events.push({
-      id: `resume-${resume._id}`,
-      title: `Resume uploaded: ${resume.name}`,
-      start: isoDay(resume.uploadDate),
-      allDay: true,
-      backgroundColor: "#14b8a6",
-      borderColor: "#14b8a6",
-      extendedProps: {
-        source: "resumes",
-        route: "/resumes",
-        entityId: resume._id,
-        subtitle: resume.targetRole,
-      } satisfies CalendarExtendedProps,
-    });
-  }
-
-  for (const company of companies) {
-    events.push({
-      id: `company-${company._id}`,
-      title: `Company added: ${company.name}`,
-      start: isoDay(company.createdAt),
-      allDay: true,
-      backgroundColor: "#64748b",
-      borderColor: "#64748b",
-      extendedProps: {
-        source: "companies",
-        route: "/companies",
-        entityId: company._id,
+        completed: deadline.completed,
+        subtitle,
+        company: linkedApp?.company ?? "",
+        applicationStage: linkedApp ? linkedApp.stage : null,
+        applicationId: deadline.applicationId,
       } satisfies CalendarExtendedProps,
     });
   }
