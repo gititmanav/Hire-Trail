@@ -48,6 +48,41 @@ function hasContent(p: {
 
 const cloudinaryEnabled = () => !!(env.CLOUDINARY_CLOUD_NAME && env.CLOUDINARY_API_KEY && env.CLOUDINARY_API_SECRET);
 
+type ProfileSlice = {
+  contact: unknown;
+  summary: string;
+  experiences: unknown[];
+  projects: unknown[];
+  education: unknown[];
+  skills: unknown[];
+  certifications: unknown[];
+};
+
+/** Some models (esp. on free tiers) return degenerate empty arrays despite the merge
+ *  prompt's "never drop" rule. If the merge would drop content the master already had,
+ *  reject it and keep the master untouched. Returns true if the merge is safe to apply. */
+function mergeIsSafe(master: ProfileSlice, merged: ProfileSlice): boolean {
+  const fields: (keyof ProfileSlice)[] = ["experiences", "projects", "education", "skills", "certifications"];
+  for (const f of fields) {
+    const m = (master[f] as unknown[]).length;
+    const out = (merged[f] as unknown[]).length;
+    if (m > 0 && out < m) return false;
+  }
+  return true;
+}
+
+function profileFromMaster(master: ProfileSlice): ProfileSlice {
+  return {
+    contact: master.contact,
+    summary: master.summary,
+    experiences: master.experiences,
+    projects: master.projects,
+    education: master.education,
+    skills: master.skills,
+    certifications: master.certifications,
+  };
+}
+
 async function uploadResumeToCloudinary(buffer: Buffer, originalName: string, userId: string): Promise<{ url: string; publicId: string }> {
   const { cloudinary } = await import("../config/cloudinary.js");
   return new Promise((resolve, reject) => {
@@ -123,13 +158,20 @@ router.post("/parse-from-resume/:resumeId", async (req: Request, res: Response, 
     let finalProfile = profile;
     let finalProvider = provider;
     let finalModelId = modelId;
+    let mergeUsed = false;
     const dbUserForMerge = await User.findById(user._id).select("mergeResumesEnabled");
     const mergeEnabled = dbUserForMerge?.mergeResumesEnabled !== false;
     if (existing && hasContent(existing) && mergeEnabled) {
       const merged = await mergeProfilesAI(user._id, existing, profile);
-      finalProfile = merged.merged;
-      finalProvider = merged.provider;
-      finalModelId = merged.modelId;
+      if (mergeIsSafe(existing, merged.merged)) {
+        finalProfile = merged.merged;
+        finalProvider = merged.provider;
+        finalModelId = merged.modelId;
+        mergeUsed = true;
+      } else {
+        console.warn(`[master-profile] merge dropped content for user ${user._id}; keeping master`);
+        finalProfile = profileFromMaster(existing) as typeof profile;
+      }
     }
 
     const saved = await MasterProfile.findOneAndUpdate(
@@ -139,7 +181,7 @@ router.post("/parse-from-resume/:resumeId", async (req: Request, res: Response, 
           ...finalProfile,
           sourceResumeId: resume._id,
           lastParsedAt: new Date(),
-          lastParsedProvider: `${finalProvider}:${finalModelId}${existing && hasContent(existing) && mergeEnabled ? " (merged)" : ""}`,
+          lastParsedProvider: `${finalProvider}:${finalModelId}${mergeUsed ? " (merged)" : existing && hasContent(existing) && mergeEnabled ? " (merge-rejected)" : ""}`,
         },
       },
       { new: true, upsert: true, setDefaultsOnInsert: true }
@@ -205,13 +247,20 @@ router.post("/upload-and-parse", upload.single("file"), async (req: Request, res
     let finalProfile = profile;
     let finalProvider = provider;
     let finalModelId = modelId;
+    let mergeUsed = false;
     const dbUserForMerge = await User.findById(user._id).select("mergeResumesEnabled");
     const mergeEnabled = dbUserForMerge?.mergeResumesEnabled !== false;
     if (existing && hasContent(existing) && mergeEnabled) {
       const merged = await mergeProfilesAI(user._id, existing, profile);
-      finalProfile = merged.merged;
-      finalProvider = merged.provider;
-      finalModelId = merged.modelId;
+      if (mergeIsSafe(existing, merged.merged)) {
+        finalProfile = merged.merged;
+        finalProvider = merged.provider;
+        finalModelId = merged.modelId;
+        mergeUsed = true;
+      } else {
+        console.warn(`[master-profile] merge dropped content for user ${user._id}; keeping master`);
+        finalProfile = profileFromMaster(existing) as typeof profile;
+      }
     }
 
     const saved = await MasterProfile.findOneAndUpdate(
@@ -221,7 +270,7 @@ router.post("/upload-and-parse", upload.single("file"), async (req: Request, res
           ...finalProfile,
           sourceResumeId: resume._id,
           lastParsedAt: new Date(),
-          lastParsedProvider: `${finalProvider}:${finalModelId}${existing && hasContent(existing) && mergeEnabled ? " (merged)" : ""}`,
+          lastParsedProvider: `${finalProvider}:${finalModelId}${mergeUsed ? " (merged)" : existing && hasContent(existing) && mergeEnabled ? " (merge-rejected)" : ""}`,
         },
       },
       { new: true, upsert: true, setDefaultsOnInsert: true }
