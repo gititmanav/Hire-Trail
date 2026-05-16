@@ -1,6 +1,9 @@
 /** Primary navigation; paths match `App.tsx` routes. Feature-flag-aware. */
+import { useState, lazy, Suspense } from "react";
 import { NavLink } from "react-router-dom";
 import { useFeatureFlags } from "../../hooks/useFeatureFlags.tsx";
+
+const FeedbackModal = lazy(() => import("../FeedbackWidget/FeedbackModal.tsx"));
 
 interface Props { collapsed: boolean; onToggle: () => void; isAdmin: boolean; }
 
@@ -9,6 +12,7 @@ interface NavItem {
   label: string;
   d: string;
   featureKey?: string;
+  badge?: string;
 }
 
 interface NavGroup {
@@ -43,7 +47,7 @@ const groups: NavGroup[] = [
     label: "Tools",
     items: [
       { to: "/resumes", label: "Resumes", d: "M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9l-7-7zm0 0v7h7" },
-      { to: "/tailor", label: "AI Tailor", d: "M12 2l1.6 4.2L18 8l-4.4 1.8L12 14l-1.6-4.2L6 8l4.4-1.8L12 2zm6 11l1 2.5L21.5 16 19 17l-1 2.5L17 17l-2.5-1L17 15l1-2z" },
+      { to: "/tailor", label: "AI Tailor", badge: "Beta", d: "M12 2l1.6 4.2L18 8l-4.4 1.8L12 14l-1.6-4.2L6 8l4.4-1.8L12 2zm6 11l1 2.5L21.5 16 19 17l-1 2.5L17 17l-2.5-1L17 15l1-2z" },
       { to: "/jobs", label: "Job Search", d: "M11 11a4 4 0 100-8 4 4 0 000 8zm0 0l6 6m-13-2l3-3", featureKey: "feature_job_search" },
       { to: "/import-export", label: "Import / Export", d: "M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5", featureKey: "feature_csv_import_export" },
     ],
@@ -54,6 +58,7 @@ const adminItem: NavItem = { to: "/admin", label: "Admin Panel", d: "M12 3l8 4v6
 
 export default function Sidebar({ collapsed, onToggle, isAdmin }: Props) {
   const { isEnabled } = useFeatureFlags();
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   const visibleGroups = groups
     .map((g) => ({ ...g, items: g.items.filter((i) => !i.featureKey || isEnabled(i.featureKey)) }))
@@ -83,10 +88,20 @@ export default function Sidebar({ collapsed, onToggle, isAdmin }: Props) {
             )}
             <div className={`flex flex-col gap-0.5 ${collapsed ? "items-center w-full" : ""}`}>
               {group.items.map((item) => (
-                <NavLink key={item.to} to={item.to} end={item.to === "/"} title={collapsed ? item.label : undefined}
-                  className={({ isActive }) => `flex items-center gap-2.5 rounded-lg text-sm font-medium whitespace-nowrap ${collapsed ? "justify-center w-11 h-11 p-0" : "px-3 py-2"} ${isActive ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"}`}>
+                <NavLink key={item.to} to={item.to} end={item.to === "/"} title={collapsed ? `${item.label}${item.badge ? ` (${item.badge})` : ""}` : undefined}
+                  className={({ isActive }) => `relative flex items-center gap-2.5 rounded-lg text-sm font-medium whitespace-nowrap ${collapsed ? "justify-center w-11 h-11 p-0" : "px-3 py-2"} ${isActive ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"}`}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d={item.d}/></svg>
-                  {!collapsed && <span>{item.label}</span>}
+                  {!collapsed && (
+                    <span className="flex-1 inline-flex items-center justify-between">
+                      <span>{item.label}</span>
+                      {item.badge && (
+                        <span className="ml-2 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-primary/15 text-primary">{item.badge}</span>
+                      )}
+                    </span>
+                  )}
+                  {collapsed && item.badge && (
+                    <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-primary border border-sidebar" aria-hidden />
+                  )}
                 </NavLink>
               ))}
             </div>
@@ -108,9 +123,28 @@ export default function Sidebar({ collapsed, onToggle, isAdmin }: Props) {
           </div>
         )}
       </nav>
-      <div className="px-4 py-3 border-t border-sidebar-border">
+      <div className={`border-t border-sidebar-border ${collapsed ? "px-1 py-2" : "px-2 py-2"}`}>
+        <button
+          type="button"
+          onClick={() => setFeedbackOpen(true)}
+          title={collapsed ? "Send feedback" : undefined}
+          className={`flex items-center gap-2.5 rounded-lg text-sm font-medium whitespace-nowrap text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground w-full ${collapsed ? "justify-center w-11 h-11 p-0 mx-auto" : "px-3 py-2"}`}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+          </svg>
+          {!collapsed && <span>Send feedback</span>}
+        </button>
+      </div>
+      <div className="px-4 py-2.5 border-t border-sidebar-border">
         <p className={`text-[11px] text-sidebar-foreground/50 ${collapsed ? "text-center" : ""}`}>{collapsed ? "v4" : "HireTrail v4.0"}</p>
       </div>
+
+      {feedbackOpen && (
+        <Suspense fallback={null}>
+          <FeedbackModal onClose={() => setFeedbackOpen(false)} />
+        </Suspense>
+      )}
     </aside>
   );
 }

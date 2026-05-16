@@ -39,3 +39,6 @@ export type { IInvite, IInviteUsage } from "./Invite.js";
 
 export { EmailTemplate, EMAIL_TEMPLATE_TYPES } from "./EmailTemplate.js";
 export type { IEmailTemplate, EmailTemplateType } from "./EmailTemplate.js";
+
+export { BroadcastEmail, BROADCAST_STATUSES, BROADCAST_RECIPIENT_TYPES } from "./BroadcastEmail.js";
+export type { IBroadcastEmail, BroadcastStatus, BroadcastRecipientType } from "./BroadcastEmail.js";

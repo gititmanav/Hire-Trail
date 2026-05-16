@@ -10,4 +10,7 @@ export { default as BackupManagement } from "./BackupManagement.tsx";
 export { default as RBACManagement } from "./RBACManagement.tsx";
 export { default as SeedManagement } from "./SeedManagement.tsx";
 export { default as GmailManagement } from "./GmailManagement.tsx";
+export { default as MailboxManagement } from "./MailboxManagement.tsx";
 export { default as NotificationCenter } from "./NotificationCenter.tsx";
+export { default as FeedbackInbox } from "./FeedbackInbox.tsx";
+export { default as Broadcasts } from "./Broadcasts.tsx";

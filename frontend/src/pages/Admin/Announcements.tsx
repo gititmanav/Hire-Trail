@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import toast from "react-hot-toast";
 import { adminAPI } from "../../utils/api";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal";
@@ -142,6 +142,33 @@ export default function Announcements() {
     }
   };
 
+  const now = Date.now();
+  const stats = useMemo(() => {
+    let active = 0, scheduled = 0, expired = 0, inactive = 0;
+    for (const a of announcements) {
+      if (!a.active) { inactive++; continue; }
+      const start = a.startDate ? new Date(a.startDate).getTime() : 0;
+      const end = a.endDate ? new Date(a.endDate).getTime() : Infinity;
+      if (start > now) scheduled++;
+      else if (end < now) expired++;
+      else active++;
+    }
+    return { total: announcements.length, active, scheduled, expired, inactive };
+  }, [announcements, now]);
+
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "scheduled" | "expired" | "inactive">("all");
+  const filtered = useMemo(() => {
+    if (statusFilter === "all") return announcements;
+    return announcements.filter((a) => {
+      if (!a.active) return statusFilter === "inactive";
+      const start = a.startDate ? new Date(a.startDate).getTime() : 0;
+      const end = a.endDate ? new Date(a.endDate).getTime() : Infinity;
+      if (start > now) return statusFilter === "scheduled";
+      if (end < now) return statusFilter === "expired";
+      return statusFilter === "active";
+    });
+  }, [announcements, statusFilter, now]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -151,14 +178,33 @@ export default function Announcements() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-foreground">
-          Announcements
-        </h1>
-        <button onClick={openCreate} className="btn-accent text-sm">
-          Create Announcement
-        </button>
+    <div className="fade-up">
+      <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">Announcements</h1>
+          <p className="text-sm text-muted-foreground mt-1">Banner messages shown to all users. Scheduled by start/end date.</p>
+        </div>
+        <button onClick={openCreate} className="btn-accent text-sm">+ New announcement</button>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
+        {[
+          { key: "all" as const, label: "All", value: stats.total, accent: "text-foreground" },
+          { key: "active" as const, label: "Live", value: stats.active, accent: "text-emerald-600 dark:text-emerald-400" },
+          { key: "scheduled" as const, label: "Scheduled", value: stats.scheduled, accent: "text-blue-600 dark:text-blue-400" },
+          { key: "expired" as const, label: "Expired", value: stats.expired, accent: "text-muted-foreground" },
+          { key: "inactive" as const, label: "Inactive", value: stats.inactive, accent: "text-amber-600 dark:text-amber-400" },
+        ].map((s) => (
+          <button
+            key={s.key}
+            onClick={() => setStatusFilter(s.key)}
+            className={`bg-card border rounded-xl p-4 text-left transition-all ${statusFilter === s.key ? "border-primary/50 ring-1 ring-primary/30" : "border-border hover:border-primary/30"}`}
+          >
+            <p className="text-xs uppercase tracking-wider text-muted-foreground">{s.label}</p>
+            <p className={`text-2xl font-bold mt-1 ${s.accent}`}>{s.value}</p>
+          </button>
+        ))}
       </div>
 
       {/* Form Modal */}
@@ -295,65 +341,44 @@ export default function Announcements() {
       )}
 
       {/* Announcements List */}
-      {announcements.length === 0 ? (
-        <div className="card-premium p-10 text-center text-muted-foreground">
-          No announcements yet.
+      {filtered.length === 0 ? (
+        <div className="bg-card border border-border rounded-xl p-12 text-center text-muted-foreground">
+          {announcements.length === 0 ? "No announcements yet — create your first one." : "No announcements match this filter."}
         </div>
       ) : (
-        <div className="space-y-4">
-          {announcements.map((a) => {
+        <div className="space-y-3">
+          {filtered.map((a) => {
             const style = TYPE_STYLES[a.type] || TYPE_STYLES.info;
+            const start = a.startDate ? new Date(a.startDate).getTime() : 0;
+            const end = a.endDate ? new Date(a.endDate).getTime() : Infinity;
+            const status = !a.active ? "Inactive" : start > now ? "Scheduled" : end < now ? "Expired" : "Live";
+            const statusCls = !a.active ? "bg-muted text-muted-foreground" :
+              status === "Scheduled" ? "bg-blue-500/10 text-blue-700 dark:text-blue-300" :
+              status === "Expired" ? "bg-muted text-muted-foreground" :
+              "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
             return (
-              <div key={a._id} className="card-premium p-5">
+              <div key={a._id} className="bg-card border border-border rounded-xl p-5">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-base font-semibold text-foreground">
-                        {a.title}
-                      </h3>
-                      <span
-                        className={`text-xs font-medium px-2 py-0.5 rounded-full ${style.bg} ${style.text}`}
-                      >
-                        {a.type}
+                      <h3 className="text-base font-semibold text-foreground truncate">{a.title}</h3>
+                      <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${style.bg} ${style.text}`}>{a.type}</span>
+                      <span className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full ${statusCls}`}>
+                        <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70" />
+                        {status}
                       </span>
-                      <span
-                        className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                          a.active
-                            ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
-                            : "bg-muted text-muted-foreground"
-                        }`}
-                      >
-                        {a.active ? "Active" : "Inactive"}
-                      </span>
+                      {a.dismissible && <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Dismissible</span>}
                     </div>
-                    {a.body && (
-                      <p className="text-sm text-secondary-foreground mt-1">
-                        {a.body}
-                      </p>
-                    )}
-                    <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                      <span>
-                        Start: {new Date(a.startDate).toLocaleDateString()}
-                      </span>
-                      <span>
-                        End: {new Date(a.endDate).toLocaleDateString()}
-                      </span>
-                      {a.dismissible && <span>Dismissible</span>}
+                    {a.body && <p className="text-sm text-secondary-foreground mt-1.5 line-clamp-2">{a.body}</p>}
+                    <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                      <span>Start: {new Date(a.startDate).toLocaleDateString()}</span>
+                      <span>→</span>
+                      <span>End: {new Date(a.endDate).toLocaleDateString()}</span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      onClick={() => openEdit(a)}
-                      className="btn-secondary text-xs px-3 py-1.5"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(a._id)}
-                      className="text-xs px-3 py-1.5 rounded-lg border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-                    >
-                      Delete
-                    </button>
+                  <div className="flex flex-col gap-1.5 shrink-0">
+                    <button onClick={() => openEdit(a)} className="btn-secondary text-xs px-3 py-1">Edit</button>
+                    <button onClick={() => handleDelete(a._id)} className="text-xs px-3 py-1 rounded-lg border border-destructive/40 text-destructive hover:bg-destructive/10">Delete</button>
                   </div>
                 </div>
               </div>

@@ -53,69 +53,58 @@ export default function StorageManagement() {
 
   const { stats, files, orphans } = data;
 
+  const cloudinaryPct = stats.cloudinary && stats.cloudinary.storageLimit > 0
+    ? Math.min(100, (stats.cloudinary.totalStorage / stats.cloudinary.storageLimit) * 100) : 0;
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-foreground">
-          Storage Management
-        </h1>
-        <button onClick={fetchData} className="btn-secondary text-sm">
-          Refresh
-        </button>
+    <div className="fade-up space-y-6">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">Storage Management</h1>
+          <p className="text-sm text-muted-foreground mt-1">Cloudinary usage, orphan detection, and file inventory.</p>
+        </div>
+        <button onClick={fetchData} className="btn-secondary text-sm">Refresh</button>
       </div>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="card-premium p-5">
-          <p className="text-sm text-muted-foreground">
-            Total Files
-          </p>
-          <p className="text-3xl font-bold text-foreground mt-1">
-            {stats.totalFiles}
-          </p>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="bg-card border border-border rounded-xl p-5">
+          <p className="text-xs uppercase tracking-wider text-muted-foreground">Total files</p>
+          <p className="text-3xl font-bold text-foreground mt-1">{stats.totalFiles}</p>
         </div>
-        <div className="card-premium p-5">
-          <p className="text-sm text-muted-foreground">
-            Orphaned Files
-          </p>
-          <p className="text-3xl font-bold text-orange-600 dark:text-orange-400 mt-1">
-            {stats.orphanedFiles}
-          </p>
+        <div className="bg-card border border-border rounded-xl p-5">
+          <p className="text-xs uppercase tracking-wider text-muted-foreground">Orphaned files</p>
+          <p className={`text-3xl font-bold mt-1 ${stats.orphanedFiles > 0 ? "text-amber-600 dark:text-amber-400" : "text-foreground"}`}>{stats.orphanedFiles}</p>
+          <p className="text-[11px] text-muted-foreground mt-1">{stats.orphanedFiles > 0 ? "Files in storage not referenced in DB" : "Storage and DB are in sync"}</p>
         </div>
-        <div className="card-premium p-5">
-          <p className="text-sm text-muted-foreground">
-            Cloudinary Storage
-          </p>
+        <div className="bg-card border border-border rounded-xl p-5">
+          <p className="text-xs uppercase tracking-wider text-muted-foreground">Cloudinary storage</p>
           {stats.cloudinary ? (
             <div className="mt-1">
               <p className="text-xl font-bold text-foreground">
-                {formatBytes(stats.cloudinary.totalStorage)} /{" "}
-                {formatBytes(stats.cloudinary.storageLimit)}
+                {formatBytes(stats.cloudinary.totalStorage)} <span className="text-sm text-muted-foreground font-normal">of {formatBytes(stats.cloudinary.storageLimit)}</span>
               </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Bandwidth: {formatBytes(stats.cloudinary.bandwidth)} /{" "}
-                {formatBytes(stats.cloudinary.bandwidthLimit)}
+              <div className="mt-2 w-full h-2 bg-border rounded-full overflow-hidden">
+                <div className={`h-full rounded-full ${cloudinaryPct > 80 ? "bg-red-500" : cloudinaryPct > 60 ? "bg-amber-500" : "bg-primary"}`} style={{ width: `${cloudinaryPct}%` }} />
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1.5">
+                Bandwidth: {formatBytes(stats.cloudinary.bandwidth)} / {formatBytes(stats.cloudinary.bandwidthLimit)}
               </p>
             </div>
           ) : (
             <div className="mt-1">
-              <p className="text-lg text-muted-foreground">
-                —
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Cloudinary env vars not set. Files are tracked in DB only.
-              </p>
+              <p className="text-lg text-muted-foreground">—</p>
+              <p className="text-[11px] text-muted-foreground mt-1">Cloudinary env vars not set. Files are tracked in DB only.</p>
             </div>
           )}
         </div>
       </div>
 
       {/* Files Table */}
-      <div className="card-premium overflow-hidden">
-        <div className="px-5 py-4 border-b border-border">
-          <h2 className="text-lg font-semibold text-foreground">
-            Files ({files.length})
-          </h2>
+      <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-foreground">Files</h2>
+          <span className="text-xs text-muted-foreground">{files.length} total</span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -179,15 +168,14 @@ export default function StorageManagement() {
       </div>
 
       {/* Orphans Section */}
-      <div className="card-premium overflow-hidden">
+      <div className="bg-card border border-border rounded-xl overflow-hidden">
         <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-foreground">
-            Orphaned Files ({orphans.length})
-          </h2>
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">Orphaned files</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">Files referenced in DB but not found in storage.</p>
+          </div>
           {orphans.length > 0 && (
-            <button onClick={handleCleanup} className="btn-accent text-sm">
-              Cleanup Orphans
-            </button>
+            <button onClick={handleCleanup} className="btn-accent text-sm">Cleanup orphans</button>
           )}
         </div>
         {orphans.length === 0 ? (
