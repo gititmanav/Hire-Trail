@@ -19,11 +19,13 @@ import Deadlines from "./pages/Deadlines/Deadlines.tsx";
 import CalendarPage from "./pages/Calendar/Calendar.tsx";
 import ImportExport from "./pages/ImportExport/ImportExport.tsx";
 import Profile from "./pages/Profile/Profile.tsx";
+import Settings from "./pages/Settings/Settings.tsx";
+import Tailor from "./pages/Tailor/Tailor.tsx";
 import {
   AdminDashboard, AuditLogs,
   ContentModeration, StorageManagement, SystemConfig,
   Announcements, EmailTemplates, InviteSystem, BackupManagement,
-  RBACManagement, SeedManagement, GmailManagement, NotificationCenter,
+  RBACManagement, SeedManagement, MailboxManagement, NotificationCenter, FeedbackInbox, Broadcasts,
 } from "./pages/Admin/index.ts";
 import { authAPI } from "./utils/api.ts";
 import { useTheme } from "./hooks/useTheme.ts";
@@ -96,8 +98,11 @@ function App() {
             <Route path="/admin/invites" element={<InviteSystem />} />
             <Route path="/admin/backup" element={<BackupManagement />} />
             <Route path="/admin/seed" element={<SeedManagement />} />
-            <Route path="/admin/gmail" element={<GmailManagement />} />
+            <Route path="/admin/mailbox" element={<MailboxManagement />} />
+            <Route path="/admin/gmail" element={<MailboxManagement />} />
             <Route path="/admin/notifications" element={<NotificationCenter />} />
+            <Route path="/admin/feedback" element={<FeedbackInbox />} />
+            <Route path="/admin/broadcasts" element={<Broadcasts />} />
             <Route path="/admin/calendar" element={<CalendarPage />} />
           </Route>
 
@@ -117,7 +122,8 @@ function App() {
             <Route path="/calendar" element={<CalendarPage />} />
             <Route path="/import-export" element={<FeatureRoute flag="feature_csv_import_export"><ImportExport /></FeatureRoute>} />
             <Route path="/profile" element={<Profile />} />
-            <Route path="/settings" element={<Profile />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/tailor" element={<Tailor />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

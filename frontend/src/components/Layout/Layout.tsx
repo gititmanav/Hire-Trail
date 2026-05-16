@@ -7,14 +7,22 @@ import type { User } from "../../types";
 
 interface Props { user: User; onLogout: () => Promise<void>; }
 
+const SIDEBAR_COLLAPSED_KEY = "hiretrail-sidebar-collapsed";
+
 export default function Layout({ user, onLogout }: Props) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1"; } catch { return false; }
+  });
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
-  const fullWidth = location.pathname === "/" || location.pathname === "/kanban" || location.pathname === "/calendar";
+  const fullWidth = ["/", "/kanban", "/calendar", "/profile", "/tailor"].includes(location.pathname);
 
   // Close mobile sidebar on route change
   useEffect(() => { setMobileOpen(false); }, [location.pathname]);
+
+  useEffect(() => {
+    try { localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? "1" : "0"); } catch { /* ignore */ }
+  }, [collapsed]);
 
   return (
     <div className="flex min-h-screen bg-background">

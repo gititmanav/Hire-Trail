@@ -8,6 +8,7 @@ export const AUDIT_ACTIONS = [
   "invite_create", "invite_delete",
   "template_create", "template_update", "template_delete",
   "hard_delete", "backup_export", "user_data_export",
+  "broadcast_send",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -15,6 +16,8 @@ export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 export const RESOURCE_TYPES = [
   "user", "application", "resume", "contact", "deadline",
   "setting", "announcement", "invite", "email_template", "system", "notification",
+  "master_profile", "tailor_session", "feedback", "ai_provider", "mailbox",
+  "broadcast",
 ] as const;
 
 export type ResourceType = (typeof RESOURCE_TYPES)[number];

@@ -446,8 +446,195 @@
 
     setFabVisual("idle");
 
+    // ----- AI Tailor: secondary button below the FAB that opens a sidebar with fit score + suggestions -----
+    initTailorButton();
+
     // Setup auto-detect after FAB
     setupApplyDetection();
+  }
+
+  function initTailorButton() {
+    if (document.getElementById("hiretrail-tailor-btn")) return;
+    const fabEl = document.getElementById("hiretrail-btn");
+    if (!fabEl) return;
+
+    const tailorBtn = document.createElement("div");
+    tailorBtn.id = "hiretrail-tailor-btn";
+    tailorBtn.title = "Tailor with AI";
+    tailorBtn.setAttribute("aria-label", "Tailor with AI");
+    tailorBtn.style.cssText = `
+      position: fixed; right: 0; z-index: 999999;
+      width: 36px; height: 36px;
+      border-radius: 10px;
+      border-top-right-radius: 0; border-bottom-right-radius: 0;
+      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 6px 18px rgba(99,102,241,0.35);
+      transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    `;
+    tailorBtn.innerHTML = `
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 2l1.6 4.2L18 8l-4.4 1.8L12 14l-1.6-4.2L6 8l4.4-1.8L12 2z"/>
+        <path d="M18 13l1 2.5L21.5 16 19 17l-1 2.5L17 17l-2.5-1L17 15l1-2z"/>
+      </svg>
+    `;
+    document.body.appendChild(tailorBtn);
+
+    function positionTailorBelowFab() {
+      const rect = fabEl.getBoundingClientRect();
+      tailorBtn.style.top = `${rect.bottom + 8}px`;
+    }
+    positionTailorBelowFab();
+    new ResizeObserver(positionTailorBelowFab).observe(fabEl);
+    window.addEventListener("resize", positionTailorBelowFab);
+    // FAB has dragstate; reposition on every pointer move.
+    document.addEventListener("pointermove", positionTailorBelowFab);
+
+    tailorBtn.addEventListener("mouseenter", () => {
+      tailorBtn.style.transform = "translateX(-2px) scale(1.08)";
+      tailorBtn.style.filter = "brightness(1.1)";
+    });
+    tailorBtn.addEventListener("mouseleave", () => {
+      tailorBtn.style.transform = "translateX(0) scale(1)";
+      tailorBtn.style.filter = "none";
+    });
+
+    tailorBtn.addEventListener("click", async () => {
+      try {
+        const authRes = await chrome.runtime.sendMessage({ type: "CHECK_AUTH" });
+        if (!authRes || !authRes.authenticated) {
+          showStatus("Sign in via the extension popup first", "error");
+          return;
+        }
+        const data = scrapeWithFallback();
+        if (!data.jobDescription || data.jobDescription.length < 80) {
+          showStatus("Couldn't find a job description on this page", "warning");
+          return;
+        }
+
+        openSidebar({ state: "loading", title: data.title, company: data.company });
+        const result = await chrome.runtime.sendMessage({ type: "ANALYZE_JD", data });
+        if (result && result.success) {
+          openSidebar({ state: "result", session: result.session });
+        } else {
+          openSidebar({ state: "error", error: result?.error || "Analysis failed" });
+        }
+      } catch (err) {
+        openSidebar({ state: "error", error: "Could not reach extension. Refresh the page." });
+      }
+    });
+  }
+
+  /* ---------- Sidebar UI ---------- */
+
+  function openSidebar(payload) {
+    let panel = document.getElementById("hiretrail-tailor-panel");
+    if (!panel) {
+      panel = document.createElement("div");
+      panel.id = "hiretrail-tailor-panel";
+      panel.style.cssText = `
+        position: fixed; top: 0; right: 0; bottom: 0; z-index: 999999;
+        width: 380px; max-width: 100vw;
+        background: #ffffff; color: #111;
+        box-shadow: -16px 0 36px rgba(0,0,0,0.18);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        display: flex; flex-direction: column;
+        animation: hiretrail-slide-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+      `;
+      panel.innerHTML = `
+        <div id="hiretrail-tailor-head" style="display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid #e5e7eb; background:linear-gradient(135deg,#6366f1 0%,#8b5cf6 100%); color:#fff;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l1.6 4.2L18 8l-4.4 1.8L12 14l-1.6-4.2L6 8l4.4-1.8L12 2z"/></svg>
+            <span style="font-weight:700; font-size:14px;">HireTrail · AI Tailor</span>
+          </div>
+          <button id="hiretrail-tailor-close" aria-label="Close" style="background:none; border:none; color:#fff; cursor:pointer; padding:4px; line-height:0; border-radius:6px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+          </button>
+        </div>
+        <div id="hiretrail-tailor-body" style="flex:1; overflow-y:auto; padding:16px;"></div>
+      `;
+      document.body.appendChild(panel);
+      panel.querySelector("#hiretrail-tailor-close").addEventListener("click", () => panel.remove());
+    }
+
+    const body = panel.querySelector("#hiretrail-tailor-body");
+    if (payload.state === "loading") {
+      body.innerHTML = `
+        <div style="padding:24px 8px; text-align:center;">
+          <div style="font-size:13px; color:#6b7280; margin-bottom:8px;">Analyzing this JD against your master profile…</div>
+          <div style="font-size:12px; color:#9ca3af;">${escapeHtml((payload.title || "") + (payload.company ? " · " + payload.company : ""))}</div>
+        </div>
+      `;
+      return;
+    }
+    if (payload.state === "error") {
+      body.innerHTML = `
+        <div style="padding:16px; border:1px solid #fecaca; background:#fef2f2; border-radius:10px; font-size:13px; color:#991b1b;">
+          ${escapeHtml(payload.error || "Unknown error")}
+        </div>
+      `;
+      return;
+    }
+    if (payload.state !== "result" || !payload.session) return;
+    body.innerHTML = renderResult(payload.session);
+    const openBtn = body.querySelector("#hiretrail-open-tailor");
+    if (openBtn) {
+      openBtn.addEventListener("click", () => {
+        chrome.runtime.sendMessage({ type: "OPEN_TAILOR", sessionId: payload.session._id });
+        const url = `https://hiretrail.manavkaneria.me/tailor?session=${encodeURIComponent(payload.session._id)}`;
+        window.open(url, "_blank", "noopener,noreferrer");
+      });
+    }
+  }
+
+  function escapeHtml(s) {
+    return String(s ?? "")
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+
+  function renderResult(s) {
+    const gradeTone = { A: "#059669", B: "#0284c7", C: "#d97706", D: "#ea580c", F: "#dc2626" }[s.fitGrade] || "#6b7280";
+    const matchedChips = (s.matchedSkills || []).slice(0, 12).map((k) =>
+      `<span style="display:inline-block; font-size:11px; padding:2px 8px; background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; border-radius:999px; margin:2px;">${escapeHtml(k)}</span>`
+    ).join("");
+    const missingChips = (s.missingSkills || []).slice(0, 12).map((k) =>
+      `<span style="display:inline-block; font-size:11px; padding:2px 8px; background:#fffbeb; color:#92400e; border:1px solid #fde68a; border-radius:999px; margin:2px;">${escapeHtml(k)}</span>`
+    ).join("");
+    const topSuggestions = (s.suggestions || []).slice(0, 4).map((sg) => `
+      <div style="border:1px solid #e5e7eb; border-radius:10px; padding:10px 12px; margin-bottom:8px; background:#fafafa;">
+        <div style="display:flex; gap:6px; margin-bottom:6px;">
+          <span style="font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; padding:2px 6px; background:#e0e7ff; color:#3730a3; border-radius:4px;">${escapeHtml(sg.section)}</span>
+          <span style="font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; padding:2px 6px; background:#f3f4f6; color:#374151; border-radius:4px;">${escapeHtml(sg.kind)}</span>
+        </div>
+        <div style="font-size:12.5px; color:#111; line-height:1.45;">${escapeHtml(sg.suggested)}</div>
+        ${sg.rationale ? `<div style="font-size:11px; color:#6b7280; margin-top:4px; font-style:italic;">${escapeHtml(sg.rationale)}</div>` : ""}
+      </div>
+    `).join("");
+
+    return `
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px;">
+        <div style="width:54px; height:54px; border-radius:12px; background:${gradeTone}1A; border:1px solid ${gradeTone}; display:flex; align-items:center; justify-content:center; font-size:22px; font-weight:800; color:${gradeTone};">${escapeHtml(s.fitGrade)}</div>
+        <div>
+          <div style="font-size:18px; font-weight:700; color:#111;">${s.fitScore} / 5</div>
+          <div style="font-size:11px; color:#6b7280;">${escapeHtml(s.fitGrade)}-grade fit</div>
+        </div>
+      </div>
+      <p style="font-size:12.5px; color:#111; line-height:1.5; margin:0 0 14px;">${escapeHtml(s.summary || "")}</p>
+
+      ${matchedChips ? `<div style="margin-bottom:10px;"><div style="font-size:10px; font-weight:700; color:#065f46; text-transform:uppercase; letter-spacing:.6px; margin-bottom:4px;">Matched</div>${matchedChips}</div>` : ""}
+      ${missingChips ? `<div style="margin-bottom:14px;"><div style="font-size:10px; font-weight:700; color:#92400e; text-transform:uppercase; letter-spacing:.6px; margin-bottom:4px;">Missing</div>${missingChips}</div>` : ""}
+
+      ${topSuggestions ? `<div style="font-size:10px; font-weight:700; color:#374151; text-transform:uppercase; letter-spacing:.6px; margin-bottom:8px;">Top suggestions</div>${topSuggestions}` : ""}
+
+      <button id="hiretrail-open-tailor" style="width:100%; margin-top:8px; padding:10px 12px; font-size:13px; font-weight:600; background:linear-gradient(135deg,#6366f1,#8b5cf6); color:#fff; border:none; border-radius:10px; cursor:pointer; box-shadow:0 4px 12px rgba(99,102,241,0.3);">
+        Open in HireTrail to accept / generate PDF
+      </button>
+      <p style="font-size:11px; color:#6b7280; text-align:center; margin:10px 0 0;">Provider: ${escapeHtml(s.provider || "")}:${escapeHtml(s.modelId || "")}</p>
+    `;
   }
 
   function showStatus(text, type) {
@@ -475,9 +662,12 @@
     setTimeout(() => toast.remove(), 3000);
   }
 
-  // Inject animation keyframe
+  // Inject animation keyframes
   const style = document.createElement("style");
-  style.textContent = `@keyframes hiretrail-fadein { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }`;
+  style.textContent = `
+    @keyframes hiretrail-fadein { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes hiretrail-slide-in { from { transform: translateX(100%); } to { transform: translateX(0); } }
+  `;
   document.head.appendChild(style);
 
   // SPA-safe route observer: reset auto-track guard whenever URL changes.

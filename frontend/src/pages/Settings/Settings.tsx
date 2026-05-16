@@ -1,0 +1,594 @@
+/** Settings — single-card scroll-spy layout for Account / Password / Email / AI. */
+import { useCallback, useEffect, useMemo, useRef, useState, FormEvent } from "react";
+import toast from "react-hot-toast";
+import { api, applicationsAPI, emailAPI, aiAPI } from "../../utils/api.ts";
+import type { EmailStatusResponse } from "../../utils/api.ts";
+import type { User } from "../../types";
+import { AISettingsCard } from "./AISettingsCard.tsx";
+
+/* ---------- shared field styles ---------- */
+const inputCls =
+  "w-full px-3 py-2 text-sm bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring transition-shadow";
+
+const DEFAULT_EMAIL_STATUS: EmailStatusResponse = {
+  gmail: { connected: false, email: null, lastSyncAt: null },
+  outlook: { connected: false, email: null, lastSyncAt: null, configured: false },
+};
+
+type SectionKey = "account" | "password" | "email" | "ai" | "profileSync";
+const SECTIONS: { key: SectionKey; label: string }[] = [
+  { key: "account", label: "Account" },
+  { key: "password", label: "Password" },
+  { key: "email", label: "Email" },
+  { key: "ai", label: "AI Providers" },
+  { key: "profileSync", label: "Profile Sync" },
+];
+
+/* ---------- helpers ---------- */
+
+function ReportRejectionModal({ onClose }: { onClose: () => void }) {
+  const [company, setCompany] = useState("");
+  const [dateReceived, setDateReceived] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", h);
+    return () => document.removeEventListener("keydown", h);
+  }, [onClose]);
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      const res = await applicationsAPI.getAll({ search: company, limit: 100 });
+      const match = res.data.find(
+        (a) => a.company.toLowerCase() === company.toLowerCase() && a.stage !== "Rejected"
+      );
+      if (!match) {
+        toast.error("No matching active application found for that company.");
+        setSubmitting(false);
+        return;
+      }
+      await applicationsAPI.update(match._id, { stage: "Rejected", archivedReason: "rejected" });
+      toast.success("Application rejected. It will be auto-archived in 7 days.");
+      onClose();
+    } catch {
+      toast.error("Failed to report rejection");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/55 flex items-center justify-center z-50" onClick={onClose}>
+      <div className="bg-card border border-border rounded-xl p-6 w-full max-w-[440px] animate-in shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-semibold text-foreground">Report a rejection</h2>
+          <button onClick={onClose} className="w-9 h-9 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted">
+            <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/></svg>
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1.5">Company name *</label>
+            <input className={inputCls} value={company} onChange={(e) => setCompany(e.target.value)} placeholder="e.g. Google" required />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1.5">Date received *</label>
+            <input type="date" className={inputCls} value={dateReceived} onChange={(e) => setDateReceived(e.target.value)} required />
+          </div>
+          <div className="flex justify-end gap-2 pt-4 border-t border-border">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium border border-border rounded-lg text-secondary-foreground hover:bg-muted">Cancel</button>
+            <button type="submit" disabled={submitting} className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50">{submitting ? "Submitting..." : "Submit"}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function MailboxRow({
+  provider, state, loading, configured, onConnect, onDisconnect,
+}: {
+  provider: "Gmail" | "Outlook";
+  state: { connected: boolean; email: string | null; lastSyncAt: string | null };
+  loading: boolean;
+  configured: boolean;
+  onConnect: () => void;
+  onDisconnect: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 flex-wrap py-3">
+      <div className="flex items-center gap-3 min-w-0">
+        <div className="w-10 h-10 rounded-lg bg-muted/60 flex items-center justify-center shrink-0">
+          {provider === "Gmail" ? (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="text-foreground">
+              <path d="M4 4h16a2 2 0 012 2v12a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2z" />
+              <polyline points="22,6 12,13 2,6" />
+            </svg>
+          ) : (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="text-foreground">
+              <rect x="2" y="6" width="14" height="12" rx="1.5" />
+              <rect x="16" y="3" width="6" height="18" rx="1.5" />
+              <line x1="2" y1="11" x2="16" y2="11" />
+            </svg>
+          )}
+        </div>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-foreground">{provider}</span>
+            {state.connected ? (
+              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Connected
+              </span>
+            ) : !configured ? (
+              <span className="text-[11px] font-medium text-muted-foreground">Not configured on this server</span>
+            ) : (
+              <span className="text-[11px] font-medium text-muted-foreground">Not connected</span>
+            )}
+          </div>
+          {state.connected && state.email && (
+            <p className="text-xs text-muted-foreground truncate">{state.email}{state.lastSyncAt ? ` · last scanned ${new Date(state.lastSyncAt).toLocaleDateString()}` : ""}</p>
+          )}
+        </div>
+      </div>
+      <div className="shrink-0">
+        {state.connected ? (
+          <button
+            disabled={loading}
+            onClick={onDisconnect}
+            className="px-3 py-1.5 text-xs font-medium border border-border rounded-lg text-secondary-foreground hover:bg-muted disabled:opacity-50"
+          >
+            {loading ? "Working…" : "Disconnect"}
+          </button>
+        ) : (
+          <button
+            disabled={loading || !configured}
+            onClick={onConnect}
+            className="px-3 py-1.5 text-xs font-medium text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            title={configured ? "" : `${provider} integration is not configured on this server`}
+          >
+            {loading ? "Connecting…" : `Connect ${provider}`}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================== */
+/* Page                                                           */
+/* ============================================================== */
+
+export default function Settings() {
+  const [user, setUser] = useState<User | null>(null);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [rejectionModal, setRejectionModal] = useState(false);
+  const [mailbox, setMailbox] = useState<EmailStatusResponse>(DEFAULT_EMAIL_STATUS);
+  const [mailboxLoading, setMailboxLoading] = useState<null | "gmail" | "outlook" | "scan">(null);
+  const [aiProviderCount, setAiProviderCount] = useState(0);
+  const [active, setActive] = useState<SectionKey>("account");
+
+  const [mergeEnabled, setMergeEnabled] = useState(true);
+  const [mergeSaving, setMergeSaving] = useState(false);
+
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const sectionRefs = useRef<Record<SectionKey, HTMLElement | null>>({
+    account: null, password: null, email: null, ai: null, profileSync: null,
+  });
+
+  useEffect(() => {
+    Promise.all([
+      api.get<User>("/auth/me").then((r) => {
+        setUser(r.data);
+        setName(r.data.name);
+        setEmail(r.data.email);
+        setMergeEnabled(r.data.mergeResumesEnabled !== false);
+      }),
+      emailAPI.status().then(setMailbox).catch(() => {}),
+      aiAPI.listKeys().then((keys) => setAiProviderCount(new Set(keys.filter((k) => k.isActive).map((k) => k.provider)).size)).catch(() => {}),
+    ])
+      .catch(() => {})
+      .finally(() => setLoading(false));
+
+    const params = new URLSearchParams(window.location.search);
+    const gmailResult = params.get("gmail");
+    const outlookResult = params.get("outlook");
+    if (gmailResult === "success") toast.success("Gmail connected successfully!");
+    else if (gmailResult === "error") toast.error("Failed to connect Gmail");
+    if (outlookResult === "success") toast.success("Outlook connected successfully!");
+    else if (outlookResult === "error") toast.error("Failed to connect Outlook");
+    if (gmailResult || outlookResult) {
+      emailAPI.status().then(setMailbox).catch(() => {});
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
+
+  // Scroll-spy.
+  useEffect(() => {
+    if (loading) return;
+    const root = scrollerRef.current;
+    if (!root) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+        if (visible[0]) {
+          const key = (visible[0].target as HTMLElement).dataset.section as SectionKey | undefined;
+          if (key) setActive(key);
+        }
+      },
+      { root, rootMargin: "-20% 0px -60% 0px", threshold: [0, 0.25, 0.5, 0.75, 1] }
+    );
+    SECTIONS.forEach(({ key }) => {
+      const node = sectionRefs.current[key];
+      if (node) observer.observe(node);
+    });
+    return () => observer.disconnect();
+  }, [loading]);
+
+  const scrollTo = (key: SectionKey) => {
+    const node = sectionRefs.current[key];
+    if (!node) return;
+    setActive(key);
+    node.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const handleProfile = async (e: FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const res = await api.put<User>("/auth/profile", { name, email });
+      setUser(res.data);
+      toast.success("Profile updated");
+    } catch (err) {
+      const e = err as { response?: { data?: { error?: string } } };
+      toast.error(e.response?.data?.error || "Update failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handlePassword = async (e: FormEvent) => {
+    e.preventDefault();
+    if (newPassword.length < 6) { toast.error("New password must be at least 6 characters"); return; }
+    setSaving(true);
+    try {
+      await api.put("/auth/password", { currentPassword, newPassword });
+      toast.success("Password changed");
+      setCurrentPassword(""); setNewPassword("");
+    } catch (err) {
+      const e = err as { response?: { data?: { error?: string } } };
+      toast.error(e.response?.data?.error || "Password change failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const initials = useMemo(() => {
+    if (!user?.name) return "U";
+    return user.name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
+  }, [user]);
+
+  if (loading) {
+    return (
+      <div className="max-w-6xl">
+        <h1 className="text-2xl font-semibold text-foreground mb-6">Settings</h1>
+        <p className="text-sm text-muted-foreground">Loading…</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="settings-page max-w-7xl">
+      <div className="mb-5">
+        <h1 className="text-2xl font-semibold text-foreground">Settings</h1>
+        <p className="text-xs text-muted-foreground mt-1">Manage your account, mailbox integrations, and AI providers.</p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-5">
+        {/* ===== Main card ===== */}
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
+          {/* Underline tabs */}
+          <div className="sticky top-0 z-10 bg-card border-b border-border">
+            <nav className="flex gap-1 px-5 overflow-x-auto" role="tablist">
+              {SECTIONS.map((s) => (
+                <button
+                  key={s.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={active === s.key}
+                  onClick={() => scrollTo(s.key)}
+                  className={`relative px-3 py-3 text-sm font-medium transition-colors whitespace-nowrap ${
+                    active === s.key ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {s.label}
+                  <span
+                    className={`absolute left-2 right-2 -bottom-px h-[2px] rounded-full transition-opacity ${
+                      active === s.key ? "bg-primary opacity-100" : "opacity-0"
+                    }`}
+                  />
+                </button>
+              ))}
+            </nav>
+          </div>
+
+          {/* Sections */}
+          <div ref={scrollerRef} className="max-h-[calc(100dvh-220px)] overflow-y-auto px-7 py-6 space-y-10">
+            {/* Account */}
+            <section
+              ref={(el) => { sectionRefs.current.account = el; }}
+              data-section="account"
+              className="scroll-mt-2"
+            >
+              <h2 className="text-base font-semibold text-foreground mb-1">Account</h2>
+              <p className="text-xs text-muted-foreground mb-4">Your name and the email associated with your HireTrail account.</p>
+              <form onSubmit={handleProfile} className="space-y-4 max-w-xl">
+                <div>
+                  <label className="block text-xs font-medium text-foreground mb-1.5">Full name</label>
+                  <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} required />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-foreground mb-1.5">Email</label>
+                  <input type="email" className={inputCls} value={email} onChange={(e) => setEmail(e.target.value)} required />
+                </div>
+                <div className="flex justify-end">
+                  <button type="submit" disabled={saving} className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50">
+                    {saving ? "Saving…" : "Save changes"}
+                  </button>
+                </div>
+              </form>
+            </section>
+
+            {/* Password */}
+            <section
+              ref={(el) => { sectionRefs.current.password = el; }}
+              data-section="password"
+              className="scroll-mt-2"
+            >
+              <h2 className="text-base font-semibold text-foreground mb-1">Password</h2>
+              <p className="text-xs text-muted-foreground mb-4">Use at least 6 characters. If you sign in with Google, you can set a password to enable email login.</p>
+              <form onSubmit={handlePassword} className="space-y-4 max-w-xl">
+                <div>
+                  <label className="block text-xs font-medium text-foreground mb-1.5">Current password</label>
+                  <input type="password" className={inputCls} value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-foreground mb-1.5">New password</label>
+                  <input type="password" className={inputCls} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} minLength={6} required />
+                </div>
+                <div className="flex justify-end">
+                  <button type="submit" disabled={saving} className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50">
+                    Change password
+                  </button>
+                </div>
+              </form>
+            </section>
+
+            {/* Email */}
+            <section
+              ref={(el) => { sectionRefs.current.email = el; }}
+              data-section="email"
+              className="scroll-mt-2"
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <h2 className="text-base font-semibold text-foreground">Email Integration</h2>
+                <span className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-primary/10 text-primary uppercase tracking-wider">Beta</span>
+              </div>
+              <p className="text-xs text-muted-foreground mb-4">
+                HireTrail scans your inbox for interview invites, offers, and rejections — and updates your applications automatically. Connect one or both providers.
+              </p>
+
+              <div className="rounded-lg border border-border divide-y divide-border px-4">
+                <MailboxRow
+                  provider="Gmail"
+                  state={mailbox.gmail}
+                  loading={mailboxLoading === "gmail"}
+                  configured={true}
+                  onConnect={async () => {
+                    setMailboxLoading("gmail");
+                    try {
+                      const { url } = await emailAPI.connectGmail();
+                      window.location.href = url;
+                    } catch { toast.error("Failed to start Gmail connection"); setMailboxLoading(null); }
+                  }}
+                  onDisconnect={async () => {
+                    setMailboxLoading("gmail");
+                    try {
+                      await emailAPI.disconnectGmail();
+                      setMailbox((m) => ({ ...m, gmail: { connected: false, email: null, lastSyncAt: null } }));
+                      toast.success("Gmail disconnected");
+                    } catch { toast.error("Failed to disconnect"); }
+                    finally { setMailboxLoading(null); }
+                  }}
+                />
+                <MailboxRow
+                  provider="Outlook"
+                  state={mailbox.outlook}
+                  loading={mailboxLoading === "outlook"}
+                  configured={mailbox.outlook.configured}
+                  onConnect={async () => {
+                    setMailboxLoading("outlook");
+                    try {
+                      const { url } = await emailAPI.connectOutlook();
+                      window.location.href = url;
+                    } catch (err) {
+                      const e = err as { response?: { data?: { error?: string } } };
+                      toast.error(e.response?.data?.error || "Failed to start Outlook connection");
+                      setMailboxLoading(null);
+                    }
+                  }}
+                  onDisconnect={async () => {
+                    setMailboxLoading("outlook");
+                    try {
+                      await emailAPI.disconnectOutlook();
+                      setMailbox((m) => ({ ...m, outlook: { ...m.outlook, connected: false, email: null, lastSyncAt: null } }));
+                      toast.success("Outlook disconnected");
+                    } catch { toast.error("Failed to disconnect"); }
+                    finally { setMailboxLoading(null); }
+                  }}
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 mt-4">
+                {(mailbox.gmail.connected || mailbox.outlook.connected) && (
+                  <button
+                    disabled={mailboxLoading === "scan"}
+                    onClick={async () => {
+                      setMailboxLoading("scan");
+                      try {
+                        const result = await emailAPI.scan();
+                        toast.success(result.message);
+                        if (result.errors?.length) toast.error(result.errors.join(" · "));
+                        const fresh = await emailAPI.status();
+                        setMailbox(fresh);
+                      } catch { toast.error("Scan failed"); }
+                      finally { setMailboxLoading(null); }
+                    }}
+                    className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50"
+                  >
+                    {mailboxLoading === "scan" ? "Scanning…" : "Scan now"}
+                  </button>
+                )}
+                <button onClick={() => setRejectionModal(true)} className="px-4 py-2 text-sm font-medium border border-border rounded-lg text-secondary-foreground hover:bg-muted">
+                  Report a rejection manually
+                </button>
+              </div>
+            </section>
+
+            {/* AI providers */}
+            <section
+              ref={(el) => { sectionRefs.current.ai = el; }}
+              data-section="ai"
+              className="scroll-mt-2"
+            >
+              <h2 className="text-base font-semibold text-foreground mb-1">AI Providers</h2>
+              <p className="text-xs text-muted-foreground mb-4">
+                Bring your own keys to use specific models for resume parsing, classification, and tailoring. Without keys, HireTrail falls back to the default provider.
+              </p>
+              <AISettingsCard />
+            </section>
+
+            {/* Profile Sync */}
+            <section
+              ref={(el) => { sectionRefs.current.profileSync = el; }}
+              data-section="profileSync"
+              className="scroll-mt-2"
+            >
+              <h2 className="text-base font-semibold text-foreground mb-1">Profile Sync</h2>
+              <p className="text-xs text-muted-foreground mb-4">
+                Control how re-parsing a resume updates your master profile.
+              </p>
+              <div className="rounded-lg border border-border bg-background p-4 flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground">AI-assisted merge</p>
+                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                    When enabled, re-parsing a resume sends both your existing master profile and the newly parsed one to your AI provider, which combines them — deduping experiences, unioning skills, and preserving content from both. When disabled, re-parsing <strong>overwrites</strong> the master profile.
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
+                  <input
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={mergeEnabled}
+                    disabled={mergeSaving}
+                    onChange={async (e) => {
+                      const next = e.target.checked;
+                      setMergeEnabled(next);
+                      setMergeSaving(true);
+                      try {
+                        await api.put<User>("/auth/profile", { mergeResumesEnabled: next });
+                        toast.success(next ? "Merge enabled" : "Merge disabled");
+                      } catch {
+                        setMergeEnabled(!next);
+                        toast.error("Could not update setting");
+                      } finally {
+                        setMergeSaving(false);
+                      }
+                    }}
+                  />
+                  <span className="w-11 h-6 bg-muted border border-border rounded-full peer-checked:bg-primary peer-disabled:opacity-50 transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:shadow-sm after:transition-transform peer-checked:after:translate-x-5"></span>
+                </label>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        {/* ===== Right sidebar ===== */}
+        <aside className="space-y-4">
+          <div className="bg-card border border-border rounded-xl p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-base font-semibold shadow-sm">
+                {initials}
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-foreground truncate">{user?.name}</p>
+                <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-card border border-border rounded-xl p-4">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Integrations</h3>
+            <ul className="space-y-2 text-sm">
+              <IntegrationRow label="Gmail" connected={mailbox.gmail.connected} />
+              <IntegrationRow
+                label="Outlook"
+                connected={mailbox.outlook.connected}
+                muted={!mailbox.outlook.configured}
+                mutedLabel="Not configured"
+              />
+              <IntegrationRow
+                label="AI providers"
+                connected={aiProviderCount > 0}
+                explicit={aiProviderCount > 0 ? `${aiProviderCount} key${aiProviderCount === 1 ? "" : "s"}` : undefined}
+              />
+            </ul>
+          </div>
+
+          <div className="bg-card border border-border rounded-xl p-4">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">About</h3>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              HireTrail v4.0 · Your data is encrypted at rest. Keys are AES-GCM. Sessions are HttpOnly cookies.
+            </p>
+          </div>
+        </aside>
+      </div>
+
+      {rejectionModal && <ReportRejectionModal onClose={() => setRejectionModal(false)} />}
+    </div>
+  );
+}
+
+function IntegrationRow({
+  label, connected, explicit, muted, mutedLabel,
+}: {
+  label: string; connected: boolean; explicit?: string; muted?: boolean; mutedLabel?: string;
+}) {
+  return (
+    <li className="flex items-center justify-between">
+      <span className="text-sm text-foreground">{label}</span>
+      {connected ? (
+        <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+          {explicit ?? "Connected"}
+        </span>
+      ) : muted ? (
+        <span className="text-[11px] text-muted-foreground">{mutedLabel ?? "—"}</span>
+      ) : (
+        <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40" />
+          Not connected
+        </span>
+      )}
+    </li>
+  );
+}

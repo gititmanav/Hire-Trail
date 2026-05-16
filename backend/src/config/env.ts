@@ -21,9 +21,19 @@ const envSchema = z
     JSEARCH_API_KEY: z.string().default(""),
     ADMIN_EMAILS: z.string().default(""),
     /** Single email allowed to sign in and use the API while `maintenance_mode` is on. Empty = no bypass. */
-    MAINTENANCE_BYPASS_EMAIL: z.string().default("manavkaneria@gmail.com"),
+    MAINTENANCE_BYPASS_EMAIL: z.string().default(""),
     GMAIL_REDIRECT_URI: z.string().default("http://localhost:5050/api/email/callback"),
+    // Outlook (Microsoft Identity Platform) — "common" tenant works for personal + work accounts.
+    MICROSOFT_CLIENT_ID: z.string().default(""),
+    MICROSOFT_CLIENT_SECRET: z.string().default(""),
+    MICROSOFT_TENANT_ID: z.string().default("common"),
+    OUTLOOK_REDIRECT_URI: z.string().default("http://localhost:5050/api/email/outlook/callback"),
     ENCRYPTION_KEY: z.string().default("0000000000000000000000000000000000000000000000000000000000000000"),
+    // AI provider default keys (BYOK overrides per-user)
+    ANTHROPIC_API_KEY: z.string().default(""),
+    OPENAI_API_KEY: z.string().default(""),
+    GOOGLE_GENERATIVE_AI_API_KEY: z.string().default(""),
+    OPENROUTER_API_KEY: z.string().default(""),
   })
   .superRefine((data, ctx) => {
     if (data.NODE_ENV !== "production") return;

@@ -42,7 +42,41 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     clearTelemetry().then(sendResponse);
     return true;
   }
+  if (msg.type === "ANALYZE_JD") {
+    analyzeJD(msg.data).then(sendResponse);
+    return true;
+  }
 });
+
+async function analyzeJD(data) {
+  const { token } = await chrome.storage.local.get(["token"]);
+  if (!token) return { success: false, error: "Not signed in. Open the popup and sign in first.", code: ERROR_CODES.AUTH_MISSING };
+  try {
+    const res = await fetchWithTimeout(`${API_BASE}/tailor/analyze`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        jobDescription: data.jobDescription || "",
+        jobTitle: data.title || "",
+        company: data.company || "",
+        url: data.url || "",
+      }),
+    });
+    if (res.status === 401) return { success: false, error: "Session expired — sign in again.", code: ERROR_CODES.AUTH_EXPIRED };
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      const errMsg = typeof body?.error === "string"
+        ? body.error
+        : "Analysis failed. Make sure your master profile is set up (Profile page in HireTrail).";
+      return { success: false, error: errMsg, code: ERROR_CODES.API_ERROR };
+    }
+    const session = await res.json();
+    return { success: true, session };
+  } catch (err) {
+    if (err?.name === "AbortError") return { success: false, error: "Timed out.", code: ERROR_CODES.NETWORK_TIMEOUT };
+    return { success: false, error: err?.message || "Network error", code: ERROR_CODES.NETWORK_ERROR };
+  }
+}
 
 async function fetchWithTimeout(url, options = {}, timeoutMs = 15000) {
   const controller = new AbortController();

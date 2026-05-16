@@ -4,12 +4,19 @@
   "description": "HireTrail API — Internship & Job Application Command Center",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
+    "dev": "NODE_NO_WARNINGS=1 tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
     "seed": "tsx src/seed.ts"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.77",
+    "@ai-sdk/google": "^3.0.73",
+    "@ai-sdk/openai": "^3.0.63",
+    "@azure/msal-node": "^5.2.1",
+    "@myriaddreamin/typst-ts-node-compiler": "^0.7.0-rc2",
+    "@openrouter/ai-sdk-provider": "^2.9.0",
+    "ai": "^6.0.182",
     "bcrypt": "^5.1.1",
     "cloudinary": "^2.5.1",
     "connect-mongo": "^5.1.0",
@@ -24,9 +31,11 @@
     "mongoose": "^8.7.0",
     "multer": "^1.4.5-lts.1",
     "node-cron": "^4.2.1",
+    "nodemailer": "^8.0.7",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "passport-local": "^1.0.0",
+    "unpdf": "^1.6.2",
     "zod": "^3.23.8"
   },
   "devDependencies": {
@@ -38,6 +47,7 @@
     "@types/multer": "^1.4.12",
     "@types/node": "^22.5.5",
     "@types/node-cron": "^3.0.11",
+    "@types/nodemailer": "^8.0.0",
     "@types/passport": "^1.0.16",
     "@types/passport-google-oauth20": "^2.0.16",
     "@types/passport-local": "^1.0.38",

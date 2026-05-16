@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { adminAPI } from "../../utils/api";
 import ActionDropdown from "../../components/ActionDropdown/ActionDropdown";
@@ -18,14 +19,77 @@ function statusBadge(u: AdminUserDetail): { label: string; cls: string } {
   return { label: "Active", cls: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300" };
 }
 
+const PILL_TONE: Record<string, string> = {
+  emerald: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300",
+  blue: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
+  indigo: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300",
+  amber: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
+  purple: "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300",
+};
+
+function IntegrationPill({ label, tone }: { label: string; tone: keyof typeof PILL_TONE }) {
+  return (
+    <span className={`inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded ${PILL_TONE[tone]}`}>
+      {label}
+    </span>
+  );
+}
+
 export default function UserManagement() {
+  const navigate = useNavigate();
   const [users, setUsers] = useState<AdminUserDetail[]>([]);
   const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 20, total: 0, pages: 0 });
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
   const [loading, setLoading] = useState(true);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectedLabels, setSelectedLabels] = useState<Record<string, string>>({});
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
   const { confirm, confirmState, handleConfirm, handleCancel } = useConfirm();
+
+  const toggleSelected = useCallback((u: AdminUserDetail) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(u._id)) next.delete(u._id);
+      else next.add(u._id);
+      return next;
+    });
+    setSelectedLabels((prev) => ({ ...prev, [u._id]: `${u.name} <${u.email}>` }));
+  }, []);
+
+  const pageAllSelected = useMemo(
+    () => users.length > 0 && users.every((u) => selectedIds.has(u._id)),
+    [users, selectedIds]
+  );
+
+  const togglePageAll = () => {
+    if (pageAllSelected) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        for (const u of users) next.delete(u._id);
+        return next;
+      });
+    } else {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        for (const u of users) next.add(u._id);
+        return next;
+      });
+      setSelectedLabels((prev) => {
+        const next = { ...prev };
+        for (const u of users) next[u._id] = `${u.name} <${u.email}>`;
+        return next;
+      });
+    }
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const emailSelected = () => {
+    if (selectedIds.size === 0) { toast.error("Select at least one user"); return; }
+    const ids = Array.from(selectedIds);
+    navigate("/admin/broadcasts", { state: { userIds: ids, userLabels: selectedLabels } });
+  };
 
   const fetchUsers = useCallback(
     (page: number, searchVal: string, role: string) => {
@@ -159,10 +223,27 @@ export default function UserManagement() {
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-foreground">User Management</h1>
-        <button onClick={handleExport} className="btn-secondary text-sm">
-          Export CSV
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => navigate("/admin/broadcasts")} className="btn-secondary text-sm">
+            Send broadcast
+          </button>
+          <button onClick={handleExport} className="btn-secondary text-sm">
+            Export CSV
+          </button>
+        </div>
       </div>
+
+      {selectedIds.size > 0 && (
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-primary/40 bg-primary/5 px-4 py-2.5">
+          <p className="text-sm text-foreground">
+            <span className="font-semibold">{selectedIds.size}</span> user{selectedIds.size === 1 ? "" : "s"} selected
+          </p>
+          <div className="flex items-center gap-2">
+            <button onClick={emailSelected} className="btn-accent text-xs px-3 py-1.5">Email selected</button>
+            <button onClick={clearSelection} className="text-xs text-muted-foreground hover:text-foreground">Clear</button>
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
@@ -192,6 +273,15 @@ export default function UserManagement() {
         <table className="w-full text-sm text-left">
           <thead className="text-xs uppercase text-muted-foreground border-b border-border">
             <tr>
+              <th className="px-4 py-3 w-9">
+                <input
+                  type="checkbox"
+                  className="rounded border-border"
+                  checked={pageAllSelected}
+                  onChange={togglePageAll}
+                  aria-label="Select all on this page"
+                />
+              </th>
               <th className="px-4 py-3">Name</th>
               <th className="px-4 py-3">Email</th>
               <th className="px-4 py-3">Role</th>
@@ -199,20 +289,21 @@ export default function UserManagement() {
               <th className="px-4 py-3">Joined</th>
               <th className="px-4 py-3">Last Login</th>
               <th className="px-4 py-3">Apps</th>
+              <th className="px-4 py-3">Integrations</th>
               <th className="px-4 py-3">Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={10} className="px-4 py-8 text-center text-muted-foreground">
                   Loading...
                 </td>
               </tr>
             )}
             {!loading && users.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={10} className="px-4 py-8 text-center text-muted-foreground">
                   No users found.
                 </td>
               </tr>
@@ -220,11 +311,21 @@ export default function UserManagement() {
             {!loading &&
               users.map((user) => {
                 const status = statusBadge(user);
+                const checked = selectedIds.has(user._id);
                 return (
                   <tr
                     key={user._id}
-                    className="border-b border-border hover:bg-muted"
+                    className={`border-b border-border hover:bg-muted ${checked ? "bg-primary/5" : ""}`}
                   >
+                    <td className="px-4 py-3">
+                      <input
+                        type="checkbox"
+                        className="rounded border-border"
+                        checked={checked}
+                        onChange={() => toggleSelected(user)}
+                        aria-label={`Select ${user.name}`}
+                      />
+                    </td>
                     <td className="px-4 py-3 font-medium text-foreground">{user.name}</td>
                     <td className="px-4 py-3 text-secondary-foreground">{user.email}</td>
                     <td className="px-4 py-3">
@@ -244,6 +345,18 @@ export default function UserManagement() {
                       {user.lastLogin ? new Date(user.lastLogin).toLocaleDateString() : "Never"}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">{user.applicationCount}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-1 max-w-[220px]">
+                        {user.gmailConnected && <IntegrationPill label="Gmail" tone="emerald" />}
+                        {user.outlookConnected && <IntegrationPill label="Outlook" tone="blue" />}
+                        {user.hasMasterProfile && <IntegrationPill label="Profile" tone="indigo" />}
+                        {!!user.aiKeyCount && <IntegrationPill label={`AI · ${user.aiKeyCount}`} tone="amber" />}
+                        {!!user.tailorSessionCount && <IntegrationPill label={`Tailor · ${user.tailorSessionCount}`} tone="purple" />}
+                        {!user.gmailConnected && !user.outlookConnected && !user.hasMasterProfile && !user.aiKeyCount && !user.tailorSessionCount && (
+                          <span className="text-[11px] text-muted-foreground">—</span>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-4 py-3">
                       <ActionDropdown items={getDropdownItems(user)} align="right" />
                     </td>

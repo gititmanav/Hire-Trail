@@ -89,7 +89,7 @@ export default function PlatformAnalytics() {
 
   if (!data) return null;
 
-  const { conversionRates, funnel, topCompanies, topRoles, totalApplications, totalUsers, avgAppsPerUser } = data;
+  const { conversionRates, funnel, topCompanies, topRoles, totalApplications, totalUsers, avgAppsPerUser, tailor, masterProfile, aiProviders, mailbox } = data;
 
   const colors = chartColors();
   const muted = mutedFgColor();
@@ -198,6 +198,117 @@ export default function PlatformAnalytics() {
         <div className="card-premium p-4 text-center">
           <p className="text-sm text-muted-foreground">Avg Apps / User</p>
           <p className="text-2xl font-bold text-foreground">{avgAppsPerUser.toFixed(1)}</p>
+        </div>
+      </div>
+
+      {/* AI Tailor */}
+      <div>
+        <h2 className="text-lg font-semibold text-foreground mb-3">AI Tailor</h2>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="card-premium p-4">
+            <p className="text-sm text-muted-foreground">Sessions analysed</p>
+            <p className="text-3xl font-bold text-foreground">{tailor.totalSessions.toLocaleString()}</p>
+            <p className="text-xs text-muted-foreground mt-1">{tailor.last30Days.toLocaleString()} in last 30 days</p>
+          </div>
+          <div className="card-premium p-4">
+            <p className="text-sm text-muted-foreground">Avg fit score</p>
+            <p className="text-3xl font-bold text-foreground">{tailor.avgFitScore.toFixed(1)}<span className="text-base text-muted-foreground"> / 5</span></p>
+            <div className="mt-2 w-full h-2 bg-border rounded-full overflow-hidden">
+              <div className="h-full bg-primary rounded-full" style={{ width: `${(tailor.avgFitScore / 5) * 100}%` }} />
+            </div>
+          </div>
+          <div className="card-premium p-4">
+            <p className="text-sm text-muted-foreground mb-2">Grade distribution</p>
+            <div className="flex items-end gap-1.5 h-16">
+              {(["A", "B", "C", "D", "F"] as const).map((g) => {
+                const count = tailor.gradeBreakdown.find((b) => b._id === g)?.count || 0;
+                const max = Math.max(1, ...tailor.gradeBreakdown.map((b) => b.count));
+                const h = (count / max) * 100;
+                const colors: Record<string, string> = { A: "bg-emerald-500", B: "bg-lime-500", C: "bg-amber-500", D: "bg-orange-500", F: "bg-red-500" };
+                return (
+                  <div key={g} className="flex-1 flex flex-col items-center gap-1">
+                    <div className={`w-full rounded-t ${colors[g]}`} style={{ height: `${Math.max(h, 4)}%` }} />
+                    <div className="text-[10px] text-muted-foreground">{g}</div>
+                    <div className="text-[10px] font-medium text-foreground">{count}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Master Profile */}
+      <div>
+        <h2 className="text-lg font-semibold text-foreground mb-3">Master Profile</h2>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="card-premium p-4">
+            <p className="text-sm text-muted-foreground">Adoption</p>
+            <p className="text-3xl font-bold text-foreground">{masterProfile.adoptionRate.toFixed(1)}%</p>
+            <p className="text-xs text-muted-foreground mt-1">{masterProfile.total.toLocaleString()} of {totalUsers.toLocaleString()} users</p>
+          </div>
+          <div className="card-premium p-4 lg:col-span-2">
+            <p className="text-sm text-muted-foreground mb-3">Section coverage (of users with a profile)</p>
+            <div className="space-y-2">
+              {Object.entries(masterProfile.coverage).map(([section, pct]) => (
+                <div key={section} className="flex items-center gap-3">
+                  <div className="text-xs capitalize text-foreground w-28">{section}</div>
+                  <div className="flex-1 h-2 bg-border rounded-full overflow-hidden">
+                    <div className="h-full bg-primary rounded-full" style={{ width: `${pct}%` }} />
+                  </div>
+                  <div className="text-xs text-muted-foreground w-12 text-right">{pct.toFixed(1)}%</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* AI providers + Mailbox adoption */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="card-premium p-4">
+          <h2 className="text-lg font-semibold text-foreground mb-3">BYOK AI providers</h2>
+          {aiProviders.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No user-supplied keys yet — everyone defaults to Gemini Flash.</p>
+          ) : (
+            <div className="space-y-2">
+              {aiProviders.map((p) => {
+                const max = Math.max(1, ...aiProviders.map((x) => x.count));
+                return (
+                  <div key={p._id} className="flex items-center gap-3">
+                    <div className="text-xs capitalize text-foreground w-24">{p._id}</div>
+                    <div className="flex-1 h-2 bg-border rounded-full overflow-hidden">
+                      <div className="h-full bg-primary rounded-full" style={{ width: `${(p.count / max) * 100}%` }} />
+                    </div>
+                    <div className="text-xs text-foreground w-10 text-right">{p.count}</div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        <div className="card-premium p-4">
+          <h2 className="text-lg font-semibold text-foreground mb-3">Mailbox auto-status</h2>
+          <p className="text-sm text-muted-foreground">Adoption</p>
+          <p className="text-3xl font-bold text-foreground">{mailbox.adoptionRate.toFixed(1)}%</p>
+          <p className="text-xs text-muted-foreground mt-1 mb-3">{mailbox.connectedUsers.toLocaleString()} of {totalUsers.toLocaleString()} users connected</p>
+          <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Signals (last 30 days)</p>
+          <div className="grid grid-cols-2 gap-2">
+            {([
+              { key: "interview_detected", label: "Interview", color: "text-blue-600 dark:text-blue-400" },
+              { key: "offer_detected", label: "Offer", color: "text-emerald-600 dark:text-emerald-400" },
+              { key: "follow_up_detected", label: "Follow-up", color: "text-amber-600 dark:text-amber-400" },
+              { key: "rejection_detected", label: "Rejection", color: "text-red-600 dark:text-red-400" },
+            ] as const).map((s) => {
+              const count = mailbox.signalsLast30.find((b) => b._id === s.key)?.count || 0;
+              return (
+                <div key={s.key} className="bg-muted rounded-lg p-2">
+                  <p className="text-[11px] text-muted-foreground">{s.label}</p>
+                  <p className={`text-lg font-bold ${s.color}`}>{count}</p>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>

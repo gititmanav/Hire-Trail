@@ -14,6 +14,8 @@ import type {
   Announcement, SystemSetting, Invite, EmailTemplate,
   StorageStats, RoleDefinition, SeedResult, Notification,
   AdminGmailUser, AdminGmailStats, AdminNotificationItem, AdminNotificationStats,
+  AdminMailboxUser, AdminMailboxStats, MailboxProvider,
+  BroadcastEmailItem, BroadcastRecipientType, MailerStatus,
 } from "../types";
 
 export const api = axios.create({
@@ -139,11 +141,21 @@ export const deadlinesAPI = {
   delete: (id: string) => api.delete(`/deadlines/${id}`).then((r) => r.data),
 };
 
+interface MailboxStatus { connected: boolean; email: string | null; lastSyncAt: string | null }
+export interface EmailStatusResponse {
+  gmail: MailboxStatus;
+  outlook: MailboxStatus & { configured: boolean };
+}
+
 export const emailAPI = {
-  connect: () => api.post<{ url: string }>("/email/connect").then((r) => r.data),
-  status: () => api.get<{ connected: boolean; email: string | null; lastSyncAt: string | null }>("/email/status").then((r) => r.data),
-  scan: () => api.post<{ message: string; count: number }>("/email/scan").then((r) => r.data),
-  disconnect: () => api.post("/email/disconnect").then((r) => r.data),
+  status: () => api.get<EmailStatusResponse>("/email/status").then((r) => r.data),
+  scan: () => api.post<{ message: string; applied: number; scanned: number; errors: string[] }>("/email/scan").then((r) => r.data),
+  // Gmail
+  connectGmail: () => api.post<{ url: string }>("/email/gmail/connect").then((r) => r.data),
+  disconnectGmail: () => api.post("/email/gmail/disconnect").then((r) => r.data),
+  // Outlook
+  connectOutlook: () => api.post<{ url: string }>("/email/outlook/connect").then((r) => r.data),
+  disconnectOutlook: () => api.post("/email/outlook/disconnect").then((r) => r.data),
 };
 
 export const notificationsAPI = {
@@ -152,6 +164,8 @@ export const notificationsAPI = {
   getUnreadCount: () => api.get<{ count: number }>("/notifications/unread-count").then((r) => r.data),
   markRead: (id: string) => api.put<Notification>(`/notifications/${id}/read`).then((r) => r.data),
   markAllRead: () => api.put("/notifications/read-all").then((r) => r.data),
+  confirm: (id: string) => api.put<Notification>(`/notifications/${id}/confirm`).then((r) => r.data),
+  revert: (id: string) => api.put<{ message: string; notification: Notification }>(`/notifications/${id}/revert`).then((r) => r.data),
 };
 
 export const analyticsAPI = {
@@ -165,6 +179,126 @@ export const settingsAPI = {
 
 export const proxyAPI = {
   fetchTweakcn: (url: string) => api.post<{ html: string }>("/proxy/tweakcn", { url }).then((r) => r.data),
+};
+
+export type AIProvider = "anthropic" | "openai" | "google" | "openrouter";
+
+export interface AIKey {
+  _id: string;
+  provider: AIProvider;
+  name: string;
+  isActive: boolean;
+  modelOverride: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const aiAPI = {
+  listProviders: () => api.get<{ available: { provider: AIProvider; byok: boolean }[]; defaults: Record<AIProvider, { fast: string; smart: string }> }>("/ai/providers").then((r) => r.data),
+  listKeys: () => api.get<AIKey[]>("/ai/keys").then((r) => r.data),
+  createKey: (data: { provider: AIProvider; apiKey: string; name?: string; modelOverride?: string | null }) => api.post<AIKey>("/ai/keys", data).then((r) => r.data),
+  updateKey: (id: string, data: { name?: string; modelOverride?: string | null; isActive?: boolean }) => api.put<AIKey>(`/ai/keys/${id}`, data).then((r) => r.data),
+  deleteKey: (id: string) => api.delete(`/ai/keys/${id}`).then((r) => r.data),
+};
+
+/* ---------- Tailor (JD analysis + accept/reject suggestions) ---------- */
+
+export type TailorSection = "summary" | "experience" | "project" | "skills";
+export type TailorKind = "rewrite" | "add" | "reorder" | "emphasize";
+export type TailorDecision = "accepted" | "rejected" | null;
+
+export interface TailorSuggestion {
+  _id?: string;
+  section: TailorSection;
+  kind: TailorKind;
+  targetCompanyOrName: string;
+  targetBullet: string;
+  suggested: string;
+  rationale: string;
+  tags: string[];
+  decision: TailorDecision;
+}
+
+export interface TailorSession {
+  _id: string;
+  userId: string;
+  applicationId: string | null;
+  jobTitle: string;
+  company: string;
+  jobUrl: string;
+  jobDescription: string;
+  fitScore: number;
+  fitGrade: "A" | "B" | "C" | "D" | "F";
+  summary: string;
+  matchedSkills: string[];
+  missingSkills: string[];
+  suggestions: TailorSuggestion[];
+  provider: string;
+  modelId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const tailorAPI = {
+  analyze: (data: { jobDescription: string; jobTitle?: string; company?: string; url?: string; applicationId?: string }) =>
+    api.post<TailorSession>("/tailor/analyze", data).then((r) => r.data),
+  list: () => api.get<TailorSession[]>("/tailor/sessions").then((r) => r.data),
+  get: (id: string) => api.get<TailorSession>(`/tailor/sessions/${id}`).then((r) => r.data),
+  setDecision: (sessionId: string, index: number, decision: TailorDecision) =>
+    api.patch<TailorSession>(`/tailor/sessions/${sessionId}/suggestions/${index}`, { decision }).then((r) => r.data),
+  linkApplication: (sessionId: string, applicationId: string) =>
+    api.post<TailorSession>(`/tailor/sessions/${sessionId}/link/${applicationId}`).then((r) => r.data),
+  /** Returns the PDF as a Blob along with metadata from response headers. */
+  generatePdf: async (sessionId: string): Promise<{ blob: Blob; pages: number; warnings: string[] }> => {
+    const res = await api.get(`/tailor/sessions/${sessionId}/pdf`, { responseType: "blob" });
+    const pages = parseInt(res.headers["x-resume-pages"] || "1", 10);
+    const rawWarn = res.headers["x-resume-warnings"];
+    const warnings = rawWarn ? decodeURIComponent(rawWarn).split(" | ").filter(Boolean) : [];
+    return { blob: res.data as Blob, pages, warnings };
+  },
+};
+
+/** Master profile — one canonical career history per user. */
+export const masterProfileAPI = {
+  get: () => api.get<unknown>("/master-profile").then((r) => r.data),
+  update: (data: unknown) => api.put<unknown>("/master-profile", data).then((r) => r.data),
+  parseFromResume: (resumeId: string) => api.post<unknown>(`/master-profile/parse-from-resume/${resumeId}`).then((r) => r.data),
+  uploadAndParse: (file: File, name?: string) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    if (name) fd.append("name", name);
+    return api.post<unknown>("/master-profile/upload-and-parse", fd, { headers: { "Content-Type": "multipart/form-data" } }).then((r) => r.data);
+  },
+};
+
+export type FeedbackType = "bug" | "suggestion" | "idea" | "praise" | "other";
+export type FeedbackStatus = "open" | "triaged" | "in_progress" | "resolved" | "dismissed";
+export type FeedbackSeverity = "low" | "normal" | "high" | "critical";
+
+export interface FeedbackItem {
+  _id: string;
+  userId: string;
+  userEmail: string;
+  userName: string;
+  type: FeedbackType;
+  severity: FeedbackSeverity;
+  title: string;
+  message: string;
+  pageContext: string;
+  userAgent: string;
+  appVersion: string;
+  status: FeedbackStatus;
+  adminNotes: string;
+  resolvedById: string | null;
+  resolvedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const feedbackAPI = {
+  submit: (data: { type: FeedbackType; title: string; message: string; pageContext?: string; userAgent?: string; appVersion?: string }) =>
+    api.post<FeedbackItem>("/feedback", data).then((r) => r.data),
+  mine: () => api.get<FeedbackItem[]>("/feedback/mine").then((r) => r.data),
 };
 
 export const adminAPI = {
@@ -235,16 +369,44 @@ export const adminAPI = {
   runSeed: () => api.post<SeedResult>("/admin/seed/run").then((r) => r.data),
   clearSeed: () => api.post("/admin/seed/clear").then((r) => r.data),
 
-  // Gmail Management
+  // Gmail Management (legacy)
   getGmailUsers: (params?: { page?: number; limit?: number; search?: string }) =>
     api.get<PaginatedResponse<AdminGmailUser>>("/admin/gmail/users", { params }).then((r) => r.data),
   getGmailStats: () => api.get<AdminGmailStats>("/admin/gmail/stats").then((r) => r.data),
   triggerGmailScan: (userId: string) => api.post<{ message: string; count: number }>(`/admin/gmail/${userId}/scan`).then((r) => r.data),
   disconnectUserGmail: (userId: string) => api.post(`/admin/gmail/${userId}/disconnect`).then((r) => r.data),
 
+  // Broadcasts
+  getBroadcastMailerStatus: () => api.get<MailerStatus>("/admin/broadcasts/status").then((r) => r.data),
+  getBroadcastRecipientCount: (type: "all") => api.get<{ count: number }>("/admin/broadcasts/recipients", { params: { type } }).then((r) => r.data),
+  listBroadcasts: (params?: { page?: number; limit?: number }) =>
+    api.get<PaginatedResponse<BroadcastEmailItem>>("/admin/broadcasts", { params }).then((r) => r.data),
+  getBroadcast: (id: string) => api.get<BroadcastEmailItem>(`/admin/broadcasts/${id}`).then((r) => r.data),
+  sendBroadcast: (data: { subject: string; bodyHtml: string; recipientType: BroadcastRecipientType; userIds?: string[] }) =>
+    api.post<{ id: string; totalRecipients: number; status: "sending" }>("/admin/broadcasts", data).then((r) => r.data),
+
+  // Mailbox Management (Gmail + Outlook)
+  getMailboxUsers: (params?: { page?: number; limit?: number; search?: string; provider?: MailboxProvider | "all" }) =>
+    api.get<PaginatedResponse<AdminMailboxUser>>("/admin/mailbox/users", { params }).then((r) => r.data),
+  getMailboxStats: () => api.get<AdminMailboxStats>("/admin/mailbox/stats").then((r) => r.data),
+  triggerMailboxScan: (userId: string, provider: MailboxProvider) =>
+    api.post<{ message: string; scanned: number; applied: number }>(`/admin/mailbox/${userId}/scan`, null, { params: { provider } }).then((r) => r.data),
+  disconnectMailbox: (userId: string, provider: MailboxProvider) =>
+    api.post(`/admin/mailbox/${userId}/disconnect`, null, { params: { provider } }).then((r) => r.data),
+
   // Admin Notifications
-  getAdminNotifications: (params?: { page?: number; limit?: number; search?: string; type?: string; read?: string }) =>
+  getAdminNotifications: (params?: { page?: number; limit?: number; search?: string; type?: string; read?: string; source?: string; resolved?: string }) =>
     api.get<PaginatedResponse<AdminNotificationItem>>("/admin/notifications", { params }).then((r) => r.data),
   getAdminNotificationStats: () => api.get<AdminNotificationStats>("/admin/notifications/stats").then((r) => r.data),
   deleteAdminNotification: (id: string) => api.delete(`/admin/notifications/${id}`).then((r) => r.data),
+
+  // Admin Feedback
+  listFeedback: (params?: { page?: number; limit?: number; status?: string; type?: string; severity?: string; search?: string }) =>
+    api.get<PaginatedResponse<FeedbackItem>>("/admin/feedback", { params }).then((r) => r.data),
+  getFeedback: (id: string) => api.get<FeedbackItem>(`/admin/feedback/${id}`).then((r) => r.data),
+  getFeedbackStats: () =>
+    api.get<{ total: number; open: number; byStatus: Record<string, number>; byType: Record<string, number>; bySeverity: Record<string, number> }>("/admin/feedback/stats").then((r) => r.data),
+  updateFeedback: (id: string, data: { status?: FeedbackStatus; severity?: FeedbackSeverity; adminNotes?: string }) =>
+    api.patch<FeedbackItem>(`/admin/feedback/${id}`, data).then((r) => r.data),
+  deleteFeedback: (id: string) => api.delete(`/admin/feedback/${id}`).then((r) => r.data),
 };

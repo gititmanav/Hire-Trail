@@ -6,6 +6,9 @@ import { Contact } from "../../models/Contact.js";
 import { Deadline } from "../../models/Deadline.js";
 import { AdminLoginEvent } from "../../models/AdminLoginEvent.js";
 import { Notification } from "../../models/Notification.js";
+import { MasterProfile } from "../../models/MasterProfile.js";
+import { TailorSession } from "../../models/TailorSession.js";
+import { AIProviderConfig } from "../../models/AIProviderConfig.js";
 import { getUser } from "../../middleware/auth.js";
 import { logAudit, getClientInfo } from "../../utils/auditLog.js";
 import { validate } from "../../middleware/validate.js";
@@ -39,14 +42,17 @@ router.get("/", async (req: Request, res: Response, next: NextFunction) => {
         .sort({ [sortField]: sortOrder })
         .skip((page - 1) * limit)
         .limit(limit)
-        .select("name email role suspended suspendedAt deleted deletedAt createdAt updatedAt")
+        .select("name email role suspended suspendedAt deleted deletedAt createdAt updatedAt gmailConnected outlookConnected gmailEmail outlookEmail")
         .lean(),
       User.countDocuments(filter).setOptions({ includeDeleted: true }),
     ]);
 
-    // Enrich with counts
+    // Enrich with counts across all per-user entities (app, resume, master profile, tailor, AI keys).
     const userIds = users.map((u) => u._id);
-    const [appCounts, resumeCounts, lastLogins] = await Promise.all([
+    const [
+      appCounts, resumeCounts, lastLogins,
+      masterProfileUserIds, tailorCounts, aiKeyCounts,
+    ] = await Promise.all([
       Application.aggregate([
         { $match: { userId: { $in: userIds } } },
         { $group: { _id: "$userId", count: { $sum: 1 } } },
@@ -60,17 +66,32 @@ router.get("/", async (req: Request, res: Response, next: NextFunction) => {
         { $sort: { loggedInAt: -1 } },
         { $group: { _id: "$userId", lastLogin: { $first: "$loggedInAt" } } },
       ]),
+      MasterProfile.distinct("userId", { userId: { $in: userIds } }),
+      TailorSession.aggregate([
+        { $match: { userId: { $in: userIds } } },
+        { $group: { _id: "$userId", count: { $sum: 1 } } },
+      ]),
+      AIProviderConfig.aggregate([
+        { $match: { userId: { $in: userIds }, isActive: true } },
+        { $group: { _id: "$userId", count: { $sum: 1 } } },
+      ]),
     ]);
 
     const appCountMap = new Map(appCounts.map((a) => [a._id.toString(), a.count]));
     const resumeCountMap = new Map(resumeCounts.map((r) => [r._id.toString(), r.count]));
     const lastLoginMap = new Map(lastLogins.map((l) => [l._id.toString(), l.lastLogin]));
+    const masterProfileSet = new Set(masterProfileUserIds.map((id) => id.toString()));
+    const tailorCountMap = new Map(tailorCounts.map((t) => [t._id.toString(), t.count]));
+    const aiKeyCountMap = new Map(aiKeyCounts.map((k) => [k._id.toString(), k.count]));
 
     const enriched = users.map((u) => ({
       ...u,
       applicationCount: appCountMap.get(u._id.toString()) || 0,
       resumeCount: resumeCountMap.get(u._id.toString()) || 0,
       lastLogin: lastLoginMap.get(u._id.toString()) || null,
+      hasMasterProfile: masterProfileSet.has(u._id.toString()),
+      tailorSessionCount: tailorCountMap.get(u._id.toString()) || 0,
+      aiKeyCount: aiKeyCountMap.get(u._id.toString()) || 0,
     }));
 
     res.json({

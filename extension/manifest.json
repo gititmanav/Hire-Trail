@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "HireTrail — Job Tracker",
-  "version": "1.1.0",
-  "description": "Track job applications with one click from any job board",
+  "version": "1.2.0",
+  "description": "Track jobs + AI tailor your resume per JD, from any job board",
   "permissions": ["activeTab", "storage", "cookies", "identity", "alarms"],
   "host_permissions": [
     "<all_urls>",

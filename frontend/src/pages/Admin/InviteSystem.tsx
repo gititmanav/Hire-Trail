@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import toast from "react-hot-toast";
 import { adminAPI } from "../../utils/api";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal";
@@ -74,12 +74,24 @@ export default function InviteSystem() {
     );
   };
 
-  const getStatus = (invite: Invite): { label: string; className: string } => {
-    if (!invite.active) return { label: "Inactive", className: "bg-muted text-foreground" };
-    if (new Date(invite.expiresAt) < new Date()) return { label: "Expired", className: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300" };
-    if (invite.usedCount >= invite.maxUses) return { label: "Maxed", className: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300" };
-    return { label: "Active", className: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300" };
+  const getStatus = (invite: Invite): { label: string; className: string; dot: string } => {
+    if (!invite.active) return { label: "Inactive", className: "bg-muted text-muted-foreground", dot: "bg-muted-foreground/40" };
+    if (new Date(invite.expiresAt) < new Date()) return { label: "Expired", className: "bg-red-500/10 text-red-700 dark:text-red-300", dot: "bg-red-500" };
+    if (invite.usedCount >= invite.maxUses) return { label: "Maxed", className: "bg-amber-500/10 text-amber-700 dark:text-amber-300", dot: "bg-amber-500" };
+    return { label: "Active", className: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300", dot: "bg-emerald-500" };
   };
+
+  const stats = useMemo(() => {
+    let active = 0, expired = 0, maxed = 0, inactive = 0, totalUses = 0;
+    for (const i of invites) {
+      totalUses += i.usedCount;
+      if (!i.active) inactive++;
+      else if (new Date(i.expiresAt) < new Date()) expired++;
+      else if (i.usedCount >= i.maxUses) maxed++;
+      else active++;
+    }
+    return { total: invites.length, active, expired, maxed, inactive, totalUses };
+  }, [invites]);
 
   if (loading) {
     return (
@@ -92,12 +104,31 @@ export default function InviteSystem() {
   }
 
   return (
-    <div className="space-y-6 p-6">
-      <h1 className="text-2xl font-bold text-foreground">Invite System</h1>
+    <div className="fade-up space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-foreground tracking-tight">Invite System</h1>
+        <p className="text-sm text-muted-foreground mt-1">Generate single-use or multi-use invite codes for restricted signup.</p>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        {[
+          { label: "Total codes", value: stats.total, accent: "text-foreground" },
+          { label: "Active", value: stats.active, accent: "text-emerald-600 dark:text-emerald-400" },
+          { label: "Maxed", value: stats.maxed, accent: "text-amber-600 dark:text-amber-400" },
+          { label: "Expired", value: stats.expired, accent: "text-red-600 dark:text-red-400" },
+          { label: "Redemptions", value: stats.totalUses, accent: "text-primary" },
+        ].map((s) => (
+          <div key={s.label} className="bg-card border border-border rounded-xl p-4">
+            <p className="text-xs uppercase tracking-wider text-muted-foreground">{s.label}</p>
+            <p className={`text-2xl font-bold mt-1 ${s.accent}`}>{s.value}</p>
+          </div>
+        ))}
+      </div>
 
       {/* Generate Invite Form */}
       <div className="card-premium p-6">
-        <h2 className="text-lg font-semibold text-foreground mb-4">Generate Invite Code</h2>
+        <h2 className="text-lg font-semibold text-foreground mb-4">Generate invite code</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-foreground mb-1">
@@ -199,7 +230,8 @@ export default function InviteSystem() {
                       {new Date(invite.expiresAt).toLocaleString()}
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${status.className}`}>
+                      <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium px-2 py-0.5 rounded-full ${status.className}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
                         {status.label}
                       </span>
                     </td>

@@ -98,11 +98,17 @@ export default function ActionDropdown({
 
   const listMaxHeight = `${Math.max(maxVisibleItems, 3) * 40}px`;
 
+  // When menuWidth is "w-full" the dropdown is being used as a form field,
+  // so the wrapper must be block-level too — otherwise inline-block shrinks to the
+  // trigger's intrinsic content width and the button collapses.
+  const wrapperFullWidth = menuWidth === "w-full";
+  const wrapperCls = wrapperFullWidth ? "relative block w-full" : "relative inline-block";
+
   return (
-    <div ref={ref} className="relative inline-block">
+    <div ref={ref} className={wrapperCls}>
       {/* Trigger */}
       {trigger ? (
-        <div onClick={() => !disabled && setOpen((p) => !p)}>{trigger}</div>
+        <div onClick={() => !disabled && setOpen((p) => !p)} className={wrapperFullWidth ? "w-full" : undefined}>{trigger}</div>
       ) : (
         <button
           onClick={() => setOpen((p) => !p)}

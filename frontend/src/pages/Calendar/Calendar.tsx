@@ -1,113 +1,105 @@
+/** Comprehensive calendar — 3-column layout, custom toolbar, drag-to-reschedule, quick-add, mark-complete. */
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { Calendar, dateFnsLocalizer, type View } from "react-big-calendar";
-import type { EventProps } from "react-big-calendar";
 import withDragAndDrop from "react-big-calendar/lib/addons/dragAndDrop";
-import { format, getDay, parse, startOfWeek } from "date-fns";
+import { addDays, format, getDay, isToday, parse, startOfDay, startOfWeek } from "date-fns";
 import { enUS } from "date-fns/locale";
 import type { EventInput } from "@fullcalendar/core";
 import toast from "react-hot-toast";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
+
 import { applicationsAPI, deadlinesAPI } from "../../utils/api.ts";
 import { buildCalendarEvents, type CalendarExtendedProps, type CalendarFactor } from "../../utils/calendarEvents.ts";
 import { eventInputsToRbc, type HireTrailCalendarEvent } from "../../utils/calendarRbc.ts";
-import type { Application, Stage } from "../../types";
+import type { Application, Deadline, Stage } from "../../types";
 import { STAGES } from "../../utils/stageStyles.ts";
+
+import { EventChip } from "./components/EventChip.tsx";
+import { MiniCalendar } from "./components/MiniCalendar.tsx";
+import { CalendarToolbar } from "./components/CalendarToolbar.tsx";
+import { UpcomingList } from "./components/UpcomingList.tsx";
+import { QuickAddDeadlineModal } from "./components/QuickAddDeadlineModal.tsx";
+import { EventDetailPanel, type SelectedEvent } from "./components/EventDetailPanel.tsx";
+import { FiltersPopover } from "./components/FiltersPopover.tsx";
+
 import "./Calendar.css";
 
-/** Drag-and-drop addon adds props not declared on CalendarProps in @types. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const DnDCalendar = withDragAndDrop(Calendar) as any;
 
-const locales = { "en-US": enUS };
 const localizer = dateFnsLocalizer({
   format,
   parse,
   startOfWeek: (date: Date) => startOfWeek(date, { weekStartsOn: 1 }),
   getDay,
-  locales,
+  locales: { "en-US": enUS },
 });
 
-const FACTOR_OPTIONS: { key: CalendarFactor; label: string; description: string }[] = [
-  { key: "application_submitted", label: "Application submitted", description: "Date you applied" },
-  { key: "stage_change", label: "Stage changes", description: "When a role moved to a new stage" },
-  { key: "deadline_application", label: "Deadlines (applications)", description: "Due dates tied to a role" },
-  { key: "deadline_general", label: "Deadlines (other)", description: "Standalone due dates" },
+const FACTOR_OPTIONS: { key: CalendarFactor; label: string; swatch: string }[] = [
+  { key: "application_submitted", label: "Applications", swatch: "#475569" },
+  { key: "stage_change", label: "Stage changes", swatch: "#0ea5e9" },
+  { key: "deadline_application", label: "App deadlines", swatch: "#d97706" },
+  { key: "deadline_general", label: "Other deadlines", swatch: "#7c3aed" },
 ];
 
-const FACTOR_LABELS: Record<CalendarFactor, string> = {
-  application_submitted: "Application submitted",
-  stage_change: "Stage change",
-  deadline_application: "Deadline (application)",
-  deadline_general: "Deadline (other)",
-};
+const defaultFactors = (): Record<CalendarFactor, boolean> =>
+  FACTOR_OPTIONS.reduce((acc, o) => { acc[o.key] = true; return acc; }, {} as Record<CalendarFactor, boolean>);
 
 const defaultStageFilter = (): Record<Stage, boolean> =>
-  STAGES.reduce((acc, s) => {
-    acc[s] = true;
-    return acc;
-  }, {} as Record<Stage, boolean>);
+  STAGES.reduce((acc, s) => { acc[s] = true; return acc; }, {} as Record<Stage, boolean>);
 
-const defaultFactors = (): Record<CalendarFactor, boolean> =>
-  FACTOR_OPTIONS.reduce((acc, o) => {
-    acc[o.key] = true;
-    return acc;
-  }, {} as Record<CalendarFactor, boolean>);
-
-function HireTrailEvent({ event }: EventProps<HireTrailCalendarEvent>) {
-  const bg = event.resource?.backgroundColor ?? "#64748b";
-  const border = event.resource?.borderColor ?? "#475569";
-  const label = typeof event.title === "string" ? event.title : "";
-  return (
-    <div
-      className="hiretrail-rbc-event-inner"
-      style={{ backgroundColor: bg, borderLeft: `3px solid ${border}` }}
-      title={label}
-    >
-      <span className="hiretrail-rbc-event-title">{event.title}</span>
-    </div>
-  );
-}
-
-interface CalendarEventDetails {
-  title: string;
-  start: string;
-  factor: CalendarFactor;
-  subtitle?: string;
-  route: string;
+function rbcEventToSelected(event: HireTrailCalendarEvent): SelectedEvent | null {
+  const r = event.resource;
+  if (!r || !event.start) return null;
+  return {
+    title: (event.title as string) ?? "",
+    start: event.start as Date,
+    factor: r.factor,
+    subtitle: r.subtitle,
+    route: r.route,
+    entityId: r.entityId,
+    completed: r.completed,
+    applicationId: r.applicationId ?? null,
+  };
 }
 
 export default function CalendarPage() {
-  const navigate = useNavigate();
   const location = useLocation();
   const [loading, setLoading] = useState(true);
   const [applications, setApplications] = useState<Application[]>([]);
+  const [allDeadlines, setAllDeadlines] = useState<Deadline[]>([]);
   const [events, setEvents] = useState<EventInput[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [selectedEvent, setSelectedEvent] = useState<CalendarEventDetails | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<SelectedEvent | null>(null);
   const [factors, setFactors] = useState<Record<CalendarFactor, boolean>>(defaultFactors);
   const [companyFilter, setCompanyFilter] = useState("");
   const [stageFilter, setStageFilter] = useState<Record<Stage, boolean>>(defaultStageFilter);
   const [calView, setCalView] = useState<View>("month");
   const [calDate, setCalDate] = useState(new Date());
+  const [miniDate, setMiniDate] = useState(new Date());
+  const [quickAddDate, setQuickAddDate] = useState<Date | null>(null);
+  const [rightPaneOpen, setRightPaneOpen] = useState(() => {
+    try { return localStorage.getItem("hiretrail-cal-right-pane") !== "0"; } catch { return true; }
+  });
+
+  useEffect(() => {
+    try { localStorage.setItem("hiretrail-cal-right-pane", rightPaneOpen ? "1" : "0"); } catch { /* ignore */ }
+  }, [rightPaneOpen]);
 
   const loadCalendarData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [apps, allDeadlines] = await Promise.all([
+      const [apps, allDls] = await Promise.all([
         applicationsAPI.getAll({ limit: 1000, archived: "all" }),
         deadlinesAPI.getAllAggregated({ status: "all" }),
       ]);
       const appList = apps.data as Application[];
       setApplications(appList);
-      setEvents(
-        buildCalendarEvents({
-          applications: appList,
-          deadlines: allDeadlines,
-        })
-      );
+      setAllDeadlines(allDls);
+      setEvents(buildCalendarEvents({ applications: appList, deadlines: allDls }));
     } catch {
       setError("Could not load calendar data. Please try again.");
     } finally {
@@ -115,62 +107,65 @@ export default function CalendarPage() {
     }
   }, []);
 
-  useEffect(() => {
-    void loadCalendarData();
-  }, [loadCalendarData]);
+  useEffect(() => { void loadCalendarData(); }, [loadCalendarData]);
 
   const companyNames = useMemo(() => {
     const set = new Set<string>();
-    for (const app of applications) {
-      if (app.company?.trim()) set.add(app.company.trim());
-    }
+    for (const app of applications) if (app.company?.trim()) set.add(app.company.trim());
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [applications]);
 
-  const filteredEvents = useMemo(() => {
-    return events.filter((event) => {
-      const p = event.extendedProps as CalendarExtendedProps | undefined;
-      if (!p?.factor) return false;
-      if (!factors[p.factor]) return false;
-
-      if (companyFilter) {
-        if (p.factor === "deadline_general") return false;
-        if (p.company !== companyFilter) return false;
-      }
-
-      if (p.factor === "application_submitted" || p.factor === "stage_change") {
-        if (p.applicationStage == null) return true;
-        return stageFilter[p.applicationStage];
-      }
-
-      return true;
-    });
-  }, [events, factors, companyFilter, stageFilter]);
+  const filteredEvents = useMemo(() => events.filter((event) => {
+    const p = event.extendedProps as CalendarExtendedProps | undefined;
+    if (!p?.factor) return false;
+    if (!factors[p.factor]) return false;
+    if (companyFilter) {
+      if (p.factor === "deadline_general") return false;
+      if (p.company !== companyFilter) return false;
+    }
+    if (p.factor === "application_submitted" || p.factor === "stage_change") {
+      if (p.applicationStage == null) return true;
+      return stageFilter[p.applicationStage];
+    }
+    return true;
+  }), [events, factors, companyFilter, stageFilter]);
 
   const rbcEvents = useMemo(() => eventInputsToRbc(filteredEvents), [filteredEvents]);
 
-  const toggleFactor = (key: CalendarFactor) => {
-    setFactors((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
+  const eventDays = useMemo(() => {
+    const s = new Set<string>();
+    for (const e of rbcEvents) {
+      if (e.start instanceof Date) s.add(e.start.toISOString().slice(0, 10));
+    }
+    return s;
+  }, [rbcEvents]);
 
-  const toggleStage = (stage: Stage) => {
-    setStageFilter((prev) => ({ ...prev, [stage]: !prev[stage] }));
-  };
+  const todayEvents = useMemo(() => {
+    const today = startOfDay(new Date()).getTime();
+    return rbcEvents
+      .filter((e) => e.start instanceof Date && startOfDay(e.start as Date).getTime() === today)
+      .map(rbcEventToSelected)
+      .filter((e): e is SelectedEvent => e !== null);
+  }, [rbcEvents]);
+
+  const upcomingThisWeek = useMemo(() => {
+    const today = startOfDay(new Date()).getTime();
+    const weekEnd = startOfDay(addDays(new Date(), 7)).getTime();
+    return rbcEvents
+      .filter((e) => {
+        if (!(e.start instanceof Date)) return false;
+        const t = startOfDay(e.start as Date).getTime();
+        return t > today && t <= weekEnd;
+      })
+      .sort((a, b) => (a.start as Date).getTime() - (b.start as Date).getTime())
+      .map(rbcEventToSelected)
+      .filter((e): e is SelectedEvent => e !== null)
+      .slice(0, 8);
+  }, [rbcEvents]);
 
   const onSelectEvent = useCallback((event: HireTrailCalendarEvent) => {
-    const p = event.resource;
-    const route = p?.route || "/applications";
-    const factor = (p?.factor as CalendarFactor) || "application_submitted";
-    const subtitle = p?.subtitle;
-    const start = event.start ? format(event.start as Date, "PP") : "";
-
-    setSelectedEvent({
-      title: (event.title as string) || "",
-      start,
-      factor,
-      subtitle,
-      route,
-    });
+    const sel = rbcEventToSelected(event);
+    if (sel) setSelectedEvent(sel);
   }, []);
 
   const draggableAccessor = useCallback((event: HireTrailCalendarEvent) => {
@@ -179,134 +174,190 @@ export default function CalendarPage() {
     return !event.resource?.completed;
   }, []);
 
-  const onEventDrop = useCallback(
-    async ({ event, start }: { event: HireTrailCalendarEvent; start: Date; end: Date }) => {
-      const r = event.resource;
-      const factor = r?.factor;
-      if (factor !== "deadline_application" && factor !== "deadline_general") return;
-      if (r?.completed) {
-        toast.error("Completed deadlines can't be moved.");
-        return;
-      }
-      const id = r?.entityId;
-      if (!id) return;
-      const dueDate = format(start, "yyyy-MM-dd");
-      try {
-        await deadlinesAPI.update(id, { dueDate });
-        toast.success("Deadline updated");
-        await loadCalendarData();
-      } catch {
-        toast.error("Could not update deadline");
-      }
-    },
-    [loadCalendarData]
-  );
+  const onEventDrop = useCallback(async ({ event, start }: { event: HireTrailCalendarEvent; start: Date; end: Date }) => {
+    const r = event.resource;
+    const factor = r?.factor;
+    if (factor !== "deadline_application" && factor !== "deadline_general") return;
+    if (r?.completed) { toast.error("Completed deadlines can't be moved."); return; }
+    const id = r?.entityId;
+    if (!id) return;
+    const dueDate = format(start, "yyyy-MM-dd");
+    try {
+      await deadlinesAPI.update(id, { dueDate });
+      toast.success("Deadline rescheduled");
+      await loadCalendarData();
+    } catch {
+      toast.error("Could not update deadline");
+    }
+  }, [loadCalendarData]);
 
-  const rbcComponents = useMemo(() => ({ event: HireTrailEvent }), []);
+  const onSelectSlot = useCallback(({ start }: { start: Date }) => {
+    setQuickAddDate(start);
+  }, []);
+
+  const handleQuickAdd = useCallback(async (data: { type: string; dueDate: string; notes: string; applicationId: string }) => {
+    try {
+      await deadlinesAPI.create({ type: data.type, dueDate: data.dueDate, notes: data.notes, applicationId: data.applicationId });
+      toast.success("Deadline added");
+      await loadCalendarData();
+    } catch {
+      toast.error("Could not create deadline");
+    }
+  }, [loadCalendarData]);
+
+  const handleMarkComplete = useCallback(async (deadlineId: string) => {
+    try {
+      await deadlinesAPI.update(deadlineId, { completed: true });
+      toast.success("Marked complete");
+      setSelectedEvent(null);
+      await loadCalendarData();
+    } catch {
+      toast.error("Could not mark complete");
+    }
+  }, [loadCalendarData]);
+
+  const handleDelete = useCallback(async (deadlineId: string) => {
+    if (!confirm("Delete this deadline?")) return;
+    try {
+      await deadlinesAPI.delete(deadlineId);
+      toast.success("Deadline deleted");
+      setSelectedEvent(null);
+      await loadCalendarData();
+    } catch {
+      toast.error("Could not delete deadline");
+    }
+  }, [loadCalendarData]);
+
+  const handleUpcomingClick = useCallback((d: Deadline) => {
+    const date = new Date(d.dueDate);
+    setCalDate(date);
+    setMiniDate(date);
+    const match = rbcEvents.find((e) => e.resource?.entityId === d._id);
+    if (match) {
+      const sel = rbcEventToSelected(match);
+      if (sel) setSelectedEvent(sel);
+    }
+  }, [rbcEvents]);
+
+  // Keyboard shortcuts: T = today, M/W/D/A = views, ← → = prev/next, Esc = clear
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName?.toLowerCase();
+      if (tag === "input" || tag === "textarea" || tag === "select" || target?.isContentEditable) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      switch (e.key.toLowerCase()) {
+        case "t": setCalDate(new Date()); break;
+        case "m": setCalView("month"); break;
+        case "w": setCalView("week"); break;
+        case "d": setCalView("day"); break;
+        case "a": setCalView("agenda"); break;
+      }
+      if (e.key === "Escape") setSelectedEvent(null);
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        const dir: 1 | -1 = e.key === "ArrowRight" ? 1 : -1;
+        const next = new Date(calDate);
+        if (calView === "month") next.setMonth(next.getMonth() + dir);
+        else if (calView === "week") next.setDate(next.getDate() + 7 * dir);
+        else if (calView === "day") next.setDate(next.getDate() + dir);
+        else next.setDate(next.getDate() + 30 * dir);
+        setCalDate(next);
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [calDate, calView]);
+
+  // Keep mini-cal month in sync when the main calendar changes month
+  useEffect(() => { setMiniDate(calDate); }, [calDate]);
+
+  const rbcComponents = useMemo(() => ({ event: EventChip, toolbar: () => null }), []);
+  const dayPropGetter = useCallback((date: Date) => (
+    isToday(date) ? { className: "rbc-today-emphasis" } : {}
+  ), []);
 
   return (
-    <div className="fade-up calendar-page space-y-5">
-      <section className="calendar-hero card-premium">
-        <div>
-          <h1 className="text-2xl md:text-[28px] font-bold text-foreground tracking-tight">Calendar</h1>
-          <p className="text-sm text-muted-foreground mt-1.5 max-w-2xl">
-            Month, week, day, and agenda views. Drag a <strong className="text-foreground font-semibold">deadline</strong>{" "}
-            to another day to reschedule it (saved to your account). Application milestones stay read-only here—change
-            those from Applications / Kanban. UI patterns follow{" "}
-            <a
-              href="https://github.com/list-jonas/shadcn-ui-big-calendar"
-              target="_blank"
-              rel="noreferrer"
-              className="text-primary underline-offset-2 hover:underline"
+    <div className="cal-page">
+      <header className="cal-page__header">
+        <h1 className="cal-page__title">Calendar</h1>
+        {location.pathname.startsWith("/admin") && (
+          <span className="cal-page__chip">Admin view</span>
+        )}
+      </header>
+
+      <div className={`cal-shell ${rightPaneOpen ? "" : "cal-shell--no-right"}`}>
+        {/* LEFT PANEL */}
+        <aside className="cal-side cal-side--left">
+          <div className="cal-card cal-card--mini">
+            <MiniCalendar
+              value={miniDate}
+              selected={calDate}
+              onSelect={(d) => { setCalDate(d); setCalView("day"); }}
+              onMonthChange={setMiniDate}
+              eventDays={eventDays}
+            />
+            <button
+              type="button"
+              className="cal-new-deadline"
+              onClick={() => setQuickAddDate(new Date())}
             >
-              shadcn-ui-big-calendar
-            </a>
-            -style scheduling.
-          </p>
-        </div>
-        <div className="calendar-hero-actions">
-          <button type="button" onClick={() => void loadCalendarData()} className="calendar-refresh-btn" disabled={loading}>
-            {loading ? "Refreshing..." : "Refresh"}
-          </button>
-          {location.pathname.startsWith("/admin") && (
-            <span className="calendar-admin-chip" title="Admin route">
-              Admin View
-            </span>
-          )}
-        </div>
-      </section>
-
-      <section className="calendar-toolbar card-premium">
-        <p className="calendar-toolbar-heading">Show on calendar</p>
-        <div className="calendar-factor-grid">
-          {FACTOR_OPTIONS.map((opt) => (
-            <label key={opt.key} className="calendar-factor-label">
-              <input
-                type="checkbox"
-                className="calendar-checkbox"
-                checked={factors[opt.key]}
-                onChange={() => toggleFactor(opt.key)}
-              />
-              <span className="calendar-factor-text">
-                <span className="calendar-factor-title">{opt.label}</span>
-                <span className="calendar-factor-desc">{opt.description}</span>
-              </span>
-            </label>
-          ))}
-        </div>
-
-        <div className="calendar-toolbar-divider" />
-
-        <p className="calendar-toolbar-heading">Narrow by pipeline</p>
-        <p className="text-xs text-muted-foreground mb-2">
-          Stage filters apply to application events only; deadlines stay visible when their checkboxes are on.
-        </p>
-        <div className="calendar-pipeline-row">
-          <label className="calendar-field">
-            <span className="calendar-field-label">Company</span>
-            <select className="calendar-select" value={companyFilter} onChange={(e) => setCompanyFilter(e.target.value)}>
-              <option value="">All companies</option>
-              {companyNames.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <div className="calendar-stage-field">
-            <span className="calendar-field-label">Application stage</span>
-            <div className="calendar-stage-chips">
-              {STAGES.map((stage) => (
-                <label key={stage} className="calendar-stage-chip">
-                  <input
-                    type="checkbox"
-                    className="calendar-checkbox"
-                    checked={stageFilter[stage]}
-                    onChange={() => toggleStage(stage)}
-                  />
-                  <span>{stage}</span>
-                </label>
-              ))}
-            </div>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              New deadline
+            </button>
           </div>
-        </div>
-      </section>
 
-      <section className="calendar-grid">
-        <div className="card-premium p-3 md:p-4 hiretrail-rbc-card">
+          <div className="cal-card">
+            <h3 className="cal-card__title">Upcoming</h3>
+            <UpcomingList deadlines={allDeadlines} onSelect={handleUpcomingClick} />
+          </div>
+        </aside>
+
+        {/* MAIN CALENDAR */}
+        <section className="cal-main">
+          <CalendarToolbar
+            date={calDate}
+            view={calView}
+            onNavigate={setCalDate}
+            onView={setCalView}
+            onRefresh={() => void loadCalendarData()}
+            refreshing={loading}
+            rightPaneOpen={rightPaneOpen}
+            onToggleRightPane={() => setRightPaneOpen((v) => !v)}
+            filtersSlot={
+              <FiltersPopover
+                factors={factors}
+                setFactors={setFactors}
+                companyFilter={companyFilter}
+                setCompanyFilter={setCompanyFilter}
+                stageFilter={stageFilter}
+                setStageFilter={setStageFilter}
+                companyNames={companyNames}
+                factorOptions={FACTOR_OPTIONS}
+                defaultFactors={defaultFactors()}
+                defaultStageFilter={defaultStageFilter()}
+                onReset={() => {
+                  setFactors(defaultFactors());
+                  setStageFilter(defaultStageFilter());
+                  setCompanyFilter("");
+                }}
+              />
+            }
+          />
+
           {error && (
-            <div className="calendar-error-banner">
+            <div className="cal-error">
               {error}
-              <button type="button" onClick={() => void loadCalendarData()} className="calendar-error-retry-btn">
-                Retry
-              </button>
+              <button type="button" onClick={() => void loadCalendarData()} className="cal-error__retry">Retry</button>
             </div>
           )}
-          {loading ? (
-            <div className="h-[640px] flex items-center justify-center text-sm text-muted-foreground">Loading calendar...</div>
-          ) : (
-            <div className="hiretrail-rbc-shell">
+
+          <div className="cal-rbc">
+            {loading && rbcEvents.length === 0 ? (
+              <div className="cal-rbc__loading">Loading calendar…</div>
+            ) : (
               <DnDCalendar
                 style={{ height: "100%" }}
                 localizer={localizer}
@@ -320,45 +371,43 @@ export default function CalendarPage() {
                 startAccessor="start"
                 endAccessor="end"
                 popup
+                selectable
                 showMultiDayTimes
                 draggableAccessor={draggableAccessor}
                 onEventDrop={onEventDrop}
                 onSelectEvent={onSelectEvent}
+                onSelectSlot={onSelectSlot}
                 components={rbcComponents}
-                messages={{
-                  today: "Today",
-                  next: "Next",
-                  previous: "Back",
-                  month: "Month",
-                  week: "Week",
-                  day: "Day",
-                  agenda: "Agenda",
-                  showMore: (n: number) => `+${n} more`,
-                }}
+                dayPropGetter={dayPropGetter}
+                messages={{ showMore: (n: number) => `+${n} more` }}
               />
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        </section>
 
-        <aside className="calendar-side-panel card-premium">
-          <h2 className="calendar-side-title">Event details</h2>
-          {selectedEvent ? (
-            <div className="calendar-side-body">
-              <p className="calendar-side-event-title">{selectedEvent.title}</p>
-              <p className="calendar-side-subtle">{selectedEvent.subtitle || "—"}</p>
-              <div className="calendar-side-meta">
-                <span>{selectedEvent.start || "No date"}</span>
-                <span className="calendar-side-tag">{FACTOR_LABELS[selectedEvent.factor]}</span>
-              </div>
-              <button type="button" onClick={() => navigate(selectedEvent.route)} className="calendar-open-btn">
-                Open module
-              </button>
-            </div>
-          ) : (
-            <p className="calendar-side-empty">Select an event to see details and open the related module.</p>
-          )}
-        </aside>
-      </section>
+        {/* RIGHT PANEL — collapsible */}
+        {rightPaneOpen && (
+          <aside className="cal-side cal-side--right">
+            <EventDetailPanel
+              selected={selectedEvent}
+              todayEvents={todayEvents}
+              upcomingThisWeek={upcomingThisWeek}
+              onClearSelection={() => setSelectedEvent(null)}
+              onMarkComplete={handleMarkComplete}
+              onDelete={handleDelete}
+              onSelect={setSelectedEvent}
+            />
+          </aside>
+        )}
+      </div>
+
+      {quickAddDate && (
+        <QuickAddDeadlineModal
+          initialDate={quickAddDate}
+          onClose={() => setQuickAddDate(null)}
+          onCreate={handleQuickAdd}
+        />
+      )}
     </div>
   );
 }

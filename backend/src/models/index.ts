@@ -7,6 +7,15 @@ export type { IApplication, Stage } from "./Application.js";
 export { Resume } from "./Resume.js";
 export type { IResume } from "./Resume.js";
 
+export { MasterProfile } from "./MasterProfile.js";
+export type { IMasterProfile, IBullet, IExperience, IProject, IEducation, ISkillGroup, ICertification, IContactInfo } from "./MasterProfile.js";
+
+export { AIProviderConfig, AI_PROVIDERS } from "./AIProviderConfig.js";
+export type { IAIProviderConfig, AIProvider } from "./AIProviderConfig.js";
+
+export { TailorSession } from "./TailorSession.js";
+export type { ITailorSession, ITailorSuggestion } from "./TailorSession.js";
+
 export { Contact, CONNECTION_SOURCES } from "./Contact.js";
 export type { IContact, ConnectionSource } from "./Contact.js";
 
@@ -30,3 +39,6 @@ export type { IInvite, IInviteUsage } from "./Invite.js";
 
 export { EmailTemplate, EMAIL_TEMPLATE_TYPES } from "./EmailTemplate.js";
 export type { IEmailTemplate, EmailTemplateType } from "./EmailTemplate.js";
+
+export { BroadcastEmail, BROADCAST_STATUSES, BROADCAST_RECIPIENT_TYPES } from "./BroadcastEmail.js";
+export type { IBroadcastEmail, BroadcastStatus, BroadcastRecipientType } from "./BroadcastEmail.js";
