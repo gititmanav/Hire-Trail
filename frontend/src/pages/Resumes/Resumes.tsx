@@ -1,7 +1,7 @@
 /** Resume versions with optional PDF to Cloudinary; usage counts come from the list API. */
 import { useState, useEffect, useCallback, useMemo } from "react";
 import toast from "react-hot-toast";
-import { resumesAPI, authAPI } from "../../utils/api.ts";
+import { resumesAPI, authAPI, masterProfileAPI } from "../../utils/api.ts";
 import { SkeletonCard } from "../../components/Skeleton/Skeleton.tsx";
 import ActionDropdown from "../../components/ActionDropdown/ActionDropdown.tsx";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal.tsx";
@@ -65,11 +65,13 @@ function getTagColor(tag: string, tagColorMap: Record<string, TagColor>) {
   return tagColorMap[tag] ?? DEFAULT_TAG_COLOR;
 }
 
-function ResumeCard({ r, isPrimary, tagColorMap, setAsPrimary, setEditing, setModal, handleDelete, setPreviewResume }: {
+function ResumeCard({ r, isPrimary, tagColorMap, setAsPrimary, setEditing, setModal, handleDelete, setPreviewResume, parseWithAI, parsingId }: {
   r: Resume; isPrimary: boolean; tagColorMap: Record<string, TagColor>;
   setAsPrimary: (id: string | null) => void; setEditing: (r: Resume) => void; setModal: (v: boolean) => void;
   handleDelete: (id: string) => void; setPreviewResume: (r: Resume) => void;
+  parseWithAI: (id: string) => void; parsingId: string | null;
 }) {
+  const isParsing = parsingId === r._id;
   return (
     <div className={`card-premium p-5 flex flex-col group ${isPrimary ? "ring-2 ring-emerald-500/50 border-emerald-500" : ""}`}>
       <div className="flex items-start justify-between mb-3">
@@ -90,6 +92,18 @@ function ResumeCard({ r, isPrimary, tagColorMap, setAsPrimary, setEditing, setMo
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
               <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z" />
               <circle cx="12" cy="12" r="3" />
+            </svg>
+          </button>
+          <button
+            onClick={() => r.fileUrl && !isParsing && parseWithAI(r._id)}
+            title={r.fileUrl ? "Update master profile from this resume" : "Upload a PDF first"}
+            disabled={!r.fileUrl || isParsing}
+            className={`w-8 h-8 flex items-center justify-center rounded-lg border border-border ${
+              r.fileUrl ? "text-muted-foreground hover:text-primary hover:border-primary" : "text-muted-foreground/50 cursor-not-allowed opacity-60"
+            } ${isParsing ? "animate-pulse" : ""}`}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
             </svg>
           </button>
           {isPrimary ? (
@@ -222,7 +236,25 @@ export default function Resumes() {
   const [selectedTag, setSelectedTag] = useState("All");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [sortBy, setSortBy] = useState<"recent" | "name" | "usage">("recent");
+  const [parsingId, setParsingId] = useState<string | null>(null);
   const { confirm: confirmDelete, confirmState, handleConfirm: onConfirm, handleCancel: onCancel } = useConfirm();
+
+  const parseWithAI = useCallback(async (resumeId: string) => {
+    setParsingId(resumeId);
+    const promise = masterProfileAPI.parseFromResume(resumeId);
+    try {
+      await toast.promise(promise, {
+        loading: "Updating your master profile…",
+        success: "Profile updated. Open the Profile page to view.",
+        error: (err: { response?: { data?: { error?: string } }; message?: string }) =>
+          err?.response?.data?.error || err?.message || "Failed to extract. Check your AI key in Settings.",
+      });
+    } catch {
+      // toast.promise already surfaced the error
+    } finally {
+      setParsingId(null);
+    }
+  }, []);
 
   const fetchResumes = useCallback(async () => {
     try {
@@ -457,6 +489,16 @@ export default function Resumes() {
                   {primaryResume.fileUrl && (
                     <button onClick={() => setPreviewResume(primaryResume)} className="btn-secondary !h-9 !px-3 text-xs">Preview</button>
                   )}
+                  {primaryResume.fileUrl && (
+                    <button
+                      onClick={() => parseWithAI(primaryResume._id)}
+                      disabled={parsingId === primaryResume._id}
+                      className="btn-secondary !h-9 !px-3 text-xs disabled:opacity-60"
+                      title="Update master profile from this resume"
+                    >
+                      {parsingId === primaryResume._id ? "Parsing…" : "Sync to Profile"}
+                    </button>
+                  )}
                   <button onClick={() => { setEditing(primaryResume); setModal(true); }} className="btn-secondary !h-9 !px-3 text-xs">Edit</button>
                   <button onClick={() => setAsPrimary(null)} className="btn-secondary !h-9 !px-3 text-xs text-emerald-700 dark:text-emerald-300">Unset</button>
                 </div>
@@ -466,7 +508,7 @@ export default function Resumes() {
 
           {viewMode === "grid" ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {nonPrimaryResumes.map((r) => <ResumeCard key={r._id} r={r} isPrimary={false} tagColorMap={tagColorMap} setAsPrimary={setAsPrimary} setEditing={setEditing} setModal={setModal} handleDelete={handleDelete} setPreviewResume={setPreviewResume} />)}
+              {nonPrimaryResumes.map((r) => <ResumeCard key={r._id} r={r} isPrimary={false} tagColorMap={tagColorMap} setAsPrimary={setAsPrimary} setEditing={setEditing} setModal={setModal} handleDelete={handleDelete} setPreviewResume={setPreviewResume} parseWithAI={parseWithAI} parsingId={parsingId} />)}
             </div>
           ) : (
             <div className="space-y-3">

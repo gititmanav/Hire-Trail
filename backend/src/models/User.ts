@@ -20,6 +20,12 @@ export interface IUser extends Document {
   gmailConnected: boolean;
   gmailEmail: string | null;
   gmailLastSyncAt: Date | null;
+  outlookRefreshToken: string | null;
+  outlookConnected: boolean;
+  outlookEmail: string | null;
+  outlookLastSyncAt: Date | null;
+  /** When true, re-parsing a resume merges with the master profile via the LLM instead of overwriting it. Default true. */
+  mergeResumesEnabled: boolean;
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidate: string): Promise<boolean>;
@@ -69,6 +75,11 @@ const userSchema = new Schema<IUser>(
     gmailConnected: { type: Boolean, default: false },
     gmailEmail: { type: String, default: null },
     gmailLastSyncAt: { type: Date, default: null },
+    outlookRefreshToken: { type: String, default: null },
+    outlookConnected: { type: Boolean, default: false },
+    outlookEmail: { type: String, default: null },
+    outlookLastSyncAt: { type: Date, default: null },
+    mergeResumesEnabled: { type: Boolean, default: true },
   },
   {
     timestamps: true,
@@ -77,6 +88,7 @@ const userSchema = new Schema<IUser>(
         const out = ret as Record<string, unknown>;
         delete out.password;
         delete out.gmailRefreshToken;
+        delete out.outlookRefreshToken;
         delete out.__v;
         return out;
       },

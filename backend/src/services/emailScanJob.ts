@@ -1,23 +1,36 @@
 import cron from "node-cron";
 import { User } from "../models/User.js";
-import { scanUserInbox } from "./gmailService.js";
+import { scanUserInbox as scanGmail } from "./gmailService.js";
+import { scanUserInbox as scanOutlook } from "./outlookService.js";
 
 export function startEmailScanJob(): void {
-  // Run at 1 AM daily
+  // Run at 1 AM daily — scans every connected mailbox per user.
   cron.schedule("0 1 * * *", async () => {
     console.log("[EmailScan] Starting nightly email scan...");
     try {
-      const users = await User.find({ gmailConnected: true });
-      console.log(`[EmailScan] Found ${users.length} users with Gmail connected`);
+      const users = await User.find({
+        $or: [{ gmailConnected: true }, { outlookConnected: true }],
+      });
+      console.log(`[EmailScan] Found ${users.length} users with a mailbox connected`);
 
       for (const user of users) {
-        try {
-          const count = await scanUserInbox(user);
-          if (count > 0) {
-            console.log(`[EmailScan] User ${user.email}: ${count} rejection(s) detected`);
+        if (user.gmailConnected) {
+          try {
+            const r = await scanGmail(user);
+            if (r.applied > 0) console.log(`[EmailScan] gmail ${user.email}: ${r.applied} update(s) (${r.scanned} scanned)`);
+          } catch (err) {
+            const e = err as { message?: string };
+            console.error(`[EmailScan] gmail ${user.email}:`, e.message);
           }
-        } catch (err: any) {
-          console.error(`[EmailScan] Error scanning ${user.email}:`, err.message);
+        }
+        if (user.outlookConnected) {
+          try {
+            const r = await scanOutlook(user);
+            if (r.applied > 0) console.log(`[EmailScan] outlook ${user.email}: ${r.applied} update(s) (${r.scanned} scanned)`);
+          } catch (err) {
+            const e = err as { message?: string };
+            console.error(`[EmailScan] outlook ${user.email}:`, e.message);
+          }
         }
       }
 

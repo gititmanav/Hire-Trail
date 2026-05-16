@@ -19,6 +19,8 @@ import Deadlines from "./pages/Deadlines/Deadlines.tsx";
 import CalendarPage from "./pages/Calendar/Calendar.tsx";
 import ImportExport from "./pages/ImportExport/ImportExport.tsx";
 import Profile from "./pages/Profile/Profile.tsx";
+import Settings from "./pages/Settings/Settings.tsx";
+import Tailor from "./pages/Tailor/Tailor.tsx";
 import {
   AdminDashboard, AuditLogs,
   ContentModeration, StorageManagement, SystemConfig,
@@ -117,7 +119,8 @@ function App() {
             <Route path="/calendar" element={<CalendarPage />} />
             <Route path="/import-export" element={<FeatureRoute flag="feature_csv_import_export"><ImportExport /></FeatureRoute>} />
             <Route path="/profile" element={<Profile />} />
-            <Route path="/settings" element={<Profile />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/tailor" element={<Tailor />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

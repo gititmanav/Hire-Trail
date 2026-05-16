@@ -143,6 +143,7 @@ router.get("/me", ensureAuth, async (req: Request, res: Response, next: NextFunc
       role: doc.role,
       tourCompleted: doc.tourCompleted ?? false,
       primaryResumeId: doc.primaryResumeId ? String(doc.primaryResumeId) : null,
+      mergeResumesEnabled: doc.mergeResumesEnabled !== false,
     });
   } catch (err) {
     next(err);
@@ -393,7 +394,7 @@ router.post(
 // PUT update profile (session or Bearer)
 router.put("/profile", ensureAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { name, email, primaryResumeId } = req.body;
+    const { name, email, primaryResumeId, mergeResumesEnabled } = req.body;
     const user = getUser(req);
 
     if (email && email !== user.email) {
@@ -416,6 +417,10 @@ router.put("/profile", ensureAuth, async (req: Request, res: Response, next: Nex
       }
     }
 
+    if (mergeResumesEnabled !== undefined) {
+      $set.mergeResumesEnabled = Boolean(mergeResumesEnabled);
+    }
+
     const updated = await User.findByIdAndUpdate(user._id, { $set }, { new: true, runValidators: true }).lean();
     if (!updated) throw new AppError("Not found", 404);
 
@@ -426,6 +431,7 @@ router.put("/profile", ensureAuth, async (req: Request, res: Response, next: Nex
       role: updated.role,
       tourCompleted: updated.tourCompleted ?? false,
       primaryResumeId: updated.primaryResumeId ? String(updated.primaryResumeId) : null,
+      mergeResumesEnabled: updated.mergeResumesEnabled !== false,
     });
   } catch (err) {
     next(err);
