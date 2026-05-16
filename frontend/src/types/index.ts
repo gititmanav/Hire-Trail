@@ -9,14 +9,28 @@ export interface User {
   gmailConnected?: boolean;
   gmailEmail?: string | null;
   gmailLastSyncAt?: string | null;
+  /** When false, re-parsing a resume overwrites the master profile instead of AI-merging. Default true. */
+  mergeResumesEnabled?: boolean;
 }
+export type NotificationType =
+  | "rejection_detected"
+  | "interview_detected"
+  | "offer_detected"
+  | "follow_up_detected"
+  | "info";
+
 export interface Notification {
   _id: string;
   userId: string;
-  type: "rejection_detected" | "info";
+  type: NotificationType;
   title: string;
   message: string;
   applicationId: string | null;
+  source: "gmail" | "outlook" | null;
+  sourceEmailId: string | null;
+  previousStage: string | null;
+  resolved: boolean;
+  resolvedAt: string | null;
   read: boolean;
   readAt: string | null;
   createdAt: string;
