@@ -20,6 +20,9 @@ import {
   seedRoutes,
   adminNotificationRoutes,
   gmailRoutes,
+  mailboxRoutes,
+  broadcastRoutes,
+  feedbackAdminRoutes,
 } from "./admin/index.js";
 
 const router = Router();
@@ -45,6 +48,9 @@ router.use("/performance", performanceRoutes);
 router.use("/seed", seedRoutes);
 router.use("/notifications", adminNotificationRoutes);
 router.use("/gmail", gmailRoutes);
+router.use("/mailbox", mailboxRoutes);
+router.use("/broadcasts", broadcastRoutes);
+router.use("/feedback", feedbackAdminRoutes);
 
 // Backward-compatible overview endpoint
 router.get(

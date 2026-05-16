@@ -21,7 +21,7 @@ const envSchema = z
     JSEARCH_API_KEY: z.string().default(""),
     ADMIN_EMAILS: z.string().default(""),
     /** Single email allowed to sign in and use the API while `maintenance_mode` is on. Empty = no bypass. */
-    MAINTENANCE_BYPASS_EMAIL: z.string().default("manavkaneria@gmail.com"),
+    MAINTENANCE_BYPASS_EMAIL: z.string().default(""),
     GMAIL_REDIRECT_URI: z.string().default("http://localhost:5050/api/email/callback"),
     // Outlook (Microsoft Identity Platform) — "common" tenant works for personal + work accounts.
     MICROSOFT_CLIENT_ID: z.string().default(""),

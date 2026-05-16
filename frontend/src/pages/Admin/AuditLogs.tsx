@@ -15,8 +15,21 @@ const actionColors: Record<string, string> = {
   impersonate: "bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-300",
 };
 
-const actionOptions = ["", "login", "create", "update", "delete", "suspend", "unsuspend", "role_change", "export", "impersonate"];
-const resourceOptions = ["", "user", "application", "resume", "contact", "deadline", "announcement", "setting", "invite"];
+const actionOptions = ["", "login", "create", "update", "delete", "suspend", "unsuspend", "role_change", "export", "impersonate", "settings_change", "seed", "seed_clear", "backup_export", "hard_delete"];
+const resourceOptions = ["", "user", "application", "resume", "contact", "deadline", "announcement", "setting", "invite", "email_template", "notification", "master_profile", "tailor_session", "feedback", "ai_provider", "mailbox", "system"];
+
+const resourceLabels: Record<string, string> = {
+  master_profile: "Master Profile",
+  tailor_session: "Tailor Session",
+  feedback: "Feedback",
+  ai_provider: "AI Provider",
+  mailbox: "Mailbox",
+  email_template: "Email Template",
+};
+
+function labelResource(r: string) {
+  return resourceLabels[r] ?? r.charAt(0).toUpperCase() + r.slice(1).replace(/_/g, " ");
+}
 
 function getUserName(userId: AuditLog["userId"]): string {
   if (typeof userId === "object" && userId !== null) return userId.name;
@@ -79,7 +92,7 @@ export default function AuditLogs() {
         >
           <option value="">All Actions</option>
           {actionOptions.filter(Boolean).map((a) => (
-            <option key={a} value={a}>{a}</option>
+            <option key={a} value={a}>{a.replace(/_/g, " ")}</option>
           ))}
         </select>
         <select
@@ -89,7 +102,7 @@ export default function AuditLogs() {
         >
           <option value="">All Resources</option>
           {resourceOptions.filter(Boolean).map((r) => (
-            <option key={r} value={r}>{r}</option>
+            <option key={r} value={r}>{labelResource(r)}</option>
           ))}
         </select>
         <input
@@ -157,27 +170,38 @@ export default function AuditLogs() {
                             {log.action}
                           </span>
                         </span>
-                        <span className="px-4 py-3 text-muted-foreground">{log.resourceType}</span>
+                        <span className="px-4 py-3 text-muted-foreground">{labelResource(log.resourceType)}</span>
                         <span className="px-4 py-3 text-muted-foreground font-mono text-xs">
                           {log.ipAddress || "—"}
                         </span>
                       </div>
                       {isExpanded && (
-                        <div className="px-8 py-4 bg-muted border-t border-border">
+                        <div className="px-8 py-4 bg-muted/60 border-t border-border space-y-3">
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                               <p className="text-xs font-semibold text-muted-foreground mb-1">Old Value</p>
-                              <pre className="text-xs bg-muted p-3 rounded-lg overflow-x-auto max-h-48 text-foreground">
+                              <pre className="text-xs bg-card border border-border p-3 rounded-lg overflow-x-auto max-h-48 text-foreground">
                                 {formatJson(log.oldValue)}
                               </pre>
                             </div>
                             <div>
                               <p className="text-xs font-semibold text-muted-foreground mb-1">New Value</p>
-                              <pre className="text-xs bg-muted p-3 rounded-lg overflow-x-auto max-h-48 text-foreground">
+                              <pre className="text-xs bg-card border border-border p-3 rounded-lg overflow-x-auto max-h-48 text-foreground">
                                 {formatJson(log.newValue)}
                               </pre>
                             </div>
                           </div>
+                          {log.metadata !== undefined && log.metadata !== null && (
+                            <div>
+                              <p className="text-xs font-semibold text-muted-foreground mb-1">Metadata</p>
+                              <pre className="text-xs bg-card border border-border p-3 rounded-lg overflow-x-auto max-h-48 text-foreground">
+                                {formatJson(log.metadata)}
+                              </pre>
+                            </div>
+                          )}
+                          {log.resourceId && (
+                            <p className="text-xs text-muted-foreground font-mono">resourceId: {String(log.resourceId)}</p>
+                          )}
                         </div>
                       )}
                     </td>

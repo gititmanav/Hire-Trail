@@ -51,91 +51,96 @@ export default function BackupManagement() {
     }
   };
 
-  return (
-    <div className="space-y-6 p-6">
-      <h1 className="text-2xl font-bold text-foreground">Backup Management</h1>
+  const Spinner = () => (
+    <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+    </svg>
+  );
 
-      {/* Warning Banner */}
-      <div className="rounded-lg bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 p-4">
-        <div className="flex items-start gap-3">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-600 dark:text-yellow-400 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-          </svg>
-          <div>
-            <p className="text-sm font-medium text-yellow-800 dark:text-yellow-300">Large Backup Warning</p>
-            <p className="text-sm text-yellow-700 dark:text-yellow-400 mt-1">
-              Backup files can be very large depending on the amount of data in the system. Full database exports include all users, applications, resumes, contacts, deadlines, and audit logs. Ensure you have sufficient bandwidth and storage before proceeding.
-            </p>
+  return (
+    <div className="fade-up space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-foreground tracking-tight">Backup Management</h1>
+        <p className="text-sm text-muted-foreground mt-1">Export the full database or per-user data as JSON for archival and GDPR portability.</p>
+      </div>
+
+      {/* Notice */}
+      <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 flex items-start gap-3">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-600 dark:text-amber-400 mt-0.5 shrink-0">
+          <path d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <div>
+          <p className="text-sm font-medium text-amber-700 dark:text-amber-300">Backups can be large</p>
+          <p className="text-xs text-amber-700 dark:text-amber-300/80 mt-0.5">
+            Full exports include users, applications, resumes, contacts, deadlines, master profiles, tailor sessions, feedback, and audit logs. Ensure you have bandwidth before downloading.
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Full Database Export */}
+        <div className="bg-card border border-border rounded-xl p-6 flex flex-col">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <ellipse cx="12" cy="5" rx="9" ry="3" /><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" /><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+              </svg>
+            </div>
+            <h2 className="text-lg font-semibold text-foreground">Full database export</h2>
+          </div>
+          <p className="text-sm text-secondary-foreground mb-5 flex-1">
+            Export the entire database as a JSON file. Suitable for disaster recovery, migration, or archival.
+          </p>
+          <button
+            className="btn-accent self-start inline-flex items-center gap-2"
+            onClick={handleFullExport}
+            disabled={exportingFull}
+          >
+            {exportingFull ? <><Spinner /> Exporting...</> : "Export full backup"}
+          </button>
+        </div>
+
+        {/* Single User Data Export */}
+        <div className="bg-card border border-border rounded-xl p-6 flex flex-col">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" /><circle cx="12" cy="7" r="4" />
+              </svg>
+            </div>
+            <h2 className="text-lg font-semibold text-foreground">Single user export</h2>
+          </div>
+          <p className="text-sm text-secondary-foreground mb-4">
+            Export every record belonging to one user. Useful for GDPR data portability.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <input
+              type="text"
+              className="input-premium flex-1"
+              placeholder="User ID or email address"
+              value={userIdOrEmail}
+              onChange={(e) => setUserIdOrEmail(e.target.value)}
+            />
+            <button
+              className="btn-accent whitespace-nowrap inline-flex items-center gap-2"
+              onClick={handleUserExport}
+              disabled={exportingUser}
+            >
+              {exportingUser ? <><Spinner /> Exporting...</> : "Export user data"}
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Full Database Export */}
-      <div className="card-premium p-6">
-        <h2 className="text-lg font-semibold text-foreground mb-2">Full Database Export</h2>
-        <p className="text-sm text-secondary-foreground mb-4">
-          Export the entire database as a JSON file. This includes all users, applications, resumes, contacts,
-          deadlines, audit logs, announcements, settings, and invite codes. The exported file can be used for
-          disaster recovery, migration, or archival purposes.
-        </p>
-        <button
-          className="btn-accent"
-          onClick={handleFullExport}
-          disabled={exportingFull}
-        >
-          {exportingFull ? (
-            <span className="flex items-center gap-2">
-              <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-              Exporting...
-            </span>
-          ) : (
-            "Export Full Backup"
-          )}
-        </button>
-      </div>
-
-      {/* Single User Data Export */}
-      <div className="card-premium p-6">
-        <h2 className="text-lg font-semibold text-foreground mb-2">Single User Data Export</h2>
-        <p className="text-sm text-secondary-foreground mb-4">
-          Export all data for a specific user. Useful for GDPR data portability requests or individual account backups.
-        </p>
-        <div className="flex flex-col sm:flex-row gap-3">
-          <input
-            type="text"
-            className="input-premium flex-1"
-            placeholder="User ID or email address"
-            value={userIdOrEmail}
-            onChange={(e) => setUserIdOrEmail(e.target.value)}
-          />
-          <button
-            className="btn-accent whitespace-nowrap"
-            onClick={handleUserExport}
-            disabled={exportingUser}
-          >
-            {exportingUser ? (
-              <span className="flex items-center gap-2">
-                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-                Exporting...
-              </span>
-            ) : (
-              "Export User Data"
-            )}
-          </button>
+      {/* Backup History placeholder */}
+      <div className="bg-card border border-border rounded-xl p-6">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-lg font-semibold text-foreground">Backup history</h2>
+          <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300">Planned</span>
         </div>
-      </div>
-
-      {/* Backup History */}
-      <div className="card-premium p-6">
-        <h2 className="text-lg font-semibold text-foreground mb-2">Backup History</h2>
-        <p className="text-sm text-muted-foreground italic">
-          Backup history not yet implemented.
+        <p className="text-sm text-muted-foreground">
+          Server-side scheduled backups and download history aren't enabled yet. For now, exports run on-demand and stream directly to your browser.
         </p>
       </div>
     </div>

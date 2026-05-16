@@ -17,15 +17,21 @@ const PERMISSIONS_ROWS = [
 ];
 
 const roleBadge: Record<string, string> = {
-  admin: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
-  moderator: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300",
-  user: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
+  admin: "bg-red-500/10 text-red-700 dark:text-red-300",
+  moderator: "bg-purple-500/10 text-purple-700 dark:text-purple-300",
+  user: "bg-blue-500/10 text-blue-700 dark:text-blue-300",
 };
 
-function statusBadge(u: AdminUserDetail): { label: string; cls: string } {
-  if (u.deleted) return { label: "Deleted", cls: "bg-muted text-foreground" };
-  if (u.suspended) return { label: "Suspended", cls: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300" };
-  return { label: "Active", cls: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300" };
+const roleIcon: Record<string, string> = {
+  admin: "M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z",
+  moderator: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z",
+  user: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z",
+};
+
+function statusBadge(u: AdminUserDetail): { label: string; cls: string; dot: string } {
+  if (u.deleted) return { label: "Deleted", cls: "bg-muted text-muted-foreground", dot: "bg-muted-foreground/40" };
+  if (u.suspended) return { label: "Suspended", cls: "bg-amber-500/10 text-amber-700 dark:text-amber-300", dot: "bg-amber-500" };
+  return { label: "Active", cls: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300", dot: "bg-emerald-500" };
 }
 
 export default function RBACManagement() {
@@ -149,31 +155,46 @@ export default function RBACManagement() {
   }
 
   return (
-    <div className="space-y-6 p-6">
-      <h1 className="text-2xl font-bold text-foreground">Users &amp; Roles</h1>
+    <div className="fade-up space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-foreground tracking-tight">Users &amp; Roles</h1>
+        <p className="text-sm text-muted-foreground mt-1">Role definitions, per-user role changes, and the permission matrix.</p>
+      </div>
 
       {/* Role Definitions */}
       <div>
-        <h2 className="text-lg font-semibold text-foreground mb-4">Role Definitions</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {roles.map((role) => (
-            <div key={role.role} className="card-premium p-5">
-              <h3 className="text-base font-semibold text-foreground capitalize mb-1">{role.role}</h3>
-              <p className="text-sm text-secondary-foreground mb-3">{role.description}</p>
-              <div className="flex flex-wrap gap-1.5">
-                {role.permissions.map((perm) => (
-                  <span key={perm} className="text-xs font-medium px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300">{perm}</span>
-                ))}
+        <h2 className="text-base font-semibold uppercase tracking-wider text-muted-foreground mb-3">Role Definitions</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {roles.map((role) => {
+            const icon = roleIcon[role.role] || roleIcon.user;
+            const badge = roleBadge[role.role] || roleBadge.user;
+            return (
+              <div key={role.role} className="bg-card border border-border rounded-xl p-5">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${badge}`}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={icon}/></svg>
+                  </div>
+                  <h3 className="text-base font-semibold text-foreground capitalize">{role.role}</h3>
+                </div>
+                <p className="text-sm text-secondary-foreground mb-3">{role.description}</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {role.permissions.map((perm) => (
+                    <span key={perm} className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted text-secondary-foreground">{perm}</span>
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
       {/* User Management */}
-      <div className="card-premium p-6">
+      <div className="bg-card border border-border rounded-xl p-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-          <h2 className="text-lg font-semibold text-foreground">User Management</h2>
+          <div>
+            <h2 className="text-base font-semibold uppercase tracking-wider text-muted-foreground">User Management</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">Search, change role, suspend, or remove individual users.</p>
+          </div>
           <div className="flex items-center gap-3">
             <div className="relative">
               <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -217,10 +238,13 @@ export default function RBACManagement() {
                     <td className="px-4 py-3 font-medium text-foreground">{user.name}</td>
                     <td className="px-4 py-3 text-secondary-foreground">{user.email}</td>
                     <td className="px-4 py-3">
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${roleBadge[user.role] || roleBadge.user}`}>{user.role}</span>
+                      <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${roleBadge[user.role] || roleBadge.user}`}>{user.role}</span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${status.cls}`}>{status.label}</span>
+                      <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium px-2 py-0.5 rounded-full ${status.cls}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
+                        {status.label}
+                      </span>
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">{new Date(user.createdAt).toLocaleDateString()}</td>
                     <td className="px-4 py-3 text-muted-foreground">{user.lastLogin ? new Date(user.lastLogin).toLocaleDateString() : "Never"}</td>
@@ -249,35 +273,45 @@ export default function RBACManagement() {
         )}
       </div>
 
-      {/* Permission Matrix (Coming Soon) */}
-      <div className="card-premium p-6 relative">
-        <h2 className="text-lg font-semibold text-foreground mb-4">Permission Matrix</h2>
-        <div className="relative">
-          <div className="absolute inset-0 bg-muted/80/80 backdrop-blur-sm z-10 flex items-center justify-center rounded-lg">
-            <span className="text-lg font-semibold text-muted-foreground bg-card px-4 py-2 rounded-lg shadow">Coming Soon</span>
+      {/* Permission Matrix */}
+      <div className="bg-card border border-border rounded-xl p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-base font-semibold uppercase tracking-wider text-muted-foreground">Permission Matrix</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">Read-only summary of which roles include which permissions.</p>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead className="text-xs uppercase text-muted-foreground border-b border-border">
-                <tr>
-                  <th className="px-4 py-3">Permission</th>
-                  {roles.map((r) => (<th key={r.role} className="px-4 py-3 text-center capitalize">{r.role}</th>))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {PERMISSIONS_ROWS.map((perm) => (
-                  <tr key={perm}>
-                    <td className="px-4 py-2 text-foreground font-mono text-xs">{perm}</td>
-                    {roles.map((r) => (
+          <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Read-only</span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left">
+            <thead className="text-xs uppercase text-muted-foreground border-b border-border bg-muted/40">
+              <tr>
+                <th className="px-4 py-3">Permission</th>
+                {roles.map((r) => (<th key={r.role} className="px-4 py-3 text-center capitalize">{r.role}</th>))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {PERMISSIONS_ROWS.map((perm) => (
+                <tr key={perm} className="hover:bg-muted/30">
+                  <td className="px-4 py-2 text-foreground font-mono text-xs">{perm}</td>
+                  {roles.map((r) => {
+                    const has = r.permissions.includes(perm);
+                    return (
                       <td key={r.role} className="px-4 py-2 text-center">
-                        <input type="checkbox" disabled checked={r.permissions.includes(perm)} className="h-4 w-4 rounded border-border" />
+                        {has ? (
+                          <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+                          </span>
+                        ) : (
+                          <span className="inline-block w-3 h-px bg-muted-foreground/40" />
+                        )}
                       </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
 

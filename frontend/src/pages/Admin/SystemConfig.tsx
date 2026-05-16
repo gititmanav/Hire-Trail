@@ -173,30 +173,30 @@ export default function SystemConfig() {
   const categoryOrder = ["general", "limits", "features", "session", "storage"];
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-foreground">
-        System Configuration
-      </h1>
+    <div className="fade-up space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-foreground tracking-tight">System Configuration</h1>
+        <p className="text-sm text-muted-foreground mt-1">Platform-wide feature flags, limits, and operational settings.</p>
+      </div>
 
       {/* Maintenance Mode Banner */}
       {maintenanceSetting && (
-        <div
-          className={`card-premium p-5 border-2 ${
-            maintenanceSetting.value
-              ? "border-red-500 bg-red-50 dark:bg-red-900/20"
-              : "border-border"
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-red-700 dark:text-red-400">
-                Maintenance Mode
-              </h2>
-              <p className="text-sm text-red-600 dark:text-red-300 mt-0.5">
-                {maintenanceSetting.value
-                  ? "The application is currently in maintenance mode. Users cannot access the platform."
-                  : "Maintenance mode is off. The platform is accessible to all users."}
-              </p>
+        <div className={`rounded-xl border p-5 ${maintenanceSetting.value ? "border-red-500/40 bg-red-500/5" : "border-border bg-card"}`}>
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-start gap-3">
+              <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${maintenanceSetting.value ? "bg-red-500/15 text-red-600 dark:text-red-400" : "bg-muted text-muted-foreground"}`}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z" />
+                </svg>
+              </div>
+              <div>
+                <h2 className={`text-lg font-semibold ${maintenanceSetting.value ? "text-red-700 dark:text-red-300" : "text-foreground"}`}>Maintenance mode</h2>
+                <p className={`text-sm mt-0.5 ${maintenanceSetting.value ? "text-red-600 dark:text-red-300/90" : "text-muted-foreground"}`}>
+                  {maintenanceSetting.value
+                    ? "The platform is in maintenance mode. Non-admin users cannot access it."
+                    : "Maintenance mode is off. The platform is accessible to all users."}
+                </p>
+              </div>
             </div>
             <SettingRow setting={maintenanceSetting} onSave={handleSave} />
           </div>
@@ -207,45 +207,33 @@ export default function SystemConfig() {
       {categoryOrder.map((cat) => {
         const settings = grouped[cat];
         if (!settings || settings.length === 0) return null;
-        // Filter out maintenance mode from general group since it's displayed above
         const filtered = settings.filter((s) => s.key !== "maintenance_mode");
         if (filtered.length === 0) return null;
 
         return (
-          <div key={cat} className="card-premium p-5">
-            <h2 className="text-lg font-semibold text-foreground mb-4 capitalize">
+          <div key={cat} className="bg-card border border-border rounded-xl p-5">
+            <h2 className="text-base font-semibold text-foreground mb-2 uppercase tracking-wider text-muted-foreground">
               {CATEGORY_LABELS[cat] || cat}
             </h2>
             <div className="space-y-0">
               {filtered.map((setting) => (
-                <SettingRow
-                  key={setting._id}
-                  setting={setting}
-                  onSave={handleSave}
-                />
+                <SettingRow key={setting._id} setting={setting} onSave={handleSave} />
               ))}
             </div>
           </div>
         );
       })}
 
-      {/* Any categories not in the predefined order */}
       {Object.entries(grouped)
         .filter(([cat]) => !categoryOrder.includes(cat))
         .map(([cat, settings]) => {
           if (!settings || settings.length === 0) return null;
           return (
-            <div key={cat} className="card-premium p-5">
-              <h2 className="text-lg font-semibold text-foreground mb-4 capitalize">
-                {CATEGORY_LABELS[cat] || cat}
-              </h2>
+            <div key={cat} className="bg-card border border-border rounded-xl p-5">
+              <h2 className="text-base font-semibold mb-2 uppercase tracking-wider text-muted-foreground">{CATEGORY_LABELS[cat] || cat}</h2>
               <div className="space-y-0">
                 {settings.map((setting) => (
-                  <SettingRow
-                    key={setting._id}
-                    setting={setting}
-                    onSave={handleSave}
-                  />
+                  <SettingRow key={setting._id} setting={setting} onSave={handleSave} />
                 ))}
               </div>
             </div>

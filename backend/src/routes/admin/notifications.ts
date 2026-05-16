@@ -20,14 +20,20 @@ router.get("/", async (req: Request, res: Response, next: NextFunction) => {
     const type = req.query.type as string;
     const read = req.query.read as string;
 
+    const source = req.query.source as string;
+    const resolved = req.query.resolved as string;
+
     const filter: Record<string, unknown> = {};
     if (search) {
-      const regex = new RegExp(search, "i");
+      const regex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
       filter.$or = [{ title: regex }, { message: regex }];
     }
     if (type) filter.type = type;
     if (read === "true") filter.read = true;
     else if (read === "false") filter.read = false;
+    if (source === "gmail" || source === "outlook") filter.source = source;
+    if (resolved === "true") filter.resolved = true;
+    else if (resolved === "false") filter.resolved = false;
 
     const [data, total] = await Promise.all([
       Notification.find(filter)
@@ -48,13 +54,18 @@ router.get("/", async (req: Request, res: Response, next: NextFunction) => {
 router.get("/stats", async (_req: Request, res: Response, next: NextFunction) => {
   try {
     const monthAgo = new Date(Date.now() - 30 * 86400000);
-    const [total, unread, byType, last30Days] = await Promise.all([
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+    const [total, unread, byType, bySource, last30Days, todayCount, resolvedCount, unresolvedSignals] = await Promise.all([
       Notification.countDocuments({}),
       Notification.countDocuments({ read: false }),
       Notification.aggregate([{ $group: { _id: "$type", count: { $sum: 1 } } }]),
+      Notification.aggregate([{ $match: { source: { $ne: null } } }, { $group: { _id: "$source", count: { $sum: 1 } } }]),
       Notification.countDocuments({ createdAt: { $gte: monthAgo } }),
+      Notification.countDocuments({ createdAt: { $gte: todayStart } }),
+      Notification.countDocuments({ resolved: true }),
+      Notification.countDocuments({ resolved: false, source: { $ne: null } }),
     ]);
-    res.json({ total, unread, byType, last30Days });
+    res.json({ total, unread, byType, bySource, last30Days, todayCount, resolvedCount, unresolvedSignals });
   } catch (err) { next(err); }
 });
 

@@ -27,11 +27,11 @@ const fmt = (d: string) => new Date(d).toLocaleDateString("en-US", { month: "sho
 const KanbanCard = memo(function KanbanCard({ app, resumeName, isDragging }: { app: Application; resumeName?: string; isDragging?: boolean }) {
   return (
     <div
-      className={`card-premium p-3 ${isDragging ? "!shadow-lg ring-2 ring-ring/20 scale-[1.02]" : ""}`}
+      className={`card-premium p-3 min-w-0 overflow-hidden ${isDragging ? "!shadow-lg ring-2 ring-ring/20 scale-[1.02]" : ""}`}
     >
       <h4 className="text-[13px] font-semibold text-foreground mb-0.5 truncate">{app.company}</h4>
       <p className="text-xs text-muted-foreground mb-1.5 truncate">{app.role}</p>
-      <div className="flex flex-wrap gap-1 mb-1.5">
+      <div className="flex flex-wrap gap-1 mb-1.5 min-w-0">
         {app.location?.trim() && (
           <span className="inline-flex items-center gap-0.5 max-w-full text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-muted/80 text-secondary-foreground border border-border/60 truncate" title={app.location}>
             <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 opacity-70" aria-hidden>
@@ -71,15 +71,15 @@ const KanbanColumn = memo(function KanbanColumn({ stage, apps, resumeById }: { s
   const ids = useMemo(() => apps.map((a) => a._id), [apps]);
 
   return (
-    <div className="flex flex-col min-w-[240px] flex-1">
-      <div className={`flex items-center gap-2 px-3 py-2.5 rounded-t-xl ${c.hBg}`}>
-        <div className={`w-2.5 h-2.5 rounded-full ${c.dot}`} />
-        <span className="text-[13px] font-semibold text-foreground">{stage}</span>
-        <span className="text-[11px] text-muted-foreground ml-auto bg-white/70 dark:bg-black/25 px-2 py-0.5 rounded-full font-semibold tabular-nums">{apps.length}</span>
+    <div className="flex flex-col min-w-0">
+      <div className={`flex items-center gap-2 px-3 py-2.5 rounded-t-xl ${c.hBg} min-w-0`}>
+        <div className={`w-2.5 h-2.5 rounded-full ${c.dot} shrink-0`} />
+        <span className="text-[13px] font-semibold text-foreground truncate">{stage}</span>
+        <span className="text-[11px] text-muted-foreground ml-auto bg-white/70 dark:bg-black/25 px-2 py-0.5 rounded-full font-semibold tabular-nums shrink-0">{apps.length}</span>
       </div>
       <div
         ref={setNodeRef}
-        className={`flex-1 p-2 rounded-b-xl border-2 border-dashed ${c.border} ${c.bg} min-h-[120px] space-y-2 ${isOver ? "!border-foreground/25 !bg-muted/40" : ""}`}
+        className={`flex-1 p-2 rounded-b-xl border-2 border-dashed ${c.border} ${c.bg} min-h-[120px] min-w-0 space-y-2 ${isOver ? "!border-foreground/25 !bg-muted/40" : ""}`}
       >
         <SortableContext items={ids} strategy={verticalListSortingStrategy}>
           {apps.map((app) => (
@@ -177,7 +177,7 @@ export default function Kanban() {
   if (loading) return (
     <div className="fade-up">
       <h1 className="text-2xl font-bold text-foreground mb-6">Kanban Board</h1>
-      <div className="flex gap-4">{STAGES.map((s) => <div key={s} className="min-w-[240px] flex-1 space-y-2"><SkeletonCard /><SkeletonCard /></div>)}</div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">{STAGES.map((s) => <div key={s} className="min-w-0 space-y-2"><SkeletonCard /><SkeletonCard /></div>)}</div>
     </div>
   );
 
@@ -198,7 +198,7 @@ export default function Kanban() {
         </div>
       </div>
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
-        <div className="flex gap-4 overflow-x-auto pb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 pb-4">
           <SortableContext items={STAGES.map((s) => `column-${s}`)}>
             {STAGES.map((s) => <KanbanColumn key={s} stage={s} apps={grouped[s]} resumeById={resumeById} />)}
           </SortableContext>

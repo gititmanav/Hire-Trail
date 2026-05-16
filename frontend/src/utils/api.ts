@@ -14,6 +14,8 @@ import type {
   Announcement, SystemSetting, Invite, EmailTemplate,
   StorageStats, RoleDefinition, SeedResult, Notification,
   AdminGmailUser, AdminGmailStats, AdminNotificationItem, AdminNotificationStats,
+  AdminMailboxUser, AdminMailboxStats, MailboxProvider,
+  BroadcastEmailItem, BroadcastRecipientType, MailerStatus,
 } from "../types";
 
 export const api = axios.create({
@@ -269,6 +271,36 @@ export const masterProfileAPI = {
   },
 };
 
+export type FeedbackType = "bug" | "suggestion" | "idea" | "praise" | "other";
+export type FeedbackStatus = "open" | "triaged" | "in_progress" | "resolved" | "dismissed";
+export type FeedbackSeverity = "low" | "normal" | "high" | "critical";
+
+export interface FeedbackItem {
+  _id: string;
+  userId: string;
+  userEmail: string;
+  userName: string;
+  type: FeedbackType;
+  severity: FeedbackSeverity;
+  title: string;
+  message: string;
+  pageContext: string;
+  userAgent: string;
+  appVersion: string;
+  status: FeedbackStatus;
+  adminNotes: string;
+  resolvedById: string | null;
+  resolvedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const feedbackAPI = {
+  submit: (data: { type: FeedbackType; title: string; message: string; pageContext?: string; userAgent?: string; appVersion?: string }) =>
+    api.post<FeedbackItem>("/feedback", data).then((r) => r.data),
+  mine: () => api.get<FeedbackItem[]>("/feedback/mine").then((r) => r.data),
+};
+
 export const adminAPI = {
   getOverview: () => api.get<AdminOverview>("/admin/overview").then((r) => r.data),
 
@@ -337,16 +369,44 @@ export const adminAPI = {
   runSeed: () => api.post<SeedResult>("/admin/seed/run").then((r) => r.data),
   clearSeed: () => api.post("/admin/seed/clear").then((r) => r.data),
 
-  // Gmail Management
+  // Gmail Management (legacy)
   getGmailUsers: (params?: { page?: number; limit?: number; search?: string }) =>
     api.get<PaginatedResponse<AdminGmailUser>>("/admin/gmail/users", { params }).then((r) => r.data),
   getGmailStats: () => api.get<AdminGmailStats>("/admin/gmail/stats").then((r) => r.data),
   triggerGmailScan: (userId: string) => api.post<{ message: string; count: number }>(`/admin/gmail/${userId}/scan`).then((r) => r.data),
   disconnectUserGmail: (userId: string) => api.post(`/admin/gmail/${userId}/disconnect`).then((r) => r.data),
 
+  // Broadcasts
+  getBroadcastMailerStatus: () => api.get<MailerStatus>("/admin/broadcasts/status").then((r) => r.data),
+  getBroadcastRecipientCount: (type: "all") => api.get<{ count: number }>("/admin/broadcasts/recipients", { params: { type } }).then((r) => r.data),
+  listBroadcasts: (params?: { page?: number; limit?: number }) =>
+    api.get<PaginatedResponse<BroadcastEmailItem>>("/admin/broadcasts", { params }).then((r) => r.data),
+  getBroadcast: (id: string) => api.get<BroadcastEmailItem>(`/admin/broadcasts/${id}`).then((r) => r.data),
+  sendBroadcast: (data: { subject: string; bodyHtml: string; recipientType: BroadcastRecipientType; userIds?: string[] }) =>
+    api.post<{ id: string; totalRecipients: number; status: "sending" }>("/admin/broadcasts", data).then((r) => r.data),
+
+  // Mailbox Management (Gmail + Outlook)
+  getMailboxUsers: (params?: { page?: number; limit?: number; search?: string; provider?: MailboxProvider | "all" }) =>
+    api.get<PaginatedResponse<AdminMailboxUser>>("/admin/mailbox/users", { params }).then((r) => r.data),
+  getMailboxStats: () => api.get<AdminMailboxStats>("/admin/mailbox/stats").then((r) => r.data),
+  triggerMailboxScan: (userId: string, provider: MailboxProvider) =>
+    api.post<{ message: string; scanned: number; applied: number }>(`/admin/mailbox/${userId}/scan`, null, { params: { provider } }).then((r) => r.data),
+  disconnectMailbox: (userId: string, provider: MailboxProvider) =>
+    api.post(`/admin/mailbox/${userId}/disconnect`, null, { params: { provider } }).then((r) => r.data),
+
   // Admin Notifications
-  getAdminNotifications: (params?: { page?: number; limit?: number; search?: string; type?: string; read?: string }) =>
+  getAdminNotifications: (params?: { page?: number; limit?: number; search?: string; type?: string; read?: string; source?: string; resolved?: string }) =>
     api.get<PaginatedResponse<AdminNotificationItem>>("/admin/notifications", { params }).then((r) => r.data),
   getAdminNotificationStats: () => api.get<AdminNotificationStats>("/admin/notifications/stats").then((r) => r.data),
   deleteAdminNotification: (id: string) => api.delete(`/admin/notifications/${id}`).then((r) => r.data),
+
+  // Admin Feedback
+  listFeedback: (params?: { page?: number; limit?: number; status?: string; type?: string; severity?: string; search?: string }) =>
+    api.get<PaginatedResponse<FeedbackItem>>("/admin/feedback", { params }).then((r) => r.data),
+  getFeedback: (id: string) => api.get<FeedbackItem>(`/admin/feedback/${id}`).then((r) => r.data),
+  getFeedbackStats: () =>
+    api.get<{ total: number; open: number; byStatus: Record<string, number>; byType: Record<string, number>; bySeverity: Record<string, number> }>("/admin/feedback/stats").then((r) => r.data),
+  updateFeedback: (id: string, data: { status?: FeedbackStatus; severity?: FeedbackSeverity; adminNotes?: string }) =>
+    api.patch<FeedbackItem>(`/admin/feedback/${id}`, data).then((r) => r.data),
+  deleteFeedback: (id: string) => api.delete(`/admin/feedback/${id}`).then((r) => r.data),
 };

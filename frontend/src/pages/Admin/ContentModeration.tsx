@@ -124,49 +124,50 @@ export default function ContentModeration() {
   const state = currentState();
 
   return (
-    <div className="space-y-6 p-6">
-      <h1 className="text-2xl font-bold text-foreground">Content Moderation</h1>
-
-      {/* Tabs */}
-      <div className="flex gap-1 border-b border-border">
-        {tabs.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setActiveTab(t.key)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 ${
-              activeTab === t.key
-                ? "border-indigo-500 text-indigo-600 dark:text-indigo-400"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
+    <div className="fade-up space-y-5">
+      <div>
+        <h1 className="text-2xl font-bold text-foreground tracking-tight">Content Moderation</h1>
+        <p className="text-sm text-muted-foreground mt-1">Cross-user view of applications, contacts, deadlines, and resumes.</p>
       </div>
 
-      {/* Search */}
-      <input
-        type="text"
-        placeholder={`Search ${activeTab}...`}
-        className="input-premium w-full max-w-md"
-        value={state.search}
-        onChange={(e) => handleSearch(e.target.value)}
-      />
+      {/* Tabs + Search */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="inline-flex bg-muted rounded-lg p-1">
+          {tabs.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setActiveTab(t.key)}
+              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${activeTab === t.key ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <input
+          type="text"
+          placeholder={`Search ${activeTab}...`}
+          className="input-premium w-full max-w-xs"
+          value={state.search}
+          onChange={(e) => handleSearch(e.target.value)}
+        />
+      </div>
 
       {/* Table */}
-      <div className="overflow-x-auto">
-        {activeTab === "applications" && (
-          <ApplicationsTable data={apps.data} loading={apps.loading} />
-        )}
-        {activeTab === "contacts" && (
-          <ContactsTable data={contacts.data} loading={contacts.loading} />
-        )}
-        {activeTab === "deadlines" && (
-          <DeadlinesTable data={deadlines.data} loading={deadlines.loading} />
-        )}
-        {activeTab === "resumes" && (
-          <ResumesTable data={resumes.data} loading={resumes.loading} />
-        )}
+      <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="overflow-x-auto">
+          {activeTab === "applications" && (
+            <ApplicationsTable data={apps.data} loading={apps.loading} />
+          )}
+          {activeTab === "contacts" && (
+            <ContactsTable data={contacts.data} loading={contacts.loading} />
+          )}
+          {activeTab === "deadlines" && (
+            <DeadlinesTable data={deadlines.data} loading={deadlines.loading} />
+          )}
+          {activeTab === "resumes" && (
+            <ResumesTable data={resumes.data} loading={resumes.loading} />
+          )}
+        </div>
       </div>
 
       {/* Pagination */}
@@ -202,7 +203,7 @@ export default function ContentModeration() {
 function ApplicationsTable({ data, loading }: { data: WithUser<Application>[]; loading: boolean }) {
   return (
     <table className="w-full text-sm text-left">
-      <thead className="text-xs uppercase text-muted-foreground border-b border-border">
+      <thead className="text-xs uppercase text-muted-foreground border-b border-border bg-muted/40">
         <tr>
           <th className="px-4 py-3">User</th>
           <th className="px-4 py-3">Company</th>
@@ -243,7 +244,7 @@ function ApplicationsTable({ data, loading }: { data: WithUser<Application>[]; l
 function ContactsTable({ data, loading }: { data: WithUser<Contact>[]; loading: boolean }) {
   return (
     <table className="w-full text-sm text-left">
-      <thead className="text-xs uppercase text-muted-foreground border-b border-border">
+      <thead className="text-xs uppercase text-muted-foreground border-b border-border bg-muted/40">
         <tr>
           <th className="px-4 py-3">User</th>
           <th className="px-4 py-3">Name</th>
@@ -274,7 +275,7 @@ function ContactsTable({ data, loading }: { data: WithUser<Contact>[]; loading: 
 function DeadlinesTable({ data, loading }: { data: WithUser<Deadline>[]; loading: boolean }) {
   return (
     <table className="w-full text-sm text-left">
-      <thead className="text-xs uppercase text-muted-foreground border-b border-border">
+      <thead className="text-xs uppercase text-muted-foreground border-b border-border bg-muted/40">
         <tr>
           <th className="px-4 py-3">User</th>
           <th className="px-4 py-3">Type</th>
@@ -315,7 +316,7 @@ function DeadlinesTable({ data, loading }: { data: WithUser<Deadline>[]; loading
 function ResumesTable({ data, loading }: { data: WithUser<Resume>[]; loading: boolean }) {
   return (
     <table className="w-full text-sm text-left">
-      <thead className="text-xs uppercase text-muted-foreground border-b border-border">
+      <thead className="text-xs uppercase text-muted-foreground border-b border-border bg-muted/40">
         <tr>
           <th className="px-4 py-3">User</th>
           <th className="px-4 py-3">Name</th>

@@ -115,7 +115,10 @@ export default function Tailor() {
   if (!session && !loadingSession) {
     return (
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-2xl font-semibold text-foreground mb-2">Tailor a resume</h1>
+        <div className="flex items-center gap-2 mb-2">
+          <h1 className="text-2xl font-semibold text-foreground">Tailor a resume</h1>
+          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-primary/15 text-primary">Beta</span>
+        </div>
         <p className="text-sm text-muted-foreground mb-6">
           Paste a job description. We'll compare it against your master profile and surface a fit score plus a punch list of specific, accept-or-reject suggestions.
         </p>
@@ -169,9 +172,12 @@ export default function Tailor() {
     <div className="tailor-page max-w-7xl mx-auto">
       <div className="flex items-center justify-between gap-4 mb-5 flex-wrap">
         <div className="min-w-0">
-          <h1 className="text-2xl font-semibold text-foreground truncate">
-            {session!.jobTitle || "Untitled role"}{session!.company ? ` · ${session!.company}` : ""}
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-semibold text-foreground truncate">
+              {session!.jobTitle || "Untitled role"}{session!.company ? ` · ${session!.company}` : ""}
+            </h1>
+            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-primary/15 text-primary shrink-0">Beta</span>
+          </div>
           <p className="text-xs text-muted-foreground mt-1">
             {session!.provider}:{session!.modelId} · {new Date(session!.createdAt).toLocaleString()}
           </p>
