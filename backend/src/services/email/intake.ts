@@ -252,5 +252,6 @@ export async function processIncomingEmail(user: IUser, email: NormalizedEmail, 
     : { skipped: "no_signal" };
 }
 
-const STAGE_RANK: Record<Stage, number> = { Applied: 1, OA: 2, Interview: 3, Offer: 4, Rejected: 5 };
+// Drafting ranks 0 — emails should never *downgrade* a real submission back to Drafting.
+const STAGE_RANK: Record<Stage, number> = { Drafting: 0, Applied: 1, OA: 2, Interview: 3, Offer: 4, Rejected: 5 };
 function stageRank(s: Stage): number { return STAGE_RANK[s] ?? 0; }

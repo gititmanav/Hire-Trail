@@ -1,6 +1,6 @@
 /** Aggregated metrics for the current user: funnel, resume performance, weekly trend. */
 import { Router, Request, Response, NextFunction } from "express";
-import { Application, STAGES } from "../models/Application.js";
+import { Application, FUNNEL_STAGES } from "../models/Application.js";
 import { ensureAuth, getUser } from "../middleware/auth.js";
 
 const router = Router();
@@ -11,14 +11,14 @@ router.get("/", async (req: Request, res: Response, next: NextFunction) => {
     const user = getUser(req);
     const userId = user._id;
 
-    // Stage funnel counts
+    // Stage funnel counts (excludes "Drafting" — those are pre-submission).
     const stageCounts = await Application.aggregate([
-      { $match: { userId } },
+      { $match: { userId, stage: { $in: [...FUNNEL_STAGES] } } },
       { $group: { _id: "$stage", count: { $sum: 1 } } },
     ]);
 
     const funnel: Record<string, number> = {};
-    STAGES.forEach((s) => {
+    FUNNEL_STAGES.forEach((s) => {
       funnel[s] = 0;
     });
     stageCounts.forEach((item) => {

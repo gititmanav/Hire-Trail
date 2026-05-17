@@ -8,6 +8,10 @@ import ProtectedRoute from "./components/ProtectedRoute/ProtectedRoute.tsx";
 import AdminLayout from "./components/AdminLayout/AdminLayout.tsx";
 import Login from "./pages/Login/Login.tsx";
 import Register from "./pages/Register/Register.tsx";
+import Privacy from "./pages/Legal/Privacy.tsx";
+import Terms from "./pages/Legal/Terms.tsx";
+import { BackgroundTasksProvider } from "./hooks/useBackgroundTasks.tsx";
+import BackgroundTaskCenter from "./components/BackgroundTaskCenter/BackgroundTaskCenter.tsx";
 import Dashboard from "./pages/Dashboard/Dashboard.tsx";
 import Applications from "./pages/Applications/Applications.tsx";
 import Kanban from "./pages/Kanban/Kanban.tsx";
@@ -77,10 +81,13 @@ function App() {
       <UserContext.Provider value={{ user, setUser }}>
       <FeatureFlagsProvider authenticated={!!user}>
       <JobSearchContext.Provider value={{ state: jobSearchState, setState: setJobSearchState }}>
+      <BackgroundTasksProvider>
 
         <Routes>
           <Route path="/login" element={user ? <Navigate to={user.role === "admin" ? "/admin" : "/"} replace /> : <Login onLogin={setUser} />} />
           <Route path="/register" element={user ? <Navigate to={user.role === "admin" ? "/admin" : "/"} replace /> : <Register onLogin={setUser} />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/terms" element={<Terms />} />
 
           {/* Admin panel — own layout, own sidebar */}
           <Route element={<ProtectedRoute user={user}>{user?.role === "admin" ? <AdminLayout user={user!} onLogout={async () => {
@@ -135,6 +142,8 @@ function App() {
             </div>
           </div>
         )}
+        <BackgroundTaskCenter />
+      </BackgroundTasksProvider>
       </JobSearchContext.Provider>
       </FeatureFlagsProvider>
       </UserContext.Provider>

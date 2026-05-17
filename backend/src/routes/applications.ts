@@ -142,6 +142,13 @@ router.put("/:id", validate(updateApplicationSchema), async (req: Request, res: 
     }
     if (data.role !== undefined) existing.role = data.role;
     if (data.jobUrl !== undefined) existing.jobUrl = data.jobUrl;
+    if (data.applicationDate !== undefined) {
+      // Accept YYYY-MM-DD (treated as local midnight) or ISO datetime.
+      const d = /^\d{4}-\d{2}-\d{2}$/.test(data.applicationDate)
+        ? new Date(`${data.applicationDate}T00:00:00`)
+        : new Date(data.applicationDate);
+      if (!isNaN(d.getTime())) existing.applicationDate = d;
+    }
     if (data.jobDescription !== undefined) existing.jobDescription = data.jobDescription;
     if (data.location !== undefined) existing.location = data.location;
     if (data.salary !== undefined) existing.salary = data.salary;

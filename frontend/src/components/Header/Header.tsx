@@ -1,7 +1,9 @@
-/** Top bar: theme picker, extension download, user menu. */
+/** Top bar: extension CTA, global search, calendar quick-access, notifications, theme, user menu. */
 import { useState, useRef, useEffect, useContext, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ThemeContext } from "../../App.tsx";
+import NotificationBell from "./NotificationBell.tsx";
+import GlobalSearch from "./GlobalSearch.tsx";
 import type { User } from "../../types";
 
 const EXT_DISMISSED_KEY = "hiretrail-ext-banner-dismissed";
@@ -135,6 +137,8 @@ export default function Header({ user, onLogout, onMobileMenuToggle }: Props) {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <GlobalSearch />
+          <NotificationBell />
           <button
             onClick={() => navigate("/calendar")}
             className={`w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-secondary-foreground ${

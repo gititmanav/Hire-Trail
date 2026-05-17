@@ -1,6 +1,17 @@
 import mongoose, { Schema, Document, Types } from "mongoose";
 
 export const STAGES = [
+  "Drafting",
+  "Applied",
+  "OA",
+  "Interview",
+  "Offer",
+  "Rejected",
+] as const;
+
+/** Stages that count toward the conversion funnel. "Drafting" is excluded — it's a
+ *  pre-submission state (user is tailoring a resume but hasn't applied yet). */
+export const FUNNEL_STAGES = [
   "Applied",
   "OA",
   "Interview",
@@ -48,6 +59,10 @@ export interface IApplication extends Document {
   jobType: string;
   notes: string;
   resumeId: Types.ObjectId | null;
+  /** Optional pointer to the tailor session that produced this application.
+   *  Drafting-stage applications always have this set; other stages may inherit
+   *  it after a Drafting → Applied transition. */
+  tailorSessionId: Types.ObjectId | null;
   contactId: Types.ObjectId | null;
   outreachStatus: OutreachStatus;
   archived: boolean;
@@ -139,6 +154,12 @@ const applicationSchema = new Schema<IApplication>(
       type: Schema.Types.ObjectId,
       ref: "Resume",
       default: null,
+    },
+    tailorSessionId: {
+      type: Schema.Types.ObjectId,
+      ref: "TailorSession",
+      default: null,
+      index: true,
     },
     contactId: {
       type: Schema.Types.ObjectId,

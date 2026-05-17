@@ -133,6 +133,13 @@ export default function Register({ onLogin }: { onLogin: (u: User) => void }) {
           <p className="text-center mt-6 text-sm text-muted-foreground">
             Already have an account? <Link to="/login" className="text-primary font-medium hover:underline">Log in</Link>
           </p>
+
+          <p className="mt-6 text-[11px] text-muted-foreground/80 leading-relaxed text-center">
+            By creating an account you agree to our{" "}
+            <Link to="/terms" className="underline hover:text-foreground">Terms of Service</Link>
+            {" "}and{" "}
+            <Link to="/privacy" className="underline hover:text-foreground">Privacy Policy</Link>.
+          </p>
         </div>
       </div>
     </div>

@@ -19,6 +19,8 @@ export interface ITailorSuggestion {
   decision: "accepted" | "rejected" | null;
 }
 
+export type TailorStatus = "processing" | "succeeded" | "failed";
+
 export interface ITailorSession extends Document {
   _id: mongoose.Types.ObjectId;
   userId: mongoose.Types.ObjectId;
@@ -28,8 +30,14 @@ export interface ITailorSession extends Document {
   company: string;
   jobUrl: string;
   jobDescription: string;
+  /** Lifecycle: created in `processing`, flipped to `succeeded`/`failed` by the analyze worker.
+   *  Pre-existing docs default to `succeeded` for back-compat with completed history. */
+  status: TailorStatus;
+  /** Populated when status === "failed". */
+  errorMessage: string;
   fitScore: number;
-  fitGrade: "A" | "B" | "C" | "D" | "F";
+  /** Empty string while status === "processing"; A–F after the worker fills it in. */
+  fitGrade: "A" | "B" | "C" | "D" | "F" | "";
   summary: string;
   matchedSkills: string[];
   missingSkills: string[];
@@ -59,8 +67,12 @@ const tailorSessionSchema = new Schema<ITailorSession>(
     company: { type: String, default: "" },
     jobUrl: { type: String, default: "" },
     jobDescription: { type: String, default: "" },
-    fitScore: { type: Number, min: 1, max: 5, required: true },
-    fitGrade: { type: String, enum: ["A", "B", "C", "D", "F"], required: true },
+    status: { type: String, enum: ["processing", "succeeded", "failed"], default: "succeeded", index: true },
+    errorMessage: { type: String, default: "" },
+    // Min constraint dropped on fitScore because the session is created before analysis runs;
+    // the route handler enforces 1..5 after the worker fills it in.
+    fitScore: { type: Number, default: 0 },
+    fitGrade: { type: String, enum: ["A", "B", "C", "D", "F", ""], default: "" },
     summary: { type: String, default: "" },
     matchedSkills: { type: [String], default: [] },
     missingSkills: { type: [String], default: [] },

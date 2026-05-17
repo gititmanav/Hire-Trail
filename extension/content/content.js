@@ -209,6 +209,17 @@
           document.body?.innerText?.slice(0, 3000) || "",
         )) return;
         if (lastTrackedUrl === data.url) return;
+
+        // If the user previously clicked "Tailor" on this JD, there's already a Drafting
+        // application linked to a TailorSession. Prompt them to come to HireTrail and pick
+        // which resume they sent — DON'T silently create a duplicate "Applied" record.
+        const draft = await chrome.runtime.sendMessage({ type: "FIND_DRAFT_FOR_URL", url: data.url });
+        if (draft && draft.session && draft.session._id) {
+          lastTrackedUrl = data.url; // suppress repeat fires on the same click stream
+          showApplyDetectedBanner(draft.session._id, data.company || draft.session.company || "this application");
+          return;
+        }
+
         const result = await chrome.runtime.sendMessage({ type: "TRACK_JOB", data });
         if (result && result.success) {
           lastTrackedUrl = data.url;
@@ -236,26 +247,26 @@
     // Create floating action button
     const fab = document.createElement("div");
     fab.id = "hiretrail-fab";
+    // Brand background = the same blue gradient used in /favicon.svg on the web app.
+    // Status states (loading / success / error) override this via setFabVisual().
     fab.innerHTML = `
       <div style="
         position: fixed; right: 0; top: 10vh; z-index: 999999;
-        width: 52px; height: 52px;
-        border-radius: 14px;
+        width: 48px; height: 48px;
+        border-radius: 12px;
         border-top-right-radius: 0; border-bottom-right-radius: 0;
-        background: #2b2f36; color: #fff;
+        background: linear-gradient(135deg, #3B82F6 0%, #1E3A8A 100%);
+        color: #fff;
         display: flex; align-items: center; justify-content: center;
         cursor: pointer;
-        box-shadow: 0 10px 26px rgba(0,0,0,0.22), 0 2px 0 rgba(255,255,255,0.05) inset;
+        box-shadow: 0 10px 26px rgba(0,0,0,0.22), 0 2px 0 rgba(255,255,255,0.08) inset, 0 0 0 1px rgba(255,255,255,0.06) inset;
         font-weight: 800; font-size: 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         transition: box-shadow 0.2s ease, transform 0.2s ease, background 0.2s ease, filter 0.2s ease;
         touch-action: none;
-      " id="hiretrail-btn" aria-label="HireTrail tracker">
+      " id="hiretrail-btn" aria-label="HireTrail tracker" title="HireTrail">
         <span id="hiretrail-glyph" style="display:flex; align-items:center; justify-content:center;">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M12 2.4l1.35 5.35 4.95-2.5-2.5 4.95 5.35 1.35-5.35 1.35 2.5 4.95-4.95-2.5L12 21.6l-1.35-5.35-4.95 2.5 2.5-4.95L2.85 12l5.35-1.35-2.5-4.95 4.95 2.5L12 2.4z"
-              fill="#D7FF3A" opacity="0.98"/>
-            <path d="M12 2.4l1.35 5.35 4.95-2.5-2.5 4.95 5.35 1.35-5.35 1.35 2.5 4.95-4.95-2.5L12 21.6l-1.35-5.35-4.95 2.5 2.5-4.95L2.85 12l5.35-1.35-2.5-4.95 4.95 2.5L12 2.4z"
-              stroke="#D7FF3A" stroke-width="0.6" stroke-linejoin="round"/>
+          <svg width="22" height="22" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+            <path d="M10 8h3v6h6V8h3v16h-3v-7h-6v7h-3V8z" fill="#FFFFFF" />
           </svg>
         </span>
       </div>
@@ -275,44 +286,45 @@
     function setFabVisual(state) {
       if (!btn || !glyph) return;
       const setText = (t) => { glyph.textContent = t; };
-      const setStar = () => {
+      /** Restore the brand mark — same H glyph used in /favicon.svg on the web app. */
+      const setBrandGlyph = () => {
         glyph.innerHTML = `
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M12 2.4l1.35 5.35 4.95-2.5-2.5 4.95 5.35 1.35-5.35 1.35 2.5 4.95-4.95-2.5L12 21.6l-1.35-5.35-4.95 2.5 2.5-4.95L2.85 12l5.35-1.35-2.5-4.95 4.95 2.5L12 2.4z"
-              fill="#D7FF3A" opacity="0.98"/>
-            <path d="M12 2.4l1.35 5.35 4.95-2.5-2.5 4.95 5.35 1.35-5.35 1.35 2.5 4.95-4.95-2.5L12 21.6l-1.35-5.35-4.95 2.5 2.5-4.95L2.85 12l5.35-1.35-2.5-4.95 4.95 2.5L12 2.4z"
-              stroke="#D7FF3A" stroke-width="0.6" stroke-linejoin="round"/>
+          <svg width="22" height="22" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+            <path d="M10 8h3v6h6V8h3v16h-3v-7h-6v7h-3V8z" fill="#FFFFFF" />
           </svg>
         `;
       };
+      /** Brand gradient — matches the favicon's linearGradient stops. */
+      const BRAND_GRADIENT = "linear-gradient(135deg, #3B82F6 0%, #1E3A8A 100%)";
 
       if (state === "loading") {
         setText("…");
-        btn.style.background = "#22262d";
+        btn.style.background = "#1f2937";
+        btn.style.color = "#ffffff";
         return;
       }
       if (state === "success") {
         setText("\u2713");
-        btn.style.background = "#0f2a19";
-        btn.style.color = "#d9ffe6";
+        btn.style.background = "linear-gradient(135deg, #10b981 0%, #047857 100%)";
+        btn.style.color = "#ffffff";
         return;
       }
       if (state === "duplicate") {
         setText("\u2713");
-        btn.style.background = "#2a240f";
-        btn.style.color = "#fff1cc";
+        btn.style.background = "linear-gradient(135deg, #f59e0b 0%, #b45309 100%)";
+        btn.style.color = "#ffffff";
         return;
       }
       if (state === "error") {
         setText("!");
-        btn.style.background = "#2b1414";
-        btn.style.color = "#ffd7d7";
+        btn.style.background = "linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)";
+        btn.style.color = "#ffffff";
         return;
       }
 
-      // idle
-      setStar();
-      btn.style.background = "#2b2f36";
+      // idle \u2014 brand gradient + H mark, matching /favicon.svg on the web app.
+      setBrandGlyph();
+      btn.style.background = BRAND_GRADIENT;
       btn.style.color = "#ffffff";
     }
 
@@ -395,32 +407,23 @@
       btn.style.filter = "none";
     });
 
-    btn.addEventListener("click", async () => {
-      if (dragState.moved || dragState.dragging) return;
+    /** Run a "Track" — same as the legacy single-click behavior. */
+    async function performTrack() {
+      const data = scrapeWithFallback();
+      if (!core.isLikelyJobPage(
+        data,
+        window.location.hostname,
+        window.location.pathname,
+        document.body?.innerText?.slice(0, 3000) || "",
+      )) {
+        showStatus("This page does not look like a job posting yet", "warning");
+        return;
+      }
+      btn.style.opacity = "0.6";
+      btn.style.pointerEvents = "none";
+      setFabVisual("loading");
       try {
-        const authRes = await chrome.runtime.sendMessage({ type: "CHECK_AUTH" });
-        if (!authRes || !authRes.authenticated) {
-          showStatus("Log in via extension popup first", "error");
-          return;
-        }
-
-        const data = scrapeWithFallback();
-        if (!core.isLikelyJobPage(
-          data,
-          window.location.hostname,
-          window.location.pathname,
-          document.body?.innerText?.slice(0, 3000) || "",
-        )) {
-          showStatus("This page does not look like a job posting yet", "warning");
-          return;
-        }
-
-        btn.style.opacity = "0.6";
-        btn.style.pointerEvents = "none";
-        setFabVisual("loading");
-
         const result = await chrome.runtime.sendMessage({ type: "TRACK_JOB", data });
-
         if (result && result.success) {
           lastTrackedUrl = data.url;
           showStatus("Tracked!", "success");
@@ -432,7 +435,7 @@
           showStatus(result?.error || "Failed", "error");
           setFabVisual("error");
         }
-      } catch (err) {
+      } catch {
         showStatus("Refresh page & try again", "error");
         setFabVisual("error");
       } finally {
@@ -442,12 +445,63 @@
           btn.style.pointerEvents = "auto";
         }, 2000);
       }
+    }
+
+    /** Run a "Tailor" — POSTs /tailor/init server-side, opens HireTrail Tailor in new tab. */
+    async function performTailor() {
+      const data = scrapeWithFallback();
+      if (!data.jobDescription || data.jobDescription.length < 50) {
+        showStatus("Couldn't scrape a job description from this page", "warning");
+        return;
+      }
+      btn.style.opacity = "0.6";
+      btn.style.pointerEvents = "none";
+      setFabVisual("loading");
+      try {
+        const result = await chrome.runtime.sendMessage({ type: "TAILOR_INIT", data });
+        if (result && result.success) {
+          showStatus("Tailor session started — opening HireTrail…", "success");
+          setFabVisual("success");
+        } else {
+          showStatus(result?.error || "Failed to start tailor", "error");
+          setFabVisual("error");
+        }
+      } catch {
+        showStatus("Refresh page & try again", "error");
+        setFabVisual("error");
+      } finally {
+        setTimeout(() => {
+          setFabVisual("idle");
+          btn.style.opacity = "1";
+          btn.style.pointerEvents = "auto";
+        }, 2000);
+      }
+    }
+
+    btn.addEventListener("click", async () => {
+      if (dragState.moved || dragState.dragging) return;
+      // If a popover is already open, treat this click as "close it".
+      if (document.getElementById("hiretrail-popover")) {
+        closeHireTrailPopover();
+        return;
+      }
+      try {
+        const authRes = await chrome.runtime.sendMessage({ type: "CHECK_AUTH" });
+        if (!authRes || !authRes.authenticated) {
+          showStatus("Log in via extension popup first", "error");
+          return;
+        }
+        openHireTrailPopover(btn, { onTrack: performTrack, onTailor: performTailor });
+      } catch {
+        showStatus("Refresh page & try again", "error");
+        setFabVisual("error");
+      }
     });
 
     setFabVisual("idle");
 
-    // ----- AI Tailor: secondary button below the FAB that opens a sidebar with fit score + suggestions -----
-    initTailorButton();
+    // The "Tailor" action now lives in the FAB popover (see openHireTrailPopover above),
+    // not as a separate secondary button.
 
     // Setup auto-detect after FAB
     setupApplyDetection();
@@ -635,6 +689,172 @@
       </button>
       <p style="font-size:11px; color:#6b7280; text-align:center; margin:10px 0 0;">Provider: ${escapeHtml(s.provider || "")}:${escapeHtml(s.modelId || "")}</p>
     `;
+  }
+
+  /** Show a small popover next to the FAB with "Track" and "Tailor" buttons.
+   *  Closes on outside click, Escape, or after either action runs. */
+  function openHireTrailPopover(anchorEl, { onTrack, onTailor }) {
+    if (document.getElementById("hiretrail-popover")) return;
+    const rect = anchorEl.getBoundingClientRect();
+
+    const popover = document.createElement("div");
+    popover.id = "hiretrail-popover";
+    popover.style.cssText = `
+      position: fixed;
+      right: ${Math.max(8, window.innerWidth - rect.left + 8)}px;
+      top: ${Math.min(rect.top, window.innerHeight - 160)}px;
+      z-index: 1000000;
+      width: 240px;
+      padding: 8px;
+      background: #ffffff;
+      color: #0f172a;
+      border: 1px solid rgba(15, 23, 42, 0.1);
+      border-radius: 12px;
+      box-shadow: 0 12px 32px rgba(0,0,0,0.18), 0 2px 6px rgba(0,0,0,0.08);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 13px;
+      animation: ht-pop-in 140ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    `;
+    popover.innerHTML = `
+      <style>
+        @keyframes ht-pop-in { from { opacity: 0; transform: translateY(-4px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        #hiretrail-popover button {
+          width: 100%;
+          display: flex; align-items: flex-start; gap: 10px;
+          padding: 10px 12px;
+          border: none; background: transparent; color: inherit;
+          font: inherit; text-align: left; cursor: pointer;
+          border-radius: 8px;
+          transition: background 120ms ease;
+        }
+        #hiretrail-popover button:hover { background: rgba(15, 23, 42, 0.05); }
+        #hiretrail-popover .ht-label { font-weight: 600; line-height: 1.2; }
+        #hiretrail-popover .ht-sub { font-size: 11px; color: rgba(15, 23, 42, 0.6); margin-top: 2px; line-height: 1.35; }
+        #hiretrail-popover .ht-glyph {
+          width: 28px; height: 28px; border-radius: 8px;
+          display: inline-flex; align-items: center; justify-content: center;
+          flex-shrink: 0; color: #ffffff;
+        }
+        @media (prefers-color-scheme: dark) {
+          #hiretrail-popover { background: #0f172a; color: #f8fafc; border-color: rgba(248, 250, 252, 0.1); }
+          #hiretrail-popover button:hover { background: rgba(248, 250, 252, 0.07); }
+          #hiretrail-popover .ht-sub { color: rgba(248, 250, 252, 0.6); }
+        }
+      </style>
+      <button id="ht-pop-track" type="button">
+        <span class="ht-glyph" style="background: #2563eb;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/>
+          </svg>
+        </span>
+        <span>
+          <span class="ht-label">Track this JD</span>
+          <span class="ht-sub">Add to your applications in stage "Applied".</span>
+        </span>
+      </button>
+      <button id="ht-pop-tailor" type="button">
+        <span class="ht-glyph" style="background: linear-gradient(135deg, #8b5cf6, #2563eb);">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2l1.6 4.2L18 8l-4.4 1.8L12 14l-1.6-4.2L6 8l4.4-1.8L12 2zm6 11l1 2.5L21.5 16 19 17l-1 2.5L17 15l1-2z"/>
+          </svg>
+        </span>
+        <span>
+          <span class="ht-label">Tailor with AI</span>
+          <span class="ht-sub">Drafts a tailored resume + opens it in HireTrail.</span>
+        </span>
+      </button>
+    `;
+    document.body.appendChild(popover);
+
+    const handleTrack = () => { closeHireTrailPopover(); void onTrack(); };
+    const handleTailor = () => { closeHireTrailPopover(); void onTailor(); };
+    popover.querySelector("#ht-pop-track").addEventListener("click", handleTrack);
+    popover.querySelector("#ht-pop-tailor").addEventListener("click", handleTailor);
+
+    const onDocClick = (e) => {
+      if (!popover.contains(e.target) && e.target !== anchorEl) closeHireTrailPopover();
+    };
+    const onKey = (e) => { if (e.key === "Escape") closeHireTrailPopover(); };
+    // Defer so the click that opened the popover doesn't immediately close it.
+    setTimeout(() => {
+      document.addEventListener("mousedown", onDocClick, true);
+      document.addEventListener("keydown", onKey, true);
+    }, 0);
+
+    popover._cleanup = () => {
+      document.removeEventListener("mousedown", onDocClick, true);
+      document.removeEventListener("keydown", onKey, true);
+    };
+  }
+
+  function closeHireTrailPopover() {
+    const popover = document.getElementById("hiretrail-popover");
+    if (!popover) return;
+    if (typeof popover._cleanup === "function") popover._cleanup();
+    popover.remove();
+  }
+
+  /** Shown when the user clicks Apply on a JD they previously started tailoring.
+   *  We don't auto-flip the stage to Applied — Option 2 is "ask which resume they sent",
+   *  which only makes sense in the HireTrail web app where the picker lives. */
+  function showApplyDetectedBanner(sessionId, companyLabel) {
+    const existing = document.getElementById("hiretrail-apply-banner");
+    if (existing) existing.remove();
+    const url = `https://hiretrail.manavkaneria.me/tailor?session=${sessionId}`;
+    const banner = document.createElement("div");
+    banner.id = "hiretrail-apply-banner";
+    banner.style.cssText = `
+      position: fixed; bottom: 20px; right: 20px; z-index: 1000001;
+      max-width: 320px; padding: 12px 14px;
+      background: #ffffff; color: #0f172a;
+      border: 1px solid rgba(15, 23, 42, 0.12);
+      border-left: 4px solid #2563eb;
+      border-radius: 10px;
+      box-shadow: 0 12px 32px rgba(0,0,0,0.18), 0 2px 6px rgba(0,0,0,0.08);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 13px;
+      animation: ht-banner-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    `;
+    banner.innerHTML = `
+      <style>
+        @keyframes ht-banner-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        #hiretrail-apply-banner .ht-banner-title { font-weight: 600; margin-bottom: 4px; }
+        #hiretrail-apply-banner .ht-banner-body { font-size: 12px; color: rgba(15, 23, 42, 0.65); line-height: 1.4; }
+        #hiretrail-apply-banner .ht-banner-actions { display: flex; gap: 6px; margin-top: 10px; }
+        #hiretrail-apply-banner .ht-btn-primary {
+          flex: 1; padding: 6px 10px; background: #2563eb; color: #fff;
+          border: none; border-radius: 6px; font-weight: 600; font-size: 12px; cursor: pointer;
+          text-decoration: none; text-align: center;
+        }
+        #hiretrail-apply-banner .ht-btn-primary:hover { background: #1d4ed8; }
+        #hiretrail-apply-banner .ht-btn-secondary {
+          padding: 6px 10px; background: transparent; color: rgba(15, 23, 42, 0.6);
+          border: 1px solid rgba(15, 23, 42, 0.15); border-radius: 6px; font-size: 12px; cursor: pointer;
+        }
+        #hiretrail-apply-banner .ht-btn-secondary:hover { background: rgba(15, 23, 42, 0.04); }
+        @media (prefers-color-scheme: dark) {
+          #hiretrail-apply-banner { background: #0f172a; color: #f8fafc; border-color: rgba(248, 250, 252, 0.1); }
+          #hiretrail-apply-banner .ht-banner-body { color: rgba(248, 250, 252, 0.65); }
+          #hiretrail-apply-banner .ht-btn-secondary { color: rgba(248, 250, 252, 0.6); border-color: rgba(248, 250, 252, 0.15); }
+          #hiretrail-apply-banner .ht-btn-secondary:hover { background: rgba(248, 250, 252, 0.06); }
+        }
+      </style>
+      <div class="ht-banner-title">Applied to ${escapeHtml(companyLabel)}?</div>
+      <div class="ht-banner-body">You started a tailor session for this role. Confirm in HireTrail which resume you sent.</div>
+      <div class="ht-banner-actions">
+        <a href="${url}" target="_blank" rel="noopener noreferrer" class="ht-btn-primary" id="ht-banner-open">Open HireTrail</a>
+        <button class="ht-btn-secondary" id="ht-banner-dismiss" type="button">Later</button>
+      </div>
+    `;
+    document.body.appendChild(banner);
+    banner.querySelector("#ht-banner-dismiss").addEventListener("click", () => banner.remove());
+    banner.querySelector("#ht-banner-open").addEventListener("click", () => banner.remove());
+    // Auto-dismiss after 30s so we don't clutter the page.
+    setTimeout(() => { if (banner.isConnected) banner.remove(); }, 30000);
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
 
   function showStatus(text, type) {

@@ -5,6 +5,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo, FormEvent, Fragment, MouseEvent as ReactMouseEvent } from "react";
 import toast from "react-hot-toast";
 import { applicationsAPI, resumesAPI, contactsAPI, deadlinesAPI } from "../../utils/api.ts";
+import { useRefetchOnFocus } from "../../hooks/useRefetchOnFocus.ts";
 import { exportToCSV } from "../../utils/csv.ts";
 import ImportModal from "../../components/ImportModal/ImportModal.tsx";
 import ActionDropdown from "../../components/ActionDropdown/ActionDropdown.tsx";
@@ -15,6 +16,7 @@ import ConfirmModal from "../../components/ConfirmModal/ConfirmModal.tsx";
 import ResumeModal from "../../components/ResumeModal/ResumeModal.tsx";
 import { useConfirm } from "../../hooks/useConfirm.ts";
 import { STAGES, STAGE_BADGE_CLASS, STAGE_FILTER_ACTIVE_CLASS, STAGE_FILTER_COUNT_CLASS } from "../../utils/stageStyles.ts";
+import StageChip from "../../components/StageChip/StageChip.tsx";
 
 const badgeCls: Record<Stage, string> = STAGE_BADGE_CLASS;
 const fmt = (d: string) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -640,6 +642,7 @@ export default function Applications() {
   }, [page, sort, debouncedSearch, archiveTab]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+  useRefetchOnFocus(fetchData);
 
   const handleExport = async () => {
     try {
@@ -923,7 +926,7 @@ export default function Applications() {
                           {firstApp.jobUrl && <a href={firstApp.jobUrl} target="_blank" rel="noopener noreferrer" className="ml-1.5 text-muted-foreground/50 hover:text-foreground inline-flex opacity-0 group-hover:opacity-100 transition-opacity"><svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M9 6.5v3a1 1 0 01-1 1H3a1 1 0 01-1-1V4.5a1 1 0 011-1h3"/><polyline points="7,1.5 10.5,1.5 10.5,5"/><line x1="5.5" y1="6.5" x2="10.5" y2="1.5"/></svg></a>}
                         </td>
                         <td className="px-4 py-3 max-w-[200px]"><button onClick={() => { if (!multiSelectEnabled) setSidebarApp(firstApp); }} className={`text-sm text-left truncate block max-w-full ${multiSelectEnabled ? "text-muted-foreground cursor-default" : "text-foreground hover:underline"}`} title={firstApp.role}>{firstApp.role}</button></td>
-                        <td className="px-4 py-3"><span className={`inline-block px-2.5 py-0.5 text-xs font-medium rounded-full ${badgeCls[firstApp.stage]}`}>{firstApp.stage}</span></td>
+                        <td className="px-4 py-3"><StageChip stage={firstApp.stage} tailorSessionId={firstApp.tailorSessionId} /></td>
                         <td className="px-4 py-3 text-[13px] text-muted-foreground">{(() => { const r = resumes.find((r) => r._id === firstApp.resumeId); return r ? <button onClick={() => setSidebarResume(r)} className="text-muted-foreground hover:text-foreground hover:underline text-left flex items-center gap-1"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9l-7-7z"/><path d="M13 2v7h7"/></svg>{r.name}</button> : "—"; })()}</td>
                         <td className="px-4 py-3 text-[13px] text-muted-foreground">{fmt(firstApp.applicationDate)}</td>
                         <td className="px-4 py-3">
@@ -1006,7 +1009,7 @@ export default function Applications() {
                             {a.jobUrl && <a href={a.jobUrl} target="_blank" rel="noopener noreferrer" className="ml-1.5 text-muted-foreground/50 hover:text-foreground inline-flex opacity-0 group-hover:opacity-100 transition-opacity"><svg width="10" height="10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M7 5v2.5a.8.8 0 01-.8.8H2.5a.8.8 0 01-.8-.8V3.8a.8.8 0 01.8-.8H5"/><polyline points="6,1.2 8.8,1.2 8.8,4"/><line x1="4.5" y1="5.3" x2="8.8" y2="1.2"/></svg></a>}
                           </td>
                           <td className="px-4 py-2.5 max-w-[200px]"><button onClick={() => { if (!multiSelectEnabled) setSidebarApp(a); }} className={`text-sm text-left truncate block max-w-full ${multiSelectEnabled ? "text-muted-foreground cursor-default" : "text-foreground hover:underline"}`} title={a.role}>{a.role}</button></td>
-                          <td className="px-4 py-2.5"><span className={`inline-block px-2.5 py-0.5 text-xs font-medium rounded-full ${badgeCls[a.stage]}`}>{a.stage}</span></td>
+                          <td className="px-4 py-2.5"><StageChip stage={a.stage} tailorSessionId={a.tailorSessionId} /></td>
                           <td className="px-4 py-2.5 text-[13px] text-muted-foreground">{(() => { const r = resumes.find((r) => r._id === a.resumeId); return r ? <button onClick={(e) => { e.stopPropagation(); setSidebarResume(r); }} className="text-muted-foreground hover:text-foreground hover:underline text-left flex items-center gap-1"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9l-7-7z"/><path d="M13 2v7h7"/></svg>{r.name}</button> : "—"; })()}</td>
                           <td className="px-4 py-2.5 text-[13px] text-muted-foreground">{fmt(a.applicationDate)}</td>
                           <td className="px-4 py-2.5">

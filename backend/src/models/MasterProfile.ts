@@ -67,6 +67,8 @@ export interface IContactInfo {
   portfolio: string;
 }
 
+export type ParseStatus = "idle" | "processing" | "failed";
+
 export interface IMasterProfile extends Document {
   userId: mongoose.Types.ObjectId;
   contact: IContactInfo;
@@ -80,6 +82,12 @@ export interface IMasterProfile extends Document {
   sourceResumeId: mongoose.Types.ObjectId | null;
   lastParsedAt: Date | null;
   lastParsedProvider: string | null;
+  /** Lifecycle for an in-flight LLM parse. "idle" once a parse has settled (success or
+   *  failure). The frontend polls the GET endpoint while this is "processing". */
+  parseStatus: ParseStatus;
+  parseError: string;
+  /** When the current "processing" parse started (used to reap stale state). */
+  parseStartedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -153,6 +161,9 @@ const masterProfileSchema = new Schema<IMasterProfile>(
     sourceResumeId: { type: Schema.Types.ObjectId, ref: "Resume", default: null },
     lastParsedAt: { type: Date, default: null },
     lastParsedProvider: { type: String, default: null },
+    parseStatus: { type: String, enum: ["idle", "processing", "failed"], default: "idle" },
+    parseError: { type: String, default: "" },
+    parseStartedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

@@ -52,7 +52,7 @@ export const applicationsAPI = {
     api.get<PaginatedResponse<Application>>("/applications", { params }).then((r) => r.data),
   getOne: (id: string) => api.get<Application>(`/applications/${id}`).then((r) => r.data),
   create: (data: ApplicationFormData) => api.post<Application>("/applications", data).then((r) => r.data),
-  update: (id: string, data: Partial<ApplicationFormData & { archived?: boolean; archivedAt?: string | null; archivedReason?: string | null }>) =>
+  update: (id: string, data: Partial<ApplicationFormData & { applicationDate?: string; archived?: boolean; archivedAt?: string | null; archivedReason?: string | null }>) =>
     api.put<Application>(`/applications/${id}`, data).then((r) => r.data),
   delete: (id: string) => api.delete(`/applications/${id}`).then((r) => r.data),
   bulkImport: (applications: any[]) => api.post<{ message: string; count: number }>("/applications/bulk", { applications }).then((r) => r.data),
@@ -219,6 +219,8 @@ export interface TailorSuggestion {
   decision: TailorDecision;
 }
 
+export type TailorStatus = "processing" | "succeeded" | "failed";
+
 export interface TailorSession {
   _id: string;
   userId: string;
@@ -227,8 +229,12 @@ export interface TailorSession {
   company: string;
   jobUrl: string;
   jobDescription: string;
+  /** "processing" while LLM is running; "succeeded" or "failed" afterwards. Older
+   *  sessions created before async mode default to "succeeded" server-side. */
+  status: TailorStatus;
+  errorMessage?: string;
   fitScore: number;
-  fitGrade: "A" | "B" | "C" | "D" | "F";
+  fitGrade: "A" | "B" | "C" | "D" | "F" | "";
   summary: string;
   matchedSkills: string[];
   missingSkills: string[];
@@ -239,15 +245,30 @@ export interface TailorSession {
   updatedAt: string;
 }
 
+export interface TailorInitResult {
+  session: TailorSession;
+  application: Application;
+}
+
 export const tailorAPI = {
   analyze: (data: { jobDescription: string; jobTitle?: string; company?: string; url?: string; applicationId?: string }) =>
     api.post<TailorSession>("/tailor/analyze", data).then((r) => r.data),
-  list: () => api.get<TailorSession[]>("/tailor/sessions").then((r) => r.data),
+  /** Extension entrypoint — also creates a Drafting application linked to the session. */
+  init: (data: { jobDescription: string; jobTitle?: string; company?: string; role?: string; url?: string }) =>
+    api.post<TailorInitResult>("/tailor/init", data).then((r) => r.data),
+  list: (limit = 30) => api.get<TailorSession[]>("/tailor/sessions", { params: { limit } }).then((r) => r.data),
   get: (id: string) => api.get<TailorSession>(`/tailor/sessions/${id}`).then((r) => r.data),
   setDecision: (sessionId: string, index: number, decision: TailorDecision) =>
     api.patch<TailorSession>(`/tailor/sessions/${sessionId}/suggestions/${index}`, { decision }).then((r) => r.data),
   linkApplication: (sessionId: string, applicationId: string) =>
     api.post<TailorSession>(`/tailor/sessions/${sessionId}/link/${applicationId}`).then((r) => r.data),
+  /** Transition the linked Drafting application → Applied, with the user's resume choice.
+   *  If "tailored", the rendered PDF is also saved as a tag-tailored Resume row. */
+  markApplied: (sessionId: string, resumeChoice: "primary" | "tailored") =>
+    api.put<{ application: Application; tailoredResumeId: string | null }>(
+      `/tailor/sessions/${sessionId}/mark-applied`,
+      { resumeChoice }
+    ).then((r) => r.data),
   /** Returns the PDF as a Blob along with metadata from response headers. */
   generatePdf: async (sessionId: string): Promise<{ blob: Blob; pages: number; warnings: string[] }> => {
     const res = await api.get(`/tailor/sessions/${sessionId}/pdf`, { responseType: "blob" });
@@ -259,17 +280,48 @@ export const tailorAPI = {
 };
 
 /** Master profile — one canonical career history per user. */
+export type MasterProfileParseStatus = "idle" | "processing" | "failed";
+
+export interface MasterProfileShape {
+  _id?: string;
+  parseStatus?: MasterProfileParseStatus;
+  parseError?: string;
+  parseStartedAt?: string | null;
+  sourceResumeId?: string | null;
+  lastParsedAt?: string | null;
+  // ...plus the structured profile fields (contact/experiences/etc) — typed as unknown
+  // elsewhere because the page consumer has its own narrower types.
+  [key: string]: unknown;
+}
+
 export const masterProfileAPI = {
-  get: () => api.get<unknown>("/master-profile").then((r) => r.data),
-  update: (data: unknown) => api.put<unknown>("/master-profile", data).then((r) => r.data),
-  parseFromResume: (resumeId: string) => api.post<unknown>(`/master-profile/parse-from-resume/${resumeId}`).then((r) => r.data),
+  get: () => api.get<MasterProfileShape | null>("/master-profile").then((r) => r.data),
+  update: (data: unknown) => api.put<MasterProfileShape>("/master-profile", data).then((r) => r.data),
+  parseFromResume: (resumeId: string) => api.post<MasterProfileShape>(`/master-profile/parse-from-resume/${resumeId}`).then((r) => r.data),
   uploadAndParse: (file: File, name?: string) => {
     const fd = new FormData();
     fd.append("file", file);
     if (name) fd.append("name", name);
-    return api.post<unknown>("/master-profile/upload-and-parse", fd, { headers: { "Content-Type": "multipart/form-data" } }).then((r) => r.data);
+    return api.post<{ profile: MasterProfileShape; resume: Resume }>("/master-profile/upload-and-parse", fd, { headers: { "Content-Type": "multipart/form-data" } }).then((r) => r.data);
   },
 };
+
+/** Poll the master profile until parseStatus flips out of "processing". */
+const MASTER_POLL_INTERVAL_MS = 2_000;
+const MASTER_POLL_MAX_ATTEMPTS = 90;
+
+export async function pollMasterProfileParse(): Promise<MasterProfileShape> {
+  for (let i = 0; i < MASTER_POLL_MAX_ATTEMPTS; i++) {
+    const p = await masterProfileAPI.get();
+    if (!p) {
+      // No profile at all — treat as "failed" so the task card surfaces something.
+      throw new Error("Master profile disappeared during parse.");
+    }
+    if (p.parseStatus !== "processing") return p;
+    await new Promise((r) => setTimeout(r, MASTER_POLL_INTERVAL_MS));
+  }
+  throw new Error("Parse is taking longer than expected. Refresh later to see the result.");
+}
 
 export type FeedbackType = "bug" | "suggestion" | "idea" | "praise" | "other";
 export type FeedbackStatus = "open" | "triaged" | "in_progress" | "resolved" | "dismissed";

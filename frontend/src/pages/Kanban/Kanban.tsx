@@ -9,13 +9,15 @@ import {
 import { SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import toast from "react-hot-toast";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { applicationsAPI, resumesAPI } from "../../utils/api.ts";
+import { useRefetchOnFocus } from "../../hooks/useRefetchOnFocus.ts";
 import { SkeletonCard } from "../../components/Skeleton/Skeleton.tsx";
 import type { Application, Resume, Stage } from "../../types";
 
-const STAGES: Stage[] = ["Applied", "OA", "Interview", "Offer", "Rejected"];
+const STAGES: Stage[] = ["Drafting", "Applied", "OA", "Interview", "Offer", "Rejected"];
 const CFG: Record<Stage, { dot: string; hBg: string; border: string; bg: string }> = {
+  Drafting: { dot: "bg-slate-400", hBg: "bg-slate-50 dark:bg-slate-800/30", border: "border-slate-200/60 dark:border-slate-700/50", bg: "bg-slate-50/40 dark:bg-slate-900/20" },
   Applied: { dot: "bg-blue-500", hBg: "bg-blue-50 dark:bg-blue-900/20", border: "border-blue-200/60 dark:border-blue-800/40", bg: "bg-blue-50/30 dark:bg-blue-950/20" },
   OA: { dot: "bg-warning", hBg: "bg-amber-50 dark:bg-amber-900/20", border: "border-amber-200/60 dark:border-amber-800/40", bg: "bg-amber-50/30 dark:bg-amber-950/20" },
   Interview: { dot: "bg-purple-500", hBg: "bg-purple-50 dark:bg-purple-900/20", border: "border-purple-200/60 dark:border-purple-800/40", bg: "bg-purple-50/30 dark:bg-purple-950/20" },
@@ -25,6 +27,8 @@ const CFG: Record<Stage, { dot: string; hBg: string; border: string; bg: string 
 const fmt = (d: string) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
 const KanbanCard = memo(function KanbanCard({ app, resumeName, isDragging }: { app: Application; resumeName?: string; isDragging?: boolean }) {
+  const navigate = useNavigate();
+  const isDrafting = app.stage === "Drafting" && !!app.tailorSessionId;
   return (
     <div
       className={`card-premium p-3 min-w-0 overflow-hidden ${isDragging ? "!shadow-lg ring-2 ring-ring/20 scale-[1.02]" : ""}`}
@@ -51,7 +55,23 @@ const KanbanCard = memo(function KanbanCard({ app, resumeName, isDragging }: { a
           </span>
         )}
       </div>
-      <span className="text-[11px] text-muted-foreground">{fmt(app.applicationDate)}</span>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[11px] text-muted-foreground">{fmt(app.applicationDate)}</span>
+        {isDrafting && (
+          <button
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/tailor?session=${app.tailorSessionId}`);
+            }}
+            className="text-[10px] font-medium text-primary hover:underline shrink-0"
+            title="Open this tailor session"
+          >
+            Open in Tailor →
+          </button>
+        )}
+      </div>
     </div>
   );
 });
@@ -117,9 +137,10 @@ export default function Kanban() {
     } catch {} finally { setLoading(false); }
   }, []);
   useEffect(() => { fetchApps(); }, [fetchApps]);
+  useRefetchOnFocus(fetchApps);
 
   const grouped = useMemo(() => {
-    const g: Record<Stage, Application[]> = { Applied: [], OA: [], Interview: [], Offer: [], Rejected: [] };
+    const g: Record<Stage, Application[]> = { Drafting: [], Applied: [], OA: [], Interview: [], Offer: [], Rejected: [] };
     apps.forEach((a) => { if (g[a.stage]) g[a.stage].push(a); });
     return g;
   }, [apps]);
