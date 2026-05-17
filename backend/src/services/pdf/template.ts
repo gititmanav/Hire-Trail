@@ -33,14 +33,31 @@ const dateRange = (start: string, end: string, current?: boolean): string => {
   return `${a} – ${b}`;
 };
 
+/** Ensure a URL has a scheme so Typst's #link() builds a clickable PDF link. */
+function asUrl(s: string): string {
+  if (!s) return "";
+  if (/^https?:\/\//i.test(s)) return s;
+  return `https://${s.replace(/^\/+/, "")}`;
+}
+
+/** Build a Typst expression for a link rendered as a label string. Returns escaped label
+ *  wrapped in #link() when href is set, or just the escaped label otherwise. */
+function linkExpr(href: string, label: string): string {
+  const lbl = esc(label || "");
+  if (!href) return lbl;
+  // Strip awkward characters from URL since Typst link strings can't have unescaped quotes.
+  const safeHref = href.replace(/"/g, "").replace(/\s+/g, "");
+  return `#link("${safeHref}")[${lbl}]`;
+}
+
 function header(c: IContactInfo): string {
   const links: string[] = [];
-  if (c.email) links.push(esc(c.email));
+  if (c.email) links.push(linkExpr(`mailto:${c.email}`, c.email));
   if (c.phone) links.push(esc(c.phone));
   if (c.location) links.push(esc(c.location));
-  if (c.linkedin) links.push(esc(stripUrl(c.linkedin)));
-  if (c.github) links.push(esc(stripUrl(c.github)));
-  if (c.portfolio) links.push(esc(stripUrl(c.portfolio)));
+  if (c.linkedin) links.push(linkExpr(asUrl(c.linkedin), stripUrl(c.linkedin)));
+  if (c.github) links.push(linkExpr(asUrl(c.github), stripUrl(c.github)));
+  if (c.portfolio) links.push(linkExpr(asUrl(c.portfolio), stripUrl(c.portfolio)));
   return `
 #align(center)[
   #text(size: 18pt, weight: 700)[${esc(c.fullName || "Resume")}]
@@ -164,19 +181,34 @@ ${rows}
 `;
 }
 
-/** Build a complete Typst document from a master profile. */
-export function buildResumeTypst(profile: IMasterProfile): string {
+export type Density = "normal" | "compact";
+
+export interface RenderOpts {
+  density?: Density;
+}
+
+/** Build a complete Typst document from a master profile.
+ *  `density` controls page margins, body font size, and paragraph leading; compact mode
+ *  is a strictly visual tightening that the renderer applies as the first auto-fit step. */
+export function buildResumeTypst(profile: IMasterProfile, opts: RenderOpts = {}): string {
+  const compact = opts.density === "compact";
+  const margins = compact
+    ? { top: "0.38in", bottom: "0.38in", left: "0.5in", right: "0.5in" }
+    : { top: "0.45in", bottom: "0.45in", left: "0.6in", right: "0.6in" };
+  const bodySize = compact ? "9.5pt" : "10pt";
+  const leading = compact ? "0.45em" : "0.55em";
+
   return `
 #set page(
   paper: "us-letter",
-  margin: (top: 0.45in, bottom: 0.45in, left: 0.6in, right: 0.6in),
+  margin: (top: ${margins.top}, bottom: ${margins.bottom}, left: ${margins.left}, right: ${margins.right}),
 )
 #set text(
   font: ("Helvetica", "Arial", "Liberation Sans", "DejaVu Sans"),
-  size: 10pt,
+  size: ${bodySize},
   fill: rgb("#111"),
 )
-#set par(leading: 0.55em, justify: false)
+#set par(leading: ${leading}, justify: false)
 
 ${header(profile.contact)}
 

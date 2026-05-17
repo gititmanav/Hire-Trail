@@ -32,6 +32,7 @@ export const updateApplicationSchema = z.object({
   salary: z.string().max(200).optional(),
   jobType: z.string().max(200).optional(),
   notes: z.string().max(5000).optional(),
+  applicationDate: z.string().datetime().or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Expected YYYY-MM-DD")).optional(),
   resumeId: optionalRefUpdate,
   companyId: optionalRefUpdate,
   contactId: optionalRefUpdate,

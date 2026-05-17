@@ -1,4 +1,6 @@
 const API_BASE = "https://hiretrail.manavkaneria.me/api";
+/** Web app origin (no /api). Used to open the HireTrail Tailor page after extension actions. */
+const WEB_BASE = "https://hiretrail.manavkaneria.me";
 const TELEMETRY_KEY = "telemetryEvents";
 const TELEMETRY_STATUS_KEY = "telemetryStatus";
 const MAX_TELEMETRY_EVENTS = 50;
@@ -46,7 +48,73 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     analyzeJD(msg.data).then(sendResponse);
     return true;
   }
+  if (msg.type === "TAILOR_INIT") {
+    tailorInit(msg.data).then(sendResponse);
+    return true;
+  }
+  if (msg.type === "FIND_DRAFT_FOR_URL") {
+    findDraftForUrl(msg.url).then(sendResponse);
+    return true;
+  }
 });
+
+/** Used by Apply auto-detect: if the user previously clicked "Tailor" for this JD,
+ *  return the session id so content.js can prompt them to confirm in HireTrail rather
+ *  than silently creating a duplicate "Applied" record. */
+async function findDraftForUrl(url) {
+  if (!url) return { session: null };
+  const { token } = await chrome.storage.local.get(["token"]);
+  if (!token) return { session: null };
+  try {
+    const res = await fetchWithTimeout(`${API_BASE}/tailor/sessions/find-draft?url=${encodeURIComponent(url)}`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return { session: null };
+    const data = await res.json();
+    return data;
+  } catch {
+    return { session: null };
+  }
+}
+
+/** Extension "Tailor" entrypoint — creates a Drafting Application + TailorSession server-side,
+ *  returns the session id so content.js can open the HireTrail Tailor page in a new tab. */
+async function tailorInit(data) {
+  const { token } = await chrome.storage.local.get(["token"]);
+  if (!token) return { success: false, error: "Not signed in. Open the popup and sign in first.", code: ERROR_CODES.AUTH_MISSING };
+  try {
+    const res = await fetchWithTimeout(`${API_BASE}/tailor/init`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        jobDescription: data.jobDescription || "",
+        jobTitle: data.title || "",
+        company: data.company || "",
+        role: data.title || "",
+        url: data.url || "",
+      }),
+    });
+    if (res.status === 401) return { success: false, error: "Session expired — sign in again.", code: ERROR_CODES.AUTH_EXPIRED };
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      const errMsg = typeof body?.error === "string" ? body.error : "Could not start a tailor session.";
+      return { success: false, error: errMsg, code: ERROR_CODES.API_ERROR };
+    }
+    const result = await res.json();
+    const sessionId = result?.session?._id;
+    if (!sessionId) return { success: false, error: "No session id returned.", code: ERROR_CODES.API_ERROR };
+    // Open the HireTrail Tailor page in a new tab so the user can review suggestions
+    // + click "Mark as Applied" when they're done.
+    try {
+      await chrome.tabs.create({ url: `${WEB_BASE}/tailor?session=${sessionId}` });
+    } catch { /* user can navigate manually if popup blocked */ }
+    return { success: true, sessionId, applicationId: result?.application?._id };
+  } catch (err) {
+    if (err?.name === "AbortError") return { success: false, error: "Timed out.", code: ERROR_CODES.NETWORK_TIMEOUT };
+    return { success: false, error: err?.message || "Network error", code: ERROR_CODES.NETWORK_ERROR };
+  }
+}
 
 async function analyzeJD(data) {
   const { token } = await chrome.storage.local.get(["token"]);

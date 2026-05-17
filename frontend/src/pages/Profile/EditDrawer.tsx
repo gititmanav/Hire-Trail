@@ -99,7 +99,7 @@ export default function EditDrawer({ section, profile, onClose, onSaved }: Props
       case "certifications": payload = { certifications }; break;
     }
     try {
-      const updated = (await masterProfileAPI.update(payload)) as ProfileLike;
+      const updated = (await masterProfileAPI.update(payload)) as unknown as ProfileLike;
       onSaved(updated);
       toast.success(`${SECTION_TITLE[section]} updated`);
       onClose();

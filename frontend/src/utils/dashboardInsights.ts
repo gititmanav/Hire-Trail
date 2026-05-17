@@ -7,11 +7,14 @@ export interface DashboardFilters {
   stage: StageFilter;
 }
 
+/** Funnel stages — Drafting is intentionally excluded; it's a pre-submission stage that
+ *  shouldn't move the conversion-rate needle until the user actually applies. */
 const STAGES: Stage[] = ["Applied", "OA", "Interview", "Offer", "Rejected"];
 
 function emptyAnalytics(): AnalyticsData {
   return {
     funnel: {
+      Drafting: 0,
       Applied: 0,
       OA: 0,
       Interview: 0,
@@ -40,15 +43,18 @@ export function filterDashboardApplications(apps: Application[], filters: Dashbo
 export function buildAnalyticsFromApplications(apps: Application[]): AnalyticsData {
   if (!apps.length) return emptyAnalytics();
 
-  const funnel = STAGES.reduce(
-    (acc, stage) => ({ ...acc, [stage]: 0 }),
-    {} as Record<Stage, number>
-  );
+  // funnel covers every stage (including Drafting) for type completeness, but Drafting
+  // apps are skipped below so the count stays 0 — analytics should reflect submitted apps.
+  const funnel: Record<Stage, number> = { Drafting: 0, Applied: 0, OA: 0, Interview: 0, Offer: 0, Rejected: 0 };
   const resumeMap = new Map<string, { _id: string; total: number; responses: number }>();
   const weekMap = new Map<string, { _id: { year: number; week: number }; count: number; firstDate: string }>();
 
+  let submittedTotal = 0;
   for (const app of apps) {
+    // Drafting apps are pre-submission; they don't count toward funnel/resume/trend metrics.
+    if (app.stage === "Drafting") continue;
     funnel[app.stage] += 1;
+    submittedTotal += 1;
 
     if (app.resumeId) {
       const prev = resumeMap.get(app.resumeId) ?? { _id: app.resumeId, total: 0, responses: 0 };
@@ -77,7 +83,7 @@ export function buildAnalyticsFromApplications(apps: Application[]): AnalyticsDa
 
   return {
     funnel,
-    total: apps.length,
+    total: submittedTotal,
     resumePerformance: [...resumeMap.values()],
     weeklyTrend,
   };
@@ -91,10 +97,9 @@ export function getRecentApplications(apps: Application[], limit = 8): Applicati
 
 export function getStageCounts(apps: Application[], company: string): Record<Stage, number> {
   const scoped = company === "All" ? apps : apps.filter((app) => app.company === company);
-  return STAGES.reduce(
-    (acc, stage) => ({ ...acc, [stage]: scoped.filter((app) => app.stage === stage).length }),
-    {} as Record<Stage, number>
-  );
+  const acc: Record<Stage, number> = { Drafting: 0, Applied: 0, OA: 0, Interview: 0, Offer: 0, Rejected: 0 };
+  for (const app of scoped) acc[app.stage] += 1;
+  return acc;
 }
 
 function getWeekNumber(date: Date): number {

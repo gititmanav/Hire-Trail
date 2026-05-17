@@ -137,7 +137,18 @@ export default function Sidebar({ collapsed, onToggle, isAdmin }: Props) {
         </button>
       </div>
       <div className="px-4 py-2.5 border-t border-sidebar-border">
-        <p className={`text-[11px] text-sidebar-foreground/50 ${collapsed ? "text-center" : ""}`}>{collapsed ? "v4" : "HireTrail v4.0"}</p>
+        {collapsed ? (
+          <p className="text-[11px] text-sidebar-foreground/50 text-center">v4</p>
+        ) : (
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[11px] text-sidebar-foreground/50">HireTrail v4.0</p>
+            <div className="flex items-center gap-2 text-[10px] text-sidebar-foreground/50">
+              <NavLink to="/privacy" className="hover:text-sidebar-foreground">Privacy</NavLink>
+              <span aria-hidden>·</span>
+              <NavLink to="/terms" className="hover:text-sidebar-foreground">Terms</NavLink>
+            </div>
+          </div>
+        )}
       </div>
 
       {feedbackOpen && (

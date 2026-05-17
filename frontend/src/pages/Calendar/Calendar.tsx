@@ -11,6 +11,7 @@ import "react-big-calendar/lib/css/react-big-calendar.css";
 import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
 
 import { applicationsAPI, deadlinesAPI } from "../../utils/api.ts";
+import { useRefetchOnFocus } from "../../hooks/useRefetchOnFocus.ts";
 import { buildCalendarEvents, type CalendarExtendedProps, type CalendarFactor } from "../../utils/calendarEvents.ts";
 import { eventInputsToRbc, type HireTrailCalendarEvent } from "../../utils/calendarRbc.ts";
 import type { Application, Deadline, Stage } from "../../types";
@@ -108,6 +109,7 @@ export default function CalendarPage() {
   }, []);
 
   useEffect(() => { void loadCalendarData(); }, [loadCalendarData]);
+  useRefetchOnFocus(loadCalendarData);
 
   const companyNames = useMemo(() => {
     const set = new Set<string>();
@@ -170,24 +172,42 @@ export default function CalendarPage() {
 
   const draggableAccessor = useCallback((event: HireTrailCalendarEvent) => {
     const f = event.resource?.factor;
-    if (f !== "deadline_application" && f !== "deadline_general") return false;
-    return !event.resource?.completed;
+    if (f === "deadline_application" || f === "deadline_general") {
+      return !event.resource?.completed;
+    }
+    // Applications can be re-dated. Stage-change events are historical and not draggable.
+    if (f === "application_submitted") return true;
+    return false;
   }, []);
 
   const onEventDrop = useCallback(async ({ event, start }: { event: HireTrailCalendarEvent; start: Date; end: Date }) => {
     const r = event.resource;
     const factor = r?.factor;
-    if (factor !== "deadline_application" && factor !== "deadline_general") return;
-    if (r?.completed) { toast.error("Completed deadlines can't be moved."); return; }
     const id = r?.entityId;
     if (!id) return;
-    const dueDate = format(start, "yyyy-MM-dd");
-    try {
-      await deadlinesAPI.update(id, { dueDate });
-      toast.success("Deadline rescheduled");
-      await loadCalendarData();
-    } catch {
-      toast.error("Could not update deadline");
+    const newDate = format(start, "yyyy-MM-dd");
+
+    if (factor === "deadline_application" || factor === "deadline_general") {
+      if (r?.completed) { toast.error("Completed deadlines can't be moved."); return; }
+      try {
+        await deadlinesAPI.update(id, { dueDate: newDate });
+        toast.success("Deadline rescheduled");
+        await loadCalendarData();
+      } catch {
+        toast.error("Could not update deadline");
+      }
+      return;
+    }
+
+    if (factor === "application_submitted") {
+      try {
+        await applicationsAPI.update(id, { applicationDate: newDate });
+        toast.success("Application date updated");
+        await loadCalendarData();
+      } catch {
+        toast.error("Could not update application date");
+      }
+      return;
     }
   }, [loadCalendarData]);
 

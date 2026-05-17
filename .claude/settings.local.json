@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/manav/Downloads/**)",
+      "Bash(python -c \"from docx import Document; doc = Document\\('Hiretrail_Roadmap.docx'\\); [print\\(p.text\\) for p in doc.paragraphs]\")",
+      "Bash(pip install *)",
+      "Bash(python -c \"from docx import Document; doc = Document\\(r'C:\\\\Users\\\\manav\\\\Downloads\\\\Hiretrail_Roadmap.docx'\\); [print\\(p.text\\) for p in doc.paragraphs]\")",
+      "Bash(Get-ChildItem -Path \"E:\\\\Hire-Trail\" -Directory)",
+      "Bash(Select-Object -ExpandProperty Name)",
+      "Bash(npx tsc *)",
+      "Bash(echo \"exit=$?\")",
+      "Bash(npx vite *)",
+      "Bash(echo \"backend exit=$?\")",
+      "Bash(echo \"frontend exit=$?\")",
+      "Bash(cd /e/Hire-Trail && ls extension)",
+      "Bash(node --check /e/Hire-Trail/extension/content/content.js)",
+      "Bash(node --check /e/Hire-Trail/extension/background/background.js)",
+      "Bash(unzip -l /e/Hire-Trail/extension.zip)",
+      "Bash(rm -f /e/Hire-Trail/extension.zip /e/Hire-Trail/frontend/public/extension.zip)",
+      "Bash(zip -r /e/Hire-Trail/extension.zip background content icons manifest.json popup -x \"*/tests/*\" -x \"tests/*\")"
+    ]
+  }
+}

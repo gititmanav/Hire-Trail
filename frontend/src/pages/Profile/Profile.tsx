@@ -2,9 +2,10 @@
  *  Right sidebar shows the source-resume preview + quick stats. */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
-import { masterProfileAPI, resumesAPI } from "../../utils/api.ts";
+import { masterProfileAPI, resumesAPI, pollMasterProfileParse } from "../../utils/api.ts";
 import ResumePreview from "../../components/ResumePreview/ResumePreview.tsx";
 import EditDrawer, { type SectionKey as EditSectionKey } from "./EditDrawer.tsx";
+import { useBackgroundTasks } from "../../hooks/useBackgroundTasks.tsx";
 import type { Resume } from "../../types";
 
 /* ------------------ Types (mirror backend MasterProfile shape) ------------------ */
@@ -71,9 +72,11 @@ export default function Profile() {
   const [sourceResume, setSourceResume] = useState<Resume | null>(null);
   const [loading, setLoading] = useState(true);
   const [active, setActive] = useState<SectionKey>("personal");
-  const [uploading, setUploading] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [editingSection, setEditingSection] = useState<EditSectionKey | null>(null);
+  const { startTask, tasks, registerRecovery } = useBackgroundTasks();
+  // True while ANY resume-parse / profile-sync task is running anywhere in the app.
+  const uploading = tasks.some((t) => (t.kind === "resume_parse" || t.kind === "profile_sync") && t.status === "running");
   const scrollerRef = useRef<HTMLDivElement>(null);
   const sectionRefs = useRef<Record<SectionKey, HTMLElement | null>>({
     personal: null, experience: null, projects: null, education: null, skills: null, certifications: null,
@@ -103,27 +106,63 @@ export default function Profile() {
 
   useEffect(() => { void load(); }, [load]);
 
-  const handleFile = useCallback(async (file: File) => {
+  const handleFile = useCallback((file: File) => {
     if (!file) return;
     if (!file.name.toLowerCase().endsWith(".pdf")) {
       toast.error("Only PDF resumes are supported.");
       return;
     }
-    setUploading(true);
-    try {
-      await toast.promise(
-        masterProfileAPI.uploadAndParse(file).then(async () => { await load(); }),
-        {
-          loading: "Parsing your resume…",
-          success: "Profile built.",
-          error: (err: { response?: { data?: { error?: string } }; message?: string }) =>
-            err?.response?.data?.error || err?.message || "Failed to parse. Check your AI key in Settings.",
+    startTask({
+      kind: "resume_parse",
+      label: "Parsing your resume",
+      sublabel: file.name,
+      run: async ({ setRecovery }) => {
+        // Upload + flip parseStatus to "processing"; response is fast.
+        await masterProfileAPI.uploadAndParse(file);
+        setRecovery({ resourceId: "master" });
+        return pollMasterProfileParse();
+      },
+      onResult: (p) => {
+        const profile = p as { parseStatus: string; parseError?: string };
+        if (profile.parseStatus === "failed") {
+          return { successLabel: profile.parseError || "Parse failed." };
         }
-      );
-    } finally {
-      setUploading(false);
-    }
-  }, [load]);
+        return { successLabel: "Profile built", ctaLabel: "View", ctaPath: "/profile" };
+      },
+      onError: (err) => {
+        const e = err as { response?: { data?: { error?: string } }; message?: string };
+        return e?.response?.data?.error || e?.message || "Failed to parse. Check your AI key in Settings.";
+      },
+      onSettled: (r) => { if (r.ok) void load(); },
+    });
+  }, [startTask, load]);
+
+  // Register recovery handlers for resume_parse + profile_sync — they both poll the
+  // same master profile endpoint, so a single rebuild works for either kind.
+  useEffect(() => {
+    const buildHandler = (kind: "resume_parse" | "profile_sync") => ({
+      kind,
+      rebuild: (_recovery: { resourceId: string }, label: string, sublabel?: string) => ({
+        kind,
+        label,
+        sublabel,
+        run: () => pollMasterProfileParse(),
+        onResult: (p: unknown) => {
+          const profile = p as { parseStatus: string; parseError?: string };
+          if (profile.parseStatus === "failed") {
+            return { successLabel: profile.parseError || "Parse failed." };
+          }
+          return { successLabel: "Profile updated", ctaLabel: "View", ctaPath: "/profile" };
+        },
+        onSettled: (r: { ok: true; data: unknown } | { ok: false; error: unknown }) => {
+          if (r.ok) void load();
+        },
+      }),
+    });
+    const unregParse = registerRecovery(buildHandler("resume_parse"));
+    const unregSync = registerRecovery(buildHandler("profile_sync"));
+    return () => { unregParse(); unregSync(); };
+  }, [registerRecovery, load]);
 
   // Scroll-spy: which section is currently in view becomes the active tab.
   useEffect(() => {

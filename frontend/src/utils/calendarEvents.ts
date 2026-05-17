@@ -69,11 +69,20 @@ function deadlineChipColors(d: Deadline): { backgroundColor: string; borderColor
   return { backgroundColor: "#d97706", borderColor: "#b45309" };
 }
 
-/** Skip duplicate "Applied" history row when it falls on the same calendar day as submission. */
-function shouldSkipStageHistoryEntry(app: Application, entry: { stage: Stage; date: string }, index: number): boolean {
-  if (index !== 0) return false;
-  if (entry.stage !== "Applied") return false;
-  return isoDay(entry.date) === isoDay(app.applicationDate);
+/** Pick the history entry that represents the application's CURRENT stage —
+ *  i.e. the most recent entry whose `stage` matches the app's live `stage` field.
+ *  Older transitions (Applied → OA → Applied → OA toggles, or earlier stages we've
+ *  already moved past) aren't surfaced; they're noise on a calendar view. */
+function currentStageEntry(app: Application): { stage: Stage; date: string } | null {
+  if (!app.stageHistory || app.stageHistory.length === 0) return null;
+  // Walk from newest to oldest. stageHistory is appended in order, so the last
+  // element with the matching stage is the most recent transition INTO that stage.
+  for (let i = app.stageHistory.length - 1; i >= 0; i--) {
+    const entry = app.stageHistory[i];
+    if (entry.stage === app.stage) return entry;
+  }
+  // Fallback: no entry matches the live stage (data drift). Use the most recent one.
+  return app.stageHistory[app.stageHistory.length - 1];
 }
 
 export function buildCalendarEvents({ applications, deadlines }: BuildCalendarEventsParams): EventInput[] {
@@ -99,13 +108,16 @@ export function buildCalendarEvents({ applications, deadlines }: BuildCalendarEv
       } satisfies CalendarExtendedProps,
     });
 
-    app.stageHistory.forEach((entry, index) => {
-      if (shouldSkipStageHistoryEntry(app, entry, index)) return;
-      const { backgroundColor, borderColor } = STAGE_CALENDAR_HEX[entry.stage];
+    // Only the CURRENT stage gets a chip — and only if it's a real transition past Applied.
+    // (The Applied submission already has its own chip above; emitting another Applied chip
+    // for an unchanged app would just duplicate the dot on the same day.)
+    const current = currentStageEntry(app);
+    if (current && current.stage !== "Applied") {
+      const { backgroundColor, borderColor } = STAGE_CALENDAR_HEX[current.stage];
       events.push({
-        id: `app-stage-${app._id}-${index}-${entry.stage}-${isoDay(entry.date)}`,
-        title: `${entry.stage} · ${app.company}`,
-        start: isoDay(entry.date),
+        id: `app-stage-${app._id}-${current.stage}-${isoDay(current.date)}`,
+        title: `${current.stage} · ${app.company}`,
+        start: isoDay(current.date),
         allDay: true,
         backgroundColor,
         borderColor,
@@ -116,11 +128,11 @@ export function buildCalendarEvents({ applications, deadlines }: BuildCalendarEv
           subtitle: app.role,
           company: app.company,
           applicationStage: app.stage,
-          enteredStage: entry.stage,
+          enteredStage: current.stage,
           applicationId: app._id,
         } satisfies CalendarExtendedProps,
       });
-    });
+    }
   }
 
   for (const deadline of deadlines) {

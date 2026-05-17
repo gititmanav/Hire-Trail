@@ -7,6 +7,7 @@ import type { EventInput } from "@fullcalendar/core";
 import { applicationsAPI, authAPI, contactsAPI, deadlinesAPI, resumesAPI } from "../../utils/api.ts";
 import StageSuggestionsCard from "../../components/StageSuggestionsCard/StageSuggestionsCard.tsx";
 import { useWidgetLayout, ALL_WIDGETS } from "../../hooks/useWidgetLayout.ts";
+import { useRefetchOnFocus } from "../../hooks/useRefetchOnFocus.ts";
 import WidgetPicker from "../../components/WidgetPicker/WidgetPicker.tsx";
 import ActionDropdown from "../../components/ActionDropdown/ActionDropdown.tsx";
 import StatsWidget from "../../components/widgets/StatsWidget.tsx";
@@ -67,64 +68,65 @@ export default function Dashboard() {
     }
   }, []);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const [ap, r, ct] = await Promise.all([
-          applicationsAPI.getAll({ limit: 1000, sort: "createdAt", order: "desc", archived: "all" }),
-          resumesAPI.getAll(),
-          contactsAPI.getAll({ limit: 100 }),
-        ]);
-        const dlAll = await deadlinesAPI.getAllAggregated({ status: "all" });
-        const allApps = ap.data;
-        setStats(buildAnalyticsFromApplications(allApps));
-        setApps(allApps);
-        setResumes(r);
+  const loadData = useCallback(async () => {
+    try {
+      const [ap, r, ct] = await Promise.all([
+        applicationsAPI.getAll({ limit: 1000, sort: "createdAt", order: "desc", archived: "all" }),
+        resumesAPI.getAll(),
+        contactsAPI.getAll({ limit: 100 }),
+      ]);
+      const dlAll = await deadlinesAPI.getAllAggregated({ status: "all" });
+      const allApps = ap.data;
+      setStats(buildAnalyticsFromApplications(allApps));
+      setApps(allApps);
+      setResumes(r);
 
-        // Filter contacts needing follow-up
-        const now = new Date(); now.setHours(0, 0, 0, 0);
-        const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-        const needsFollowUp = ct.data.filter((c: Contact) => {
-          if (c.nextFollowUpDate) {
-            const due = new Date(c.nextFollowUpDate); due.setHours(0, 0, 0, 0);
-            if (due.getTime() <= now.getTime()) return true;
-          }
-          if (c.outreachStatus === "reached_out" && c.lastOutreachDate) {
-            if (new Date(c.lastOutreachDate).getTime() < sevenDaysAgo) return true;
-          }
-          return false;
-        });
-        setFollowUpContacts(needsFollowUp);
+      // Filter contacts needing follow-up
+      const now = new Date(); now.setHours(0, 0, 0, 0);
+      const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      const needsFollowUp = ct.data.filter((c: Contact) => {
+        if (c.nextFollowUpDate) {
+          const due = new Date(c.nextFollowUpDate); due.setHours(0, 0, 0, 0);
+          if (due.getTime() <= now.getTime()) return true;
+        }
+        if (c.outreachStatus === "reached_out" && c.lastOutreachDate) {
+          if (new Date(c.lastOutreachDate).getTime() < sevenDaysAgo) return true;
+        }
+        return false;
+      });
+      setFollowUpContacts(needsFollowUp);
 
-        const ninetyDaysAgo = Date.now() - 90 * 24 * 60 * 60 * 1000;
-        const stale = allApps.filter((app) => {
-          if (app.archived || app.stage === "Offer") return false;
-          const lastActivity = app.stageHistory.length > 0
-            ? Math.max(...app.stageHistory.map((e) => new Date(e.date).getTime()))
-            : new Date(app.createdAt).getTime();
-          return lastActivity < ninetyDaysAgo;
-        });
-        setStaleApps(stale);
+      const ninetyDaysAgo = Date.now() - 90 * 24 * 60 * 60 * 1000;
+      const stale = allApps.filter((app) => {
+        if (app.archived || app.stage === "Offer") return false;
+        const lastActivity = app.stageHistory.length > 0
+          ? Math.max(...app.stageHistory.map((e) => new Date(e.date).getTime()))
+          : new Date(app.createdAt).getTime();
+        return lastActivity < ninetyDaysAgo;
+      });
+      setStaleApps(stale);
 
-        // Compare dates as YYYY-MM-DD strings to avoid timezone shifts
-        const todayStr = new Date().toLocaleDateString("en-CA"); // "YYYY-MM-DD" format
-        setDeadlines(
-          dlAll.filter((d) => {
-            if (d.completed) return false;
-            const dueStr = d.dueDate.slice(0, 10); // "YYYY-MM-DD" from ISO string
-            return dueStr >= todayStr;
-          })
-            .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()).slice(0, 8)
-        );
-        setCalendarEvents(
-          buildCalendarEvents({
-            applications: allApps,
-            deadlines: dlAll as Deadline[],
-          })
-        );
-      } catch { /* swallow */ } finally { setLoading(false); }
-    })();
+      // Compare dates as YYYY-MM-DD strings to avoid timezone shifts
+      const todayStr = new Date().toLocaleDateString("en-CA"); // "YYYY-MM-DD" format
+      setDeadlines(
+        dlAll.filter((d) => {
+          if (d.completed) return false;
+          const dueStr = d.dueDate.slice(0, 10); // "YYYY-MM-DD" from ISO string
+          return dueStr >= todayStr;
+        })
+          .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()).slice(0, 8)
+      );
+      setCalendarEvents(
+        buildCalendarEvents({
+          applications: allApps,
+          deadlines: dlAll as Deadline[],
+        })
+      );
+    } catch { /* swallow */ } finally { setLoading(false); }
   }, []);
+
+  useEffect(() => { void loadData(); }, [loadData]);
+  useRefetchOnFocus(loadData);
 
   const companyOptions = useMemo(() => getDashboardCompanies(apps), [apps]);
   const stageCounts = useMemo(() => getStageCounts(apps, selectedCompany), [apps, selectedCompany]);

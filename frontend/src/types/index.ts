@@ -55,7 +55,7 @@ export interface AdminOverview {
   users: (Pick<User, "_id" | "name" | "email" | "role"> & { createdAt: string; updatedAt: string })[];
   recentLogins: AdminLoginEvent[];
 }
-export type Stage = "Applied" | "OA" | "Interview" | "Offer" | "Rejected";
+export type Stage = "Drafting" | "Applied" | "OA" | "Interview" | "Offer" | "Rejected";
 export type OutreachStatus = "none" | "reached_out" | "referred" | "response_received";
 export type ArchiveReason = "auto_stale" | "rejected" | "manual";
 export type ContactOutreachStatus = "not_contacted" | "reached_out" | "responded" | "meeting_scheduled" | "follow_up_needed" | "gone_cold";
@@ -65,6 +65,10 @@ export interface Application {
   applicationDate: string; stage: Stage; stageHistory: StageEntry[];
   jobDescription?: string; location?: string; salary?: string; jobType?: string;
   notes: string; resumeId: string | null;
+  /** Set when this application originated from (or was linked to) a Tailor session.
+   *  Drafting-stage apps always have this; later stages may inherit it after a
+   *  Drafting → Applied transition via "Mark as Applied". */
+  tailorSessionId: string | null;
   contactId: string | null;
   outreachStatus: OutreachStatus;
   archived: boolean; archivedAt: string | null; archivedReason: ArchiveReason | null;
