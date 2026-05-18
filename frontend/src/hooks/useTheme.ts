@@ -67,7 +67,9 @@ function resolveInitialId(userId?: string | null): string {
   if (globalStored) return globalStored;
   const legacy = localStorage.getItem("hiretrail-theme");
   if (legacy === "dark") return "dark";
-  if (window.matchMedia("(prefers-color-scheme: dark)").matches) return "dark";
+  // First-time users default to LIGHT regardless of OS preference. Once they
+  // toggle the theme, their choice is persisted per-user in localStorage and
+  // honored on subsequent logins.
   return "modern-minimal";
 }
 

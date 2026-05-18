@@ -6,10 +6,9 @@ import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import Layout from "./components/Layout/Layout.tsx";
 import ProtectedRoute from "./components/ProtectedRoute/ProtectedRoute.tsx";
 import AdminLayout from "./components/AdminLayout/AdminLayout.tsx";
-import Login from "./pages/Login/Login.tsx";
-import Register from "./pages/Register/Register.tsx";
 import Privacy from "./pages/Legal/Privacy.tsx";
 import Terms from "./pages/Legal/Terms.tsx";
+import LandingPage from "./pages/Landing/LandingPage.tsx";
 import { BackgroundTasksProvider } from "./hooks/useBackgroundTasks.tsx";
 import BackgroundTaskCenter from "./components/BackgroundTaskCenter/BackgroundTaskCenter.tsx";
 import Dashboard from "./pages/Dashboard/Dashboard.tsx";
@@ -84,8 +83,15 @@ function App() {
       <BackgroundTasksProvider>
 
         <Routes>
-          <Route path="/login" element={user ? <Navigate to={user.role === "admin" ? "/admin" : "/"} replace /> : <Login onLogin={setUser} />} />
-          <Route path="/register" element={user ? <Navigate to={user.role === "admin" ? "/admin" : "/"} replace /> : <Register onLogin={setUser} />} />
+          {/* Public landing — only shown when signed out. When the user is signed in, this
+              route is omitted and the protected "/" further down matches the Dashboard. */}
+          {!user && <Route path="/" element={<LandingPage />} />}
+
+          {/* Legacy auth routes — auth is now a modal on the landing page.
+              When signed out, redirect to /?auth=<mode> so the landing page pops
+              the modal in the right mode for anyone who bookmarked /login. */}
+          <Route path="/login" element={user ? <Navigate to={user.role === "admin" ? "/admin" : "/"} replace /> : <Navigate to="/?auth=login" replace />} />
+          <Route path="/register" element={user ? <Navigate to={user.role === "admin" ? "/admin" : "/"} replace /> : <Navigate to="/?auth=register" replace />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/terms" element={<Terms />} />
 
