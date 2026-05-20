@@ -17,7 +17,11 @@
       "Bash(node --check /e/Hire-Trail/extension/background/background.js)",
       "Bash(unzip -l /e/Hire-Trail/extension.zip)",
       "Bash(rm -f /e/Hire-Trail/extension.zip /e/Hire-Trail/frontend/public/extension.zip)",
-      "Bash(zip -r /e/Hire-Trail/extension.zip background content icons manifest.json popup -x \"*/tests/*\" -x \"tests/*\")"
+      "Bash(zip -r /e/Hire-Trail/extension.zip background content icons manifest.json popup -x \"*/tests/*\" -x \"tests/*\")",
+      "Bash(xargs wc -l)",
+      "Bash(awk '{print $NF}')",
+      "Bash(git check-ignore *)",
+      "Bash(grep -E \"\\\\.env$\")"
     ]
   }
 }
