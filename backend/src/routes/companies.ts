@@ -1,13 +1,17 @@
 import { Router, Request, Response, NextFunction } from "express";
-import { Company } from "../models/Company.js";
+import { Company, ICompany } from "../models/Company.js";
 import { Application } from "../models/Application.js";
 import { ensureAuth, getUser } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
 import { updateCompanySchema } from "../validators/companies.js";
 import { NotFoundError } from "../errors/AppError.js";
+import { env } from "../config/env.js";
 
 const router = Router();
 router.use(ensureAuth);
+
+/** Refresh logos no more than once every 30 days even if they 404'd previously. */
+const LOGO_RETRY_INTERVAL_MS = 30 * 24 * 60 * 60 * 1000;
 
 /** Extract domain from a URL. */
 function extractDomain(url: string): string {
@@ -18,12 +22,115 @@ function extractDomain(url: string): string {
   }
 }
 
+/** Best-effort domain from a company name. Drops common suffixes, lowercases,
+ *  strips non-alphanum. "Acme Corp" → "acme.com". Wrong for many companies
+ *  (Anthropic ≠ anthropic.com? actually right), but right often enough for the
+ *  90% case — Clearbit returns 404 otherwise and we silently fall back. */
+function deriveDomainFromName(name: string): string {
+  const cleaned = name
+    .toLowerCase()
+    .replace(/\b(inc|llc|ltd|corp|corporation|gmbh|co|company)\.?\b/g, "")
+    .replace(/[^a-z0-9]/g, "");
+  if (!cleaned) return "";
+  return `${cleaned}.com`;
+}
+
+const cloudinaryEnabled = () => !!(env.CLOUDINARY_CLOUD_NAME && env.CLOUDINARY_API_KEY && env.CLOUDINARY_API_SECRET);
+
+async function uploadBufferToCloudinary(buffer: Buffer, publicId: string): Promise<{ url: string; publicId: string }> {
+  const { cloudinary } = await import("../config/cloudinary.js");
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder: "hiretrail/company-logos",
+        resource_type: "image",
+        access_mode: "public",
+        public_id: publicId,
+        overwrite: true,
+      },
+      (error, result) => {
+        if (error || !result) return reject(error || new Error("Upload failed"));
+        resolve({ url: result.secure_url, publicId: result.public_id });
+      }
+    );
+    stream.end(buffer);
+  });
+}
+
+/**
+ * Idempotently fetch + cache a Company's logo. Returns the document with
+ * `logoUrl` populated (possibly empty if we tried and failed).
+ *
+ *  - If `logoUrl` is already set, no-op.
+ *  - Else if we tried recently (< 30d), no-op.
+ *  - Else pick a domain (website > derived from name), fetch
+ *    `https://logo.clearbit.com/{domain}`, upload to Cloudinary, persist.
+ *  - On 404 or upload failure, stamp `logoFetchedAt` to suppress retries.
+ *
+ * Designed for fire-and-forget usage from the create flow; also exposed via
+ * the POST /:id/logo endpoint for explicit refresh.
+ */
+/** Best-effort save: never throws, so logo-fetch failures can't bubble up as
+ *  Mongoose validation errors on otherwise-fine legacy docs. */
+async function safeSaveCompany(company: ICompany): Promise<void> {
+  try { await company.save(); }
+  catch (err) { console.warn(`[ensureCompanyLogo] save failed for ${company._id}:`, err instanceof Error ? err.message : err); }
+}
+
+export async function ensureCompanyLogo(company: ICompany): Promise<ICompany> {
+  if (company.logoUrl) return company;
+  if (company.logoFetchedAt && Date.now() - company.logoFetchedAt.getTime() < LOGO_RETRY_INTERVAL_MS) {
+    return company;
+  }
+  // Stamp first — if anything below fails, we still mark "tried" so we don't
+  // spin our wheels on the next request.
+  company.logoFetchedAt = new Date();
+
+  if (!cloudinaryEnabled()) {
+    await safeSaveCompany(company);
+    return company;
+  }
+
+  const domain = (company.domain || extractDomain(company.website) || deriveDomainFromName(company.name)).trim();
+  if (!domain) {
+    await safeSaveCompany(company);
+    return company;
+  }
+
+  // Only Google S2 favicons. Clearbit's free endpoint has been intermittent
+  // since the HubSpot acquisition (intermittent DNS, frequent 404s), and the
+  // browser-side fallback to it floods consoles with ERR_NAME_NOT_RESOLVED.
+  // Google's service is always reachable, returns a sane PNG, and doesn't
+  // require an API key.
+  const url = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=128`;
+  try {
+    const res = await fetch(url, { redirect: "follow" });
+    if (res.ok) {
+      const arrayBuf = await res.arrayBuffer();
+      const buf = Buffer.from(arrayBuf);
+      // <300 bytes is Google's default "world globe" fallback — skip.
+      if (buf.byteLength >= 300) {
+        const publicId = `${company._id.toString()}-${Date.now()}`;
+        const { url: cdnUrl, publicId: cloudId } = await uploadBufferToCloudinary(buf, publicId);
+        company.logoUrl = cdnUrl;
+        company.logoPublicId = cloudId;
+        if (!company.domain) company.domain = domain;
+      }
+    }
+  } catch (err) {
+    console.warn(`[ensureCompanyLogo:google] ${domain}:`, err instanceof Error ? err.message : err);
+  }
+
+  await safeSaveCompany(company);
+  return company;
+}
+
 // GET list: companies for current user with pagination + search + application counts
 router.get("/", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = getUser(req);
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
-    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 24));
+    const limit = Math.min(500, Math.max(1, parseInt(req.query.limit as string) || 24));
     const skip = (page - 1) * limit;
     const search = (req.query.search as string) || "";
 
@@ -100,6 +207,10 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
       await company.save();
     }
 
+    // Fire-and-forget logo fetch. Don't block the user; they get a logo on
+    // the next page load. Errors are swallowed inside ensureCompanyLogo.
+    void ensureCompanyLogo(company).catch(() => undefined);
+
     res.status(201).json(company);
   } catch (err) {
     next(err);
@@ -122,6 +233,35 @@ router.put("/:id", validate(updateCompanySchema), async (req: Request, res: Resp
     res.json(company);
   } catch (err) {
     next(err);
+  }
+});
+
+// POST /:id/logo — explicit logo refresh (also used as the "fetch on demand" path
+// when the frontend renders a row that has no cached logo yet).
+//
+// This is a best-effort, opportunistic endpoint. It NEVER errors out — if the
+// company isn't found, the id is malformed, the fetch fails, or anything else
+// goes sideways, we return 200 with `{ logoUrl: "" }`. That way the frontend
+// can keep showing the monogram fallback without spamming the console.
+router.post("/:id/logo", async (req: Request, res: Response, _next: NextFunction) => {
+  try {
+    const user = getUser(req);
+    const idParam = typeof req.params.id === "string" ? req.params.id : "";
+    // Guard cast errors before findOne even runs.
+    if (!/^[a-f0-9]{24}$/i.test(idParam)) {
+      res.json({ logoUrl: "", logoFetchedAt: null });
+      return;
+    }
+    const company = await Company.findOne({ _id: idParam, users: user._id });
+    if (!company) {
+      res.json({ logoUrl: "", logoFetchedAt: null });
+      return;
+    }
+    const updated = await ensureCompanyLogo(company);
+    res.json({ logoUrl: updated.logoUrl, logoFetchedAt: updated.logoFetchedAt });
+  } catch (err) {
+    console.warn("[POST /companies/:id/logo]", err instanceof Error ? err.message : err);
+    res.json({ logoUrl: "", logoFetchedAt: new Date() });
   }
 });
 

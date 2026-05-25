@@ -7,7 +7,11 @@ import toast from "react-hot-toast";
 import { feedbackAPI } from "../../utils/api.ts";
 import type { FeedbackType } from "../../utils/api.ts";
 
-interface Props { onClose: () => void; }
+interface Props {
+  onClose: () => void;
+  /** Pre-fill the form. Useful when triggered from a specific CTA (e.g. "Request Gmail access"). */
+  initial?: { type?: FeedbackType; title?: string; message?: string };
+}
 
 interface TypeOption { value: FeedbackType; label: string; description: string; icon: React.ReactNode }
 
@@ -66,12 +70,12 @@ const TYPES: TypeOption[] = [
   },
 ];
 
-export default function FeedbackModal({ onClose }: Props) {
+export default function FeedbackModal({ onClose, initial }: Props) {
   const location = useLocation();
   const [open, setOpen] = useState(false);
-  const [type, setType] = useState<FeedbackType>("bug");
-  const [title, setTitle] = useState("");
-  const [message, setMessage] = useState("");
+  const [type, setType] = useState<FeedbackType>(initial?.type ?? "bug");
+  const [title, setTitle] = useState(initial?.title ?? "");
+  const [message, setMessage] = useState(initial?.message ?? "");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => { requestAnimationFrame(() => setOpen(true)); }, []);

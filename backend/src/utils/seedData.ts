@@ -8,6 +8,7 @@ import { Resume } from "../models/Resume.js";
 import { Contact } from "../models/Contact.js";
 import { Deadline } from "../models/Deadline.js";
 import { Company } from "../models/Company.js";
+import { TailorSession } from "../models/TailorSession.js";
 
 const COMPANIES: { name: string; domain: string; website: string }[] = [
   { name: "Google", domain: "google.com", website: "https://careers.google.com" },
@@ -229,7 +230,65 @@ export async function runSeed(): Promise<SeedResult> {
       resumeId: randomItem(resumeIds),
     });
   }
-  await Application.insertMany(appDocs);
+  const insertedApps = await Application.insertMany(appDocs);
+
+  // Synthetic TailorSessions for the demo user — gives the Applications page
+  // realistic fit-score badges without burning real LLM quota on 650 jobs.
+  const SKILL_BANK = [
+    "Python", "TypeScript", "React", "Node.js", "PostgreSQL", "AWS", "Kubernetes",
+    "GraphQL", "REST", "Docker", "Redis", "Kafka", "Go", "System Design",
+    "Distributed Systems", "Microservices", "ML", "Data Pipelines", "Testing",
+    "CI/CD", "Terraform", "GCP", "Security", "Performance Optimization",
+  ];
+  const GRADES = ["A", "B", "C", "D", "F"] as const;
+  // Weighted distribution: skew toward B/C for realism (most apps are "good not great")
+  const GRADE_WEIGHTS = [0.15, 0.40, 0.30, 0.10, 0.05];
+  const GRADE_TO_SCORE = { A: 5, B: 4, C: 3, D: 2, F: 1 } as const;
+  const SUGGESTION_STUBS = [
+    { section: "experience" as const, kind: "rewrite" as const, suggested: "Lead the redesign of the API layer to cut p99 latency by 40%.", rationale: "Mirrors the JD's focus on platform performance work." },
+    { section: "summary" as const, kind: "rewrite" as const, suggested: "Senior backend engineer with 5+ years scaling distributed systems.", rationale: "Reframes summary around scale + ownership emphasis." },
+    { section: "skills" as const, kind: "add" as const, suggested: "Kubernetes, Helm, Argo CD", rationale: "JD lists modern container orchestration as a requirement." },
+    { section: "project" as const, kind: "emphasize" as const, suggested: "Bring the OSS sidecar project forward — it demonstrates the systems thinking they're hiring for.", rationale: "Project alignment with the team's open-source culture." },
+    { section: "experience" as const, kind: "add" as const, suggested: "Owned the on-call rotation for the payments microservice tier.", rationale: "JD calls out operational maturity explicitly." },
+  ];
+  function pickGrade(): typeof GRADES[number] {
+    const r = Math.random();
+    let acc = 0;
+    for (let i = 0; i < GRADES.length; i += 1) {
+      acc += GRADE_WEIGHTS[i];
+      if (r <= acc) return GRADES[i];
+    }
+    return "C";
+  }
+  function pickSkills(n: number): string[] {
+    const shuffled = [...SKILL_BANK].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, n);
+  }
+  const sessionDocs = insertedApps.map((a) => {
+    const grade = pickGrade();
+    return {
+      userId,
+      applicationId: a._id,
+      jobTitle: a.role,
+      company: a.company,
+      jobUrl: a.jobUrl,
+      jobDescription: "(seeded — synthetic JD)",
+      status: "succeeded" as const,
+      fitScore: GRADE_TO_SCORE[grade],
+      fitGrade: grade,
+      summary: `${grade === "A" || grade === "B" ? "Strong" : grade === "C" ? "Mixed" : "Weak"} match. The role aligns with your ${grade === "A" ? "primary strengths" : "secondary skill set"}.`,
+      matchedSkills: pickSkills(grade === "A" ? 6 : grade === "B" ? 5 : grade === "C" ? 4 : 2),
+      missingSkills: pickSkills(grade === "F" ? 5 : grade === "D" ? 4 : 2),
+      suggestions: SUGGESTION_STUBS.slice(0, 3 + Math.floor(Math.random() * 2)).map((s) => ({ ...s, targetCompanyOrName: a.company, targetBullet: "", tags: [], decision: null })),
+      provider: "demo-seed",
+      modelId: "synthetic",
+    };
+  });
+  const insertedSessions = await TailorSession.insertMany(sessionDocs);
+  // Link sessions back onto their applications.
+  await Promise.all(insertedSessions.map((s) =>
+    Application.updateOne({ _id: s.applicationId }, { $set: { tailorSessionId: s._id } })
+  ));
 
   // Contacts
   const contactDocs = [];
@@ -284,6 +343,7 @@ export async function clearSeedData(): Promise<{ cleared: boolean }> {
     Resume.deleteMany({ userId: demoUser._id }),
     Contact.deleteMany({ userId: demoUser._id }),
     Deadline.deleteMany({ userId: demoUser._id }),
+    TailorSession.deleteMany({ userId: demoUser._id }),
     // Remove demo user from company users arrays; delete companies only created by demo with no other users
     Company.updateMany({}, { $pull: { users: demoUser._id } }),
   ]);

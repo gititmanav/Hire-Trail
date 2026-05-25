@@ -12,9 +12,35 @@ createRoot(document.getElementById("root")!).render(
       <App />
       <Toaster
         position="top-center"
+        gutter={10}
         toastOptions={{
-          duration: 3000,
-          style: { fontSize: "14px", borderRadius: "8px" },
+          duration: 3500,
+          // Theme-aware base styling: pulls from the CSS variables so a theme
+          // change (light/dark/custom) flows through automatically.
+          style: {
+            background: "hsl(var(--card))",
+            color: "hsl(var(--foreground))",
+            border: "1px solid hsl(var(--border))",
+            borderRadius: "10px",
+            padding: "10px 14px",
+            fontSize: "13.5px",
+            fontWeight: 500,
+            boxShadow: "0 10px 32px -8px hsla(var(--foreground) / 0.18), 0 2px 6px hsla(var(--foreground) / 0.08)",
+            maxWidth: 420,
+          },
+          success: {
+            iconTheme: { primary: "hsl(var(--success))", secondary: "white" },
+            style: { borderLeft: "3px solid hsl(var(--success))" },
+          },
+          error: {
+            iconTheme: { primary: "hsl(var(--danger))", secondary: "white" },
+            style: { borderLeft: "3px solid hsl(var(--danger))" },
+            duration: 5000,
+          },
+          loading: {
+            iconTheme: { primary: "hsl(var(--primary))", secondary: "white" },
+            style: { borderLeft: "3px solid hsl(var(--primary))" },
+          },
         }}
       />
     </BrowserRouter>

@@ -1,12 +1,15 @@
 /** Paginated contact cards with client-side search across the current page. */
-import { useState, useEffect, useCallback, FormEvent } from "react";
+import { useState, useEffect, useCallback, useRef, FormEvent } from "react";
+import { useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import { contactsAPI } from "../../utils/api.ts";
 import { SkeletonCard } from "../../components/Skeleton/Skeleton.tsx";
+import EmptyState from "../../components/EmptyState/EmptyState.tsx";
 import ActionDropdown from "../../components/ActionDropdown/ActionDropdown.tsx";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal.tsx";
+import CompanyCombobox from "../../components/CompanyCombobox/CompanyCombobox.tsx";
 import { useConfirm } from "../../hooks/useConfirm.ts";
-import type { Contact, ContactFormData, ContactOutreachStatus, Pagination } from "../../types";
+import type { Contact, ContactFormData, ContactOutreachStatus, ContactSource, Pagination } from "../../types";
 
 const SOURCES = ["Cold email", "Referral", "Career fair", "LinkedIn", "Professor intro", "Alumni network", "Other"];
 const OUTREACH_STATUSES: { value: ContactOutreachStatus; label: string }[] = [
@@ -61,7 +64,19 @@ function Modal({ contact, onSave, onClose }: { contact: Contact | null; onSave: 
       <div className="bg-card rounded-xl p-6 w-full max-w-[520px] max-h-[90vh] overflow-y-auto shadow-2xl animate-in" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5"><h2 className="text-lg font-semibold text-foreground">{contact ? "Edit contact" : "New contact"}</h2><button className={btnIcon} onClick={onClose}><svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="4" y1="4" x2="12" y2="12" /><line x1="12" y1="4" x2="4" y2="12" /></svg></button></div>
         <form onSubmit={(e: FormEvent) => { e.preventDefault(); setSaving(true); onSave(form).catch(() => setSaving(false)); }} className="space-y-4">
-          <div className="grid grid-cols-2 gap-3"><div><label className="block text-sm font-medium text-foreground mb-1.5">Name *</label><input className={inputCls} value={form.name} onChange={(e) => u("name", e.target.value)} required /></div><div><label className="block text-sm font-medium text-foreground mb-1.5">Company *</label><input className={inputCls} value={form.company} onChange={(e) => u("company", e.target.value)} required /></div></div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className="block text-sm font-medium text-foreground mb-1.5">Name *</label><input className={inputCls} value={form.name} onChange={(e) => u("name", e.target.value)} required /></div>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">Company *</label>
+              <CompanyCombobox
+                name={form.company}
+                companyId={form.companyId}
+                onChange={({ name, companyId }) => setForm({ ...form, company: name, companyId })}
+                inputClassName={inputCls}
+                required
+              />
+            </div>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div><label className="block text-sm font-medium text-foreground mb-1.5">Role</label><input className={inputCls} value={form.role} onChange={(e) => u("role", e.target.value)} /></div>
             <div>
@@ -72,7 +87,7 @@ function Modal({ contact, onSave, onClose }: { contact: Contact | null; onSave: 
                 searchable
                 searchPlaceholder="Search source..."
                 trigger={
-                  <button className={`${inputCls} h-9 flex items-center justify-between text-left`}>
+                  <button type="button" className={`${inputCls} h-9 flex items-center justify-between text-left`}>
                     <span className="truncate">{form.connectionSource || "Select..."}</span>
                     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="4,6 8,10 12,6" /></svg>
                   </button>
@@ -92,7 +107,7 @@ function Modal({ contact, onSave, onClose }: { contact: Contact | null; onSave: 
                 align="left"
                 menuWidth="w-full"
                 trigger={
-                  <button className={`${inputCls} h-9 flex items-center justify-between text-left`}>
+                  <button type="button" className={`${inputCls} h-9 flex items-center justify-between text-left`}>
                     <span>{OUTREACH_STATUSES.find((s) => s.value === form.outreachStatus)?.label || "Not contacted"}</span>
                     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="4,6 8,10 12,6" /></svg>
                   </button>
@@ -156,6 +171,12 @@ function ContactCard({ c, onEdit, onDelete }: { c: Contact; onEdit: () => void; 
       <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
         {c.outreachStatus && <OutreachBadge status={c.outreachStatus} />}
         {c.connectionSource && <span className="inline-block text-xs font-medium bg-muted text-muted-foreground px-2 py-0.5 rounded-full">{c.connectionSource}</span>}
+        {c.source === "extension" && (
+          <span className="inline-flex items-center gap-1 text-[11px] font-medium bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300 px-2 py-0.5 rounded-full">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-6 9 6v12H3z" /><path d="M9 22V12h6v10" /></svg>
+            via extension
+          </span>
+        )}
       </div>
       {c.linkedinUrl && <a href={c.linkedinUrl} target="_blank" rel="noopener noreferrer" className="text-[13px] text-primary hover:text-primary/90 hover:underline mb-1">LinkedIn profile</a>}
       {c.notes && (
@@ -183,6 +204,7 @@ export default function Contacts() {
   const [editing, setEditing] = useState<Contact | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"All" | ContactOutreachStatus>("All");
+  const [sourceFilter, setSourceFilter] = useState<"all" | ContactSource>("all");
   const [page, setPage] = useState(1);
   const [pag, setPag] = useState<Pagination>({ page: 1, limit: 20, total: 0, pages: 0 });
   const [viewMode, setViewMode] = useState<"person" | "company">("person");
@@ -191,13 +213,61 @@ export default function Contacts() {
 
   const fetchContacts = useCallback(async () => {
     try {
-      const res = await contactsAPI.getAll({ page, limit: 20 });
+      const res = await contactsAPI.getAll({
+        page,
+        limit: 20,
+        ...(sourceFilter !== "all" ? { source: sourceFilter } : {}),
+      });
       setContacts(res.data);
       setPag(res.pagination);
     } catch {} finally { setLoading(false); }
-  }, [page]);
+  }, [page, sourceFilter]);
 
   useEffect(() => { fetchContacts(); }, [fetchContacts]);
+
+  /* ─── Shortcut deep-link: `?new=1` opens the create modal and strips the
+   *  param so a hard reload doesn't reopen it. */
+  const handledNewRef = useRef(false);
+  useEffect(() => {
+    if (handledNewRef.current) return;
+    const sp = new URLSearchParams(window.location.search);
+    if (sp.get("new") === "1") {
+      handledNewRef.current = true;
+      setEditing(null);
+      setModal(true);
+      sp.delete("new");
+      const q = sp.toString();
+      window.history.replaceState({}, "", `${window.location.pathname}${q ? `?${q}` : ""}`);
+    }
+  }, []);
+
+  /* ─── Global search deep-link: `?focus=ID` opens the edit modal for that
+   *  contact. Fires once per ID; ?focus is stripped on open. Falls back to a
+   *  single-record fetch when the contact isn't in the current page. */
+  const [searchParams, setSearchParams] = useSearchParams();
+  const focusedRef = useRef<string | null>(null);
+  useEffect(() => {
+    const focusId = searchParams.get("focus");
+    if (!focusId) { focusedRef.current = null; return; }
+    if (focusedRef.current === focusId) return;
+    if (contacts.length === 0) return;
+    const target = contacts.find((c) => c._id === focusId);
+    const open = (contact: Contact) => {
+      focusedRef.current = focusId;
+      setEditing(contact);
+      setModal(true);
+      const next = new URLSearchParams(searchParams);
+      next.delete("focus");
+      setSearchParams(next, { replace: true });
+    };
+    if (target) { open(target); return; }
+    let cancelled = false;
+    void contactsAPI.getOne(focusId).then((fetched) => {
+      if (cancelled || !fetched) return;
+      open(fetched);
+    }).catch(() => { /* swallow */ });
+    return () => { cancelled = true; };
+  }, [contacts, searchParams, setSearchParams]);
 
   const save = async (d: ContactFormData) => {
     if (editing) { await contactsAPI.update(editing._id, d); toast.success("Updated"); }
@@ -223,10 +293,10 @@ export default function Contacts() {
     return matchesSearch && matchesStatus;
   });
 
-  if (loading) return <div className="grid grid-cols-1 md:grid-cols-2 gap-4">{[1, 2, 3, 4].map((i) => <SkeletonCard key={i} />)}</div>;
+  if (loading) return <div className="fade-up grid grid-cols-1 md:grid-cols-2 gap-4">{[1, 2, 3, 4].map((i) => <SkeletonCard key={i} />)}</div>;
 
   return (
-    <div>
+    <div className="fade-up">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
           Contacts
@@ -243,7 +313,27 @@ export default function Contacts() {
         </div>
       </div>
 
-      <div className="sticky top-[57px] z-20 bg-background/95 backdrop-blur-sm py-3 -mx-8 px-8">
+      <div className="flex items-center gap-1 mb-3 border-b border-border">
+        {([
+          { value: "all", label: "All contacts" },
+          { value: "manual", label: "Added manually" },
+          { value: "extension", label: "Tracked via extension" },
+        ] as const).map((t) => (
+          <button
+            key={t.value}
+            onClick={() => { setSourceFilter(t.value); setPage(1); }}
+            className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              sourceFilter === t.value
+                ? "border-primary text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="sticky top-[57px] z-20 bg-background/95 backdrop-blur-sm py-3 -mx-4 md:-mx-6 px-4 md:px-6">
         <div className="flex flex-wrap items-center gap-3 max-w-[1200px]">
           <input className={`${inputCls} w-[280px]`} placeholder="Search name or company..." value={search} onChange={(e) => setSearch(e.target.value)} />
           <div className="flex flex-wrap gap-1.5">
@@ -268,7 +358,26 @@ export default function Contacts() {
       </div>
 
       {filtered.length === 0 ? (
-        <div className="bg-card border border-border rounded-xl p-12 text-center text-muted-foreground"><h3 className="font-medium text-muted-foreground mb-1">No contacts</h3><p className="text-sm">No contacts match your search and outreach status filter.</p></div>
+        contacts.length === 0 ? (
+          <EmptyState
+            intent="welcome"
+            title="Build your network here"
+            description="Add recruiters, referrers, and hiring managers you've reached out to. Track outreach status and follow-up timing so nothing slips."
+            actions={[
+              { label: "Add contact", variant: "primary", onClick: () => { setEditing(null); setModal(true); } },
+              { label: "Install extension", variant: "secondary", href: "/" },
+            ]}
+          />
+        ) : (
+          <EmptyState
+            intent="filtered"
+            title="No contacts match these filters"
+            description="Try clearing your search or the outreach status filter."
+            actions={[
+              { label: "Clear filters", variant: "secondary", onClick: () => { setSearch(""); setStatusFilter("All"); setSourceFilter("all"); } },
+            ]}
+          />
+        )
       ) : viewMode === "person" ? (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

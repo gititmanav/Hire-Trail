@@ -99,7 +99,8 @@ export default function GlobalSearch() {
           id: c._id,
           title: c.name,
           subtitle: c.domain || c.website || "Company",
-          route: `/companies?focus=${c._id}`,
+          // CompanyProfile route handles single-company detail; no ?focus needed.
+          route: `/companies/${c._id}`,
         }));
 
         const cts: Result[] = (contactsRes.data as Contact[]).map((c) => ({
@@ -206,10 +207,17 @@ export default function GlobalSearch() {
       {open && (
         <div
           className="fixed inset-0 z-[80] bg-background/60 backdrop-blur-sm flex items-start justify-center pt-[12vh] px-4"
-          onClick={closePalette}
+          onMouseDown={(e) => {
+            // Close when the press starts on the backdrop itself (not when a
+            // drag-select inside the card lifts onto it). Use mousedown so we
+            // catch clicks immediately without competing with navigate().
+            if (e.target === e.currentTarget) closePalette();
+          }}
+          onClick={(e) => { if (e.target === e.currentTarget) closePalette(); }}
         >
           <div
             className="w-full max-w-[560px] bg-card border border-border rounded-xl shadow-2xl overflow-hidden"
+            onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-2 px-4 h-12 border-b border-border">

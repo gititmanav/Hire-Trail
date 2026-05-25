@@ -13,6 +13,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { applicationsAPI, resumesAPI } from "../../utils/api.ts";
 import { useRefetchOnFocus } from "../../hooks/useRefetchOnFocus.ts";
 import { SkeletonCard } from "../../components/Skeleton/Skeleton.tsx";
+import { computeAppHealth, HEALTH_DOT_CLASS } from "../../utils/applicationHealth.ts";
 import type { Application, Resume, Stage } from "../../types";
 
 const STAGES: Stage[] = ["Drafting", "Applied", "OA", "Interview", "Offer", "Rejected"];
@@ -29,11 +30,22 @@ const fmt = (d: string) => new Date(d).toLocaleDateString("en-US", { month: "sho
 const KanbanCard = memo(function KanbanCard({ app, resumeName, isDragging }: { app: Application; resumeName?: string; isDragging?: boolean }) {
   const navigate = useNavigate();
   const isDrafting = app.stage === "Drafting" && !!app.tailorSessionId;
+  const health = useMemo(() => computeAppHealth(app), [app]);
   return (
     <div
       className={`card-premium p-3 min-w-0 overflow-hidden ${isDragging ? "!shadow-lg ring-2 ring-ring/20 scale-[1.02]" : ""}`}
     >
-      <h4 className="text-[13px] font-semibold text-foreground mb-0.5 truncate">{app.company}</h4>
+      <div className="flex items-start justify-between gap-2 mb-0.5">
+        <h4 className="text-[13px] font-semibold text-foreground truncate min-w-0">{app.company}</h4>
+        <span
+          className="inline-flex items-center gap-1 shrink-0 text-[10px] text-muted-foreground tabular-nums"
+          title={health.longLabel}
+          aria-label={health.longLabel}
+        >
+          <span className={`w-1.5 h-1.5 rounded-full ${HEALTH_DOT_CLASS[health.tone]}`} aria-hidden />
+          {health.shortLabel}
+        </span>
+      </div>
       <p className="text-xs text-muted-foreground mb-1.5 truncate">{app.role}</p>
       <div className="flex flex-wrap gap-1 mb-1.5 min-w-0">
         {app.location?.trim() && (

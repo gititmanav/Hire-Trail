@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { STAGES, OUTREACH_STATUSES, ARCHIVE_REASONS } from "../models/Application.js";
+import { STAGES, OUTREACH_STATUSES, ARCHIVE_REASONS, APPLICATION_SOURCES } from "../models/Application.js";
 
 // Transform empty strings to null for optional reference fields
 const optionalRef = z.string().nullable().default(null).transform((v) => (v === "" ? null : v));
@@ -18,6 +18,7 @@ export const createApplicationSchema = z.object({
   companyId: optionalRef,
   contactId: optionalRef,
   outreachStatus: z.enum(OUTREACH_STATUSES).default("none"),
+  source: z.enum(APPLICATION_SOURCES).default("manual"),
 });
 
 const optionalRefUpdate = z.string().nullable().optional().transform((v) => (v === "" ? null : v));

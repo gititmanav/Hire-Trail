@@ -13,6 +13,8 @@ const keyForUser = (base: string, userId?: string | null) => (userId ? `${base}:
 
 export const ALL_WIDGETS: WidgetConfig[] = [
   { id: "stats", type: "stats", title: "Key Metrics" },
+  { id: "streak", type: "streak", title: "Activity Streak" },
+  { id: "capacity", type: "capacity", title: "Weekly Capacity" },
   { id: "funnel", type: "funnel", title: "Application Funnel" },
   { id: "conversion", type: "conversion", title: "Conversion Rates" },
   { id: "trend", type: "trend", title: "Applications Over Time" },
@@ -25,8 +27,11 @@ export const ALL_WIDGETS: WidgetConfig[] = [
 ];
 
 // Initial 12-column grid when no saved layout exists (lg breakpoint).
+// Row 0 — top stats strip is split: stats (6) + streak (3) + capacity (3).
 const DEFAULT_LAYOUT: Layout[] = [
-  { i: "stats", x: 0, y: 0, w: 12, h: 2, minW: 6, minH: 2 },
+  { i: "stats", x: 0, y: 0, w: 6, h: 2, minW: 4, minH: 2 },
+  { i: "streak", x: 6, y: 0, w: 3, h: 2, minW: 3, minH: 2 },
+  { i: "capacity", x: 9, y: 0, w: 3, h: 2, minW: 3, minH: 2 },
   { i: "recent-apps", x: 0, y: 2, w: 7, h: 6, minW: 4, minH: 4 },
   { i: "deadlines", x: 7, y: 2, w: 5, h: 6, minW: 3, minH: 4 },
   { i: "funnel", x: 0, y: 8, w: 6, h: 6, minW: 4, minH: 5 },
@@ -38,13 +43,43 @@ const DEFAULT_LAYOUT: Layout[] = [
   { i: "mini-calendar", x: 6, y: 20, w: 6, h: 6, minW: 4, minH: 5 },
 ];
 
+/** Merge any widget IDs in DEFAULT_LAYOUT that are missing from the user's
+ *  saved layout. Lets us ship new widgets in releases without forcing every
+ *  existing user to reset their dashboard or manually enable them via the
+ *  picker. New items dock at the bottom (computed `y`) so they don't shove
+ *  existing widgets around. */
+function backfillMissingWidgets(saved: Layout[]): Layout[] {
+  const knownIds = new Set(saved.map((l) => l.i));
+  let maxY = saved.reduce((m, l) => Math.max(m, l.y + l.h), 0);
+  const additions: Layout[] = [];
+  for (const def of DEFAULT_LAYOUT) {
+    if (knownIds.has(def.i)) continue;
+    additions.push({ ...def, y: maxY });
+    maxY += def.h;
+  }
+  return additions.length === 0 ? saved : [...saved, ...additions];
+}
+
 function loadLayout(userId?: string | null): Layout[] {
-  try { const s = localStorage.getItem(keyForUser(SK, userId)); if (s) return JSON.parse(s); } catch {}
+  try {
+    const s = localStorage.getItem(keyForUser(SK, userId));
+    if (s) return backfillMissingWidgets(JSON.parse(s) as Layout[]);
+  } catch { /* fall through to default */ }
   return DEFAULT_LAYOUT;
 }
 
 function loadVisible(userId?: string | null): Record<string, boolean> {
-  try { const s = localStorage.getItem(keyForUser(SV, userId)); if (s) return JSON.parse(s); } catch {}
+  try {
+    const s = localStorage.getItem(keyForUser(SV, userId));
+    if (s) {
+      const parsed = JSON.parse(s) as Record<string, boolean>;
+      // Newly-shipped widgets default to visible if absent from saved data.
+      for (const w of ALL_WIDGETS) {
+        if (!(w.id in parsed)) parsed[w.id] = true;
+      }
+      return parsed;
+    }
+  } catch { /* fall through to default */ }
   const d: Record<string, boolean> = {};
   ALL_WIDGETS.forEach((w) => { d[w.id] = true; });
   return d;

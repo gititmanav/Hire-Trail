@@ -23,6 +23,9 @@ export const CONTACT_OUTREACH_STATUSES = [
 
 export type ContactOutreachStatus = (typeof CONTACT_OUTREACH_STATUSES)[number];
 
+export const CONTACT_SOURCES = ["manual", "extension", "email"] as const;
+export type ContactSource = (typeof CONTACT_SOURCES)[number];
+
 export interface IContact extends Document {
   _id: Types.ObjectId;
   userId: Types.ObjectId;
@@ -38,6 +41,7 @@ export interface IContact extends Document {
   outreachStatus: ContactOutreachStatus;
   lastOutreachDate: Date | null;
   nextFollowUpDate: Date | null;
+  source: ContactSource;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -110,6 +114,12 @@ const contactSchema = new Schema<IContact>(
     nextFollowUpDate: {
       type: Date,
       default: null,
+    },
+    source: {
+      type: String,
+      enum: CONTACT_SOURCES,
+      default: "manual",
+      index: true,
     },
   },
   { timestamps: true }

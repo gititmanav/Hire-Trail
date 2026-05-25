@@ -56,7 +56,71 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     findDraftForUrl(msg.url).then(sendResponse);
     return true;
   }
+  if (msg.type === "TRACK_CONTACT") {
+    trackContact(msg.data).then(sendResponse);
+    return true;
+  }
 });
+
+/** Track a LinkedIn-profile contact. Find-or-creates the Company server-side
+ *  (the /contacts POST handler does that when companyId is empty), and writes
+ *  a short auto-note explaining provenance. */
+async function trackContact(data) {
+  const { token } = await chrome.storage.local.get(["token"]);
+  if (!token) return { success: false, error: "Not signed in.", code: ERROR_CODES.AUTH_MISSING };
+
+  const name = truncate(data?.name || "", 100);
+  const linkedinUrl = truncate(data?.linkedinUrl || "", 500);
+  const company = truncate(data?.company || "", 200);
+  const role = truncate(data?.role || "", 100);
+  const headline = truncate(data?.headline || "", 300);
+  const location = truncate(data?.location || "", 200);
+
+  if (!name) return { success: false, error: "Couldn't read the profile name." };
+  if (!linkedinUrl) return { success: false, error: "Couldn't read the LinkedIn URL." };
+
+  // Compact 4-5 line provenance + context note so the user sees why this contact exists.
+  const noteLines = [
+    `Saved from LinkedIn on ${new Date().toLocaleDateString()}.`,
+  ];
+  if (headline) noteLines.push(`Headline: ${headline}`);
+  if (company || role) noteLines.push(`${role ? `${role} ` : ""}${company ? `at ${company}` : ""}`.trim());
+  if (location) noteLines.push(`Based in ${location}.`);
+  noteLines.push("Reach out with a personalized note — referencing a shared interest helps a lot.");
+  const notes = noteLines.filter(Boolean).slice(0, 5).join("\n");
+
+  const payload = {
+    name,
+    company: company || "Unknown",
+    role,
+    linkedinUrl,
+    connectionSource: "LinkedIn",
+    notes,
+    companyId: null,
+    applicationIds: [],
+    outreachStatus: "not_contacted",
+    nextFollowUpDate: null,
+    source: "extension",
+  };
+
+  try {
+    const res = await fetchWithTimeout(`${API_BASE}/contacts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify(payload),
+    });
+    if (res.status === 401) return { success: false, error: "Session expired — sign in again.", code: ERROR_CODES.AUTH_EXPIRED };
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      return { success: false, error: body?.error || "Could not save contact." };
+    }
+    const contact = await res.json();
+    return { success: true, contact };
+  } catch (err) {
+    if (err?.name === "AbortError") return { success: false, error: "Timed out.", code: ERROR_CODES.NETWORK_TIMEOUT };
+    return { success: false, error: err?.message || "Network error", code: ERROR_CODES.NETWORK_ERROR };
+  }
+}
 
 /** Used by Apply auto-detect: if the user previously clicked "Tailor" for this JD,
  *  return the session id so content.js can prompt them to confirm in HireTrail rather
@@ -247,6 +311,7 @@ function normalizeIncomingJob(data) {
     location: truncate(data?.location || "", 300),
     salary: truncate(data?.salary || "", 200),
     jobType: truncate(data?.jobType || "", 120),
+    source: "extension",
   };
   if (!normalized.jobUrl.startsWith("http://") && !normalized.jobUrl.startsWith("https://")) {
     normalized.jobUrl = "";

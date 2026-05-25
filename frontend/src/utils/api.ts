@@ -91,10 +91,13 @@ export const companiesAPI = {
   create: (data: CompanyFormData) => api.post<Company>("/companies", data).then((r) => r.data),
   update: (id: string, data: Partial<CompanyFormData>) => api.put<Company>(`/companies/${id}`, data).then((r) => r.data),
   delete: (id: string) => api.delete(`/companies/${id}`).then((r) => r.data),
+  /** Lazy fetch + cache the company logo (Clearbit→Cloudinary). Returns the logo URL,
+   *  possibly empty if Clearbit had no match — empty means "we tried, don't re-ask". */
+  fetchLogo: (id: string) => api.post<{ logoUrl: string; logoFetchedAt: string | null }>(`/companies/${id}/logo`).then((r) => r.data),
 };
 
 export const contactsAPI = {
-  getAll: (params?: { page?: number; limit?: number }) =>
+  getAll: (params?: { page?: number; limit?: number; source?: "manual" | "extension" | "email" }) =>
     api.get<PaginatedResponse<Contact>>("/contacts", { params }).then((r) => r.data),
   getOne: (id: string) => api.get<Contact>(`/contacts/${id}`).then((r) => r.data),
   create: (data: ContactFormData) => api.post<Contact>("/contacts", data).then((r) => r.data),
@@ -121,7 +124,7 @@ export const deadlinesAPI = {
     const acc: Deadline[] = [];
     let page = 1;
     const limit = 500;
-    for (;;) {
+    for (; ;) {
       const body = await api
         .get<
           PaginatedResponse<Deadline> & {
@@ -197,6 +200,12 @@ export const aiAPI = {
   listProviders: () => api.get<{ available: { provider: AIProvider; byok: boolean }[]; defaults: Record<AIProvider, { fast: string; smart: string }> }>("/ai/providers").then((r) => r.data),
   listKeys: () => api.get<AIKey[]>("/ai/keys").then((r) => r.data),
   createKey: (data: { provider: AIProvider; apiKey: string; name?: string; modelOverride?: string | null }) => api.post<AIKey>("/ai/keys", data).then((r) => r.data),
+  /** Best-effort: ping the provider with the candidate key and report whether
+   *  it works, WITHOUT persisting anything. Used for inline validation UX.
+   *  Accepts an optional AbortSignal so the caller can cancel an in-flight
+   *  request when the user keeps typing. */
+  validateKey: (data: { provider: AIProvider; apiKey: string }, signal?: AbortSignal) =>
+    api.post<{ ok: boolean; reason?: string }>("/ai/keys/validate", data, { signal }).then((r) => r.data),
   updateKey: (id: string, data: { name?: string; modelOverride?: string | null; isActive?: boolean }) => api.put<AIKey>(`/ai/keys/${id}`, data).then((r) => r.data),
   deleteKey: (id: string) => api.delete(`/ai/keys/${id}`).then((r) => r.data),
 };
@@ -219,7 +228,7 @@ export interface TailorSuggestion {
   decision: TailorDecision;
 }
 
-export type TailorStatus = "processing" | "succeeded" | "failed";
+export type TailorStatus = "processing" | "succeeded" | "failed" | "deferred";
 
 export interface TailorSession {
   _id: string;

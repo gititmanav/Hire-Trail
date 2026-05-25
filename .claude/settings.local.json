@@ -21,7 +21,14 @@
       "Bash(xargs wc -l)",
       "Bash(awk '{print $NF}')",
       "Bash(git check-ignore *)",
-      "Bash(grep -E \"\\\\.env$\")"
+      "Bash(grep -E \"\\\\.env$\")",
+      "Read(//Users/manav/Projects/**)",
+      "Read(//private/tmp/hiretrail_roadmap/**)",
+      "Bash(python3 -c ' *)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(npm run *)",
+      "Bash(npm test *)",
+      "Bash(node --test \"/Users/manav/Projects/Hire Trail/backend/src/services/jdExtractor.test.mjs\" \"/Users/manav/Projects/Hire Trail/frontend/src/utils/applicationHealth.test.mjs\")"
     ]
   }
 }
