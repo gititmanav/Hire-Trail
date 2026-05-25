@@ -10,6 +10,7 @@ import Privacy from "./pages/Legal/Privacy.tsx";
 import Terms from "./pages/Legal/Terms.tsx";
 import LandingPage from "./pages/Landing/LandingPage.tsx";
 import { BackgroundTasksProvider } from "./hooks/useBackgroundTasks.tsx";
+import { DemoGateProvider } from "./hooks/useDemoGate.tsx";
 import BackgroundTaskCenter from "./components/BackgroundTaskCenter/BackgroundTaskCenter.tsx";
 import GlobalShortcuts from "./components/GlobalShortcuts/GlobalShortcuts.tsx";
 // Code-split heavy / rarely-loaded routes. Keeps the initial chunk small —
@@ -120,6 +121,7 @@ function App() {
   return (
     <ThemeContext.Provider value={theme}>
       <UserContext.Provider value={{ user, setUser }}>
+      <DemoGateProvider>
       <FeatureFlagsProvider authenticated={!!user}>
       <JobSearchContext.Provider value={{ state: jobSearchState, setState: setJobSearchState }}>
       <BackgroundTasksProvider>
@@ -199,6 +201,7 @@ function App() {
       </BackgroundTasksProvider>
       </JobSearchContext.Provider>
       </FeatureFlagsProvider>
+      </DemoGateProvider>
       </UserContext.Provider>
     </ThemeContext.Provider>
   );

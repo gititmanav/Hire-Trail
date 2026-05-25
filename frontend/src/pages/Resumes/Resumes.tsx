@@ -10,6 +10,7 @@ import ResumePreview from "../../components/ResumePreview/ResumePreview.tsx";
 import ResumeModal from "../../components/ResumeModal/ResumeModal.tsx";
 import { useConfirm } from "../../hooks/useConfirm.ts";
 import { useBackgroundTasks } from "../../hooks/useBackgroundTasks.tsx";
+import { useDemoGate } from "../../hooks/useDemoGate.tsx";
 import type { Resume } from "../../types";
 
 const fmt = (d: string) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -240,6 +241,7 @@ export default function Resumes() {
   const [sortBy, setSortBy] = useState<"recent" | "name" | "usage">("recent");
   const { confirm: confirmDelete, confirmState, handleConfirm: onConfirm, handleCancel: onCancel } = useConfirm();
   const { startTask, tasks } = useBackgroundTasks();
+  const { requireRealAccount } = useDemoGate();
 
   // Track per-resume parse state via the global task list — survives navigation.
   const parsingId = useMemo(() => {
@@ -248,6 +250,7 @@ export default function Resumes() {
   }, [tasks]);
 
   const parseWithAI = useCallback((resumeId: string, resumeName?: string) => {
+    if (!requireRealAccount("Resume parsing")) return;
     startTask({
       id: `resume-parse:${resumeId}`,
       kind: "profile_sync",
@@ -271,7 +274,7 @@ export default function Resumes() {
         return e?.response?.data?.error || e?.message || "Failed to extract. Check your AI key in Settings.";
       },
     });
-  }, [startTask]);
+  }, [startTask, requireRealAccount]);
 
   const fetchResumes = useCallback(async () => {
     try {

@@ -6,6 +6,7 @@ import type { EmailStatusResponse } from "../../utils/api.ts";
 import type { User } from "../../types";
 import { AISettingsCard } from "./AISettingsCard.tsx";
 import { useFeatureFlags } from "../../hooks/useFeatureFlags.tsx";
+import { useDemoGate } from "../../hooks/useDemoGate.tsx";
 
 /** Lazy-loaded so the feedback modal's bundle doesn't ship to users who never
  *  hit a "request access" or "report rejection" CTA. */
@@ -205,6 +206,7 @@ export default function Settings() {
    *  the real Connect button. Default off → "Coming soon" state.  */
   const { isEnabled } = useFeatureFlags();
   const outlookEnabled = isEnabled("feature_outlook_integration");
+  const { requireRealAccount } = useDemoGate();
   const [mailbox, setMailbox] = useState<EmailStatusResponse>(DEFAULT_EMAIL_STATUS);
   const [mailboxLoading, setMailboxLoading] = useState<null | "gmail" | "outlook" | "scan">(null);
   const [aiProviderCount, setAiProviderCount] = useState(0);
@@ -429,6 +431,7 @@ export default function Settings() {
                   loading={mailboxLoading === "gmail"}
                   configured={true}
                   onConnect={async () => {
+                    if (!requireRealAccount("Email integration")) return;
                     setMailboxLoading("gmail");
                     try {
                       const { url } = await emailAPI.connectGmail();
@@ -457,6 +460,7 @@ export default function Settings() {
                     loading={mailboxLoading === "outlook"}
                     configured={mailbox.outlook.configured}
                     onConnect={async () => {
+                      if (!requireRealAccount("Email integration")) return;
                       setMailboxLoading("outlook");
                       try {
                         const { url } = await emailAPI.connectOutlook();
@@ -495,6 +499,7 @@ export default function Settings() {
                   <button
                     disabled={mailboxLoading === "scan"}
                     onClick={async () => {
+                      if (!requireRealAccount("Email inbox scan")) return;
                       setMailboxLoading("scan");
                       try {
                         const result = await emailAPI.scan();
@@ -554,6 +559,11 @@ export default function Settings() {
                     disabled={mergeSaving}
                     onChange={async (e) => {
                       const next = e.target.checked;
+                      if (!requireRealAccount("Profile Sync")) {
+                        // Roll the checkbox back to its prior state — demo user can't toggle.
+                        e.target.checked = !next;
+                        return;
+                      }
                       setMergeEnabled(next);
                       setMergeSaving(true);
                       try {

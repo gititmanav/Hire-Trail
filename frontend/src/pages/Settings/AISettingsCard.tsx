@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { aiAPI } from "../../utils/api.ts";
 import type { AIProvider, AIKey } from "../../utils/api.ts";
+import { useDemoGate } from "../../hooks/useDemoGate.tsx";
 
 /** "Did this key pass validation?" debounced state machine. */
 type ValidationState =
@@ -31,6 +32,7 @@ export function AISettingsCard() {
   const [loading, setLoading] = useState(true);
   const [validation, setValidation] = useState<ValidationState>({ state: "idle" });
   const validationSeq = useRef(0);
+  const { requireRealAccount } = useDemoGate();
 
   const load = async () => {
     try {
@@ -79,6 +81,7 @@ export function AISettingsCard() {
   const onAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!apiKey.trim()) return;
+    if (!requireRealAccount("AI provider keys")) return;
     setSaving(true);
     try {
       await aiAPI.createKey({ provider, apiKey: apiKey.trim(), name: name.trim() || undefined, modelOverride: modelOverride.trim() || null });

@@ -26,12 +26,15 @@ interface Props {
   onModeChange: (mode: AuthMode) => void;
   onClose: () => void;
   onLogin: (user: User) => void;
+  /** Optional banner shown above the form — used by the demo upgrade flow to
+   *  explain which feature triggered the prompt. */
+  contextHeader?: string;
 }
 
 const DEMO_EMAIL = "demo@hiretrail.com";
 const DEMO_PASSWORD = "password123";
 
-export default function AuthModal({ open, mode, onModeChange, onClose, onLogin }: Props) {
+export default function AuthModal({ open, mode, onModeChange, onClose, onLogin, contextHeader }: Props) {
   // Keep the panel mounted briefly after `open` flips false so the exit
   // animation can play. `visible` controls the actual DOM presence; `shown`
   // controls the transition state.
@@ -90,13 +93,14 @@ export default function AuthModal({ open, mode, onModeChange, onClose, onLogin }
           onModeChange={onModeChange}
           onClose={onClose}
           onLogin={onLogin}
+          contextHeader={contextHeader}
         />
       </div>
     </div>
   );
 }
 
-function AuthCard({ mode, onModeChange, onClose, onLogin }: Omit<Props, "open">) {
+function AuthCard({ mode, onModeChange, onClose, onLogin, contextHeader }: Omit<Props, "open">) {
   return (
     <div className="auth-card rounded-2xl p-6 sm:p-8 text-center relative">
       <button
@@ -107,6 +111,21 @@ function AuthCard({ mode, onModeChange, onClose, onLogin }: Omit<Props, "open">)
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
       </button>
+
+      {contextHeader && (
+        <div
+          role="status"
+          className="mb-5 rounded-lg border border-[#3B82F6]/40 bg-[#3B82F6]/10 px-4 py-3 text-left text-[13px] leading-snug text-slate-100"
+        >
+          <div className="flex items-start gap-2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="mt-0.5 shrink-0 text-[#60A5FA]">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 16v-4M12 8h.01" />
+            </svg>
+            <span>{contextHeader}</span>
+          </div>
+        </div>
+      )}
 
       {mode === "login" ? (
         <LoginForm onLogin={onLogin} onSwitchMode={() => onModeChange("register")} />

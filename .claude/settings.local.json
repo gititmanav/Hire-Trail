@@ -28,7 +28,10 @@
       "mcp__Claude_Preview__preview_start",
       "Bash(npm run *)",
       "Bash(npm test *)",
-      "Bash(node --test \"/Users/manav/Projects/Hire Trail/backend/src/services/jdExtractor.test.mjs\" \"/Users/manav/Projects/Hire Trail/frontend/src/utils/applicationHealth.test.mjs\")"
+      "Bash(node --test \"/Users/manav/Projects/Hire Trail/backend/src/services/jdExtractor.test.mjs\" \"/Users/manav/Projects/Hire Trail/frontend/src/utils/applicationHealth.test.mjs\")",
+      "Bash(lsof -nP -iTCP:5173 -sTCP:LISTEN)",
+      "Bash(lsof -nP -iTCP:5174 -sTCP:LISTEN)",
+      "Bash(lsof -nP -iTCP:5175 -sTCP:LISTEN)"
     ]
   }
 }
