@@ -15,6 +15,7 @@ import { AIProviderConfig, AI_PROVIDERS } from "../models/AIProviderConfig.js";
 import { encrypt } from "../utils/encryption.js";
 import { listAvailableProviders, DEFAULT_MODELS } from "../services/ai/index.js";
 import { NotFoundError } from "../errors/AppError.js";
+import { byokValidateLimiter } from "../middleware/rateLimiter.js";
 
 const router = Router();
 router.use(ensureAuth);
@@ -30,6 +31,78 @@ const updateKeySchema = z.object({
   name: z.string().max(80).optional(),
   modelOverride: z.string().max(120).nullable().optional(),
   isActive: z.boolean().optional(),
+});
+
+/** POST /api/ai/keys/validate — pings the provider with the supplied key to
+ *  verify it's valid BEFORE the user saves it. Tries each provider's cheapest
+ *  "is this key real?" endpoint:
+ *    - Anthropic:   GET https://api.anthropic.com/v1/models
+ *    - OpenAI:      GET https://api.openai.com/v1/models
+ *    - Google:      GET https://generativelanguage.googleapis.com/v1beta/models?key={KEY}
+ *    - OpenRouter:  GET https://openrouter.ai/api/v1/auth/key
+ *  Returns { ok: true } on success, otherwise { ok: false, reason: string }.
+ *  Never persists anything. Never throws — failure is communicated via JSON.
+ */
+const validateKeySchema = z.object({
+  provider: z.enum(AI_PROVIDERS),
+  apiKey: z.string().min(4),
+});
+// SECURITY: the request body for this route contains a raw API key. If any
+// downstream proxy/logger captures request bodies, redact "apiKey" before
+// persisting. We don't run a request-body logger in this app today, so the
+// surface area is the hosting platform's own logs. Treat this as a known
+// constraint; document it in deploy notes.
+// RATE LIMIT: 30 requests / 5 minutes / IP. Prevents this endpoint becoming an
+// oracle for abusers to validate stolen keys against providers.
+router.post("/keys/validate", byokValidateLimiter, async (req: Request, res: Response, _next: NextFunction) => {
+  const parsed = validateKeySchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.json({ ok: false, reason: "Missing provider or API key." });
+    return;
+  }
+  const { provider, apiKey } = parsed.data;
+  try {
+    let url = "";
+    const headers: Record<string, string> = {};
+    if (provider === "anthropic") {
+      url = "https://api.anthropic.com/v1/models";
+      headers["x-api-key"] = apiKey;
+      headers["anthropic-version"] = "2023-06-01";
+    } else if (provider === "openai") {
+      url = "https://api.openai.com/v1/models";
+      headers["Authorization"] = `Bearer ${apiKey}`;
+    } else if (provider === "google") {
+      // Use header auth rather than querystring so the key never appears in
+      // URLs, proxy logs, or referer headers. The Generative Language API
+      // accepts `x-goog-api-key`.
+      url = "https://generativelanguage.googleapis.com/v1beta/models";
+      headers["x-goog-api-key"] = apiKey;
+    } else if (provider === "openrouter") {
+      url = "https://openrouter.ai/api/v1/auth/key";
+      headers["Authorization"] = `Bearer ${apiKey}`;
+    } else {
+      res.json({ ok: false, reason: "Unknown provider." });
+      return;
+    }
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    try {
+      const r = await fetch(url, { headers, signal: controller.signal });
+      if (r.status === 200) { res.json({ ok: true }); return; }
+      if (r.status === 401 || r.status === 403) { res.json({ ok: false, reason: "Key was rejected by the provider." }); return; }
+      if (r.status === 429) { res.json({ ok: false, reason: "Provider rate limit hit — try again in a moment." }); return; }
+      res.json({ ok: false, reason: `Provider returned ${r.status}.` });
+    } finally {
+      clearTimeout(timeout);
+    }
+  } catch (err) {
+    // Don't echo raw provider error messages — they sometimes include URL
+    // fragments which (in theory) could expose the key for providers that
+    // accept it as a query param. Use a fixed, user-friendly response.
+    const e = err as { name?: string };
+    if (e?.name === "AbortError") { res.json({ ok: false, reason: "Validation timed out." }); return; }
+    res.json({ ok: false, reason: "Could not reach provider." });
+  }
 });
 
 router.get("/providers", async (req: Request, res: Response, next: NextFunction) => {

@@ -16,3 +16,14 @@ export const apiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+/** Tight per-IP limit for the BYOK key-validate endpoint. Hits an external
+ *  provider on every call → cheap to abuse, expensive to ignore. Keep it well
+ *  under what a real user would need (paste / type a few keys per minute). */
+export const byokValidateLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000, // 5 minutes
+  max: 30,
+  message: { error: "Too many validation attempts. Please wait a few minutes." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});

@@ -6,6 +6,7 @@ import { masterProfileAPI, resumesAPI, pollMasterProfileParse } from "../../util
 import ResumePreview from "../../components/ResumePreview/ResumePreview.tsx";
 import EditDrawer, { type SectionKey as EditSectionKey } from "./EditDrawer.tsx";
 import { useBackgroundTasks } from "../../hooks/useBackgroundTasks.tsx";
+import { useDemoGate } from "../../hooks/useDemoGate.tsx";
 import type { Resume } from "../../types";
 
 /* ------------------ Types (mirror backend MasterProfile shape) ------------------ */
@@ -75,6 +76,7 @@ export default function Profile() {
   const [showPreview, setShowPreview] = useState(false);
   const [editingSection, setEditingSection] = useState<EditSectionKey | null>(null);
   const { startTask, tasks, registerRecovery } = useBackgroundTasks();
+  const { requireRealAccount } = useDemoGate();
   // True while ANY resume-parse / profile-sync task is running anywhere in the app.
   const uploading = tasks.some((t) => (t.kind === "resume_parse" || t.kind === "profile_sync") && t.status === "running");
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -108,6 +110,7 @@ export default function Profile() {
 
   const handleFile = useCallback((file: File) => {
     if (!file) return;
+    if (!requireRealAccount("Resume parsing")) return;
     if (!file.name.toLowerCase().endsWith(".pdf")) {
       toast.error("Only PDF resumes are supported.");
       return;
@@ -135,7 +138,7 @@ export default function Profile() {
       },
       onSettled: (r) => { if (r.ok) void load(); },
     });
-  }, [startTask, load]);
+  }, [startTask, load, requireRealAccount]);
 
   // Register recovery handlers for resume_parse + profile_sync — they both poll the
   // same master profile endpoint, so a single rebuild works for either kind.

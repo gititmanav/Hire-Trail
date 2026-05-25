@@ -58,6 +58,19 @@ export interface AdminOverview {
 export type Stage = "Drafting" | "Applied" | "OA" | "Interview" | "Offer" | "Rejected";
 export type OutreachStatus = "none" | "reached_out" | "referred" | "response_received";
 export type ArchiveReason = "auto_stale" | "rejected" | "manual";
+export type ApplicationSource = "manual" | "extension" | "email";
+
+export type FitStatus = "processing" | "succeeded" | "failed" | "deferred";
+export interface AppFit {
+  sessionId: string;
+  status: FitStatus;
+  fitScore: number;
+  fitGrade: "A" | "B" | "C" | "D" | "F" | "";
+  summary: string;
+  matchedCount: number;
+  missingCount: number;
+  errorMessage?: string;
+}
 export type ContactOutreachStatus = "not_contacted" | "reached_out" | "responded" | "meeting_scheduled" | "follow_up_needed" | "gone_cold";
 export interface StageEntry { stage: Stage; date: string; }
 export interface Application {
@@ -72,6 +85,9 @@ export interface Application {
   contactId: string | null;
   outreachStatus: OutreachStatus;
   archived: boolean; archivedAt: string | null; archivedReason: ArchiveReason | null;
+  source?: ApplicationSource;
+  /** Server-derived summary of the linked TailorSession, when one exists. */
+  fit?: AppFit | null;
   createdAt: string; updatedAt: string;
 }
 export interface Resume {
@@ -79,6 +95,7 @@ export interface Resume {
   fileUrl: string; filePublicId: string; isProtected?: boolean;
   uploadDate: string; createdAt: string; updatedAt: string; applicationCount?: number;
 }
+export type ContactSource = "manual" | "extension" | "email";
 export interface Contact {
   _id: string; userId: string; name: string; company: string; companyId: string | null; role: string;
   linkedinUrl: string; connectionSource: string; lastContactDate: string;
@@ -86,11 +103,13 @@ export interface Contact {
   applicationIds: string[];
   outreachStatus: ContactOutreachStatus;
   lastOutreachDate: string | null; nextFollowUpDate: string | null;
+  source?: ContactSource;
   createdAt: string; updatedAt: string;
 }
 
 export interface Company {
   _id: string; name: string; website: string; domain: string;
+  logoUrl?: string; logoPublicId?: string; logoFetchedAt?: string | null;
   createdBy: string; users: string[];
   applicationCount?: number;
   createdAt: string; updatedAt: string;

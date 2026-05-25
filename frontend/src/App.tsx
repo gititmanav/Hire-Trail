@@ -1,7 +1,7 @@
 /**
  * Root router: session bootstrap, protected shell, job-search UI state, theme context.
  */
-import { useState, useEffect, useCallback, createContext } from "react";
+import { useState, useEffect, useCallback, createContext, lazy, Suspense } from "react";
 import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import Layout from "./components/Layout/Layout.tsx";
 import ProtectedRoute from "./components/ProtectedRoute/ProtectedRoute.tsx";
@@ -10,20 +10,57 @@ import Privacy from "./pages/Legal/Privacy.tsx";
 import Terms from "./pages/Legal/Terms.tsx";
 import LandingPage from "./pages/Landing/LandingPage.tsx";
 import { BackgroundTasksProvider } from "./hooks/useBackgroundTasks.tsx";
+import { DemoGateProvider } from "./hooks/useDemoGate.tsx";
 import BackgroundTaskCenter from "./components/BackgroundTaskCenter/BackgroundTaskCenter.tsx";
+import GlobalShortcuts from "./components/GlobalShortcuts/GlobalShortcuts.tsx";
+// Code-split heavy / rarely-loaded routes. Keeps the initial chunk small —
+// Dashboard + Applications + the core auth shell are in the main chunk,
+// everything else loads on demand. Suspense fallback shares the existing
+// spinner component for visual consistency.
 import Dashboard from "./pages/Dashboard/Dashboard.tsx";
 import Applications from "./pages/Applications/Applications.tsx";
-import Kanban from "./pages/Kanban/Kanban.tsx";
-import JobSearch from "./pages/JobSearch/JobSearch.tsx";
-import Resumes from "./pages/Resumes/Resumes.tsx";
-import Contacts from "./pages/Contacts/Contacts.tsx";
-import Companies from "./pages/Companies/Companies.tsx";
-import Deadlines from "./pages/Deadlines/Deadlines.tsx";
-import CalendarPage from "./pages/Calendar/Calendar.tsx";
-import ImportExport from "./pages/ImportExport/ImportExport.tsx";
-import Profile from "./pages/Profile/Profile.tsx";
-import Settings from "./pages/Settings/Settings.tsx";
-import Tailor from "./pages/Tailor/Tailor.tsx";
+// Factories so we can BOTH lazy-load via React.lazy AND fire the same import
+// from a post-mount warmer to preload chunks the sidebar links to. Idempotent:
+// the underlying module cache means calling the import a second time is free.
+const loadKanban    = () => import("./pages/Kanban/Kanban.tsx");
+const loadJobSearch = () => import("./pages/JobSearch/JobSearch.tsx");
+const loadResumes   = () => import("./pages/Resumes/Resumes.tsx");
+const loadContacts  = () => import("./pages/Contacts/Contacts.tsx");
+const loadCompanies = () => import("./pages/Companies/Companies.tsx");
+const loadDeadlines = () => import("./pages/Deadlines/Deadlines.tsx");
+const loadCalendar  = () => import("./pages/Calendar/Calendar.tsx");
+const loadImport    = () => import("./pages/ImportExport/ImportExport.tsx");
+const loadProfile   = () => import("./pages/Profile/Profile.tsx");
+const loadSettings  = () => import("./pages/Settings/Settings.tsx");
+const loadTailor    = () => import("./pages/Tailor/Tailor.tsx");
+
+const Kanban       = lazy(loadKanban);
+const JobSearch    = lazy(loadJobSearch);
+const Resumes      = lazy(loadResumes);
+const Contacts     = lazy(loadContacts);
+const Companies    = lazy(loadCompanies);
+const Deadlines    = lazy(loadDeadlines);
+const CalendarPage = lazy(loadCalendar);
+const ImportExport = lazy(loadImport);
+const Profile      = lazy(loadProfile);
+const Settings     = lazy(loadSettings);
+const Tailor       = lazy(loadTailor);
+
+/** Warm the chunk cache for sidebar routes ~600ms after the first paint —
+ *  late enough not to compete with the initial render, early enough that a
+ *  user clicking any sidebar link gets near-instant navigation. Errors here
+ *  are silent because the page lazy() fallback will retry on actual navigation. */
+function preloadSidebarRoutes(): void {
+  setTimeout(() => {
+    void Promise.all([
+      loadKanban(), loadContacts(), loadCompanies(), loadResumes(),
+      loadDeadlines(), loadCalendar(),
+    ]).catch(() => undefined);
+  }, 600);
+}
+// Admin routes — eagerly imported because they're all small once individually
+// split. A second pass can lazy each admin page once we have admin-level data
+// on real-user load. For now the savings vs complexity favor leaving them.
 import {
   AdminDashboard, AuditLogs,
   ContentModeration, StorageManagement, SystemConfig,
@@ -73,15 +110,23 @@ function App() {
   }, [navigate]);
   useEffect(() => { checkAuth(); }, [checkAuth]);
 
+  /* Warm code-split chunks for the sidebar nav targets once the user is
+   * authenticated. Defers the imports so they don't compete with first paint. */
+  useEffect(() => {
+    if (user) preloadSidebarRoutes();
+  }, [user]);
+
   if (loading) return <div className="spinner" style={{ minHeight: "100vh" }} />;
 
   return (
     <ThemeContext.Provider value={theme}>
       <UserContext.Provider value={{ user, setUser }}>
+      <DemoGateProvider>
       <FeatureFlagsProvider authenticated={!!user}>
       <JobSearchContext.Provider value={{ state: jobSearchState, setState: setJobSearchState }}>
       <BackgroundTasksProvider>
 
+        <Suspense fallback={<div className="spinner" style={{ minHeight: "60vh" }} aria-label="Loading page" />}>
         <Routes>
           {/* Public landing — only shown when signed out. When the user is signed in, this
               route is omitted and the protected "/" further down matches the Dashboard. */}
@@ -140,6 +185,7 @@ function App() {
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </Suspense>
         {authActionLoading && (
           <div className="fixed inset-0 z-[100] bg-background/70 backdrop-blur-sm flex items-center justify-center">
             <div className="card-premium px-6 py-4 flex items-center gap-3">
@@ -149,9 +195,13 @@ function App() {
           </div>
         )}
         <BackgroundTaskCenter />
+        {/* App-wide keyboard shortcuts. Only mounted for authenticated users — */}
+        {/* anon visitors on the landing page don't need them. */}
+        {user && <GlobalShortcuts />}
       </BackgroundTasksProvider>
       </JobSearchContext.Provider>
       </FeatureFlagsProvider>
+      </DemoGateProvider>
       </UserContext.Provider>
     </ThemeContext.Provider>
   );

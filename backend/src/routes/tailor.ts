@@ -25,6 +25,7 @@ import { MasterProfile } from "../models/MasterProfile.js";
 import { Resume } from "../models/Resume.js";
 import { User } from "../models/User.js";
 import { analyzeJD } from "../services/ai/tailor.js";
+import { runAnalyzeWorker } from "../services/ai/autoAnalyze.js";
 import { applyAcceptedSuggestions } from "../services/pdf/applySuggestions.js";
 import { renderResumePdf } from "../services/pdf/renderer.js";
 import { NotFoundError } from "../errors/AppError.js";
@@ -45,37 +46,6 @@ const analyzeSchema = z.object({
  *  failed on the next read. This protects against the Vercel-kills-the-function case where the
  *  analyzer never got to write back its result. */
 const PROCESSING_TIMEOUT_MS = 90_000;
-
-/** Run the LLM analysis in the background and write the result back to the session.
- *  Designed to be invoked after the HTTP response was already sent — never throws. */
-function runAnalyzeWorker(
-  sessionId: mongoose.Types.ObjectId,
-  userId: mongoose.Types.ObjectId,
-  jd: { jobTitle: string; company: string; url: string; jobDescription: string }
-): void {
-  void (async () => {
-    try {
-      const { analysis, provider, modelId } = await analyzeJD(userId, jd);
-      await TailorSession.findByIdAndUpdate(sessionId, {
-        status: "succeeded",
-        fitScore: analysis.fitScore,
-        fitGrade: analysis.fitGrade,
-        summary: analysis.summary,
-        matchedSkills: analysis.matchedSkills,
-        missingSkills: analysis.missingSkills,
-        suggestions: analysis.suggestions.map((s) => ({ ...s, decision: null })),
-        provider,
-        modelId,
-      });
-    } catch (err) {
-      const e = err as { message?: string };
-      const msg = e?.message?.includes("No master profile")
-        ? e.message
-        : (e?.message || "Analysis failed.");
-      await TailorSession.findByIdAndUpdate(sessionId, { status: "failed", errorMessage: msg });
-    }
-  })();
-}
 
 router.post("/analyze", async (req: Request, res: Response, next: NextFunction) => {
   try {

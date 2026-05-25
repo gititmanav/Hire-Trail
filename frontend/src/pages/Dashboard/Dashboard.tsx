@@ -25,6 +25,12 @@ import { SkeletonStats, SkeletonTable } from "../../components/Skeleton/Skeleton
 import { STAGES } from "../../utils/stageStyles.ts";
 import { buildAnalyticsFromApplications, filterDashboardApplications, getDashboardCompanies, getRecentApplications, getStageCounts } from "../../utils/dashboardInsights.ts";
 import { buildCalendarEvents } from "../../utils/calendarEvents.ts";
+import {
+  computeActivityStreak,
+  computeWeeklyCapacity,
+} from "../../utils/dashboardSignals.ts";
+import StreakCard from "./components/StreakCard.tsx";
+import WeeklyCapacityCard from "./components/WeeklyCapacityCard.tsx";
 import type { Application, Contact, Deadline, Resume, AnalyticsData, Stage } from "../../types";
 import "react-grid-layout/css/styles.css";
 
@@ -134,6 +140,25 @@ export default function Dashboard() {
     () => filterDashboardApplications(apps, { company: selectedCompany, stage: selectedStage }),
     [apps, selectedCompany, selectedStage]
   );
+
+  /* ─── New "product-grade" dashboard signals: hero strip, attention list,
+   *  streak, weekly capacity. All derived from the same apps/deadlines/contacts
+   *  the rest of the page already loads. Pure functions live in dashboardSignals.ts.
+   *  Filters do NOT affect these signals — they're intentionally global so the
+   *  "what needs my attention" remains accurate even after the user narrows the
+   *  pipeline view to one company.
+   *
+   *  `nowTick` is a state value bumped once per minute by the effect below. It
+   *  participates in the memo dependencies so signals like "overdue today",
+   *  "due in 2d", and the streak's "active today?" recompute as wall-clock time
+   *  passes — including the midnight rollover during a long session. */
+  const [nowTick, setNowTick] = useState(() => new Date());
+  useEffect(() => {
+    const id = window.setInterval(() => setNowTick(new Date()), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+  const streak = useMemo(() => computeActivityStreak(apps, nowTick), [apps, nowTick]);
+  const weeklyCapacity = useMemo(() => computeWeeklyCapacity(apps, 10, nowTick), [apps, nowTick]);
   const filteredStats = useMemo(() => buildAnalyticsFromApplications(filteredApps), [filteredApps]);
   const filteredRecentApps = useMemo(() => getRecentApplications(filteredApps), [filteredApps]);
   const activeStats: AnalyticsData = selectedCompany === "All" && selectedStage === "All" && stats ? stats : filteredStats;
@@ -162,6 +187,8 @@ export default function Dashboard() {
     if (!activeStats) return null;
     switch (id) {
       case "stats": return <StatsWidget data={activeStats} />;
+      case "streak": return <StreakCard streak={streak} />;
+      case "capacity": return <WeeklyCapacityCard thisWeek={weeklyCapacity.thisWeek} userId={user?._id} />;
       case "funnel": return <FunnelWidget data={activeStats} />;
       case "conversion": return <ConversionWidget data={activeStats} />;
       case "trend": return <TrendWidget data={activeStats} />;
@@ -218,8 +245,12 @@ export default function Dashboard() {
         </div>
       )}
 
-      <StageSuggestionsCard />
+      {/* Streak + Weekly-capacity moved into the movable widget grid below
+       *  (see ALL_WIDGETS in useWidgetLayout). The Hero strip, Attention list,
+       *  and the bespoke AnimatedFunnel were removed per product feedback —
+       *  the existing FunnelWidget already covers the pipeline visualization. */}
 
+      <StageSuggestionsCard />
 
       <div className="flex items-start justify-between mb-6 gap-4">
         <div className="flex flex-col gap-3 min-w-0">

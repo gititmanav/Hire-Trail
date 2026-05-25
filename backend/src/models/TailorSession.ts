@@ -19,7 +19,7 @@ export interface ITailorSuggestion {
   decision: "accepted" | "rejected" | null;
 }
 
-export type TailorStatus = "processing" | "succeeded" | "failed";
+export type TailorStatus = "processing" | "succeeded" | "failed" | "deferred";
 
 export interface ITailorSession extends Document {
   _id: mongoose.Types.ObjectId;
@@ -67,7 +67,7 @@ const tailorSessionSchema = new Schema<ITailorSession>(
     company: { type: String, default: "" },
     jobUrl: { type: String, default: "" },
     jobDescription: { type: String, default: "" },
-    status: { type: String, enum: ["processing", "succeeded", "failed"], default: "succeeded", index: true },
+    status: { type: String, enum: ["processing", "succeeded", "failed", "deferred"], default: "succeeded", index: true },
     errorMessage: { type: String, default: "" },
     // Min constraint dropped on fitScore because the session is created before analysis runs;
     // the route handler enforces 1..5 after the worker fills it in.

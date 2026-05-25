@@ -157,6 +157,59 @@
   };
   const extractorRegistry = extractorConfig.buildExtractorRegistry(scrapers);
 
+  /** Detect "I'm currently on a LinkedIn member profile page".
+   *  LinkedIn profile URLs are linkedin.com/in/<vanity> (not /jobs/, /feed/, etc). */
+  function isLinkedInProfilePage() {
+    return window.location.hostname.includes("linkedin.com")
+      && /^\/in\/[^\/?#]+/.test(window.location.pathname);
+  }
+
+  /** Scrape the displayed profile. LinkedIn's class names change often, so we
+   *  try several selectors and fall back to the document title (which is
+   *  "<Name> | LinkedIn" or "(N) <Name> | LinkedIn"). */
+  function scrapeLinkedInProfile() {
+    const top = document.querySelector("section.pv-top-card")
+      || document.querySelector(".scaffold-layout__main")
+      || document.body;
+
+    const nameEl = top.querySelector("h1");
+    let name = nameEl?.textContent?.trim() || "";
+    if (!name) {
+      const t = (document.title || "").replace(/\s*\|\s*LinkedIn.*$/i, "").replace(/^\(\d+\)\s*/, "").trim();
+      name = t;
+    }
+
+    const headline = top.querySelector(".text-body-medium.break-words")?.textContent?.trim()
+      || top.querySelector("[data-generated-suggestion-target]")?.textContent?.trim()
+      || "";
+
+    const location = top.querySelector(".text-body-small.inline.t-black--light.break-words")?.textContent?.trim()
+      || top.querySelector(".pv-text-details__left-panel .text-body-small")?.textContent?.trim()
+      || "";
+
+    // Current company: LinkedIn renders a list of "experience" buttons in the
+    // top card showing the user's current orgs. Prefer the first one.
+    let company = "";
+    let role = "";
+    const expBtn = top.querySelector('[aria-label*="Current company"]')
+      || top.querySelector('button[data-field="experience_company_logo"]');
+    if (expBtn) {
+      const text = expBtn.textContent?.trim() || "";
+      if (text) company = text.split("\n").map((s) => s.trim()).filter(Boolean)[0] || "";
+    }
+    // Fallback: parse headline like "Software Engineer at Verkada"
+    if (!company && headline) {
+      const m = headline.match(/^(.*?)\s+(?:at|@)\s+(.+)$/i);
+      if (m) { role = m[1].trim(); company = m[2].trim(); }
+    }
+    if (!role && headline) role = headline.split(/\s+at\s+/i)[0]?.trim() || "";
+
+    // Canonical profile URL — strip query + trailing slash.
+    const url = `${window.location.origin}${window.location.pathname}`.replace(/\/$/, "");
+
+    return { name, headline, company, role, location, linkedinUrl: url };
+  }
+
   // Wait for a selector to appear (for SPAs like Workday). Supports comma-separated selectors.
   function waitForSelector(selector, timeout = 8000) {
     return new Promise((resolve) => {
@@ -447,6 +500,41 @@
       }
     }
 
+    /** Save the current LinkedIn profile as a HireTrail contact. */
+    async function performTrackContact() {
+      if (!isLinkedInProfilePage()) {
+        showStatus("Open a LinkedIn profile to save a contact", "warning");
+        return;
+      }
+      const data = scrapeLinkedInProfile();
+      if (!data.name) {
+        showStatus("Couldn't read the profile name yet — wait for the page to finish loading", "warning");
+        return;
+      }
+      btn.style.opacity = "0.6";
+      btn.style.pointerEvents = "none";
+      setFabVisual("loading");
+      try {
+        const result = await chrome.runtime.sendMessage({ type: "TRACK_CONTACT", data });
+        if (result && result.success) {
+          showStatus(`Saved ${data.name} to contacts`, "success");
+          setFabVisual("success");
+        } else {
+          showStatus(result?.error || "Failed to save contact", "error");
+          setFabVisual("error");
+        }
+      } catch {
+        showStatus("Refresh page & try again", "error");
+        setFabVisual("error");
+      } finally {
+        setTimeout(() => {
+          setFabVisual("idle");
+          btn.style.opacity = "1";
+          btn.style.pointerEvents = "auto";
+        }, 2000);
+      }
+    }
+
     /** Run a "Tailor" — POSTs /tailor/init server-side, opens HireTrail Tailor in new tab. */
     async function performTailor() {
       const data = scrapeWithFallback();
@@ -491,7 +579,12 @@
           showStatus("Log in via extension popup first", "error");
           return;
         }
-        openHireTrailPopover(btn, { onTrack: performTrack, onTailor: performTailor });
+        openHireTrailPopover(btn, {
+          onTrack: performTrack,
+          onTailor: performTailor,
+          onTrackContact: performTrackContact,
+          isLinkedInProfile: isLinkedInProfilePage(),
+        });
       } catch {
         showStatus("Refresh page & try again", "error");
         setFabVisual("error");
@@ -691,85 +784,187 @@
     `;
   }
 
-  /** Show a small popover next to the FAB with "Track" and "Tailor" buttons.
-   *  Closes on outside click, Escape, or after either action runs. */
-  function openHireTrailPopover(anchorEl, { onTrack, onTailor }) {
+  /** Show a small popover next to the FAB with contextual actions.
+   *  Closes on outside click, Escape, or after any action runs. */
+  function openHireTrailPopover(anchorEl, { onTrack, onTailor, onTrackContact, isLinkedInProfile }) {
     if (document.getElementById("hiretrail-popover")) return;
     const rect = anchorEl.getBoundingClientRect();
+
+    // Context label shown in the header so the user knows what page we think they're on.
+    const contextLabel = isLinkedInProfile
+      ? "LinkedIn profile"
+      : (() => {
+          const host = window.location.hostname.replace(/^www\./, "");
+          return host || "This page";
+        })();
 
     const popover = document.createElement("div");
     popover.id = "hiretrail-popover";
     popover.style.cssText = `
       position: fixed;
       right: ${Math.max(8, window.innerWidth - rect.left + 8)}px;
-      top: ${Math.min(rect.top, window.innerHeight - 160)}px;
+      top: ${Math.min(rect.top, window.innerHeight - 260)}px;
       z-index: 1000000;
-      width: 240px;
-      padding: 8px;
+      width: 280px;
+      padding: 0;
       background: #ffffff;
       color: #0f172a;
-      border: 1px solid rgba(15, 23, 42, 0.1);
-      border-radius: 12px;
-      box-shadow: 0 12px 32px rgba(0,0,0,0.18), 0 2px 6px rgba(0,0,0,0.08);
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      border-radius: 14px;
+      box-shadow: 0 20px 48px rgba(15, 23, 42, 0.18), 0 4px 12px rgba(15, 23, 42, 0.06);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       font-size: 13px;
-      animation: ht-pop-in 140ms cubic-bezier(0.2, 0.8, 0.2, 1);
+      overflow: hidden;
+      animation: ht-pop-in 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
     `;
+    // Build the action rows dynamically so we can show "Save contact" only on profile pages.
+    const trackContactRow = isLinkedInProfile ? `
+      <button id="ht-pop-contact" type="button" class="ht-action">
+        <span class="ht-glyph" style="background: linear-gradient(135deg, #0a66c2, #004182);">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M4.98 3.5C4.98 4.88 3.87 6 2.5 6S0 4.88 0 3.5 1.11 1 2.5 1s2.48 1.12 2.48 2.5zM.22 8.55h4.56V23H.22zM8 8.55h4.37v1.98h.06c.61-1.15 2.1-2.36 4.32-2.36 4.62 0 5.48 3.04 5.48 7v7.83h-4.56v-6.94c0-1.65-.03-3.77-2.3-3.77-2.3 0-2.65 1.79-2.65 3.65V23H8z"/>
+          </svg>
+        </span>
+        <span class="ht-text">
+          <span class="ht-label">Save as contact</span>
+          <span class="ht-sub">Adds this person to your contacts with a starter note.</span>
+        </span>
+      </button>
+      <div class="ht-divider"></div>
+    ` : "";
+
     popover.innerHTML = `
       <style>
-        @keyframes ht-pop-in { from { opacity: 0; transform: translateY(-4px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
-        #hiretrail-popover button {
+        @keyframes ht-pop-in { from { opacity: 0; transform: translateY(-6px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        #hiretrail-popover .ht-header {
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 10px 14px;
+          background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(139, 92, 246, 0.06));
+          border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+        }
+        #hiretrail-popover .ht-brand {
+          display: inline-flex; align-items: center; gap: 8px;
+          font-weight: 700; font-size: 12px; letter-spacing: 0.01em;
+          color: #0f172a;
+        }
+        #hiretrail-popover .ht-brand-dot {
+          width: 18px; height: 18px; border-radius: 5px;
+          background: linear-gradient(135deg, #3B82F6 0%, #1E3A8A 100%);
+          display: inline-flex; align-items: center; justify-content: center;
+          color: #fff; font-weight: 800; font-size: 11px; line-height: 1;
+        }
+        #hiretrail-popover .ht-context {
+          font-size: 10.5px; font-weight: 500;
+          color: rgba(15, 23, 42, 0.55);
+          background: rgba(15, 23, 42, 0.04);
+          padding: 2px 7px; border-radius: 999px;
+          max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        #hiretrail-popover .ht-body { padding: 6px; }
+        #hiretrail-popover .ht-action {
           width: 100%;
           display: flex; align-items: flex-start; gap: 10px;
           padding: 10px 12px;
           border: none; background: transparent; color: inherit;
           font: inherit; text-align: left; cursor: pointer;
-          border-radius: 8px;
-          transition: background 120ms ease;
+          border-radius: 9px;
+          transition: background 120ms ease, transform 120ms ease;
         }
-        #hiretrail-popover button:hover { background: rgba(15, 23, 42, 0.05); }
-        #hiretrail-popover .ht-label { font-weight: 600; line-height: 1.2; }
-        #hiretrail-popover .ht-sub { font-size: 11px; color: rgba(15, 23, 42, 0.6); margin-top: 2px; line-height: 1.35; }
+        #hiretrail-popover .ht-action:hover { background: rgba(15, 23, 42, 0.05); }
+        #hiretrail-popover .ht-action:active { transform: scale(0.99); }
+        #hiretrail-popover .ht-action:focus-visible {
+          outline: 2px solid #3B82F6; outline-offset: -2px;
+        }
+        #hiretrail-popover .ht-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+        #hiretrail-popover .ht-label { font-weight: 600; line-height: 1.2; font-size: 13px; }
+        #hiretrail-popover .ht-sub { font-size: 11px; color: rgba(15, 23, 42, 0.6); margin-top: 3px; line-height: 1.4; }
         #hiretrail-popover .ht-glyph {
-          width: 28px; height: 28px; border-radius: 8px;
+          width: 30px; height: 30px; border-radius: 8px;
           display: inline-flex; align-items: center; justify-content: center;
           flex-shrink: 0; color: #ffffff;
+          box-shadow: 0 1px 2px rgba(15, 23, 42, 0.1);
         }
+        #hiretrail-popover .ht-divider {
+          height: 1px; margin: 4px 12px;
+          background: rgba(15, 23, 42, 0.06);
+        }
+        #hiretrail-popover .ht-footer {
+          padding: 8px 14px;
+          border-top: 1px solid rgba(15, 23, 42, 0.05);
+          background: rgba(15, 23, 42, 0.02);
+          font-size: 10.5px; color: rgba(15, 23, 42, 0.5);
+          display: flex; align-items: center; justify-content: space-between;
+        }
+        #hiretrail-popover .ht-footer a { color: #2563eb; text-decoration: none; font-weight: 500; }
+        #hiretrail-popover .ht-footer a:hover { text-decoration: underline; }
         @media (prefers-color-scheme: dark) {
-          #hiretrail-popover { background: #0f172a; color: #f8fafc; border-color: rgba(248, 250, 252, 0.1); }
-          #hiretrail-popover button:hover { background: rgba(248, 250, 252, 0.07); }
+          #hiretrail-popover {
+            background: #0f172a; color: #f8fafc;
+            border-color: rgba(248, 250, 252, 0.1);
+            box-shadow: 0 20px 48px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.2);
+          }
+          #hiretrail-popover .ht-header {
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(139, 92, 246, 0.08));
+            border-bottom-color: rgba(248, 250, 252, 0.06);
+          }
+          #hiretrail-popover .ht-brand { color: #f8fafc; }
+          #hiretrail-popover .ht-context { color: rgba(248, 250, 252, 0.6); background: rgba(248, 250, 252, 0.06); }
+          #hiretrail-popover .ht-action:hover { background: rgba(248, 250, 252, 0.07); }
           #hiretrail-popover .ht-sub { color: rgba(248, 250, 252, 0.6); }
+          #hiretrail-popover .ht-divider { background: rgba(248, 250, 252, 0.06); }
+          #hiretrail-popover .ht-footer {
+            background: rgba(248, 250, 252, 0.03);
+            border-top-color: rgba(248, 250, 252, 0.06);
+            color: rgba(248, 250, 252, 0.5);
+          }
         }
       </style>
-      <button id="ht-pop-track" type="button">
-        <span class="ht-glyph" style="background: #2563eb;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/>
-          </svg>
+      <div class="ht-header">
+        <span class="ht-brand">
+          <span class="ht-brand-dot">H</span>
+          HireTrail
         </span>
-        <span>
-          <span class="ht-label">Track this JD</span>
-          <span class="ht-sub">Add to your applications in stage "Applied".</span>
-        </span>
-      </button>
-      <button id="ht-pop-tailor" type="button">
-        <span class="ht-glyph" style="background: linear-gradient(135deg, #8b5cf6, #2563eb);">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 2l1.6 4.2L18 8l-4.4 1.8L12 14l-1.6-4.2L6 8l4.4-1.8L12 2zm6 11l1 2.5L21.5 16 19 17l-1 2.5L17 15l1-2z"/>
-          </svg>
-        </span>
-        <span>
-          <span class="ht-label">Tailor with AI</span>
-          <span class="ht-sub">Drafts a tailored resume + opens it in HireTrail.</span>
-        </span>
-      </button>
+        <span class="ht-context" title="${escapeHtml(contextLabel)}">${escapeHtml(contextLabel)}</span>
+      </div>
+      <div class="ht-body">
+        ${trackContactRow}
+        <button id="ht-pop-track" type="button" class="ht-action">
+          <span class="ht-glyph" style="background: linear-gradient(135deg, #2563eb, #1e3a8a);">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/>
+            </svg>
+          </span>
+          <span class="ht-text">
+            <span class="ht-label">Track this job</span>
+            <span class="ht-sub">Saves the JD into your pipeline as "Applied".</span>
+          </span>
+        </button>
+        <button id="ht-pop-tailor" type="button" class="ht-action">
+          <span class="ht-glyph" style="background: linear-gradient(135deg, #8b5cf6, #6366f1);">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2l1.6 4.2L18 8l-4.4 1.8L12 14l-1.6-4.2L6 8l4.4-1.8L12 2zm6 11l1 2.5L21.5 16 19 17l-1 2.5L17 15l1-2z"/>
+            </svg>
+          </span>
+          <span class="ht-text">
+            <span class="ht-label">Tailor with AI</span>
+            <span class="ht-sub">Drafts a tailored resume + opens it in HireTrail.</span>
+          </span>
+        </button>
+      </div>
+      <div class="ht-footer">
+        <span>Right-click the FAB to drag</span>
+        <a href="https://hiretrail.manavkaneria.me" target="_blank" rel="noopener noreferrer">Open app →</a>
+      </div>
     `;
     document.body.appendChild(popover);
 
     const handleTrack = () => { closeHireTrailPopover(); void onTrack(); };
     const handleTailor = () => { closeHireTrailPopover(); void onTailor(); };
+    const handleTrackContact = () => { closeHireTrailPopover(); void onTrackContact(); };
     popover.querySelector("#ht-pop-track").addEventListener("click", handleTrack);
     popover.querySelector("#ht-pop-tailor").addEventListener("click", handleTailor);
+    const contactBtn = popover.querySelector("#ht-pop-contact");
+    if (contactBtn) contactBtn.addEventListener("click", handleTrackContact);
 
     const onDocClick = (e) => {
       if (!popover.contains(e.target) && e.target !== anchorEl) closeHireTrailPopover();

@@ -3,12 +3,14 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import toast from "react-hot-toast";
 import { resumesAPI, authAPI, masterProfileAPI, pollMasterProfileParse } from "../../utils/api.ts";
 import { SkeletonCard } from "../../components/Skeleton/Skeleton.tsx";
+import EmptyState from "../../components/EmptyState/EmptyState.tsx";
 import ActionDropdown from "../../components/ActionDropdown/ActionDropdown.tsx";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal.tsx";
 import ResumePreview from "../../components/ResumePreview/ResumePreview.tsx";
 import ResumeModal from "../../components/ResumeModal/ResumeModal.tsx";
 import { useConfirm } from "../../hooks/useConfirm.ts";
 import { useBackgroundTasks } from "../../hooks/useBackgroundTasks.tsx";
+import { useDemoGate } from "../../hooks/useDemoGate.tsx";
 import type { Resume } from "../../types";
 
 const fmt = (d: string) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -239,6 +241,7 @@ export default function Resumes() {
   const [sortBy, setSortBy] = useState<"recent" | "name" | "usage">("recent");
   const { confirm: confirmDelete, confirmState, handleConfirm: onConfirm, handleCancel: onCancel } = useConfirm();
   const { startTask, tasks } = useBackgroundTasks();
+  const { requireRealAccount } = useDemoGate();
 
   // Track per-resume parse state via the global task list — survives navigation.
   const parsingId = useMemo(() => {
@@ -247,6 +250,7 @@ export default function Resumes() {
   }, [tasks]);
 
   const parseWithAI = useCallback((resumeId: string, resumeName?: string) => {
+    if (!requireRealAccount("Resume parsing")) return;
     startTask({
       id: `resume-parse:${resumeId}`,
       kind: "profile_sync",
@@ -270,7 +274,7 @@ export default function Resumes() {
         return e?.response?.data?.error || e?.message || "Failed to extract. Check your AI key in Settings.";
       },
     });
-  }, [startTask]);
+  }, [startTask, requireRealAccount]);
 
   const fetchResumes = useCallback(async () => {
     try {
@@ -500,13 +504,22 @@ export default function Resumes() {
       )}
 
       {filteredResumes.length === 0 ? (
-        <div className="card-premium p-12 text-center text-muted-foreground">
-          {resumes.length === 0 ? (
-            <><h3 className="font-medium text-muted-foreground mb-1">No resumes yet</h3><p className="text-sm">Add your resume versions to track which performs best</p></>
-          ) : (
-            <><h3 className="font-medium text-muted-foreground mb-1">No matches</h3><p className="text-sm">No resumes match your current search and tag filter.</p></>
-          )}
-        </div>
+        resumes.length === 0 ? (
+          <EmptyState
+            intent="welcome"
+            title="Add your first resume"
+            description="Upload your résumés, tag them by role focus, and HireTrail will track which version actually gets responses. Mark one as Primary to power AI tailoring."
+            actions={[
+              { label: "Upload resume", variant: "primary", onClick: () => { setEditing(null); setModal(true); } },
+            ]}
+          />
+        ) : (
+          <EmptyState
+            intent="filtered"
+            title="No resumes match these filters"
+            description="Try clearing your search or tag filter."
+          />
+        )
       ) : (
         <div className="space-y-4">
           {primaryResume && (

@@ -1,10 +1,16 @@
 /** Settings — single-card scroll-spy layout for Account / Password / Email / AI. */
-import { useCallback, useEffect, useMemo, useRef, useState, FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, FormEvent, lazy, Suspense } from "react";
 import toast from "react-hot-toast";
 import { api, applicationsAPI, emailAPI, aiAPI } from "../../utils/api.ts";
 import type { EmailStatusResponse } from "../../utils/api.ts";
 import type { User } from "../../types";
 import { AISettingsCard } from "./AISettingsCard.tsx";
+import { useFeatureFlags } from "../../hooks/useFeatureFlags.tsx";
+import { useDemoGate } from "../../hooks/useDemoGate.tsx";
+
+/** Lazy-loaded so the feedback modal's bundle doesn't ship to users who never
+ *  hit a "request access" or "report rejection" CTA. */
+const FeedbackModal = lazy(() => import("../../components/FeedbackWidget/FeedbackModal.tsx"));
 
 /* ---------- shared field styles ---------- */
 const inputCls =
@@ -89,14 +95,19 @@ function ReportRejectionModal({ onClose }: { onClose: () => void }) {
 }
 
 function MailboxRow({
-  provider, state, loading, configured, onConnect, onDisconnect,
+  provider, state, loading, configured, comingSoon, onConnect, onDisconnect, onRequestAccess,
 }: {
   provider: "Gmail" | "Outlook";
   state: { connected: boolean; email: string | null; lastSyncAt: string | null };
   loading: boolean;
   configured: boolean;
+  /** When true, replaces the Connect CTA with a disabled "Coming soon" pill. */
+  comingSoon?: boolean;
   onConnect: () => void;
   onDisconnect: () => void;
+  /** Optional "Request access" affordance — surfaced when the provider is
+   *  configured but the OAuth app is still in test mode (Google's case). */
+  onRequestAccess?: () => void;
 }) {
   return (
     <div className="flex items-center justify-between gap-3 flex-wrap py-3">
@@ -133,7 +144,7 @@ function MailboxRow({
           )}
         </div>
       </div>
-      <div className="shrink-0">
+      <div className="shrink-0 flex items-center gap-2">
         {state.connected ? (
           <button
             disabled={loading}
@@ -142,15 +153,32 @@ function MailboxRow({
           >
             {loading ? "Working…" : "Disconnect"}
           </button>
+        ) : comingSoon ? (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-border bg-muted text-muted-foreground" aria-disabled="true">
+            <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50" />
+            Coming soon
+          </span>
         ) : (
-          <button
-            disabled={loading || !configured}
-            onClick={onConnect}
-            className="px-3 py-1.5 text-xs font-medium text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-            title={configured ? "" : `${provider} integration is not configured on this server`}
-          >
-            {loading ? "Connecting…" : `Connect ${provider}`}
-          </button>
+          <>
+            <button
+              disabled={loading || !configured}
+              onClick={onConnect}
+              className="px-3 py-1.5 text-xs font-medium text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              title={configured ? "" : `${provider} integration is not configured on this server`}
+            >
+              {loading ? "Connecting…" : `Connect ${provider}`}
+            </button>
+            {onRequestAccess && (
+              <button
+                type="button"
+                onClick={onRequestAccess}
+                className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2 whitespace-nowrap"
+                title="HireTrail's Gmail integration is in Google's test mode. Request to be added as a test user."
+              >
+                Request access
+              </button>
+            )}
+          </>
         )}
       </div>
     </div>
@@ -170,6 +198,15 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [rejectionModal, setRejectionModal] = useState(false);
+  /** When the user clicks "Request access" on Gmail (because Google's OAuth
+   *  app is in test mode), open the feedback modal pre-filled with their
+   *  email so the admin can add them to the test users list. */
+  const [requestAccessModal, setRequestAccessModal] = useState(false);
+  /** Feature flag — when feature_outlook_integration flips true, we restore
+   *  the real Connect button. Default off → "Coming soon" state.  */
+  const { isEnabled } = useFeatureFlags();
+  const outlookEnabled = isEnabled("feature_outlook_integration");
+  const { requireRealAccount } = useDemoGate();
   const [mailbox, setMailbox] = useState<EmailStatusResponse>(DEFAULT_EMAIL_STATUS);
   const [mailboxLoading, setMailboxLoading] = useState<null | "gmail" | "outlook" | "scan">(null);
   const [aiProviderCount, setAiProviderCount] = useState(0);
@@ -394,6 +431,7 @@ export default function Settings() {
                   loading={mailboxLoading === "gmail"}
                   configured={true}
                   onConnect={async () => {
+                    if (!requireRealAccount("Email integration")) return;
                     setMailboxLoading("gmail");
                     try {
                       const { url } = await emailAPI.connectGmail();
@@ -409,33 +447,51 @@ export default function Settings() {
                     } catch { toast.error("Failed to disconnect"); }
                     finally { setMailboxLoading(null); }
                   }}
+                  onRequestAccess={() => setRequestAccessModal(true)}
                 />
-                <MailboxRow
-                  provider="Outlook"
-                  state={mailbox.outlook}
-                  loading={mailboxLoading === "outlook"}
-                  configured={mailbox.outlook.configured}
-                  onConnect={async () => {
-                    setMailboxLoading("outlook");
-                    try {
-                      const { url } = await emailAPI.connectOutlook();
-                      window.location.href = url;
-                    } catch (err) {
-                      const e = err as { response?: { data?: { error?: string } } };
-                      toast.error(e.response?.data?.error || "Failed to start Outlook connection");
-                      setMailboxLoading(null);
-                    }
-                  }}
-                  onDisconnect={async () => {
-                    setMailboxLoading("outlook");
-                    try {
-                      await emailAPI.disconnectOutlook();
-                      setMailbox((m) => ({ ...m, outlook: { ...m.outlook, connected: false, email: null, lastSyncAt: null } }));
-                      toast.success("Outlook disconnected");
-                    } catch { toast.error("Failed to disconnect"); }
-                    finally { setMailboxLoading(null); }
-                  }}
-                />
+                {/* Outlook: gated behind feature_outlook_integration. When the
+                 *  flag is off (default) we show the "Coming soon" pill. Flip the
+                 *  flag in admin settings to surface the real Connect flow once
+                 *  the Outlook OAuth app is wired up. */}
+                {outlookEnabled ? (
+                  <MailboxRow
+                    provider="Outlook"
+                    state={mailbox.outlook}
+                    loading={mailboxLoading === "outlook"}
+                    configured={mailbox.outlook.configured}
+                    onConnect={async () => {
+                      if (!requireRealAccount("Email integration")) return;
+                      setMailboxLoading("outlook");
+                      try {
+                        const { url } = await emailAPI.connectOutlook();
+                        window.location.href = url;
+                      } catch (err) {
+                        const e = err as { response?: { data?: { error?: string } } };
+                        toast.error(e.response?.data?.error || "Failed to start Outlook connection");
+                        setMailboxLoading(null);
+                      }
+                    }}
+                    onDisconnect={async () => {
+                      setMailboxLoading("outlook");
+                      try {
+                        await emailAPI.disconnectOutlook();
+                        setMailbox((m) => ({ ...m, outlook: { ...m.outlook, connected: false, email: null, lastSyncAt: null } }));
+                        toast.success("Outlook disconnected");
+                      } catch { toast.error("Failed to disconnect"); }
+                      finally { setMailboxLoading(null); }
+                    }}
+                  />
+                ) : (
+                  <MailboxRow
+                    provider="Outlook"
+                    state={mailbox.outlook}
+                    loading={false}
+                    configured={false}
+                    comingSoon
+                    onConnect={() => undefined}
+                    onDisconnect={() => undefined}
+                  />
+                )}
               </div>
 
               <div className="flex flex-wrap items-center gap-3 mt-4">
@@ -443,6 +499,7 @@ export default function Settings() {
                   <button
                     disabled={mailboxLoading === "scan"}
                     onClick={async () => {
+                      if (!requireRealAccount("Email inbox scan")) return;
                       setMailboxLoading("scan");
                       try {
                         const result = await emailAPI.scan();
@@ -502,6 +559,11 @@ export default function Settings() {
                     disabled={mergeSaving}
                     onChange={async (e) => {
                       const next = e.target.checked;
+                      if (!requireRealAccount("Profile Sync")) {
+                        // Roll the checkbox back to its prior state — demo user can't toggle.
+                        e.target.checked = !next;
+                        return;
+                      }
                       setMergeEnabled(next);
                       setMergeSaving(true);
                       try {
@@ -539,12 +601,18 @@ export default function Settings() {
           <div className="bg-card border border-border rounded-xl p-4">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Integrations</h3>
             <ul className="space-y-2 text-sm">
-              <IntegrationRow label="Gmail" connected={mailbox.gmail.connected} />
+              <IntegrationRow
+                label="Gmail"
+                connected={mailbox.gmail.connected}
+                explicit={mailbox.gmail.connected && mailbox.gmail.lastSyncAt
+                  ? `last sync ${new Date(mailbox.gmail.lastSyncAt).toLocaleDateString()}`
+                  : undefined}
+              />
               <IntegrationRow
                 label="Outlook"
-                connected={mailbox.outlook.connected}
-                muted={!mailbox.outlook.configured}
-                mutedLabel="Not configured"
+                connected={outlookEnabled ? mailbox.outlook.connected : false}
+                muted={!outlookEnabled || !mailbox.outlook.configured}
+                mutedLabel={outlookEnabled ? "Not configured" : "Coming soon"}
               />
               <IntegrationRow
                 label="AI providers"
@@ -564,6 +632,18 @@ export default function Settings() {
       </div>
 
       {rejectionModal && <ReportRejectionModal onClose={() => setRejectionModal(false)} />}
+      {requestAccessModal && (
+        <Suspense fallback={null}>
+          <FeedbackModal
+            onClose={() => setRequestAccessModal(false)}
+            initial={{
+              type: "other",
+              title: "Request Gmail integration access",
+              message: `Hi! Please add my Google account (${user?.email ?? ""}) to the HireTrail Gmail OAuth test-user list so I can connect my inbox.\n\nThanks!`,
+            }}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

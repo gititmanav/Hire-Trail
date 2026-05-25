@@ -5,6 +5,76 @@ import { ensureAuth, getUser } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
 import { createApplicationSchema, updateApplicationSchema } from "../validators/applications.js";
 import { NotFoundError, ValidationError } from "../errors/AppError.js";
+import { extractFieldsFromJD } from "../services/jdExtractor.js";
+import { ensureCompanyLogo } from "./companies.js";
+import { autoAnalyzeOnApplicationCreate } from "../services/ai/autoAnalyze.js";
+import { User } from "../models/User.js";
+import { TailorSession } from "../models/TailorSession.js";
+
+/** Thin summary of a TailorSession for inlining into Application list/get responses. */
+export interface AppFitSummary {
+  sessionId: string;
+  status: "processing" | "succeeded" | "failed" | "deferred";
+  fitScore: number;
+  fitGrade: "A" | "B" | "C" | "D" | "F" | "";
+  summary: string;
+  matchedCount: number;
+  missingCount: number;
+  errorMessage?: string;
+}
+
+/** Resolve `fit` summaries for a list of applications in one bulk Mongo query.
+ *  Returns a map keyed by application id (string). Apps with no tailorSessionId
+ *  or a missing session are simply absent from the map (frontend renders the
+ *  "no fit yet" state). */
+async function loadFitSummaries(apps: Array<{ _id: unknown; tailorSessionId: unknown }>): Promise<Map<string, AppFitSummary>> {
+  const sessionIds = apps.map((a) => a.tailorSessionId).filter(Boolean);
+  if (sessionIds.length === 0) return new Map();
+  const sessions = await TailorSession.find({ _id: { $in: sessionIds } })
+    .select("_id status fitScore fitGrade summary matchedSkills missingSkills errorMessage")
+    .lean();
+  const byId = new Map(sessions.map((s) => [String(s._id), s]));
+  const out = new Map<string, AppFitSummary>();
+  for (const a of apps) {
+    if (!a.tailorSessionId) continue;
+    const s = byId.get(String(a.tailorSessionId));
+    if (!s) continue;
+    out.set(String(a._id), {
+      sessionId: String(s._id),
+      status: s.status,
+      fitScore: s.fitScore || 0,
+      fitGrade: s.fitGrade || "",
+      summary: s.summary || "",
+      matchedCount: Array.isArray(s.matchedSkills) ? s.matchedSkills.length : 0,
+      missingCount: Array.isArray(s.missingSkills) ? s.missingSkills.length : 0,
+      errorMessage: s.errorMessage || undefined,
+    });
+  }
+  return out;
+}
+
+/** Best-effort background enrichment: only overwrites empty fields and only
+ *  with values the extractor was confident about. Idempotent. Failures swallowed. */
+async function enrichApplicationFromJD(appId: string, jobDescription: string) {
+  try {
+    const fields = extractFieldsFromJD(jobDescription);
+    if (!fields || Object.keys(fields).length === 0) return;
+    const app = await Application.findById(appId);
+    if (!app) return;
+    const patch: Record<string, string> = {};
+    // Don't allow extractor to override role at all if it's already non-empty —
+    // even if the extracted title looks "better", the user's source-of-truth wins.
+    if (fields.title && !app.role.trim()) patch.role = fields.title;
+    if (fields.location && !app.location?.trim()) patch.location = fields.location;
+    if (fields.salary && !app.salary?.trim()) patch.salary = fields.salary;
+    if (fields.jobType && !app.jobType?.trim()) patch.jobType = fields.jobType;
+    if (fields.company && !app.company?.trim()) patch.company = fields.company;
+    if (Object.keys(patch).length === 0) return;
+    await Application.updateOne({ _id: app._id }, { $set: patch });
+  } catch (err) {
+    console.warn("[enrichApplicationFromJD]", err instanceof Error ? err.message : err);
+  }
+}
 
 function extractDomain(url: string): string {
   try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return ""; }
@@ -54,7 +124,10 @@ router.get("/", async (req: Request, res: Response, next: NextFunction) => {
       Application.countDocuments(query),
     ]);
 
-    res.json({ data: apps, pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
+    const fitMap = await loadFitSummaries(apps);
+    const enriched = apps.map((a) => ({ ...a, fit: fitMap.get(String(a._id)) || null }));
+
+    res.json({ data: enriched, pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
   } catch (err) { next(err); }
 });
 
@@ -64,7 +137,8 @@ router.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
     const user = getUser(req);
     const app = await Application.findOne({ _id: req.params.id, userId: user._id }).lean();
     if (!app) throw new NotFoundError("Application");
-    res.json(app);
+    const fitMap = await loadFitSummaries([app]);
+    res.json({ ...app, fit: fitMap.get(String(app._id)) || null });
   } catch (err) { next(err); }
 });
 
@@ -74,6 +148,7 @@ router.post("/", validate(createApplicationSchema), async (req: Request, res: Re
     const user = getUser(req);
     // Find-or-create shared company
     let companyId = req.body.companyId || null;
+    let createdOrFoundCompany: typeof Company.prototype | null = null;
     if (!companyId && req.body.company) {
       const domain = req.body.jobUrl ? extractDomain(req.body.jobUrl) : "";
       const company = await Company.findOneAndUpdate(
@@ -85,6 +160,7 @@ router.post("/", validate(createApplicationSchema), async (req: Request, res: Re
         { upsert: true, new: true, collation: { locale: "en", strength: 2 } }
       );
       companyId = company._id;
+      createdOrFoundCompany = company;
     }
     // Duplicate detection: if jobUrl is non-empty, check for existing
     if (req.body.jobUrl) {
@@ -95,6 +171,39 @@ router.post("/", validate(createApplicationSchema), async (req: Request, res: Re
     }
     const app = await Application.create({ ...req.body, userId: user._id, companyId, resumeId: req.body.resumeId || null });
     res.status(201).json(app);
+
+    // Background enrichment: only if the JD is meaty enough to be worth parsing,
+    // AND at least one of the structured fields is missing. Fire-and-forget so
+    // the user gets their 201 immediately.
+    const jd = req.body.jobDescription || "";
+    if (
+      jd.length >= 200 &&
+      (!req.body.location || !req.body.salary || !req.body.jobType || !req.body.role)
+    ) {
+      void enrichApplicationFromJD(app._id.toString(), jd);
+    }
+    // Background logo fetch — same pattern as contacts.
+    if (createdOrFoundCompany) {
+      void ensureCompanyLogo(createdOrFoundCompany).catch(() => undefined);
+    }
+
+    // Background AI auto-analyze. Demo user is skipped entirely — they get
+    // seeded fake sessions instead, so we don't burn real LLM quota on the
+    // ~650 demo apps.
+    const isDemoUser = (await User.findById(user._id).select("email").lean())?.email === "demo@hiretrail.com";
+    if (!isDemoUser) {
+      void autoAnalyzeOnApplicationCreate({
+        application: {
+          _id: app._id,
+          userId: user._id,
+          jobDescription: app.jobDescription,
+          role: app.role,
+          company: app.company,
+          jobUrl: app.jobUrl,
+          tailorSessionId: app.tailorSessionId,
+        },
+      });
+    }
   } catch (err) { next(err); }
 });
 

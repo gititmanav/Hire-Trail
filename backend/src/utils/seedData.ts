@@ -8,6 +8,7 @@ import { Resume } from "../models/Resume.js";
 import { Contact } from "../models/Contact.js";
 import { Deadline } from "../models/Deadline.js";
 import { Company } from "../models/Company.js";
+import { TailorSession } from "../models/TailorSession.js";
 
 const COMPANIES: { name: string; domain: string; website: string }[] = [
   { name: "Google", domain: "google.com", website: "https://careers.google.com" },
@@ -145,6 +146,30 @@ export interface SeedResult {
   total: number;
 }
 
+/* ------------------------- Demo date window -------------------------
+ *
+ * The demo data is anchored to a fixed 2026 window so the seeded apps,
+ * contacts, and deadlines look "live" for whoever is poking at the app.
+ *
+ *   - applicationDate / stage history / contact.lastContactDate / resume.uploadDate:
+ *       Jan 1 2026 → "today" (capped at DEMO_WINDOW_END so a future re-seed
+ *       doesn't push dates past July 31).
+ *   - deadline.dueDate:
+ *       Jan 1 2026 → Jul 31 2026 (so a mix of overdue + upcoming surfaces in
+ *       the Deadlines page and Dashboard widgets).
+ *
+ * If the current date falls outside this window we clamp — the demo dataset
+ * is meant to look healthy regardless of when an admin presses "Run seed". */
+const DEMO_WINDOW_START = new Date("2026-01-01");
+const DEMO_WINDOW_END   = new Date("2026-07-31T23:59:59.999Z");
+
+function demoNow(): Date {
+  const now = new Date();
+  if (now < DEMO_WINDOW_START) return DEMO_WINDOW_START;
+  if (now > DEMO_WINDOW_END)   return DEMO_WINDOW_END;
+  return now;
+}
+
 /** Create demo user + synthetic data. Does NOT clear existing data first. */
 export async function runSeed(): Promise<SeedResult> {
   // Create demo user
@@ -175,13 +200,14 @@ export async function runSeed(): Promise<SeedResult> {
     companyMap.set(c.name, company._id);
   }
 
-  // Resumes
+  // Resumes — uploaded across early 2026 so the "Added" date column looks recent.
+  const resumeUploadEnd = new Date("2026-03-01");
   const resumeDocs = RESUME_NAMES.map((name, i) => ({
     userId,
     name,
     targetRole: RESUME_ROLES[i] || "General",
     fileName: `${name.toLowerCase().replace(/ /g, "_")}.pdf`,
-    uploadDate: randomDate(new Date("2025-01-01"), new Date("2025-06-01")),
+    uploadDate: randomDate(DEMO_WINDOW_START, resumeUploadEnd),
   }));
   const resumes = await Resume.insertMany(resumeDocs);
 
@@ -198,26 +224,30 @@ export async function runSeed(): Promise<SeedResult> {
       $setOnInsert: {
         userId,
         name: PROTECTED_DEMO_RESUME.name,
-        uploadDate: randomDate(new Date("2025-01-01"), new Date("2025-06-01")),
+        uploadDate: randomDate(DEMO_WINDOW_START, resumeUploadEnd),
       },
     },
     { upsert: true, new: true }
   );
   const resumeIds = [...resumes.map((r) => r._id), protectedResume._id];
 
-  // Applications
-  const startDate = new Date("2025-01-15");
-  const endDate = new Date("2025-10-15");
+  // Applications — spread from Jan 1 to "today" so nothing is dated in the future.
+  // Stage-progression timestamps below also clamp to "today" so an Offer that
+  // was applied-for last week doesn't get a "stage Offer date" in July.
+  const today = demoNow();
+  const startDate = DEMO_WINDOW_START;
+  const endDate = today;
+  const clampStage = (d: Date): Date => (d > today ? today : d);
   const appDocs = [];
   for (let i = 0; i < 650; i++) {
     const stage = weightedStage();
     const companyData = randomItem(COMPANIES);
     const appDate = randomDate(startDate, endDate);
     const stageHistory: { stage: Stage; date: Date }[] = [{ stage: "Applied", date: appDate }];
-    if (["OA", "Interview", "Offer"].includes(stage)) stageHistory.push({ stage: "OA", date: new Date(appDate.getTime() + 7 * 86400000) });
-    if (["Interview", "Offer"].includes(stage)) stageHistory.push({ stage: "Interview", date: new Date(appDate.getTime() + 21 * 86400000) });
-    if (stage === "Offer") stageHistory.push({ stage: "Offer", date: new Date(appDate.getTime() + 35 * 86400000) });
-    if (stage === "Rejected") stageHistory.push({ stage: "Rejected", date: new Date(appDate.getTime() + (Math.floor(Math.random() * 30) + 3) * 86400000) });
+    if (["OA", "Interview", "Offer"].includes(stage)) stageHistory.push({ stage: "OA", date: clampStage(new Date(appDate.getTime() + 7 * 86400000)) });
+    if (["Interview", "Offer"].includes(stage)) stageHistory.push({ stage: "Interview", date: clampStage(new Date(appDate.getTime() + 21 * 86400000)) });
+    if (stage === "Offer") stageHistory.push({ stage: "Offer", date: clampStage(new Date(appDate.getTime() + 35 * 86400000)) });
+    if (stage === "Rejected") stageHistory.push({ stage: "Rejected", date: clampStage(new Date(appDate.getTime() + (Math.floor(Math.random() * 30) + 3) * 86400000)) });
     appDocs.push({
       userId,
       company: companyData.name,
@@ -229,7 +259,65 @@ export async function runSeed(): Promise<SeedResult> {
       resumeId: randomItem(resumeIds),
     });
   }
-  await Application.insertMany(appDocs);
+  const insertedApps = await Application.insertMany(appDocs);
+
+  // Synthetic TailorSessions for the demo user — gives the Applications page
+  // realistic fit-score badges without burning real LLM quota on 650 jobs.
+  const SKILL_BANK = [
+    "Python", "TypeScript", "React", "Node.js", "PostgreSQL", "AWS", "Kubernetes",
+    "GraphQL", "REST", "Docker", "Redis", "Kafka", "Go", "System Design",
+    "Distributed Systems", "Microservices", "ML", "Data Pipelines", "Testing",
+    "CI/CD", "Terraform", "GCP", "Security", "Performance Optimization",
+  ];
+  const GRADES = ["A", "B", "C", "D", "F"] as const;
+  // Weighted distribution: skew toward B/C for realism (most apps are "good not great")
+  const GRADE_WEIGHTS = [0.15, 0.40, 0.30, 0.10, 0.05];
+  const GRADE_TO_SCORE = { A: 5, B: 4, C: 3, D: 2, F: 1 } as const;
+  const SUGGESTION_STUBS = [
+    { section: "experience" as const, kind: "rewrite" as const, suggested: "Lead the redesign of the API layer to cut p99 latency by 40%.", rationale: "Mirrors the JD's focus on platform performance work." },
+    { section: "summary" as const, kind: "rewrite" as const, suggested: "Senior backend engineer with 5+ years scaling distributed systems.", rationale: "Reframes summary around scale + ownership emphasis." },
+    { section: "skills" as const, kind: "add" as const, suggested: "Kubernetes, Helm, Argo CD", rationale: "JD lists modern container orchestration as a requirement." },
+    { section: "project" as const, kind: "emphasize" as const, suggested: "Bring the OSS sidecar project forward — it demonstrates the systems thinking they're hiring for.", rationale: "Project alignment with the team's open-source culture." },
+    { section: "experience" as const, kind: "add" as const, suggested: "Owned the on-call rotation for the payments microservice tier.", rationale: "JD calls out operational maturity explicitly." },
+  ];
+  function pickGrade(): typeof GRADES[number] {
+    const r = Math.random();
+    let acc = 0;
+    for (let i = 0; i < GRADES.length; i += 1) {
+      acc += GRADE_WEIGHTS[i];
+      if (r <= acc) return GRADES[i];
+    }
+    return "C";
+  }
+  function pickSkills(n: number): string[] {
+    const shuffled = [...SKILL_BANK].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, n);
+  }
+  const sessionDocs = insertedApps.map((a) => {
+    const grade = pickGrade();
+    return {
+      userId,
+      applicationId: a._id,
+      jobTitle: a.role,
+      company: a.company,
+      jobUrl: a.jobUrl,
+      jobDescription: "(seeded — synthetic JD)",
+      status: "succeeded" as const,
+      fitScore: GRADE_TO_SCORE[grade],
+      fitGrade: grade,
+      summary: `${grade === "A" || grade === "B" ? "Strong" : grade === "C" ? "Mixed" : "Weak"} match. The role aligns with your ${grade === "A" ? "primary strengths" : "secondary skill set"}.`,
+      matchedSkills: pickSkills(grade === "A" ? 6 : grade === "B" ? 5 : grade === "C" ? 4 : 2),
+      missingSkills: pickSkills(grade === "F" ? 5 : grade === "D" ? 4 : 2),
+      suggestions: SUGGESTION_STUBS.slice(0, 3 + Math.floor(Math.random() * 2)).map((s) => ({ ...s, targetCompanyOrName: a.company, targetBullet: "", tags: [], decision: null })),
+      provider: "demo-seed",
+      modelId: "synthetic",
+    };
+  });
+  const insertedSessions = await TailorSession.insertMany(sessionDocs);
+  // Link sessions back onto their applications.
+  await Promise.all(insertedSessions.map((s) =>
+    Application.updateOne({ _id: s.applicationId }, { $set: { tailorSessionId: s._id } })
+  ));
 
   // Contacts
   const contactDocs = [];
@@ -243,7 +331,7 @@ export async function runSeed(): Promise<SeedResult> {
       role: randomItem(CONTACT_ROLES_LIST),
       linkedinUrl: `https://linkedin.com/in/person-${1000 + i}`,
       connectionSource: randomItem(CONNECTION_SOURCES),
-      lastContactDate: randomDate(startDate, endDate),
+      lastContactDate: randomDate(DEMO_WINDOW_START, today),
       notes: Math.random() > 0.5 ? "Great conversation, will follow up next week" : "",
     });
   }
@@ -253,11 +341,15 @@ export async function runSeed(): Promise<SeedResult> {
   const appIds = (await Application.find({ userId }).select("_id").lean()).map((a) => a._id);
   const deadlineDocs = [];
   for (let i = 0; i < 180; i++) {
-    const dueDate = randomDate(new Date("2025-03-01"), new Date("2025-12-31"));
+    const dueDate = randomDate(DEMO_WINDOW_START, DEMO_WINDOW_END);
+    // Past deadlines are more likely to be completed; future deadlines stay open.
+    // Keeps the Deadlines page realistic: overdue items are mostly checked off,
+    // and the user has a visible upcoming workload.
+    const completed = dueDate < today ? Math.random() > 0.25 : Math.random() > 0.85;
     deadlineDocs.push({
       userId, applicationId: Math.random() > 0.3 ? randomItem(appIds) : null,
       type: randomItem(DEADLINE_TYPES), dueDate,
-      completed: Math.random() > 0.6,
+      completed,
       notes: Math.random() > 0.5 ? "Check email for details" : "",
     });
   }
@@ -284,6 +376,7 @@ export async function clearSeedData(): Promise<{ cleared: boolean }> {
     Resume.deleteMany({ userId: demoUser._id }),
     Contact.deleteMany({ userId: demoUser._id }),
     Deadline.deleteMany({ userId: demoUser._id }),
+    TailorSession.deleteMany({ userId: demoUser._id }),
     // Remove demo user from company users arrays; delete companies only created by demo with no other users
     Company.updateMany({}, { $pull: { users: demoUser._id } }),
   ]);

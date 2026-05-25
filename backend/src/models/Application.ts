@@ -36,6 +36,9 @@ export const ARCHIVE_REASONS = [
 
 export type ArchiveReason = (typeof ARCHIVE_REASONS)[number];
 
+export const APPLICATION_SOURCES = ["manual", "extension", "email"] as const;
+export type ApplicationSource = (typeof APPLICATION_SOURCES)[number];
+
 export type Stage = (typeof STAGES)[number];
 
 interface StageEntry {
@@ -68,6 +71,7 @@ export interface IApplication extends Document {
   archived: boolean;
   archivedAt: Date | null;
   archivedReason: ArchiveReason | null;
+  source: ApplicationSource;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -183,6 +187,12 @@ const applicationSchema = new Schema<IApplication>(
       type: String,
       enum: [...ARCHIVE_REASONS, null],
       default: null,
+    },
+    source: {
+      type: String,
+      enum: APPLICATION_SOURCES,
+      default: "manual",
+      index: true,
     },
   },
   { timestamps: true }

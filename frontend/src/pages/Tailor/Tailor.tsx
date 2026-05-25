@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import { tailorAPI, applicationsAPI, authAPI, resumesAPI } from "../../utils/api.ts";
 import type { TailorSession, TailorSuggestion, TailorDecision } from "../../utils/api.ts";
 import { useBackgroundTasks } from "../../hooks/useBackgroundTasks.tsx";
+import { useDemoGate } from "../../hooks/useDemoGate.tsx";
 import type { Application, Resume } from "../../types";
 
 const GRADE_TONE: Record<string, string> = {
@@ -52,6 +53,7 @@ export default function Tailor() {
   const [params, setParams] = useSearchParams();
   const sessionId = params.get("session");
   const { startTask, tasks, registerRecovery } = useBackgroundTasks();
+  const { requireRealAccount } = useDemoGate();
 
   const [jd, setJd] = useState("");
   const [title, setTitle] = useState("");
@@ -150,6 +152,7 @@ export default function Tailor() {
   }, [session]);
 
   const onAnalyze = useCallback(() => {
+    if (!requireRealAccount("AI Tailor")) return;
     if (jd.trim().length < 50) {
       toast.error("Paste the full job description (at least a few sentences).");
       return;
@@ -203,7 +206,7 @@ export default function Tailor() {
         }
       },
     });
-  }, [jd, title, company, url, startTask, setParams]);
+  }, [jd, title, company, url, startTask, setParams, requireRealAccount]);
 
   // Recovery handler: after a page refresh, the provider replays any persisted
   // recovery entries against the kind we register here.

@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import { applicationsAPI, companiesAPI, resumesAPI, contactsAPI, deadlinesAPI } from "../../utils/api.ts";
 import { SkeletonTable } from "../../components/Skeleton/Skeleton.tsx";
 import ResumePreview from "../../components/ResumePreview/ResumePreview.tsx";
+import EmptyState from "../../components/EmptyState/EmptyState.tsx";
 import type { Company, Application, Resume, Contact, Deadline, Stage, Pagination } from "../../types";
 import { STAGES, STAGE_BADGE_CLASS } from "../../utils/stageStyles.ts";
 
@@ -226,16 +227,25 @@ export default function Companies() {
         <h1 className="text-2xl font-bold text-foreground tracking-tight">Companies</h1>
       </div>
 
-      <div className="sticky top-[49px] z-20 backdrop-blur-sm py-3 -mx-8 px-8">
+      <div className="sticky top-[49px] z-20 backdrop-blur-sm py-3 -mx-4 md:-mx-6 px-4 md:px-6">
         <input className="input-premium max-w-[320px]" placeholder="Search companies..." value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>
 
       {companies.length === 0 ? (
-        <div className="card-premium p-12 text-center text-muted-foreground">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" className="mx-auto mb-3 text-muted-foreground/40"><path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0H5m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
-          <h3 className="font-medium text-secondary-foreground mb-1">No companies found</h3>
-          <p className="text-sm">{search ? "Try a different search" : "Companies are created automatically when you add applications. Start tracking jobs to see companies here!"}</p>
-        </div>
+        search ? (
+          <EmptyState
+            intent="filtered"
+            title="No companies match your search"
+            description="Try a different keyword, or clear the search to see all companies."
+            actions={[{ label: "Clear search", variant: "secondary", onClick: () => setSearch("") }]}
+          />
+        ) : (
+          <EmptyState
+            intent="welcome"
+            title="No companies tracked yet"
+            description="Companies show up here automatically when you add applications or contacts. Start tracking jobs to populate this view."
+          />
+        )
       ) : (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">

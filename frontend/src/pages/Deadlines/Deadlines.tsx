@@ -1,8 +1,10 @@
 /** Deadlines filtered server-side by status tab; linked to applications when set. */
-import { useState, useEffect, useCallback, FormEvent } from "react";
+import { useState, useEffect, useCallback, useRef, FormEvent } from "react";
+import { useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import { deadlinesAPI, applicationsAPI } from "../../utils/api.ts";
 import { SkeletonTable } from "../../components/Skeleton/Skeleton.tsx";
+import EmptyState from "../../components/EmptyState/EmptyState.tsx";
 import ActionDropdown from "../../components/ActionDropdown/ActionDropdown.tsx";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal.tsx";
 import { useConfirm } from "../../hooks/useConfirm.ts";
@@ -52,7 +54,7 @@ function Modal({ deadline: dl, applications: apps, onSave, onClose }: { deadline
                 searchable
                 searchPlaceholder="Search type..."
                 trigger={
-                  <button className={`${inputCls} h-9 flex items-center justify-between text-left`}>
+                  <button type="button" className={`${inputCls} h-9 flex items-center justify-between text-left`}>
                     <span>{form.type || "Select..."}</span>
                     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="4,6 8,10 12,6" /></svg>
                   </button>
@@ -74,7 +76,7 @@ function Modal({ deadline: dl, applications: apps, onSave, onClose }: { deadline
               searchPlaceholder="Search application..."
               maxVisibleItems={8}
               trigger={
-                <button className={`${inputCls} h-9 flex items-center justify-between text-left`}>
+                <button type="button" className={`${inputCls} h-9 flex items-center justify-between text-left`}>
                   <span className="truncate">{selectedApp ? `${selectedApp.company} — ${selectedApp.role}` : "None"}</span>
                   <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="4,6 8,10 12,6" /></svg>
                 </button>
@@ -141,6 +143,49 @@ export default function Deadlines() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  /* ─── Shortcut deep-link: `?new=1` opens the create modal and strips the
+   *  param so a hard reload doesn't reopen it. */
+  const handledNewRef = useRef(false);
+  useEffect(() => {
+    if (handledNewRef.current) return;
+    const sp = new URLSearchParams(window.location.search);
+    if (sp.get("new") === "1") {
+      handledNewRef.current = true;
+      setEditing(null);
+      setModal(true);
+      sp.delete("new");
+      const q = sp.toString();
+      window.history.replaceState({}, "", `${window.location.pathname}${q ? `?${q}` : ""}`);
+    }
+  }, []);
+
+  /* ─── Global search deep-link: open the edit modal for `?focus=ID`. Falls
+   *  back to a single-record fetch when the deadline isn't in the current page. */
+  const [searchParams, setSearchParams] = useSearchParams();
+  const focusedRef = useRef<string | null>(null);
+  useEffect(() => {
+    const focusId = searchParams.get("focus");
+    if (!focusId) { focusedRef.current = null; return; }
+    if (focusedRef.current === focusId) return;
+    if (deadlines.length === 0) return;
+    const target = deadlines.find((d) => d._id === focusId);
+    const open = (deadline: Deadline) => {
+      focusedRef.current = focusId;
+      setEditing(deadline);
+      setModal(true);
+      const next = new URLSearchParams(searchParams);
+      next.delete("focus");
+      setSearchParams(next, { replace: true });
+    };
+    if (target) { open(target); return; }
+    let cancelled = false;
+    void deadlinesAPI.getOne(focusId).then((fetched) => {
+      if (cancelled || !fetched) return;
+      open(fetched);
+    }).catch(() => { /* swallow */ });
+    return () => { cancelled = true; };
+  }, [deadlines, searchParams, setSearchParams]);
+
   const save = async (d: DeadlineFormData) => {
     if (editing) { await deadlinesAPI.update(editing._id, d); toast.success("Updated"); }
     else { await deadlinesAPI.create(d); toast.success("Added"); }
@@ -160,13 +205,13 @@ export default function Deadlines() {
   const oc = tabCounts.overdue;
   const cc = tabCounts.completed;
 
-  if (loading) return <SkeletonTable rows={6} />;
+  if (loading) return <div className="fade-up"><SkeletonTable rows={6} /></div>;
 
   return (
-    <div>
+    <div className="fade-up">
       <div className="flex items-center justify-between mb-6"><h1 className="text-2xl font-semibold text-foreground">Deadlines</h1><button onClick={() => { setEditing(null); setModal(true); }} className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary hover:bg-primary/90 text-white text-sm font-medium rounded-lg"><svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="8" y1="3" x2="8" y2="13" /><line x1="3" y1="8" x2="13" y2="8" /></svg>Add deadline</button>      </div>
 
-      <div className="sticky top-[57px] z-20 bg-background/95 backdrop-blur-sm -mx-8 px-8 flex gap-1 border-b border-border mb-4">
+      <div className="sticky top-[57px] z-20 bg-background/95 backdrop-blur-sm -mx-4 md:-mx-6 px-4 md:px-6 flex gap-1 border-b border-border mb-4">
         {([["upcoming", "Upcoming", uc], ["overdue", "Overdue", oc], ["completed", "Completed", cc], ["all", "All", 0]] as [string, string, number][]).map(([k, l, c]) => (
           <button key={k} onClick={() => { setPage(1); setFilter(k); }} className={`inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium border-b-2 -mb-px ${filter === k ? "text-primary border-primary" : "text-muted-foreground border-transparent hover:text-foreground"}`}>{l}{c > 0 && <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-full ${k === "overdue" ? "bg-danger-light text-danger" : "bg-muted text-muted-foreground"}`}>{c}</span>}</button>
         ))}
@@ -182,7 +227,27 @@ export default function Deadlines() {
       )}
 
       {deadlines.length === 0 ? (
-        <div className="bg-card border border-border rounded-xl p-12 text-center text-muted-foreground"><h3 className="font-medium text-muted-foreground mb-1">{filter === "upcoming" ? "No upcoming deadlines" : filter === "overdue" ? "No overdue deadlines" : filter === "completed" ? "No completed deadlines" : "No deadlines yet"}</h3><p className="text-sm">{filter === "upcoming" ? "You're all caught up!" : "Add deadlines to stay on track"}</p></div>
+        filter === "all" ? (
+          <EmptyState
+            intent="welcome"
+            title="Stay ahead of deadlines"
+            description="Track OA due dates, interview prep blocks, follow-up reminders, and offer decision deadlines so nothing slips."
+            actions={[
+              { label: "Add deadline", variant: "primary", onClick: () => { setEditing(null); setModal(true); } },
+            ]}
+          />
+        ) : (
+          <EmptyState
+            intent="filtered"
+            title={
+              filter === "upcoming" ? "You're all caught up!" :
+              filter === "overdue" ? "No overdue deadlines — well done" :
+              "No completed deadlines yet"
+            }
+            description={filter === "upcoming" ? "No deadlines are due soon. Switch tabs to see other states." : undefined}
+            actions={filter !== "upcoming" ? [{ label: "Show all", variant: "secondary", onClick: () => setFilter("all") }] : undefined}
+          />
+        )
       ) : (
         <div className="bg-card border border-border rounded-xl divide-y divide-border">
           {deadlines.map((d) => (

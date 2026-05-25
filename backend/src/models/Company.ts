@@ -5,6 +5,12 @@ export interface ICompany extends Document {
   name: string;
   website: string;
   domain: string;
+  /** CDN URL of the company logo (Clearbit fetched server-side, uploaded to Cloudinary). */
+  logoUrl: string;
+  /** When we last attempted a logo fetch. Used to avoid retry storms when Clearbit 404s. */
+  logoFetchedAt: Date | null;
+  /** Cloudinary public_id for the logo asset, so we can delete on update / company removal. */
+  logoPublicId: string;
   createdBy: Types.ObjectId;
   users: Types.ObjectId[];
   createdAt: Date;
@@ -21,6 +27,9 @@ const companySchema = new Schema<ICompany>(
     },
     website: { type: String, default: "", trim: true },
     domain: { type: String, default: "", trim: true },
+    logoUrl: { type: String, default: "", trim: true },
+    logoFetchedAt: { type: Date, default: null },
+    logoPublicId: { type: String, default: "", trim: true },
     createdBy: {
       type: Schema.Types.ObjectId,
       ref: "User",
