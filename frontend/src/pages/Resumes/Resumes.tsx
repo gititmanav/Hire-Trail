@@ -11,9 +11,99 @@ import ResumeModal from "../../components/ResumeModal/ResumeModal.tsx";
 import { useConfirm } from "../../hooks/useConfirm.ts";
 import { useBackgroundTasks } from "../../hooks/useBackgroundTasks.tsx";
 import { useDemoGate } from "../../hooks/useDemoGate.tsx";
-import type { Resume } from "../../types";
+import type { Resume, ResumeVersion, ResumeMetrics } from "../../types";
 
 const fmt = (d: string) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+const fmtShort = (d: string) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+/** Performance metrics strip — single row of percentage chips driven by the
+ *  backend's per-resume aggregate (response / OA / interview / offer rates).
+ *  Renders nothing when the resume has no submitted apps. Each chip's tone
+ *  matches the stage palette so the Resumes page reads the same as the
+ *  Applications / Kanban funnel. Click → navigate to filtered Applications
+ *  view scoped to this resume (small ergonomic win — "show me the apps that
+ *  drove this rate"). */
+const PCT = (frac: number) => `${Math.round(frac * 100)}%`;
+
+function MetricChip({ label, value, total, tone }: { label: string; value: number; total: number; tone: "blue" | "amber" | "purple" | "emerald" }) {
+  const toneClass = {
+    blue: "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+    amber: "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+    purple: "bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
+    emerald: "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
+  }[tone];
+  const count = Math.round(value * total);
+  return (
+    <span
+      className={`inline-flex items-baseline gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium tabular-nums ${toneClass}`}
+      title={`${label}: ${count} of ${total} (${PCT(value)})`}
+    >
+      <span className="text-[9px] uppercase tracking-wider opacity-70">{label}</span>
+      <span className="font-semibold">{PCT(value)}</span>
+    </span>
+  );
+}
+
+function MetricsStrip({ metrics }: { metrics: ResumeMetrics | null | undefined }) {
+  if (!metrics || metrics.total === 0) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-1 mt-1.5" aria-label="Resume performance metrics">
+      <MetricChip label="Resp" value={metrics.responseRate} total={metrics.total} tone="blue" />
+      <MetricChip label="OA" value={metrics.oaRate} total={metrics.total} tone="amber" />
+      <MetricChip label="Int" value={metrics.interviewRate} total={metrics.total} tone="purple" />
+      <MetricChip label="Off" value={metrics.offerRate} total={metrics.total} tone="emerald" />
+    </div>
+  );
+}
+
+/** Collapsed-by-default edit timeline. Footer-style strip on a resume card —
+ *  shows the most recent entry inline, click-to-reveal expands the rest.
+ *  Renders nothing when the resume has no version entries (legacy + never-
+ *  mutated resumes alike). */
+function VersionHistoryStrip({ versions }: { versions: ResumeVersion[] | undefined }) {
+  const [open, setOpen] = useState(false);
+  const list = versions ?? [];
+  if (list.length === 0) return null;
+  const sorted = [...list].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  const newest = sorted[0];
+  const rest = sorted.slice(1);
+  return (
+    <div className="mt-2 pt-2 border-t border-border/60 text-[11px] text-muted-foreground">
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
+        className="w-full flex items-center gap-1.5 text-left hover:text-foreground"
+        aria-expanded={open}
+        aria-label={`Toggle version history (${sorted.length} entr${sorted.length === 1 ? "y" : "ies"})`}
+      >
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className={`transition-transform shrink-0 ${open ? "rotate-90" : ""}`}>
+          <polyline points="9 6 15 12 9 18" />
+        </svg>
+        <span className="font-semibold uppercase tracking-wider text-[10px]">History</span>
+        <span className="tabular-nums">· {sorted.length}</span>
+        {!open && (
+          <span className="ml-2 truncate flex-1 min-w-0 italic">
+            {fmtShort(newest.timestamp)} — {newest.summary || "Updated"}
+          </span>
+        )}
+      </button>
+      {open && (
+        <ul className="mt-1.5 space-y-1 pl-4">
+          <li className="flex items-baseline gap-2">
+            <span className="text-foreground tabular-nums shrink-0">{fmtShort(newest.timestamp)}</span>
+            <span className="text-muted-foreground italic">{newest.summary || "Updated"}</span>
+          </li>
+          {rest.map((v, i) => (
+            <li key={i} className="flex items-baseline gap-2">
+              <span className="tabular-nums shrink-0">{fmtShort(v.timestamp)}</span>
+              <span className="italic">{v.summary || "Updated"}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 type TagColor = { bg: string; text: string; border: string };
 
@@ -147,12 +237,13 @@ function ResumeCard({ r, isPrimary, tagColorMap, setAsPrimary, setEditing, setMo
         </div>
       )}
       {r.fileName && <span className="text-xs text-muted-foreground mb-1">{r.fileName}</span>}
-      {r.fileName && <span className="text-xs text-muted-foreground mb-1">{r.fileName}</span>}
+      <MetricsStrip metrics={r.metrics} />
       <div className="mt-auto pt-3 border-t border-border">
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span>Added {fmt(r.uploadDate)}</span>
           <span className="font-medium text-muted-foreground">{r.applicationCount || 0} apps</span>
         </div>
+        <VersionHistoryStrip versions={r.versions} />
       </div>
     </div>
   );
@@ -195,6 +286,8 @@ function ResumeListRow({ r, isPrimary, tagColorMap, setAsPrimary, setEditing, se
             })}
           </div>
         )}
+        <MetricsStrip metrics={r.metrics} />
+        <VersionHistoryStrip versions={r.versions} />
       </div>
       <div className="flex items-center gap-1 shrink-0">
         <button
@@ -397,7 +490,7 @@ export default function Resumes() {
 
   return (
     <div className="fade-up">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground tracking-tight">Resumes</h1>
           <p className="text-sm text-muted-foreground mt-1">Set a primary resume so the browser extension attaches it when you track a job.</p>
@@ -532,6 +625,7 @@ export default function Resumes() {
                   </div>
                   <h3 className="mt-2 text-sm font-semibold text-foreground truncate">{primaryResume.name}</h3>
                   <p className="text-xs text-muted-foreground truncate">{primaryResume.targetRole || "General purpose"} • {primaryResume.applicationCount || 0} apps</p>
+                  <MetricsStrip metrics={primaryResume.metrics} />
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   {primaryResume.fileUrl && (
@@ -567,6 +661,7 @@ export default function Resumes() {
           {tailoredResumes.length > 0 && (
             <TailoredResumesSection
               resumes={tailoredResumes}
+              allResumes={resumes}
               tagColorMap={tagColorMap}
               setEditing={setEditing}
               setModal={setModal}
@@ -600,12 +695,56 @@ export default function Resumes() {
   );
 }
 
-/* ---------- Tailored variants section ---------- */
+/* ---------- Tailored variants tree ----------
+ * Groups tailored resumes by `baseResumeId` so the UI renders the lineage:
+ *   <Base resume name>
+ *     ↳ Tailored — Google / SWE
+ *     ↳ Tailored — Stripe / Backend
+ * Tailored resumes whose baseResumeId is null (hand-uploaded legacy or apps
+ * that pre-date the lineage field) collect into an "Untraced" bucket. */
+
+interface TailoredGroup {
+  base: Resume | null;
+  /** Display label for the group header. Mirrors `base.name` when present,
+   *  falls back to "Untraced tailored resumes" otherwise. */
+  label: string;
+  children: Resume[];
+}
+
+function groupTailoredByBase(tailored: Resume[], allResumes: Resume[]): TailoredGroup[] {
+  const baseById = new Map(allResumes.map((r) => [r._id, r] as const));
+  const groups = new Map<string, TailoredGroup>();
+  for (const r of tailored) {
+    const baseId = r.baseResumeId || "__untraced__";
+    if (!groups.has(baseId)) {
+      const base = baseId === "__untraced__" ? null : (baseById.get(baseId) ?? null);
+      groups.set(baseId, {
+        base,
+        label: base?.name ?? "Untraced tailored resumes",
+        children: [],
+      });
+    }
+    groups.get(baseId)!.children.push(r);
+  }
+  // Sort children newest first within each group; group order: known bases
+  // by name asc, untraced last.
+  for (const g of groups.values()) {
+    g.children.sort((a, b) => new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime());
+  }
+  return Array.from(groups.values()).sort((a, b) => {
+    if (!a.base && b.base) return 1;
+    if (a.base && !b.base) return -1;
+    return a.label.localeCompare(b.label);
+  });
+}
 
 function TailoredResumesSection({
-  resumes, tagColorMap, setEditing, setModal, handleDelete, setPreviewResume,
+  resumes, allResumes, tagColorMap, setEditing, setModal, handleDelete, setPreviewResume,
 }: {
   resumes: Resume[];
+  /** Full set of all resumes (incl. non-tailored) — needed to look up the
+   *  base resume by id when building the tree. */
+  allResumes: Resume[];
   tagColorMap: Record<string, TagColor>;
   setEditing: (r: Resume | null) => void;
   setModal: (b: boolean) => void;
@@ -613,6 +752,7 @@ function TailoredResumesSection({
   setPreviewResume: (r: Resume | null) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const groups = useMemo(() => groupTailoredByBase(resumes, allResumes), [resumes, allResumes]);
   return (
     <section className="mt-10 border-t border-border pt-6">
       <button
@@ -627,24 +767,42 @@ function TailoredResumesSection({
         <div>
           <h2 className="text-lg font-semibold text-foreground">Tailored variants</h2>
           <p className="text-xs text-muted-foreground">
-            {resumes.length} {resumes.length === 1 ? "version" : "versions"} generated by AI Tailor and used on an application.
+            {resumes.length} {resumes.length === 1 ? "version" : "versions"} grouped under their source resume.
           </p>
         </div>
       </button>
       {open && (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {resumes.map((r) => (
-            <ResumeListRow
-              key={r._id}
-              r={r}
-              isPrimary={false}
-              tagColorMap={tagColorMap}
-              setAsPrimary={() => {}}
-              setEditing={setEditing}
-              setModal={setModal}
-              handleDelete={handleDelete}
-              setPreviewResume={setPreviewResume}
-            />
+        <div className="space-y-5">
+          {groups.map((g) => (
+            <div key={g.base?._id ?? "__untraced__"} className="rounded-xl border border-border bg-card/40 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="text-muted-foreground shrink-0">
+                  <path d="M12 2H5a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7l-5-5z"/><polyline points="12,2 12,7 17,7"/>
+                </svg>
+                <h3 className="text-sm font-semibold text-foreground truncate">{g.label}</h3>
+                <span className="text-[11px] text-muted-foreground tabular-nums ml-auto">
+                  {g.children.length} variant{g.children.length === 1 ? "" : "s"}
+                </span>
+              </div>
+              {/* Child list with the left-rail tree connector — a 2px primary
+               *  bar runs down the gutter so the visual hierarchy reads even
+               *  when bases are scrolled out of view. */}
+              <div className="border-l-2 border-primary/30 pl-4 space-y-2">
+                {g.children.map((r) => (
+                  <ResumeListRow
+                    key={r._id}
+                    r={r}
+                    isPrimary={false}
+                    tagColorMap={tagColorMap}
+                    setAsPrimary={() => {}}
+                    setEditing={setEditing}
+                    setModal={setModal}
+                    handleDelete={handleDelete}
+                    setPreviewResume={setPreviewResume}
+                  />
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       )}

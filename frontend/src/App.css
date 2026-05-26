@@ -141,9 +141,51 @@
 @media (prefers-reduced-motion: reduce) {
   .app-row-stagger { animation: none; }
 }
+
+/* Kanban card enter animation. Plays whenever a card mounts in a column —
+ *  i.e. initial page load, AND when a stage change (drag-drop or row action)
+ *  causes the card to unmount from its old column and remount in the new one.
+ *  Applied to an INNER wrapper so it never collides with dnd-kit's transform
+ *  on the outer sortable element. */
+@keyframes kanban-card-enter { from { opacity: 0; transform: translateY(6px) scale(0.97); } to { opacity: 1; transform: none; } }
+.kanban-card-enter { animation: kanban-card-enter 240ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .kanban-card-enter { animation: none; }
+}
+
+/* Kanban predicted-destination "ghost" card. Hatched diagonal stripes signal
+ *  that this is a *prediction*, not a real card — it disappears once the
+ *  source application actually moves stages. Stays muted enough to never
+ *  compete with real cards in the same column. */
+.kanban-card-ghost {
+  opacity: 0.55;
+  background-image: repeating-linear-gradient(
+    135deg,
+    transparent 0,
+    transparent 6px,
+    hsl(var(--muted-foreground) / 0.18) 6px,
+    hsl(var(--muted-foreground) / 0.18) 7px
+  );
+}
+.kanban-card-ghost:hover { opacity: 0.85; }
 .animate-slide-in-right { animation: slide-in-right 0.24s cubic-bezier(0.16, 1, 0.3, 1); }
 @keyframes slide-in-right { from { transform: translateX(100%); } to { transform: translateX(0); } }
 .line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* During a theme swap, useTheme adds `theme-transitioning` to <html> for
+ *  one animation frame and the rule below globally disables transitions so
+ *  no element animates its color/background from the old theme to the new.
+ *  Without this, anything using `transition-all`, `transition-colors`, or a
+ *  custom `transition: background ...` lags a frame behind the page chrome
+ *  and produces a visible flash. */
+html.theme-transitioning,
+html.theme-transitioning *,
+html.theme-transitioning *::before,
+html.theme-transitioning *::after {
+  transition: none !important;
+  animation-duration: 0s !important;
+  animation-delay: 0s !important;
+}
 
 /* Theme tokens (bg-card, border, etc.) must not sit behind transition-all or colors lag on theme change. */
 .card-premium {
@@ -215,20 +257,20 @@
   background: hsla(var(--background) / 0.72); backdrop-filter: blur(16px) saturate(180%); -webkit-backdrop-filter: blur(16px) saturate(180%);
 }
 
-/* Desktop shell: main panel sits flush to the sidebar with a hairline border.
- *  Per the launch-prep design pass we dropped the drop-shadow + seam pseudo —
- *  the shadow was visually noisy at high DPI and the seam was redundant once
- *  the sidebar gained its own background color. */
+/* Shell panel — clip horizontal overflow on every viewport so negative-margin
+ *  "breakout" patterns (sticky filter bars with -mx-4) don't spill past the
+ *  viewport. Border + dedicated background are desktop-only because they're
+ *  the "sits flush to the sidebar" visual; on mobile the sidebar is off-canvas
+ *  so the panel IS the page. */
+.shell-overlap-panel {
+  overflow-x: hidden;
+}
 @media (min-width: 768px) {
   .shell-overlap-panel {
     position: relative;
     z-index: 30;
     background: hsl(var(--background));
     border-left: 1px solid hsla(var(--border) / 0.6);
-    /* Clip any descendants that try to render past the panel's edges; combined
-     *  with the toolbar margin fix, this prevents the rubber-band horizontal
-     *  scroll on wide content. */
-    overflow-x: hidden;
   }
 }
 

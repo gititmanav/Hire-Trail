@@ -20,7 +20,8 @@ import {
   HEALTH_BADGE_CLASS,
   suggestNextAction,
 } from "../../../utils/applicationHealth.ts";
-import type { Application, Company, Contact, Deadline, Resume, Stage } from "../../../types";
+import { STAGE_STRIPE_CLASS } from "../../../utils/stageStyles.ts";
+import type { Application, Company, Contact, Deadline, Resume } from "../../../types";
 
 interface Props {
   app: Application;
@@ -45,15 +46,6 @@ interface Props {
   onOpenFit?: (sessionId: string | null) => void;
 }
 
-/** 3px left-edge urgency stripe, tinted by stage and health tone. */
-const STAGE_EDGE_COLOR: Record<Stage, string> = {
-  Drafting: "bg-slate-300 dark:bg-slate-600",
-  Applied: "bg-blue-400",
-  OA: "bg-amber-400",
-  Interview: "bg-purple-400",
-  Offer: "bg-emerald-500",
-  Rejected: "bg-red-400/70",
-};
 
 function Chip({
   children,
@@ -110,11 +102,12 @@ function ApplicationRowImpl({
 
   const isCompact = density === "compact";
 
-  // Edge stripe: stage tone normally; saturated red if stale (>=45d in
-  // non-terminal stage). Gives the row one — and only one — urgency signal.
-  const edgeClass = health.tone === "stale" && app.stage !== "Rejected" && app.stage !== "Offer"
-    ? "bg-red-500"
-    : STAGE_EDGE_COLOR[app.stage];
+  // Edge stripe — strictly mirrors the current stage so the card's left
+  // edge IS the stage indicator. Color updates automatically when app.stage
+  // changes (parent passes a new app object on stage transitions, memo
+  // invalidates). Stale/urgent state is conveyed via HEALTH_BADGE_CLASS
+  // on the age badge to the right, not by hijacking the stage stripe.
+  const edgeClass = STAGE_STRIPE_CLASS[app.stage];
 
   return (
     <div
@@ -127,7 +120,7 @@ function ApplicationRowImpl({
         onOpen();
       }}
       style={staggerDelay !== undefined ? { animationDelay: `${staggerDelay}ms` } : undefined}
-      className={`group relative flex flex-col sm:flex-row items-stretch overflow-hidden rounded-xl border bg-card transition-all cursor-pointer hover:shadow-sm ${
+      className={`group relative flex flex-col sm:flex-row items-stretch overflow-hidden rounded-xl border bg-card transition-shadow cursor-pointer hover:shadow-sm ${
         staggerIndex >= 0 ? "app-row-stagger" : ""
       } ${
         selected
@@ -143,8 +136,17 @@ function ApplicationRowImpl({
         className={`absolute left-0 top-0 bottom-0 w-[3px] ${edgeClass}`}
       />
 
-      {/* Left rail: checkbox + company logo */}
-      <div className={`flex items-center gap-3 pl-4 pr-2 sm:pr-3 ${isCompact ? "py-2" : "py-3"}`}>
+      {/* Left rail: bare logo pinned top-left of the card. The selection
+       *  checkbox sits BELOW the logo (centred under it) so the brand mark
+       *  occupies the corner cleanly. Checkbox is still hover-revealed unless
+       *  a selection is already active. */}
+      <div className={`flex flex-col items-center gap-1.5 pl-3 pr-2 sm:pr-3 ${isCompact ? "py-2" : "py-3"}`}>
+        <CompanyLogo
+          name={app.company}
+          logoUrl={company?.logoUrl}
+          size={isCompact ? "md" : "lg"}
+          bare
+        />
         <label
           className={`inline-flex w-5 h-5 items-center justify-center rounded transition-opacity ${
             selectionActive || selected
@@ -161,11 +163,6 @@ function ApplicationRowImpl({
             className="h-4 w-4 accent-primary cursor-pointer"
           />
         </label>
-        <CompanyLogo
-          name={app.company}
-          logoUrl={company?.logoUrl}
-          size={isCompact ? "sm" : "md"}
-        />
       </div>
 
       {/* Middle: content */}

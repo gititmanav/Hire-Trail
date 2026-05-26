@@ -188,105 +188,80 @@ This is a sanity check — don't redo any of these.
 
 ## 4. What is NOT been shipped — the remaining work
 
-Grouped by surface. Effort: **S** ≈ <1h, **M** ≈ a few hours, **L** ≈ a day+ and probably its own design pass.
+Effort: **S** ≈ <1h, **M** ≈ a few hours, **L** ≈ a day+.
 
-### Pages awaiting redesign (highest leverage)
+### Cross-app consistency principle (read first)
 
-#### Contacts (M+)
-- Apply row redesign (mirror Applications): logo, name, role at company, outreach status, days-since-last-contact, action CTA.
-- **Contact strength score (0–100)** — derived from recency + response rate + LinkedIn-connected + introduced-applications. Differentiator.
-- **LinkedIn quick-action** (open profile in new tab) — small but high-utility.
-- **Outreach email templates** — pre-built follow-up emails personalized with contact data. One-click "Copy to clipboard."
-- ~~Network graph view~~ — deferred (L, post-launch).
+When you change how a primary resource behaves (contacts, deadlines, resumes, companies, applications), propagate the change to **every surface that touches it**, not just the page that owns it. The Create-Application modal in particular embeds contact picking, deadline scheduling, and resume linking — a feature added to the Contacts page that doesn't also work in the Add-Application flow will feel half-built.
 
-#### Companies (M)
-- **Logo-first card grid** (now that Cloudinary cache exists, logos are real).
-- "Contacts at this company" inline avatars.
-- **Quick-jump links**: Glassdoor / Levels.fyi / Blind / careers page.
-- **Company timeline**: lifetime stage history at this company ("Applied 3× — 1 Rejected, 1 Interview, 1 Offer").
-- **Compensation memory**: aggregate of every salary seen at this company.
+Audit checklist before declaring a cross-cutting change "done":
+- Create / Edit Application modal (`pages/Applications/*`)
+- Application detail body — used by the overlay sidebar and reusable elsewhere (`pages/Applications/components/ApplicationDetailBody.tsx`)
+- The standalone page for the resource itself (Contacts, Deadlines, Companies, Resumes)
+- Kanban quick-add and inline cards
+- Dashboard widgets that surface the resource
+- The Tailor page where contacts/resumes get attached to drafted apps
 
-#### Deadlines (M+)
-- Apply row redesign (icon-led like Applications).
-- **Smart grouping**: Today / Tomorrow / This Week / Later / Overdue, with sticky section headers.
-- **Snooze with quick options** (right-click: 1d / 3d / next Mon).
-- **Auto-complete suggestions**: when a stage advances on a linked app, prompt "Mark related deadline complete?"
-- **Recurring deadlines**: "Follow up every 2 weeks until response."
+### Dashboard
+- **Hero "Today" strip (M)** — one bold sentence at the top: "You have 2 interviews this week and 3 follow-ups overdue." Each clause click-throughs to the right filtered view.
+- **"What needs your attention" list (M)** — top-priority actions sorted by urgency. Each item is a one-line card with a CTA ("Send follow-up to Stripe (12d since last)" → opens a compose surface). This becomes the homepage; everything else is supplementary.
+- **Pipeline funnel that animates (S)** — real-time funnel chart with stage counts. Click a stage → jump to filtered Applications.
+- **Streak / momentum indicator (S)** — "8 days of activity this month." Playful, motivating, differentiator vs. competitors.
+- **Weekly capacity meter (S)** — "12 applications this week / your goal: 15." Helps users gamify their job search.
 
-#### Resumes (M+)
-- **PDF preview thumbnails** (not just text names). Needs a thumbnail extractor — `pdfjs-dist` page → canvas → cloudinary.
-- **Performance metrics per resume**: response rate, OA rate, interview rate. Backend already has the data.
-- **"Tailored from..." relationships**: when a tailored resume is generated, show which base resume it descends from (tree view).
-- **Version timeline**: history of edits.
-- ~~A/B comparison view~~ — deferred (L, post-launch).
+### Kanban
+- **WIP-style stage stats (S)** — "Avg 8d in OA" under each column header. Industry benchmark comparison.
+- **Card density toggle (S)** — mini / regular / detailed. Mini = one line + logo.
+- **Smart suggestions (M)** — "3 apps stuck in Applied for >30d — bump to Rejected?" bulk-archive prompt.
+- **Filters in the kanban (S)** — slice by resume / company / source.
+- **Animated card transitions (S)** — animate stage moves whether the trigger is drag OR a row action elsewhere.
+- **"Predicted" hatched cards (L)** — faint placeholder card on the next column where the row is likely to land based on history. Removed when the stage actually changes.
 
-#### Kanban (S+)
-- **WIP-style stage stats** under each column header ("Avg 8d in OA").
-- **Card density toggle** (mini / regular / detailed).
-- **Smart suggestions** ("3 apps stuck in Applied >30d — bump to Rejected?").
-- **Filters in kanban**: slice by resume / company / source.
-- **Animated card transitions** when stage changes (drag OR row trigger).
-- ~~"Predicted" hatched cards~~ — deferred (L, post-launch).
+### Deadlines
+- **Apply the row redesign here (M)** — same icon-led structure as Applications: type icon · linked-application logo · countdown chip · status · quick-action CTA.
+- **Smart grouping (S)** — Today / Tomorrow / This Week / Later / Overdue, with sticky section headers.
+- **Snooze with quick options (S)** — right-click → "Snooze 1 day / 3 days / next Monday."
+- **Auto-complete suggestions (M)** — when a stage advances on a linked app, prompt "Mark related deadline complete?" Closes the loop between app stage changes and the deadline tracker.
+- **Recurring deadlines (M)** — "Follow up every 2 weeks until response."
 
-#### Calendar (M)
-- "Week ahead" focused view as the default (vertical 7-day strip).
-- Quick-add deadline by clicking an empty day.
-- Interview prep blocks auto-suggested before scheduled interviews.
-- Stage-change overlay dots on dates.
-- iCal export ("Subscribe to your HireTrail calendar").
+### Contacts
+- **Apply row redesign + icon grid (M)** — same treatment as Applications. Each row: avatar / monogram, name, role at company, outreach-status badge, days-since-last-contact age, "send follow-up →" CTA.
+- **Contact strength score (M)** — small 0–100 derived from recency of contact + response rate + LinkedIn connection + introduced applications. Jobright-style differentiator.
+- **Network graph view (L)** — force-directed graph: contacts as nodes, companies as bigger nodes, edges show "works at." Toggle between list and graph view. Could be the launch screenshot.
+- **Outreach templates (M)** — pre-built follow-up email templates personalised with contact data. One-click "Copy email to clipboard."
+- **LinkedIn quick-actions (S)** — open LinkedIn profile in a new tab from the row.
 
-#### AI Tailor page (M)
-- **Side-by-side diff** (before/after columns). Currently shows suggestions but not the actual diff visually.
-- **Bulk actions**: Accept all / Reject all / Accept top N.
-- **Suggestion impact score**: "+2.4 to your fit estimate" per suggestion.
-- **Re-tailor with different model** dropdown.
-- **Cost transparency**: "$0.04 used on this analysis" for BYOK users.
-- **Save tailoring as template** (longer-term, L).
+### Companies
+- **Logo-first card grid (M)** — big logos (Cloudinary cache exists), apps count, status breakdown bar.
+- **"Contacts at this company" chip (S)** — inline avatars (up to 3) per company card.
+- **Quick-jump links (S)** — Glassdoor / Levels.fyi / Blind / careers page; one-click external research.
+- **Company timeline (M)** — lifetime stage history at this company ("Applied 3 times: Rejected, Interview, Offer"). Tells the story of your relationship with the company.
+- **Compensation memory (M)** — aggregate of every salary seen for this company. Useful at negotiation time.
 
-#### Profile / Master Profile (L)
-- **Live resume preview** side-by-side. The form on the left, a rendered preview on the right that updates as you edit. **This would be the launch screenshot.** Large effort.
-- **Skill cloud** — visual skill frequency from experiences. Click a skill to see roles that use it.
-- **Coverage meter** ("78% complete — add 2 projects to unlock better AI tailoring").
-- **Experience timeline** visualization (horizontal bars).
-- ~~Bulk import from LinkedIn~~ — deferred (L, requires OAuth or scraping).
+### Resumes
+- **PDF preview thumbnails (M)** — show the actual resume as a small image preview (`pdfjs-dist` page → canvas → Cloudinary).
+- **Performance metrics per resume (M)** — response rate, OA rate, interview rate. Highlights your best performer.
+- **A/B comparison view (L)** — pick 2 resumes, see their stats side-by-side. Differentiator.
+- **"Tailored from..." relationships (S)** — when a tailored resume is generated, show which base resume it descends from. Tree view.
+- **Version timeline (S)** — history of edits.
 
-#### Import / Export (M)
-- **Drag-drop with live CSV preview**.
-- **Smart column mapping** with confidence scores ("Your column 'job_title' → our 'role'?").
-- **Conflict resolution UI** for duplicates.
-- **Templates** for popular sources: Simplify export, LinkedIn data download, Notion table.
+### Profile (Master Profile)
+- **Live resume preview (L)** — right side shows a rendered preview that updates as you edit on the left. The form on the left, the artifact on the right. **The launch screenshot candidate.**
+- **Skill cloud (M)** — visual skill frequency from experiences. Click a skill to see which roles use it.
 
-#### Settings (S)
-- **Categorized + searchable**: page already has sectioned tabs; search box not added yet.
-- **Theme picker with live preview** (hover a theme → page tints; click to lock).
-- **Connected integrations card** improvements: show last-sync timestamp per integration.
+### Settings
+- **Categorized + searchable (S)** — sections Account, Integrations, AI, Notifications, Appearance. Add a search box at the top of the page that filters/highlights inside each section.
+- Constraints for the Integrations card (do NOT regress these — they're already shipped):
+  - Outlook stays disabled with a "Coming soon" pill (gated behind `feature_outlook_integration`).
+  - We do **not** have a Calendar provider — don't add a Calendar row.
+  - Gmail is in Google's OAuth test-mode; clicking Connect Gmail still shows a "Request access" affordance that opens the existing FeedbackModal pre-filled, so the admin can add the user to the Google Cloud Console test-user list manually.
 
-### Cross-cutting NOT done
-
-- **Onboarding tour (M)** — first-run tooltips walking new users through Applications → Kanban → Add → Resumes. Pause-able. Skippable.
-- **Sample-data toggle (M)** — signed-out demo mode: visitors play with seeded data without account. Critical for OSS launch conversion. Probably the highest-impact unshipped item for the landing page funnel.
-- **Mobile-responsive sweep (L)** — most pages probably break under 640px. Will need page-by-page.
-- **OG image for landing (S)** — a beautiful screenshot of the new Applications row for LinkedIn shares.
-- **Bundle code-splitting next pass (S)** — main chunk is still 1.3MB. Splitting react-chartjs-2 + react-grid-layout into a separate lazy chunk would shave 200kB+.
-- **Performance: virtualize long lists** — if users hit 500+ applications, the Applications page slows. Use `react-window`.
-- **Internationalization scaffolding (M)** — currently English-only.
-
-### Known bugs / risks NOT addressed
-
-- **L-1**: One-frame toast border flash on first render. Cosmetic, low priority.
-- **L-2**: `DashboardHero` (now removed) used naive `name.split(/\s+/)[0]` — for the "Maria Del Carmen → Maria" case. Re-add user-preferred-name when reviving any "Hi, {name}" surface.
-- **L-7**: `<GlobalShortcuts />` is mounted only when `user` is truthy. The landing page doesn't get it. Verify intentional.
-- **L-8**: `EmptyState` illustration uses `hsl(var(--primary))`. In extreme custom themes the gradient may clash with the surrounding card. Cosmetic.
-- Bundle warning >500kB still present — splitting more aggressively or using `rollupOptions.output.manualChunks` would silence it.
-- No global error-monitoring (Sentry / Rollbar). When an exception fires in prod it goes to the void. Recommend wiring before LinkedIn launch.
-- No E2E tests. Only co-located node tests for two pure utils (`applicationHealth`, `jdExtractor`) and 5 extension tests. Adding Playwright smoke tests for "create application", "open detail", "tailor flow" would protect against regressions during fast iteration.
-
-### Tech debt / quality items
-
-- TypeScript strict mode — confirm `strict: true` is on across both tsconfigs.
-- A11y audit — focus order, WCAG AA contrast, screen-reader pass.
-- Pagination of contacts (currently `limit: 500` everywhere — fine for now, but won't scale).
-- Server-side telemetry — number of users, AI calls/day, error rates. Nothing in place.
+### Cross-cutting (everywhere)
+- **Onboarding tour (M)** — first-run tooltips for new users ("Click here to add your first application"). Pause-able, skippable.
+- **Skeleton loaders everywhere (S)** — consistency across every list/page that fetches on mount.
+- **Mobile-responsive sweep (L)** — most pages break under 640px. Page-by-page audit.
+- **Bundle code-splitting next pass (S–M)** — main chunk is still 1.3 MB. Split chartjs + react-grid-layout into a lazy chunk; lazy-load Tailor sub-routes; consider splitting Admin off the main chunk. Target sub-1 MB first paint.
+- **Virtualize long lists (M)** — `react-window` once any user hits 500+ applications.
 
 ---
 
@@ -335,14 +310,9 @@ Grouped by surface. Effort: **S** ≈ <1h, **M** ≈ a few hours, **L** ≈ a da
 
 - Anything Clearbit-related.
 - A persistent right-detail-panel on the Applications page (he tried it and reverted — full-width row + click-to-overlay-sidebar is the chosen pattern).
-- The "Hero today" strip on the Dashboard + the "What needs your attention" list — both were built and removed. Dashboard widgets stay in the movable grid.
-- The bespoke `AnimatedFunnel` on Dashboard — the existing chart.js `FunnelWidget` is the canonical visualization.
-- Outlook integration (gated behind feature flag, "Coming soon" visible to users).
-- Network graph view for Contacts — deferred to post-launch.
-- A/B compare view for Resumes — deferred to post-launch.
-- "Predicted" hatched cards on Kanban — deferred to post-launch.
+- Outlook integration as a real Connect button (stays gated behind `feature_outlook_integration` with a "Coming soon" pill until the OAuth app is wired up).
 
-If he changes his mind on any of these, that's fine — just don't propose them unprompted.
+> Note: the Dashboard "Hero today" strip, "What needs your attention" list, animated pipeline funnel, Contacts network graph, Resumes A/B view, and Kanban "predicted hatched cards" were all previously deferred but are now **in scope** (see Section 4). Earlier reverts were about the *implementation*, not the *idea* — when rebuilding these, treat the prior versions as cautionary tales (especially: don't make them feel decorative).
 
 ---
 
@@ -352,8 +322,8 @@ He's launching on LinkedIn. The North Star is: **a single screenshot of HireTrai
 
 The current strongest candidates for that screenshot:
 1. Applications page with the 3-rail row (logo / role + chips / Pipeline Pulse / blue AI Fit). Already shippable.
-2. A future "live resume preview" on the Profile page (not yet built). Would be the most distinctive.
-3. A future Contacts network graph (deferred).
+2. The "live resume preview" on the Profile page (Section 4 — not yet built). Would be the most distinctive.
+3. The Contacts network graph (Section 4 — not yet built). Dense, visual, recognisably HireTrail.
 
 When making UI decisions, ask: "does this make the screenshot more remarkable?" If yes, prioritize. If it's polish that won't show up in a screenshot, deprioritize until launch is closer.
 
@@ -362,3 +332,5 @@ When making UI decisions, ask: "does this make the screenshot more remarkable?" 
 *Last updated: this session. Append a dated line below when you change major facts so future sessions see the trail.*
 
 - 2026-05 — initial handoff written. Applications redesign Phase A complete. Persistent split-panel reverted; page capped at 1200px.
+- 2026-05-25 — Section 4 rewritten as Manav's authoritative scope list (Dashboard / Kanban / Deadlines / Contacts / Companies / Resumes / Profile / Settings + cross-cutting). Calendar, AI Tailor page enhancements, Import/Export, Sample-data toggle, OG image, i18n, the bug-register, and the tech-debt list were dropped to keep the file focused on the active scope. Section 8 trimmed accordingly: Hero strip, attention list, animated funnel, Contacts network graph, Resumes A/B view, and Kanban predicted cards are no longer opt-outs — they're in scope. Section 1 already covered the working-with-Manav guidance; the new "Cross-app consistency principle" at the top of Section 4 is the additional norm to read first when touching shared resources.
+- 2026-05-25 — Demo-user AI gating shipped: `frontend/src/hooks/useDemoGate.tsx` + `requireRealAccount()` wired into Profile resume parse, Resumes "Sync to Profile", Tailor "Analyze JD", Settings Gmail/Outlook connect + Scan now, AISettingsCard "Save key", Settings Profile-Sync toggle. AuthModal gained an optional `contextHeader` prop for the upgrade banner. Demo data window moved to 2026 (Jan 1 → today for apps; Jan 1 → Jul 31 for deadlines) in `backend/src/utils/seedData.ts`; `backend/src/seed.ts` is now a thin shell around `runSeed` so CLI + admin produce identical data. Mock A–F fit scores were already part of `seedData.ts` — no change there, but re-seed required for them to appear on the demo account.

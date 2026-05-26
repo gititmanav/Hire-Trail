@@ -4,6 +4,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { companiesAPI } from "../../utils/api.ts";
 import type { CompanyDetail, Application, Stage } from "../../types";
 import { STAGE_BADGE_CLASS } from "../../utils/stageStyles.ts";
+import { SkeletonTable, SkeletonStats } from "../../components/Skeleton/Skeleton.tsx";
 
 const stageColors: Record<Stage, string> = STAGE_BADGE_CLASS;
 
@@ -33,7 +34,14 @@ export default function CompanyProfile() {
     companiesAPI.getOne(id).then(setData).catch(() => navigate("/companies")).finally(() => setLoading(false));
   }, [id, navigate]);
 
-  if (loading) return <div className="spinner" />;
+  if (loading) {
+    return (
+      <div className="fade-up space-y-4">
+        <SkeletonStats />
+        <SkeletonTable rows={6} />
+      </div>
+    );
+  }
   if (!data) return null;
 
   const interviews = data.applications.filter((a) => a.stage === "Interview").length;

@@ -19,6 +19,10 @@ export interface IDeadline extends Document {
   dueDate: Date;
   completed: boolean;
   notes: string;
+  /** Cadence in days. 0 = one-off. When >0 and the deadline is marked
+   *  complete, the route handler clones it forward by `recurrenceDays` so the
+   *  user gets a fresh "Follow up every 2 weeks until response" loop. */
+  recurrenceDays: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -53,6 +57,12 @@ const deadlineSchema = new Schema<IDeadline>(
       type: String,
       default: "",
       maxlength: 2000,
+    },
+    recurrenceDays: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 365,
     },
   },
   { timestamps: true }

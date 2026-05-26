@@ -6,6 +6,12 @@ import { validate } from "../middleware/validate.js";
 import { updateCompanySchema } from "../validators/companies.js";
 import { NotFoundError } from "../errors/AppError.js";
 import { env } from "../config/env.js";
+import {
+  extractDomainFromUrl,
+  isJobBoardDomain,
+  resolveLogoDomain,
+  shouldInvalidateCachedLogo,
+} from "../utils/companyDomain.js";
 
 const router = Router();
 router.use(ensureAuth);
@@ -13,27 +19,8 @@ router.use(ensureAuth);
 /** Refresh logos no more than once every 30 days even if they 404'd previously. */
 const LOGO_RETRY_INTERVAL_MS = 30 * 24 * 60 * 60 * 1000;
 
-/** Extract domain from a URL. */
-function extractDomain(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return "";
-  }
-}
-
-/** Best-effort domain from a company name. Drops common suffixes, lowercases,
- *  strips non-alphanum. "Acme Corp" → "acme.com". Wrong for many companies
- *  (Anthropic ≠ anthropic.com? actually right), but right often enough for the
- *  90% case — Clearbit returns 404 otherwise and we silently fall back. */
-function deriveDomainFromName(name: string): string {
-  const cleaned = name
-    .toLowerCase()
-    .replace(/\b(inc|llc|ltd|corp|corporation|gmbh|co|company)\.?\b/g, "")
-    .replace(/[^a-z0-9]/g, "");
-  if (!cleaned) return "";
-  return `${cleaned}.com`;
-}
+/** Local alias preserved so legacy call sites below read naturally. */
+const extractDomain = extractDomainFromUrl;
 
 const cloudinaryEnabled = () => !!(env.CLOUDINARY_CLOUD_NAME && env.CLOUDINARY_API_KEY && env.CLOUDINARY_API_SECRET);
 
@@ -78,6 +65,17 @@ async function safeSaveCompany(company: ICompany): Promise<void> {
 }
 
 export async function ensureCompanyLogo(company: ICompany): Promise<ICompany> {
+  // Legacy invalidation: a prior version of the create flow stored the
+  // applicant's jobUrl host as Company.domain. For job-board hosts (Workday,
+  // Greenhouse, etc.) Google's S2 favicons then returned the ATS's logo, not
+  // the company's. Detect that signature and refetch instead of returning
+  // early on the bad cached value. Also clears the 30-day retry suppressor.
+  if (company.logoUrl && shouldInvalidateCachedLogo({ domain: company.domain })) {
+    company.logoUrl = "";
+    company.logoPublicId = "";
+    company.logoFetchedAt = null;
+    company.domain = "";
+  }
   if (company.logoUrl) return company;
   if (company.logoFetchedAt && Date.now() - company.logoFetchedAt.getTime() < LOGO_RETRY_INTERVAL_MS) {
     return company;
@@ -91,7 +89,14 @@ export async function ensureCompanyLogo(company: ICompany): Promise<ICompany> {
     return company;
   }
 
-  const domain = (company.domain || extractDomain(company.website) || deriveDomainFromName(company.name)).trim();
+  // Name-first resolver: prefer "Google" → "google.com" over whatever URL
+  // host happens to be stored. See utils/companyDomain.ts for the priority
+  // and the job-board exclusion list.
+  const domain = resolveLogoDomain({
+    name: company.name,
+    website: company.website,
+    domain: company.domain,
+  });
   if (!domain) {
     await safeSaveCompany(company);
     return company;
@@ -190,7 +195,10 @@ router.post("/", async (req: Request, res: Response, next: NextFunction) => {
       return res.status(400).json({ error: "Company name is required" });
     }
 
-    const domain = website ? extractDomain(website) : "";
+    // Job-board URLs (Workday, Greenhouse, etc.) are NOT the company's domain.
+    // Storing them blew up the logo fetcher — see utils/companyDomain.ts.
+    const rawDomain = website ? extractDomain(website) : "";
+    const domain = rawDomain && !isJobBoardDomain(rawDomain) ? rawDomain : "";
     const company = await Company.findOneAndUpdate(
       { name: name.trim() },
       {
@@ -226,9 +234,14 @@ router.put("/:id", validate(updateCompanySchema), async (req: Request, res: Resp
 
     if (req.body.website !== undefined) {
       company.website = req.body.website;
-      company.domain = req.body.website ? extractDomain(req.body.website) : company.domain;
+      const raw = req.body.website ? extractDomain(req.body.website) : "";
+      // Reject job-board hosts so we don't re-introduce the wrong-logo bug
+      // when a user pastes a Workday/Greenhouse URL into the website field.
+      company.domain = raw && !isJobBoardDomain(raw) ? raw : "";
     }
-    if (req.body.domain !== undefined) company.domain = req.body.domain;
+    if (req.body.domain !== undefined) {
+      company.domain = isJobBoardDomain(req.body.domain) ? "" : req.body.domain;
+    }
     await company.save();
     res.json(company);
   } catch (err) {

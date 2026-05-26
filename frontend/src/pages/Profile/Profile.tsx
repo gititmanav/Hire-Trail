@@ -7,6 +7,8 @@ import ResumePreview from "../../components/ResumePreview/ResumePreview.tsx";
 import EditDrawer, { type SectionKey as EditSectionKey } from "./EditDrawer.tsx";
 import { useBackgroundTasks } from "../../hooks/useBackgroundTasks.tsx";
 import { useDemoGate } from "../../hooks/useDemoGate.tsx";
+import { tallySkills, chipSize, experienceUsesSkill, bulletUsesSkill } from "../../utils/skillCloud.ts";
+import { Skeleton } from "../../components/Skeleton/Skeleton.tsx";
 import type { Resume } from "../../types";
 
 /* ------------------ Types (mirror backend MasterProfile shape) ------------------ */
@@ -75,6 +77,10 @@ export default function Profile() {
   const [active, setActive] = useState<SectionKey>("personal");
   const [showPreview, setShowPreview] = useState(false);
   const [editingSection, setEditingSection] = useState<EditSectionKey | null>(null);
+  /** When a chip in the skill cloud is clicked, the cloud sets this and the
+   *  Experience section highlights any role / bullet whose tags include it.
+   *  Click the same chip again (or any chip) to toggle. Null = no selection. */
+  const [selectedSkill, setSelectedSkill] = useState<string | null>(null);
   const { startTask, tasks, registerRecovery } = useBackgroundTasks();
   const { requireRealAccount } = useDemoGate();
   // True while ANY resume-parse / profile-sync task is running anywhere in the app.
@@ -212,10 +218,39 @@ export default function Profile() {
   /* ---------- empty / loading states ---------- */
 
   if (loading) {
+    // Mirror the post-load 2-column shape (sections card + right rail) so
+    // there's no layout jump when the profile arrives.
     return (
-      <div className="max-w-6xl mx-auto">
-        <h1 className="text-2xl font-semibold text-foreground mb-6">Profile</h1>
-        <p className="text-sm text-muted-foreground">Loading…</p>
+      <div className="fade-up max-w-6xl mx-auto">
+        <div className="mb-5">
+          <Skeleton className="h-7 w-28 mb-2" />
+          <Skeleton className="h-3 w-64" />
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px] gap-5">
+          <div className="bg-card border border-border rounded-xl overflow-hidden">
+            <div className="border-b border-border px-5 py-3 flex gap-3 overflow-hidden">
+              {[1, 2, 3, 4, 5, 6].map((i) => <Skeleton key={i} className="h-5 w-20" />)}
+            </div>
+            <div className="px-6 py-5 space-y-6">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="space-y-2">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-3 w-3/4" />
+                  <Skeleton className="h-3 w-1/2" />
+                </div>
+              ))}
+            </div>
+          </div>
+          <aside className="space-y-4">
+            <div className="bg-card border border-border rounded-xl p-4 space-y-2">
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-12 w-full" />
+            </div>
+            <div className="bg-card border border-border rounded-xl p-4 space-y-2">
+              {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-4 w-full" />)}
+            </div>
+          </aside>
+        </div>
       </div>
     );
   }
@@ -356,7 +391,7 @@ export default function Profile() {
               refCallback={(el) => { sectionRefs.current.experience = el; }}
               onEdit={() => setEditingSection("experience")}
             >
-              <ExperienceSection items={profile.experiences} />
+              <ExperienceSection items={profile.experiences} highlightedSkill={selectedSkill} />
             </Section>
 
             <Section
@@ -383,6 +418,19 @@ export default function Profile() {
               refCallback={(el) => { sectionRefs.current.skills = el; }}
               onEdit={() => setEditingSection("skills")}
             >
+              <SkillCloud
+                experiences={profile.experiences}
+                selected={selectedSkill}
+                onSelect={(skill) => {
+                  // Toggle: clicking the active chip clears the highlight,
+                  // otherwise switch to the new skill and scroll into the
+                  // Experience section so the user sees the highlighted roles.
+                  setSelectedSkill((prev) => (prev === skill ? null : skill));
+                  if (selectedSkill !== skill) {
+                    sectionRefs.current.experience?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }
+                }}
+              />
               <SkillsSection items={profile.skills} />
             </Section>
 
@@ -605,40 +653,126 @@ function PersonalSection({ profile }: { profile: MasterProfile }) {
   );
 }
 
-function ExperienceSection({ items }: { items: Experience[] }) {
+function ExperienceSection({ items, highlightedSkill }: { items: Experience[]; highlightedSkill: string | null }) {
   if (items.length === 0) return <EmptyMessage label="experience" />;
   return (
     <div className="space-y-6">
-      {items.map((exp, i) => (
-        <div key={i} className="border-l-2 border-border pl-4">
-          <div className="flex items-baseline justify-between gap-3 flex-wrap">
-            <h3 className="text-sm font-semibold text-foreground">{exp.role}</h3>
-            <span className="text-xs text-muted-foreground tabular-nums">{dateRange(exp.startDate, exp.endDate, exp.current)}</span>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            {exp.company}{exp.location ? ` · ${exp.location}` : ""}
-          </p>
-          {exp.bullets.length > 0 && (
-            <ul className="mt-2 space-y-1.5">
-              {exp.bullets.map((b, j) => (
-                <li key={j} className="text-sm text-foreground flex gap-2 leading-relaxed">
-                  <span className="text-muted-foreground mt-1.5">•</span>
-                  <div className="flex-1">
-                    <span>{b.text}</span>
-                    {b.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {b.tags.map((tag) => (
-                          <span key={tag} className="text-[10px] px-1.5 py-0.5 bg-primary/10 text-primary rounded">{tag}</span>
-                        ))}
+      {items.map((exp, i) => {
+        const roleHit = experienceUsesSkill(exp, highlightedSkill);
+        return (
+          <div
+            key={i}
+            // Highlighted roles get a primary-tinted ring + left border so
+            // the eye lands on them when a skill chip is active. Non-matching
+            // roles dim slightly to give the matches visual priority.
+            className={`border-l-2 pl-4 transition-all ${
+              !highlightedSkill ? "border-border" :
+              roleHit ? "border-primary bg-primary/[0.04] -ml-2 pl-6 rounded-r-md" :
+              "border-border opacity-50"
+            }`}
+          >
+            <div className="flex items-baseline justify-between gap-3 flex-wrap">
+              <h3 className="text-sm font-semibold text-foreground">{exp.role}</h3>
+              <span className="text-xs text-muted-foreground tabular-nums">{dateRange(exp.startDate, exp.endDate, exp.current)}</span>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {exp.company}{exp.location ? ` · ${exp.location}` : ""}
+            </p>
+            {(exp.bullets ?? []).length > 0 && (
+              <ul className="mt-2 space-y-1.5">
+                {(exp.bullets ?? []).map((b, j) => {
+                  const bulletHit = bulletUsesSkill(b, highlightedSkill);
+                  const tags = b.tags ?? [];
+                  return (
+                    <li key={j} className={`text-sm text-foreground flex gap-2 leading-relaxed ${bulletHit ? "bg-primary/5 -mx-1 px-1 rounded" : ""}`}>
+                      <span className="text-muted-foreground mt-1.5">•</span>
+                      <div className="flex-1">
+                        <span>{b.text}</span>
+                        {tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {tags.map((tag) => (
+                              <span
+                                key={tag}
+                                className={`text-[10px] px-1.5 py-0.5 rounded ${
+                                  highlightedSkill && tag.toLowerCase() === highlightedSkill.toLowerCase()
+                                    ? "bg-primary text-primary-foreground"
+                                    : "bg-primary/10 text-primary"
+                                }`}
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Skill cloud — variable-sized chips representing how often each skill
+ *  appears across the user's bulleted experiences. Clicking a chip selects
+ *  it; the parent Profile component then highlights matching roles in the
+ *  Experience section. Empty state shows nothing (the existing
+ *  SkillsSection still renders below for user-declared skill groups). */
+function SkillCloud({ experiences, selected, onSelect }: { experiences: Experience[]; selected: string | null; onSelect: (skill: string) => void }) {
+  const tallies = useMemo(() => tallySkills(experiences), [experiences]);
+  if (tallies.length === 0) return null;
+  const maxCount = tallies[0].count;
+  const usedRolesLabel = (() => {
+    if (!selected) return null;
+    const t = tallies.find((x) => x.skill.toLowerCase() === selected.toLowerCase());
+    if (!t) return null;
+    return `Used in ${t.experienceIndexes.length} role${t.experienceIndexes.length === 1 ? "" : "s"}`;
+  })();
+  return (
+    <div className="mb-6 rounded-lg border border-border bg-background p-4">
+      <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
+        <div>
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Skill frequency</h3>
+          <p className="text-[11px] text-muted-foreground mt-0.5">
+            {selected
+              ? usedRolesLabel ?? "Click a chip to highlight matching roles"
+              : "Sized by how often this skill appears across your experiences. Click to highlight."}
+          </p>
         </div>
-      ))}
+        {selected && (
+          <button
+            onClick={() => onSelect(selected)}
+            className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2"
+          >
+            Clear
+          </button>
+        )}
+      </div>
+      <div className="flex flex-wrap gap-1.5 items-baseline">
+        {tallies.map((t) => {
+          const active = selected && selected.toLowerCase() === t.skill.toLowerCase();
+          return (
+            <button
+              key={t.skill}
+              onClick={() => onSelect(t.skill)}
+              style={{ fontSize: `${chipSize(t.count, maxCount)}rem` }}
+              className={`px-2.5 py-1 rounded-md border leading-tight transition-colors ${
+                active
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-muted border-border text-foreground hover:bg-primary/10 hover:border-primary/40"
+              }`}
+              title={`${t.skill} — ${t.count} mention${t.count === 1 ? "" : "s"} across ${t.experienceIndexes.length} role${t.experienceIndexes.length === 1 ? "" : "s"}`}
+            >
+              {t.skill}
+              <span className={`ml-1 text-[9px] tabular-nums ${active ? "text-primary-foreground/80" : "text-muted-foreground"}`}>{t.count}</span>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -654,9 +788,9 @@ function ProjectsSection({ items }: { items: Project[] }) {
             {p.url && <a href={p.url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline truncate max-w-[260px]">{stripUrlPrefix(p.url)}</a>}
           </div>
           {p.description && <p className="text-sm text-muted-foreground mt-1">{p.description}</p>}
-          {p.bullets.length > 0 && (
+          {(p.bullets ?? []).length > 0 && (
             <ul className="mt-2 space-y-1.5">
-              {p.bullets.map((b, j) => (
+              {(p.bullets ?? []).map((b, j) => (
                 <li key={j} className="text-sm text-foreground flex gap-2 leading-relaxed">
                   <span className="text-muted-foreground mt-1.5">•</span>
                   <span>{b.text}</span>
@@ -664,9 +798,9 @@ function ProjectsSection({ items }: { items: Project[] }) {
               ))}
             </ul>
           )}
-          {p.technologies.length > 0 && (
+          {(p.technologies ?? []).length > 0 && (
             <div className="flex flex-wrap gap-1 mt-2">
-              {p.technologies.map((t) => (
+              {(p.technologies ?? []).map((t) => (
                 <span key={t} className="text-[11px] px-2 py-0.5 bg-muted border border-border rounded text-foreground">{t}</span>
               ))}
             </div>

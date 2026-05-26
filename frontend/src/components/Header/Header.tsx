@@ -64,7 +64,7 @@ export default function Header({ user, onLogout, onMobileMenuToggle }: Props) {
 
   return (
     <header className="glass-header">
-      <div className="flex items-center justify-between px-6 py-2.5">
+      <div className="flex items-center justify-between px-4 md:px-6 py-2.5 gap-2">
         {/* Mobile hamburger + Extension download CTA */}
         <div className="flex items-center">
           {onMobileMenuToggle && (
@@ -177,7 +177,7 @@ export default function Header({ user, onLogout, onMobileMenuToggle }: Props) {
 
           {/* User menu */}
           <div className="relative" ref={menuRef}>
-            <button onClick={() => setMenuOpen(!menuOpen)} className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-muted">
+            <button data-tour="user-menu" onClick={() => setMenuOpen(!menuOpen)} className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-muted">
               <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-semibold shadow-sm">{initials}</div>
               <div className="hidden sm:flex flex-col items-start">
                 <span className="text-[13px] font-medium text-foreground leading-tight">{user.name}</span>
