@@ -46,7 +46,10 @@
       "Bash(grep -v \"border-l-2\\\\|h-1 \\\\|h-1$\\\\|h-1\\\\\\\\b\")",
       "Bash(ls .claude/launch.json)",
       "Bash(cat .claude/launch.json)",
-      "Bash(node --test src/services/jdExtractor.test.mjs)"
+      "Bash(node --test src/services/jdExtractor.test.mjs)",
+      "Bash(node -e \"new Function\\(require\\('fs'\\).readFileSync\\('content/content.js', 'utf8'\\)\\)\")",
+      "Bash(node -e ' *)",
+      "Bash(awk '/popover.innerHTML = `/,/^    `;$/' content/content.js)"
     ]
   }
 }
