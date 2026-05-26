@@ -101,7 +101,12 @@ export const contactsAPI = {
     api.get<PaginatedResponse<Contact>>("/contacts", { params }).then((r) => r.data),
   getOne: (id: string) => api.get<Contact>(`/contacts/${id}`).then((r) => r.data),
   create: (data: ContactFormData) => api.post<Contact>("/contacts", data).then((r) => r.data),
-  update: (id: string, data: Partial<ContactFormData>) => api.put<Contact>(`/contacts/${id}`, data).then((r) => r.data),
+  /** lastOutreachDate isn't on ContactFormData (it's set by the system when
+   *  the user marks a follow-up complete, not on the create form). And
+   *  nextFollowUpDate needs to accept `null` to clear the field — Omit + re-add
+   *  because a naïve intersection collapses to the more restrictive `string`. */
+  update: (id: string, data: Omit<Partial<ContactFormData>, "nextFollowUpDate"> & { lastOutreachDate?: string | null; nextFollowUpDate?: string | null }) =>
+    api.put<Contact>(`/contacts/${id}`, data).then((r) => r.data),
   delete: (id: string) => api.delete(`/contacts/${id}`).then((r) => r.data),
 };
 
@@ -110,6 +115,9 @@ export const deadlinesAPI = {
     page?: number;
     limit?: number;
     status?: "all" | "upcoming" | "overdue" | "completed";
+    /** Filter to deadlines linked to a specific application. Used by the
+     *  Phase-3 "auto-complete on stage change" prompt. */
+    applicationId?: string;
   }) =>
     api
       .get<

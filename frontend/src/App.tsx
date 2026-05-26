@@ -58,15 +58,23 @@ function preloadSidebarRoutes(): void {
     ]).catch(() => undefined);
   }, 600);
 }
-// Admin routes — eagerly imported because they're all small once individually
-// split. A second pass can lazy each admin page once we have admin-level data
-// on real-user load. For now the savings vs complexity favor leaving them.
-import {
-  AdminDashboard, AuditLogs,
-  ContentModeration, StorageManagement, SystemConfig,
-  Announcements, EmailTemplates, InviteSystem, BackupManagement,
-  RBACManagement, SeedManagement, MailboxManagement, NotificationCenter, FeedbackInbox, Broadcasts,
-} from "./pages/Admin/index.ts";
+// Admin routes — lazy-loaded so non-admin users don't ship the admin bundle.
+// Each route is its own chunk; vite collocates small ones automatically.
+const AdminDashboard      = lazy(() => import("./pages/Admin/AdminDashboard.tsx"));
+const AuditLogs           = lazy(() => import("./pages/Admin/AuditLogs.tsx"));
+const ContentModeration   = lazy(() => import("./pages/Admin/ContentModeration.tsx"));
+const StorageManagement   = lazy(() => import("./pages/Admin/StorageManagement.tsx"));
+const SystemConfig        = lazy(() => import("./pages/Admin/SystemConfig.tsx"));
+const Announcements       = lazy(() => import("./pages/Admin/Announcements.tsx"));
+const EmailTemplates      = lazy(() => import("./pages/Admin/EmailTemplates.tsx"));
+const InviteSystem        = lazy(() => import("./pages/Admin/InviteSystem.tsx"));
+const BackupManagement    = lazy(() => import("./pages/Admin/BackupManagement.tsx"));
+const RBACManagement      = lazy(() => import("./pages/Admin/RBACManagement.tsx"));
+const SeedManagement      = lazy(() => import("./pages/Admin/SeedManagement.tsx"));
+const MailboxManagement   = lazy(() => import("./pages/Admin/MailboxManagement.tsx"));
+const NotificationCenter  = lazy(() => import("./pages/Admin/NotificationCenter.tsx"));
+const FeedbackInbox       = lazy(() => import("./pages/Admin/FeedbackInbox.tsx"));
+const Broadcasts          = lazy(() => import("./pages/Admin/Broadcasts.tsx"));
 import { authAPI } from "./utils/api.ts";
 import { useTheme } from "./hooks/useTheme.ts";
 import { FeatureFlagsProvider, useFeatureFlags } from "./hooks/useFeatureFlags.tsx";

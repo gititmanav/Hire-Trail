@@ -11,8 +11,13 @@ interface Props {
   name: string;
   /** Cached CDN URL (Cloudinary). When empty, the monogram fallback renders. */
   logoUrl?: string;
-  /** Visual size. md = 40px, sm = 32px. */
-  size?: "md" | "sm";
+  /** Visual size. lg = 56px, md = 40px, sm = 32px. */
+  size?: "lg" | "md" | "sm";
+  /** When true, the image renders raw — no padding, no white tile, no
+   *  border. Use when the logo is meant to sit directly on a colored card
+   *  surface (Applications row redesign). The monogram fallback still has
+   *  its tinted background, since otherwise it would be unreadable. */
+  bare?: boolean;
   className?: string;
 }
 
@@ -39,21 +44,30 @@ function isUnreachableLogoUrl(url: string): boolean {
   return /^https?:\/\/(logo\.)?clearbit\.com\//i.test(url);
 }
 
-function CompanyLogoImpl({ name, logoUrl, size = "md", className = "" }: Props) {
+function CompanyLogoImpl({ name, logoUrl, size = "md", bare = false, className = "" }: Props) {
   const [failed, setFailed] = useState(false);
-  const sizeClass = size === "md" ? "w-10 h-10 text-sm" : "w-8 h-8 text-xs";
+  const sizeClass =
+    size === "lg" ? "w-14 h-14 text-base" :
+    size === "md" ? "w-10 h-10 text-sm" :
+    "w-8 h-8 text-xs";
   const usableLogo = logoUrl && !failed && !isUnreachableLogoUrl(logoUrl);
 
   if (usableLogo) {
+    // Bare = no padding / no white tile / no border. Lets the logo sit
+    // directly on whatever card surface it's placed on.
+    const wrapperCls = bare
+      ? `${sizeClass} rounded-lg overflow-hidden shrink-0 ${className}`
+      : `${sizeClass} rounded-lg overflow-hidden bg-white dark:bg-slate-100 border border-border shrink-0 ${className}`;
+    const imgCls = bare ? "w-full h-full object-contain" : "w-full h-full object-contain p-0.5";
     return (
-      <div className={`${sizeClass} rounded-lg overflow-hidden bg-white dark:bg-slate-100 border border-border shrink-0 ${className}`}>
+      <div className={wrapperCls}>
         <img
           src={logoUrl}
           alt=""
           aria-hidden
           loading="lazy"
           onError={() => setFailed(true)}
-          className="w-full h-full object-contain p-0.5"
+          className={imgCls}
           referrerPolicy="no-referrer"
           draggable={false}
         />

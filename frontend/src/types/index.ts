@@ -69,6 +69,9 @@ export interface AppFit {
   summary: string;
   matchedCount: number;
   missingCount: number;
+  /** Up to 3 top matched skill names — surfaced as the checkmark list on
+   *  the Application row's AI Fit panel. */
+  topMatched?: string[];
   errorMessage?: string;
 }
 export type ContactOutreachStatus = "not_contacted" | "reached_out" | "responded" | "meeting_scheduled" | "follow_up_needed" | "gone_cold";
@@ -90,10 +93,32 @@ export interface Application {
   fit?: AppFit | null;
   createdAt: string; updatedAt: string;
 }
+export interface ResumeVersion { timestamp: string; summary: string; }
+/** Per-resume performance metrics computed server-side from linked
+ *  Applications. Rates are 0..1 fractions of `total` (which excludes
+ *  Drafting apps). Null on the parent when the resume has zero submitted
+ *  apps — UI should hide the strip in that case. */
+export interface ResumeMetrics {
+  total: number;
+  responseRate: number;
+  oaRate: number;
+  interviewRate: number;
+  offerRate: number;
+}
 export interface Resume {
   _id: string; userId: string; name: string; targetRole: string; tags?: string[]; fileName: string;
   fileUrl: string; filePublicId: string; isProtected?: boolean;
   uploadDate: string; createdAt: string; updatedAt: string; applicationCount?: number;
+  /** Lineage fields for the Resumes-page "tailored variants" tree. Both
+   *  null for hand-uploaded resumes and legacy tailored resumes that pre-date
+   *  the lineage tracking (those appear in an "Untraced" bucket on the page). */
+  baseResumeId?: string | null;
+  tailorSessionId?: string | null;
+  /** Edit history surfaced on the card's "Version history" expander. Newest
+   *  entries are at the end. Empty array for resumes that haven't been
+   *  mutated since the field was introduced. */
+  versions?: ResumeVersion[];
+  metrics?: ResumeMetrics | null;
 }
 export type ContactSource = "manual" | "extension" | "email";
 export interface Contact {
@@ -116,7 +141,11 @@ export interface Company {
 }
 export interface Deadline {
   _id: string; userId: string; applicationId: string | null; type: string;
-  dueDate: string; completed: boolean; notes: string; createdAt: string; updatedAt: string;
+  dueDate: string; completed: boolean; notes: string;
+  /** 0 = one-off; >0 = repeats every N days. Spawns the next occurrence
+   *  automatically on the server when this one is marked complete. */
+  recurrenceDays?: number;
+  createdAt: string; updatedAt: string;
 }
 export interface Pagination { page: number; limit: number; total: number; pages: number; }
 export interface PaginatedResponse<T> { data: T[]; pagination: Pagination; }
@@ -133,7 +162,7 @@ export interface CompanyFormData { name: string; website?: string; }
 export interface ApplicationFormData { company: string; role: string; jobUrl: string; stage: Stage; notes: string; resumeId: string; companyId: string; contactId: string; outreachStatus: OutreachStatus; location?: string; salary?: string; jobType?: string; }
 export interface ResumeFormData { name: string; targetRole: string; fileName: string; file?: File | null; }
 export interface ContactFormData { name: string; company: string; role: string; linkedinUrl: string; connectionSource: string; notes: string; companyId: string; applicationIds: string[]; outreachStatus: ContactOutreachStatus; nextFollowUpDate: string; }
-export interface DeadlineFormData { applicationId: string; type: string; dueDate: string; notes: string; }
+export interface DeadlineFormData { applicationId: string; type: string; dueDate: string; notes: string; recurrenceDays?: number; }
 export type SortOrder = "asc" | "desc";
 export interface SortConfig { field: string; order: SortOrder; }
 

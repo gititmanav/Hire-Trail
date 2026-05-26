@@ -7,8 +7,40 @@ import { applicationsAPI, companiesAPI, resumesAPI, contactsAPI, deadlinesAPI } 
 import { SkeletonTable } from "../../components/Skeleton/Skeleton.tsx";
 import ResumePreview from "../../components/ResumePreview/ResumePreview.tsx";
 import EmptyState from "../../components/EmptyState/EmptyState.tsx";
+import CompanyLogo from "../../components/CompanyLogo/CompanyLogo.tsx";
 import type { Company, Application, Resume, Contact, Deadline, Stage, Pagination } from "../../types";
 import { STAGES, STAGE_BADGE_CLASS } from "../../utils/stageStyles.ts";
+import { companyTimeline, summarizeTimeline, compensationSummary, formatMoneyShort } from "../../utils/companyAggregates.ts";
+
+/** Per-stage segment color for the status breakdown bar on each company
+ *  card. Pulled from the existing stage-tone palette so the bar matches the
+ *  Kanban + Applications row chips. */
+const STAGE_BAR_HEX: Record<Stage, string> = {
+  Drafting:  "#94a3b8",
+  Applied:   "#3b82f6",
+  OA:        "#f59e0b",
+  Interview: "#a855f7",
+  Offer:     "#10b981",
+  Rejected:  "#ef4444",
+};
+
+/** Per-session dedupe of logo-fetch requests so re-renders / pagination
+ *  don't re-spam POST /companies/:id/logo. Mirrors the Applications page
+ *  pattern at frontend/src/pages/Applications/Applications.tsx. */
+const requestedLogoIds = new Set<string>();
+
+/** Quick-jump research links per company. Each url is a Google "I'm feeling
+ *  lucky"-style search scoped to the relevant service when no canonical URL
+ *  exists. Opening in a new tab keeps the user on the page. */
+function quickJumpUrls(company: { name: string; website?: string }) {
+  const q = encodeURIComponent(company.name);
+  return {
+    glassdoor: `https://www.glassdoor.com/Search/results.htm?keyword=${q}`,
+    levels:    `https://www.levels.fyi/?search=${q}`,
+    blind:     `https://www.teamblind.com/search/${q}`,
+    careers:   company.website || `https://www.google.com/search?q=${q}+careers`,
+  };
+}
 
 const badgeCls: Record<Stage, string> = STAGE_BADGE_CLASS;
 const fmt = (d: string) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -144,6 +176,11 @@ function CompanyAppsSidebar({ company, onClose, onSelectApp }: {
     }
   }, [company]);
 
+  const timeline = companyTimeline(apps);
+  const comp = compensationSummary(apps);
+  const peakByAppId: Record<string, Stage> = {};
+  for (const e of timeline.entries) peakByAppId[e.appId] = e.peakStage;
+
   return (
     <SlidePanel onClose={onClose}>
       <div className="sticky top-0 bg-card border-b border-border px-6 py-4 flex items-center justify-between shrink-0">
@@ -153,20 +190,98 @@ function CompanyAppsSidebar({ company, onClose, onSelectApp }: {
         </button>
       </div>
       <div className="p-6 overflow-y-auto flex-1">
-        {loading ? <div className="spinner" /> : apps.length === 0 ? (
+        {loading ? (
+          // Skeleton mirrors the post-load sections: lifetime activity strip,
+          // (maybe) compensation card, then the apps list. Three list-row
+          // placeholders is enough — the actual list density varies.
+          <div className="space-y-5">
+            <div className="space-y-2">
+              <div className="h-3 w-28 bg-muted rounded animate-pulse" />
+              <div className="h-4 w-3/4 bg-muted rounded animate-pulse" />
+              <div className="h-2 w-full bg-muted rounded-full animate-pulse" />
+            </div>
+            <div className="space-y-2">
+              <div className="h-3 w-32 bg-muted rounded animate-pulse" />
+              {[1, 2, 3].map((i) => <div key={i} className="h-14 w-full bg-muted/60 rounded-lg animate-pulse" />)}
+            </div>
+          </div>
+        ) : apps.length === 0 ? (
           <p className="text-sm text-muted-foreground">No applications found</p>
         ) : (
-          <div className="space-y-2">
-            {apps.map((a) => (
-              <button key={a._id} onClick={() => onSelectApp(a)} className="w-full text-left p-3 rounded-lg border border-border hover:border-primary hover:bg-primary/5">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-foreground">{a.role}</span>
-                  <span className={`inline-block px-2 py-0.5 text-[11px] font-medium rounded-full ${badgeCls[a.stage]}`}>{a.stage}</span>
+          <>
+            {/* Timeline — lifetime stage activity at this company. Sentence
+             *  header + stacked strip + per-stage legend chips. Mirrors the
+             *  card-level breakdown bar but with the full sentence rendering
+             *  and slightly larger 4px strip suited to a sidebar context. */}
+            <section className="mb-5">
+              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Lifetime activity</label>
+              <p className="text-sm text-foreground mb-2">{summarizeTimeline(timeline)}</p>
+              <div className="flex h-2 w-full overflow-hidden rounded-full bg-muted">
+                {STAGES.map((s) => {
+                  const w = timeline.byStage[s] / Math.max(timeline.total, 1);
+                  if (w === 0) return null;
+                  return (
+                    <div key={s} className="h-full" style={{ width: `${w * 100}%`, backgroundColor: STAGE_BAR_HEX[s] }} title={`${timeline.byStage[s]} ${s}`} />
+                  );
+                })}
+              </div>
+              <div className="flex flex-wrap gap-x-2.5 gap-y-1 mt-2 text-[11px] text-muted-foreground">
+                {STAGES.filter((s) => timeline.byStage[s] > 0).map((s) => (
+                  <span key={s} className="inline-flex items-center gap-1 tabular-nums">
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: STAGE_BAR_HEX[s] }} aria-hidden />
+                    {timeline.byStage[s]} {s}
+                  </span>
+                ))}
+              </div>
+            </section>
+
+            {/* Compensation memory — aggregate salary range across the user's
+             *  apps at this company. Hidden entirely when no salary parses
+             *  (free-text field; not every app has one). Hourly sources are
+             *  annualised at 2080 hrs and disclaimed in the footnote. */}
+            {comp && (
+              <section className="mb-5 rounded-lg border border-border bg-muted/40 p-3">
+                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Compensation seen</label>
+                <div className="flex items-baseline gap-3">
+                  <span className="text-lg font-semibold text-foreground tabular-nums">
+                    {comp.min === comp.max ? formatMoneyShort(comp.min) : `${formatMoneyShort(comp.min)} – ${formatMoneyShort(comp.max)}`}
+                  </span>
+                  <span className="text-xs text-muted-foreground">median {formatMoneyShort(comp.median)}</span>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">{fmt(a.applicationDate)}</p>
-              </button>
-            ))}
-          </div>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Across {comp.count} application{comp.count === 1 ? "" : "s"}
+                  {comp.hasHourly ? " · annualised from hourly @ 2080 hrs" : ""}
+                </p>
+              </section>
+            )}
+
+            <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Applications</label>
+            <div className="space-y-2">
+              {apps.map((a) => {
+                const peak = peakByAppId[a._id];
+                // Show "(peak: X)" only when the app ended up at a stage that
+                // doesn't reflect how far it actually got — typically Rejected
+                // after reaching OA/Interview/Offer.
+                const showPeak = peak && peak !== a.stage && a.stage === "Rejected";
+                return (
+                  <button key={a._id} onClick={() => onSelectApp(a)} className="w-full text-left p-3 rounded-lg border border-border hover:border-primary hover:bg-primary/5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-medium text-foreground truncate">{a.role}</span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {showPeak && (
+                          <span className={`inline-block px-2 py-0.5 text-[10px] font-medium rounded-full ${badgeCls[peak]}`} title={`Reached ${peak} before being rejected`}>
+                            peak {peak}
+                          </span>
+                        )}
+                        <span className={`inline-block px-2 py-0.5 text-[11px] font-medium rounded-full ${badgeCls[a.stage]}`}>{a.stage}</span>
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">{fmt(a.applicationDate)}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </>
         )}
       </div>
     </SlidePanel>
@@ -176,6 +291,7 @@ function CompanyAppsSidebar({ company, onClose, onSelectApp }: {
 /* ─── Main Component ─── */
 export default function Companies() {
   const [companies, setCompanies] = useState<Company[]>([]);
+  const [allApps, setAllApps] = useState<Application[]>([]);
   const [resumes, setResumes] = useState<Resume[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [deadlines, setDeadlines] = useState<Deadline[]>([]);
@@ -196,17 +312,35 @@ export default function Companies() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [c, r, ct, dl] = await Promise.all([
+      const [c, r, ct, dl, ap] = await Promise.all([
         companiesAPI.getAll({ page, limit: 24, search: debouncedSearch || undefined }),
         resumesAPI.getAll(),
         contactsAPI.getAll({ limit: 500 }),
         deadlinesAPI.getAll({ limit: 500, status: "upcoming" }),
+        applicationsAPI.getAll({ limit: 1000, archived: "all" }),
       ]);
-      setCompanies(c.data); setPag(c.pagination); setResumes(r); setContacts(ct.data); setDeadlines(dl.data);
+      setCompanies(c.data); setPag(c.pagination); setResumes(r); setContacts(ct.data); setDeadlines(dl.data); setAllApps(ap.data);
     } catch {} finally { setLoading(false); }
   }, [page, debouncedSearch]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  /* Auto-fetch missing logos. Mirrors the Applications page: any rendered
+   * company without a cached logoUrl gets a fire-and-forget POST /logo,
+   * deduped within the session so refetch/page changes don't re-spam. The
+   * backend handles the 30-day retry interval. */
+  useEffect(() => {
+    if (companies.length === 0) return;
+    companies.forEach((c) => {
+      if (c.logoUrl) return;
+      if (requestedLogoIds.has(c._id)) return;
+      requestedLogoIds.add(c._id);
+      void companiesAPI.fetchLogo(c._id).then((res) => {
+        if (!res?.logoUrl) return;
+        setCompanies((prev) => prev.map((p) => (p._id === c._id ? { ...p, logoUrl: res.logoUrl, logoFetchedAt: res.logoFetchedAt ?? null } : p)));
+      }).catch(() => undefined);
+    });
+  }, [companies]);
 
   const handleStageChange = async (id: string, stage: Stage) => {
     try {
@@ -250,17 +384,27 @@ export default function Companies() {
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             {companies.map((c) => {
-              const initials = c.name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
+              const linkedContacts = contacts.filter((ct) => ct.company.toLowerCase() === c.name.toLowerCase());
+              const visibleAvatars = linkedContacts.slice(0, 3);
+              const overflow = Math.max(0, linkedContacts.length - visibleAvatars.length);
+              // Stage breakdown for the status bar — counts per stage from the
+              // user's full apps array, case-insensitive name match.
+              const companyApps = allApps.filter((a) => a.company.toLowerCase() === c.name.toLowerCase());
+              const stageCounts = STAGES.reduce<Record<Stage, number>>((acc, s) => {
+                acc[s] = companyApps.filter((a) => a.stage === s).length;
+                return acc;
+              }, { Drafting: 0, Applied: 0, OA: 0, Interview: 0, Offer: 0, Rejected: 0 });
+              const totalApps = companyApps.length;
               return (
                 <div key={c._id} className="card-premium p-4">
                   <div className="flex items-start gap-3 mb-3">
-                    {c.domain ? (
-                      <img src={`https://logo.clearbit.com/${c.domain}`} alt="" className="w-10 h-10 rounded-lg bg-muted object-contain"
-                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; (e.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden"); }} />
-                    ) : null}
-                    <div className={`w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-sm font-bold text-muted-foreground ${c.domain ? "hidden" : ""}`}>{initials}</div>
+                    {/* Bare 56px logo — no wrapping tile, no white background,
+                     *  no padding. The brand mark sits directly on the card
+                     *  surface. Monogram fallback still keeps its tinted
+                     *  background (handled inside CompanyLogo). */}
+                    <CompanyLogo name={c.name} logoUrl={c.logoUrl} size="lg" bare />
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-semibold text-foreground truncate">{c.name}</h3>
+                      <h3 className="text-[15px] font-semibold text-foreground truncate">{c.name}</h3>
                       {c.website ? (
                         <a href={c.website} target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:text-foreground hover:underline truncate block">{c.domain || c.website}</a>
                       ) : (
@@ -269,6 +413,77 @@ export default function Companies() {
                     </div>
                   </div>
 
+                  {/* Status breakdown bar — stacked horizontal showing the
+                   *  distribution of the user's apps at this company across
+                   *  stages. Empty when there are no apps yet. */}
+                  {totalApps > 0 && (
+                    <div className="mb-3">
+                      <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                        {STAGES.map((s) => {
+                          const w = stageCounts[s] / totalApps;
+                          if (w === 0) return null;
+                          return (
+                            <div
+                              key={s}
+                              className="h-full"
+                              style={{ width: `${w * 100}%`, backgroundColor: STAGE_BAR_HEX[s] }}
+                              title={`${stageCounts[s]} ${s}`}
+                            />
+                          );
+                        })}
+                      </div>
+                      <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1 text-[10px] text-muted-foreground">
+                        {STAGES.filter((s) => stageCounts[s] > 0).map((s) => (
+                          <span key={s} className="inline-flex items-center gap-1 tabular-nums">
+                            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: STAGE_BAR_HEX[s] }} aria-hidden />
+                            {stageCounts[s]} {s}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {linkedContacts.length > 0 && (
+                    <div className="flex items-center gap-1 mb-3" title={linkedContacts.map((ct) => ct.name).join(", ")}>
+                      <div className="flex -space-x-1.5">
+                        {visibleAvatars.map((ct) => (
+                          <div
+                            key={ct._id}
+                            className="w-6 h-6 rounded-full bg-muted text-secondary-foreground border-2 border-card flex items-center justify-center text-[10px] font-semibold"
+                            title={`${ct.name}${ct.role ? ` — ${ct.role}` : ""}`}
+                          >
+                            {ct.name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("") || "?"}
+                          </div>
+                        ))}
+                        {overflow > 0 && (
+                          <div
+                            className="w-6 h-6 rounded-full bg-muted text-muted-foreground border-2 border-card flex items-center justify-center text-[9px] font-semibold"
+                            title={`${overflow} more contact${overflow === 1 ? "" : "s"} at ${c.name}`}
+                          >
+                            +{overflow}
+                          </div>
+                        )}
+                      </div>
+                      <span className="text-[11px] text-muted-foreground ml-1">
+                        {linkedContacts.length} contact{linkedContacts.length === 1 ? "" : "s"}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Quick-jump external research links. Glassdoor / Levels.fyi
+                   *  / Blind / careers — each opens in a new tab so the user
+                   *  doesn't lose their HireTrail context. */}
+                  {(() => {
+                    const urls = quickJumpUrls(c);
+                    return (
+                      <div className="flex items-center gap-1 mb-2.5">
+                        <a href={urls.glassdoor} target="_blank" rel="noopener noreferrer" title="Glassdoor reviews" aria-label="Glassdoor reviews" className="px-1.5 py-0.5 text-[10px] font-semibold rounded-md border border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground/50 transition-colors">GD</a>
+                        <a href={urls.levels} target="_blank" rel="noopener noreferrer" title="Levels.fyi compensation" aria-label="Levels.fyi compensation" className="px-1.5 py-0.5 text-[10px] font-semibold rounded-md border border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground/50 transition-colors">L.fyi</a>
+                        <a href={urls.blind} target="_blank" rel="noopener noreferrer" title="Blind discussions" aria-label="Blind discussions" className="px-1.5 py-0.5 text-[10px] font-semibold rounded-md border border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground/50 transition-colors">Blind</a>
+                        <a href={urls.careers} target="_blank" rel="noopener noreferrer" title="Careers page" aria-label="Careers page" className="px-1.5 py-0.5 text-[10px] font-semibold rounded-md border border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground/50 transition-colors">Careers</a>
+                      </div>
+                    );
+                  })()}
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">
                       {c.applicationCount || 0} application{(c.applicationCount || 0) !== 1 ? "s" : ""}

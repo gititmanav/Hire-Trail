@@ -53,6 +53,15 @@ function FeatureSection({ eyebrow, number, title, body, mockup, reverse, bullets
 /* ─────────────────────────── mockup: Kanban ─────────────────────────── */
 
 function KanbanMockup() {
+  // Stripe color per stage — mirrors the live `STAGE_STRIPE_CLASS` palette
+  // from utils/stageStyles.ts. Used here as the left-edge 3px stripe on each
+  // card so the landing mock matches the in-app card design.
+  const STRIPE: Record<string, string> = {
+    Drafting: "bg-slate-500",
+    Applied: "bg-blue-500",
+    OA: "bg-amber-500",
+    Interview: "bg-purple-500",
+  };
   const cols: Array<{ stage: keyof typeof STAGE_CHIP; cards: { co: string; ro: string }[]; tone: string; hidden?: boolean }> = [
     { stage: "Drafting", tone: "border-slate-200 bg-slate-50/40", cards: [{ co: "Anthropic", ro: "Research Intern" }, { co: "Notion", ro: "Frontend Intern" }] },
     { stage: "Applied", tone: "border-blue-200 bg-blue-50/40", cards: [{ co: "Linear", ro: "Product Eng" }, { co: "Figma", ro: "SWE Intern" }, { co: "Loom", ro: "Backend" }] },
@@ -72,8 +81,10 @@ function KanbanMockup() {
               {c.cards.map((card, i) => (
                 <div
                   key={card.co}
-                  className={`rounded-md bg-white border border-gray-200 p-2 ${c.stage === "Drafting" && i === 0 ? "ring-2 ring-[#3B82F6] ring-offset-1" : ""}`}
+                  className={`relative overflow-hidden rounded-md bg-white border border-gray-200 p-2 pl-2.5 ${c.stage === "Drafting" && i === 0 ? "ring-2 ring-[#3B82F6] ring-offset-1" : ""}`}
                 >
+                  {/* Left-edge stage stripe — matches the in-app card design. */}
+                  <span aria-hidden className={`absolute left-0 top-0 bottom-0 w-[3px] ${STRIPE[c.stage] ?? "bg-slate-400"}`} />
                   <div className="text-[11px] font-semibold text-gray-900 truncate">{card.co}</div>
                   <div className="text-[10px] text-gray-500 truncate">{card.ro}</div>
                   {c.stage === "Drafting" && i === 0 && (
@@ -254,6 +265,84 @@ function ExtensionPopoverMockup() {
   );
 }
 
+/* ─────────────────────────── mockup: Resume performance + tailored tree ─────────────────────────── */
+
+function ResumesMockup() {
+  // Per-resume metrics chip — mirrors the in-app `<MetricChip>` styling
+  // (light bg + dark text per stage tone). Same palette as the funnel.
+  const Chip = ({ label, value, tone }: { label: string; value: string; tone: "blue" | "amber" | "purple" | "emerald" }) => {
+    const cls = {
+      blue: "bg-blue-50 text-blue-700",
+      amber: "bg-amber-50 text-amber-700",
+      purple: "bg-purple-50 text-purple-700",
+      emerald: "bg-emerald-50 text-emerald-700",
+    }[tone];
+    return (
+      <span className={`inline-flex items-baseline gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium tabular-nums ${cls}`}>
+        <span className="text-[9px] uppercase tracking-wider opacity-70">{label}</span>
+        <span className="font-semibold">{value}</span>
+      </span>
+    );
+  };
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white shadow-[0_20px_60px_-25px_rgba(15,23,42,0.3)] overflow-hidden">
+      {/* Primary resume hero */}
+      <div className="px-4 py-3 border-b border-gray-200 bg-emerald-50/50">
+        <div className="flex items-center gap-2 mb-1.5">
+          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">★ Primary</span>
+          <span className="text-[13px] font-semibold text-gray-900 truncate">SWE Resume v3 — Backend Focus</span>
+        </div>
+        <div className="flex flex-wrap items-center gap-1">
+          <Chip label="Resp" value="64%" tone="blue" />
+          <Chip label="OA"   value="44%" tone="amber" />
+          <Chip label="Int"  value="31%" tone="purple" />
+          <Chip label="Off"  value="8%"  tone="emerald" />
+        </div>
+      </div>
+      {/* Two more resumes with weaker metrics */}
+      <div className="divide-y divide-gray-100">
+        {[
+          { name: "ML Resume", role: "Machine Learning", resp: "57%", oa: "32%", int: "21%", off: "9%" },
+          { name: "Frontend Focus Resume", role: "Frontend", resp: "51%", oa: "38%", int: "27%", off: "11%" },
+        ].map((r) => (
+          <div key={r.name} className="px-4 py-3">
+            <div className="flex items-center justify-between gap-2 mb-1.5">
+              <div className="min-w-0">
+                <div className="text-[12px] font-semibold text-gray-900 truncate">{r.name}</div>
+                <div className="text-[10px] text-gray-500">{r.role}</div>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-1">
+              <Chip label="Resp" value={r.resp} tone="blue" />
+              <Chip label="OA"   value={r.oa}   tone="amber" />
+              <Chip label="Int"  value={r.int}  tone="purple" />
+              <Chip label="Off"  value={r.off}  tone="emerald" />
+            </div>
+          </div>
+        ))}
+      </div>
+      {/* Tailored variants tree */}
+      <div className="px-4 py-3 border-t border-gray-200 bg-gray-50/40">
+        <div className="flex items-center gap-2 mb-2">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="text-gray-500"><polyline points="9 6 15 12 9 18"/></svg>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-gray-600">Tailored variants</span>
+          <span className="ml-auto text-[10px] text-gray-500">2 from this base</span>
+        </div>
+        <div className="border-l-2 border-[#3B82F6]/30 pl-3 space-y-1.5">
+          <div className="rounded-md border border-gray-200 bg-white px-2.5 py-1.5">
+            <div className="text-[11px] font-medium text-gray-900 truncate">Tailored — Stripe / Backend SWE</div>
+            <div className="text-[10px] text-gray-500">Generated 3 days ago · 1 application</div>
+          </div>
+          <div className="rounded-md border border-gray-200 bg-white px-2.5 py-1.5">
+            <div className="text-[11px] font-medium text-gray-900 truncate">Tailored — Vercel / Frontend</div>
+            <div className="text-[10px] text-gray-500">Generated 6 days ago · 1 application</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─────────────────────────── FeatureShowcase (default export) ─────────────────────────── */
 
 export default function FeatureShowcase() {
@@ -310,6 +399,18 @@ export default function FeatureShowcase() {
         mockup={<ExtensionPopoverMockup />}
         reverse
         tone="muted"
+      />
+      <FeatureSection
+        number="05"
+        eyebrow="Know which resume is working"
+        title="Stop guessing which version gets responses."
+        body="Every resume carries its own funnel — response rate, OA rate, interview rate, offer rate — computed from your actual application history. Tailored variants nest under their source resume so the lineage is always clear."
+        bullets={[
+          "Per-resume metrics computed from real stage history, not just current stage",
+          "Tailored variants grouped under their base — see what the AI changed and how it performed",
+          "Version timeline on every card: every rename, retag, file replace is tracked",
+        ]}
+        mockup={<ResumesMockup />}
       />
     </>
   );

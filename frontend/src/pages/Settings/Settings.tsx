@@ -7,6 +7,7 @@ import type { User } from "../../types";
 import { AISettingsCard } from "./AISettingsCard.tsx";
 import { useFeatureFlags } from "../../hooks/useFeatureFlags.tsx";
 import { useDemoGate } from "../../hooks/useDemoGate.tsx";
+import { Skeleton } from "../../components/Skeleton/Skeleton.tsx";
 
 /** Lazy-loaded so the feedback modal's bundle doesn't ship to users who never
  *  hit a "request access" or "report rejection" CTA. */
@@ -29,6 +30,49 @@ const SECTIONS: { key: SectionKey; label: string }[] = [
   { key: "ai", label: "AI Providers" },
   { key: "profileSync", label: "Profile Sync" },
 ];
+
+/** Searchable index of every labeled field on this page. Aliases let the
+ *  search box find a field by intent (e.g. "api key" → AI Providers) even
+ *  when the visible label doesn't contain that word. Anything new added to
+ *  the page should also be added here so the search stays comprehensive. */
+const SEARCH_INDEX: { key: string; section: SectionKey; aliases?: string[] }[] = [
+  { key: "Full name", section: "account" },
+  { key: "Email", section: "account", aliases: ["account email"] },
+  { key: "Current password", section: "password" },
+  { key: "New password", section: "password" },
+  { key: "Email Integration", section: "email", aliases: ["inbox", "mailbox"] },
+  { key: "Gmail", section: "email", aliases: ["google"] },
+  { key: "Outlook", section: "email", aliases: ["microsoft"] },
+  { key: "Scan now", section: "email", aliases: ["scan inbox"] },
+  { key: "Report a rejection", section: "email", aliases: ["rejected"] },
+  { key: "AI Providers", section: "ai", aliases: ["openai", "anthropic", "api key", "gpt", "claude", "model"] },
+  { key: "AI-assisted merge", section: "profileSync", aliases: ["merge", "resume sync"] },
+];
+
+function matchesEntry(entry: { key: string; aliases?: string[] }, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  if (entry.key.toLowerCase().includes(q)) return true;
+  return (entry.aliases || []).some((a) => a.toLowerCase().includes(q));
+}
+
+/** Wraps a label string so any portion matching `query` is rendered inside a
+ *  <mark> with the find-in-page yellow tint. Empty query renders the plain
+ *  string. Case-insensitive; only highlights the first match per label. */
+function MatchLabel({ children, query }: { children: string; query: string }) {
+  if (!query.trim()) return <>{children}</>;
+  const idx = children.toLowerCase().indexOf(query.toLowerCase());
+  if (idx === -1) return <>{children}</>;
+  return (
+    <>
+      {children.slice(0, idx)}
+      <mark className="bg-yellow-200/80 dark:bg-yellow-500/30 text-foreground rounded px-0.5">
+        {children.slice(idx, idx + query.length)}
+      </mark>
+      {children.slice(idx + query.length)}
+    </>
+  );
+}
 
 /* ---------- helpers ---------- */
 
@@ -95,7 +139,7 @@ function ReportRejectionModal({ onClose }: { onClose: () => void }) {
 }
 
 function MailboxRow({
-  provider, state, loading, configured, comingSoon, onConnect, onDisconnect, onRequestAccess,
+  provider, state, loading, configured, comingSoon, onConnect, onDisconnect, onRequestAccess, searchQuery = "",
 }: {
   provider: "Gmail" | "Outlook";
   state: { connected: boolean; email: string | null; lastSyncAt: string | null };
@@ -108,6 +152,9 @@ function MailboxRow({
   /** Optional "Request access" affordance — surfaced when the provider is
    *  configured but the OAuth app is still in test mode (Google's case). */
   onRequestAccess?: () => void;
+  /** When a parent search box has a query, the provider name is wrapped in
+   *  MatchLabel so the same find-in-page highlight applies in the mailbox row. */
+  searchQuery?: string;
 }) {
   return (
     <div className="flex items-center justify-between gap-3 flex-wrap py-3">
@@ -128,7 +175,7 @@ function MailboxRow({
         </div>
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-foreground">{provider}</span>
+            <span className="text-sm font-semibold text-foreground"><MatchLabel query={searchQuery}>{provider}</MatchLabel></span>
             {state.connected ? (
               <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Connected
@@ -211,6 +258,7 @@ export default function Settings() {
   const [mailboxLoading, setMailboxLoading] = useState<null | "gmail" | "outlook" | "scan">(null);
   const [aiProviderCount, setAiProviderCount] = useState(0);
   const [active, setActive] = useState<SectionKey>("account");
+  const [search, setSearch] = useState("");
 
   const [mergeEnabled, setMergeEnabled] = useState(true);
   const [mergeSaving, setMergeSaving] = useState(false);
@@ -278,6 +326,36 @@ export default function Settings() {
     node.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
+  /** Memoised search hits. matchedFields is the visible-label set we use to
+   *  decide which rows to dim; matchCount feeds the "X matches" indicator;
+   *  firstSection is what we auto-scroll into view on each query change. */
+  const searchHits = useMemo(() => {
+    const q = search.trim();
+    if (!q) return { matchedFields: new Set<string>(), matchedSections: new Set<SectionKey>(), matchCount: 0, firstSection: null as SectionKey | null };
+    const matchedFields = new Set<string>();
+    const matchedSections = new Set<SectionKey>();
+    let firstSection: SectionKey | null = null;
+    for (const entry of SEARCH_INDEX) {
+      if (matchesEntry(entry, q)) {
+        matchedFields.add(entry.key);
+        matchedSections.add(entry.section);
+        if (!firstSection) firstSection = entry.section;
+      }
+    }
+    return { matchedFields, matchedSections, matchCount: matchedFields.size, firstSection };
+  }, [search]);
+
+  /** Auto-scroll to the first matching section as the user types. Skips while
+   *  the page is still loading or when the query is empty. Debounce isn't
+   *  needed — setState batches each keystroke and the scroller is cheap. */
+  useEffect(() => {
+    if (loading) return;
+    if (!search.trim()) return;
+    const target = searchHits.firstSection;
+    if (target) scrollTo(target);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, loading]);
+
   const handleProfile = async (e: FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -315,19 +393,76 @@ export default function Settings() {
   }, [user]);
 
   if (loading) {
+    // Skeleton mirrors the 2-column layout users see post-load so the page
+    // doesn't jolt when content arrives. Left card simulates section header +
+    // a couple of form rows; right rail simulates the profile + integration
+    // summary cards.
     return (
-      <div className="max-w-6xl">
-        <h1 className="text-2xl font-semibold text-foreground mb-6">Settings</h1>
-        <p className="text-sm text-muted-foreground">Loading…</p>
+      <div className="settings-page max-w-7xl fade-up">
+        <div className="mb-5">
+          <Skeleton className="h-7 w-32 mb-2" />
+          <Skeleton className="h-3 w-72" />
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-5">
+          <div className="bg-card border border-border rounded-xl overflow-hidden">
+            <div className="border-b border-border px-5 py-3 flex gap-3">
+              {[1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-5 w-16" />)}
+            </div>
+            <div className="px-7 py-6 space-y-6">
+              <div className="space-y-2 max-w-xl">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-4 w-24 mt-3" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+            </div>
+          </div>
+          <aside className="space-y-4">
+            <div className="bg-card border border-border rounded-xl p-4 flex items-center gap-3">
+              <Skeleton className="h-12 w-12 !rounded-full" />
+              <div className="flex-1 space-y-1.5">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-3 w-40" />
+              </div>
+            </div>
+            <div className="bg-card border border-border rounded-xl p-4 space-y-2">
+              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-4 w-full" />)}
+            </div>
+          </aside>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="settings-page max-w-7xl">
-      <div className="mb-5">
-        <h1 className="text-2xl font-semibold text-foreground">Settings</h1>
-        <p className="text-xs text-muted-foreground mt-1">Manage your account, mailbox integrations, and AI providers.</p>
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-foreground">Settings</h1>
+          <p className="text-xs text-muted-foreground mt-1">Manage your account, mailbox integrations, and AI providers.</p>
+        </div>
+        {/* Search jumps to the first matching section and highlights matched
+         *  field labels (find-in-page style). Aliases map "api key" → AI etc.
+         *  Index lives in SEARCH_INDEX above. */}
+        <div className="relative w-full sm:w-72">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.3-4.3" />
+          </svg>
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search settings…"
+            aria-label="Search settings"
+            className={`${inputCls} pl-9 pr-10 h-9`}
+          />
+          {search && (
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-muted-foreground tabular-nums" aria-live="polite">
+              {searchHits.matchCount} {searchHits.matchCount === 1 ? "match" : "matches"}
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-5">
@@ -336,25 +471,34 @@ export default function Settings() {
           {/* Underline tabs */}
           <div className="sticky top-0 z-10 bg-card border-b border-border">
             <nav className="flex gap-1 px-5 overflow-x-auto" role="tablist">
-              {SECTIONS.map((s) => (
-                <button
-                  key={s.key}
-                  type="button"
-                  role="tab"
-                  aria-selected={active === s.key}
-                  onClick={() => scrollTo(s.key)}
-                  className={`relative px-3 py-3 text-sm font-medium transition-colors whitespace-nowrap ${
-                    active === s.key ? "text-foreground" : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {s.label}
-                  <span
-                    className={`absolute left-2 right-2 -bottom-px h-[2px] rounded-full transition-opacity ${
-                      active === s.key ? "bg-primary opacity-100" : "opacity-0"
+              {SECTIONS.map((s) => {
+                const isHit = !!search.trim() && searchHits.matchedSections.has(s.key);
+                return (
+                  <button
+                    key={s.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={active === s.key}
+                    onClick={() => scrollTo(s.key)}
+                    className={`relative px-3 py-3 text-sm font-medium transition-colors whitespace-nowrap ${
+                      active === s.key ? "text-foreground" : isHit ? "text-foreground" : "text-muted-foreground hover:text-foreground"
                     }`}
-                  />
-                </button>
-              ))}
+                  >
+                    {/* Tab label highlight matches the same yellow tint we use
+                     *  inside the section so the user can spot which tabs hold
+                     *  matches without scrolling. */}
+                    <MatchLabel query={search}>{s.label}</MatchLabel>
+                    {isHit && active !== s.key && (
+                      <span className="ml-1 inline-block w-1.5 h-1.5 rounded-full bg-yellow-400" aria-hidden />
+                    )}
+                    <span
+                      className={`absolute left-2 right-2 -bottom-px h-[2px] rounded-full transition-opacity ${
+                        active === s.key ? "bg-primary opacity-100" : "opacity-0"
+                      }`}
+                    />
+                  </button>
+                );
+              })}
             </nav>
           </div>
 
@@ -364,17 +508,17 @@ export default function Settings() {
             <section
               ref={(el) => { sectionRefs.current.account = el; }}
               data-section="account"
-              className="scroll-mt-2"
+              className={`scroll-mt-2 transition-opacity ${search && !searchHits.matchedSections.has("account") ? "opacity-40" : ""}`}
             >
               <h2 className="text-base font-semibold text-foreground mb-1">Account</h2>
               <p className="text-xs text-muted-foreground mb-4">Your name and the email associated with your HireTrail account.</p>
               <form onSubmit={handleProfile} className="space-y-4 max-w-xl">
                 <div>
-                  <label className="block text-xs font-medium text-foreground mb-1.5">Full name</label>
+                  <label className="block text-xs font-medium text-foreground mb-1.5"><MatchLabel query={search}>Full name</MatchLabel></label>
                   <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} required />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-foreground mb-1.5">Email</label>
+                  <label className="block text-xs font-medium text-foreground mb-1.5"><MatchLabel query={search}>Email</MatchLabel></label>
                   <input type="email" className={inputCls} value={email} onChange={(e) => setEmail(e.target.value)} required />
                 </div>
                 <div className="flex justify-end">
@@ -389,17 +533,17 @@ export default function Settings() {
             <section
               ref={(el) => { sectionRefs.current.password = el; }}
               data-section="password"
-              className="scroll-mt-2"
+              className={`scroll-mt-2 transition-opacity ${search && !searchHits.matchedSections.has("password") ? "opacity-40" : ""}`}
             >
               <h2 className="text-base font-semibold text-foreground mb-1">Password</h2>
               <p className="text-xs text-muted-foreground mb-4">Use at least 6 characters. If you sign in with Google, you can set a password to enable email login.</p>
               <form onSubmit={handlePassword} className="space-y-4 max-w-xl">
                 <div>
-                  <label className="block text-xs font-medium text-foreground mb-1.5">Current password</label>
+                  <label className="block text-xs font-medium text-foreground mb-1.5"><MatchLabel query={search}>Current password</MatchLabel></label>
                   <input type="password" className={inputCls} value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-foreground mb-1.5">New password</label>
+                  <label className="block text-xs font-medium text-foreground mb-1.5"><MatchLabel query={search}>New password</MatchLabel></label>
                   <input type="password" className={inputCls} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} minLength={6} required />
                 </div>
                 <div className="flex justify-end">
@@ -414,10 +558,10 @@ export default function Settings() {
             <section
               ref={(el) => { sectionRefs.current.email = el; }}
               data-section="email"
-              className="scroll-mt-2"
+              className={`scroll-mt-2 transition-opacity ${search && !searchHits.matchedSections.has("email") ? "opacity-40" : ""}`}
             >
               <div className="flex items-center gap-2 mb-1">
-                <h2 className="text-base font-semibold text-foreground">Email Integration</h2>
+                <h2 className="text-base font-semibold text-foreground"><MatchLabel query={search}>Email Integration</MatchLabel></h2>
                 <span className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-primary/10 text-primary uppercase tracking-wider">Beta</span>
               </div>
               <p className="text-xs text-muted-foreground mb-4">
@@ -427,6 +571,7 @@ export default function Settings() {
               <div className="rounded-lg border border-border divide-y divide-border px-4">
                 <MailboxRow
                   provider="Gmail"
+                  searchQuery={search}
                   state={mailbox.gmail}
                   loading={mailboxLoading === "gmail"}
                   configured={true}
@@ -456,6 +601,7 @@ export default function Settings() {
                 {outlookEnabled ? (
                   <MailboxRow
                     provider="Outlook"
+                    searchQuery={search}
                     state={mailbox.outlook}
                     loading={mailboxLoading === "outlook"}
                     configured={mailbox.outlook.configured}
@@ -484,6 +630,7 @@ export default function Settings() {
                 ) : (
                   <MailboxRow
                     provider="Outlook"
+                    searchQuery={search}
                     state={mailbox.outlook}
                     loading={false}
                     configured={false}
@@ -525,9 +672,9 @@ export default function Settings() {
             <section
               ref={(el) => { sectionRefs.current.ai = el; }}
               data-section="ai"
-              className="scroll-mt-2"
+              className={`scroll-mt-2 transition-opacity ${search && !searchHits.matchedSections.has("ai") ? "opacity-40" : ""}`}
             >
-              <h2 className="text-base font-semibold text-foreground mb-1">AI Providers</h2>
+              <h2 className="text-base font-semibold text-foreground mb-1"><MatchLabel query={search}>AI Providers</MatchLabel></h2>
               <p className="text-xs text-muted-foreground mb-4">
                 Bring your own keys to use specific models for resume parsing, classification, and tailoring. Without keys, HireTrail falls back to the default provider.
               </p>
@@ -538,15 +685,15 @@ export default function Settings() {
             <section
               ref={(el) => { sectionRefs.current.profileSync = el; }}
               data-section="profileSync"
-              className="scroll-mt-2"
+              className={`scroll-mt-2 transition-opacity ${search && !searchHits.matchedSections.has("profileSync") ? "opacity-40" : ""}`}
             >
-              <h2 className="text-base font-semibold text-foreground mb-1">Profile Sync</h2>
+              <h2 className="text-base font-semibold text-foreground mb-1"><MatchLabel query={search}>Profile Sync</MatchLabel></h2>
               <p className="text-xs text-muted-foreground mb-4">
                 Control how re-parsing a resume updates your master profile.
               </p>
               <div className="rounded-lg border border-border bg-background p-4 flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-foreground">AI-assisted merge</p>
+                  <p className="text-sm font-semibold text-foreground"><MatchLabel query={search}>AI-assisted merge</MatchLabel></p>
                   <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
                     When enabled, re-parsing a resume sends both your existing master profile and the newly parsed one to your AI provider, which combines them — deduping experiences, unioning skills, and preserving content from both. When disabled, re-parsing <strong>overwrites</strong> the master profile.
                   </p>

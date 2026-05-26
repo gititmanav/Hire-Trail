@@ -9,6 +9,8 @@ import ActionDropdown from "../../components/ActionDropdown/ActionDropdown.tsx";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal.tsx";
 import CompanyCombobox from "../../components/CompanyCombobox/CompanyCombobox.tsx";
 import { useConfirm } from "../../hooks/useConfirm.ts";
+import { contactStrength } from "../../utils/contactStrength.ts";
+import { OUTREACH_TEMPLATES, renderOutreachTemplate, templateToClipboard } from "../../utils/outreachTemplates.ts";
 import type { Contact, ContactFormData, ContactOutreachStatus, ContactSource, Pagination } from "../../types";
 
 const SOURCES = ["Cold email", "Referral", "Career fair", "LinkedIn", "Professor intro", "Alumni network", "Other"];
@@ -146,52 +148,194 @@ function PaginationBar({ page, pag, setPage }: { page: number; pag: Pagination; 
   );
 }
 
+/** Strength score chip with tier-tinted background. Tooltip surfaces the
+ *  factor breakdown so the user trusts the number. */
+function ContactStrengthChip({ contact }: { contact: Contact }) {
+  const s = contactStrength(contact);
+  const tone =
+    s.tier === "strong" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+    : s.tier === "warm" ? "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300"
+    : "bg-muted text-muted-foreground";
+  const title = [
+    `Strength: ${s.score} (${s.tier})`,
+    `Recency: ${s.factors.recency}`,
+    `Outreach: ${s.factors.outreach}`,
+    `LinkedIn: ${s.factors.linkedin}`,
+    `Introductions: ${s.factors.introductions}`,
+  ].join(" · ");
+  return (
+    <span
+      className={`hidden sm:inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full tabular-nums shrink-0 ${tone}`}
+      title={title}
+      aria-label={`Contact strength ${s.score} of 100`}
+    >
+      <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+        <path d="M12 2l2.39 7.36H22l-6.18 4.49L18.21 22 12 17.27 5.79 22l2.39-8.15L2 9.36h7.61z" />
+      </svg>
+      {s.score}
+    </span>
+  );
+}
+
 function OutreachBadge({ status }: { status: ContactOutreachStatus }) {
   const label = OUTREACH_STATUSES.find((s) => s.value === status)?.label || status;
   return <span className={`inline-block text-[11px] font-medium px-2 py-0.5 rounded-full ${OUTREACH_COLORS[status] || OUTREACH_COLORS.not_contacted}`}>{label}</span>;
 }
 
+/** Days-since-last-contact in whole days. >= 0 except when lastContactDate is
+ *  missing (returns null). Used by the row age chip + the follow-up nudge. */
+function daysSinceLastContact(c: Contact, now: Date = new Date()): number | null {
+  if (!c.lastContactDate) return null;
+  const ms = now.getTime() - new Date(c.lastContactDate).getTime();
+  return Math.max(0, Math.floor(ms / 86_400_000));
+}
+
+/** Quick visual urgency tone for the age chip — colored like the
+ *  Applications page's health tones for visual consistency. */
+function ageToneClass(days: number | null, outreach: ContactOutreachStatus): string {
+  // Don't paint the chip red just because a "gone cold" / "responded" status
+  // shows old days — the status carries the signal.
+  if (days == null) return "bg-muted text-muted-foreground";
+  if (outreach === "responded" || outreach === "meeting_scheduled") return "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300";
+  if (days <= 7)  return "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300";
+  if (days <= 21) return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300";
+  if (days <= 60) return "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300";
+  return "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300";
+}
+
+/** Row redesign: horizontal layout mirroring the Applications page. Monogram
+ *  avatar → name + role @ company + outreach badge + connection-source chip
+ *  + days-since-last-contact age chip + "Send follow-up →" CTA → hover toolbar.
+ *  Notes collapse inline so a 5-line note doesn't break the row rhythm. */
 function ContactCard({ c, onEdit, onDelete }: { c: Contact; onEdit: () => void; onDelete: () => void }) {
   const [notesExpanded, setNotesExpanded] = useState(false);
-  const hasLongNotes = c.notes && c.notes.length > 120;
+  const hasLongNotes = c.notes && c.notes.length > 80;
+  const days = daysSinceLastContact(c);
+  const ageLabel = days == null
+    ? "—"
+    : days === 0 ? "today"
+    : days === 1 ? "1d"
+    : days < 30  ? `${days}d`
+    : days < 365 ? `${Math.round(days / 30)}mo`
+    : `${Math.round(days / 365)}y`;
 
   return (
-    <div className="bg-card border border-border rounded-xl p-5 flex flex-col group">
-      <div className="flex items-start gap-2.5 mb-2.5">
-        <div className="w-10 h-10 rounded-full bg-muted text-secondary-foreground flex items-center justify-center text-[13px] font-semibold shrink-0">{ini(c.name)}</div>
-        <div className="flex-1 min-w-0">
-          <h3 className="text-[15px] font-semibold text-foreground">{c.name}</h3>
-          <p className="text-[13px] text-muted-foreground">{c.role ? `${c.role} at ` : ""}{c.company}</p>
-        </div>
-        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button className={btnIcon} onClick={onEdit}><svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M8.5 2.5l3 3L4.5 12.5H1.5v-3z" /></svg></button>
-          <button className={`${btnIcon} !text-danger`} onClick={onDelete}><svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="2,4 12,4" /><path d="M5 4V2.5a.5.5 0 01.5-.5h3a.5.5 0 01.5.5V4" /><path d="M3 4l.75 8.5a1 1 0 001 .5h4.5a1 1 0 001-.5L11 4" /></svg></button>
-        </div>
+    <div className="bg-card border border-border rounded-xl px-4 py-3 flex items-center gap-3 group min-w-0">
+      <div className="w-10 h-10 rounded-full bg-muted text-secondary-foreground flex items-center justify-center text-[13px] font-semibold shrink-0">
+        {ini(c.name)}
       </div>
-      <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
-        {c.outreachStatus && <OutreachBadge status={c.outreachStatus} />}
-        {c.connectionSource && <span className="inline-block text-xs font-medium bg-muted text-muted-foreground px-2 py-0.5 rounded-full">{c.connectionSource}</span>}
-        {c.source === "extension" && (
-          <span className="inline-flex items-center gap-1 text-[11px] font-medium bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300 px-2 py-0.5 rounded-full">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-6 9 6v12H3z" /><path d="M9 22V12h6v10" /></svg>
-            via extension
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap min-w-0">
+          <h3 className="text-[14px] font-semibold text-foreground truncate">{c.name}</h3>
+          {c.outreachStatus && <OutreachBadge status={c.outreachStatus} />}
+          {c.connectionSource && (
+            <span className="hidden sm:inline-block text-[10px] font-medium bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full">{c.connectionSource}</span>
+          )}
+          {c.source === "extension" && (
+            <span className="inline-flex items-center gap-0.5 text-[10px] font-medium bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300 px-1.5 py-0.5 rounded-full">
+              via extension
+            </span>
+          )}
+        </div>
+        <p className="text-[12.5px] text-muted-foreground truncate">
+          {c.role ? `${c.role} at ` : ""}{c.company}
+        </p>
+        {c.notes && (
+          <div className="mt-0.5">
+            <p className={`text-[11.5px] text-muted-foreground/85 italic ${notesExpanded ? "" : "line-clamp-1"}`}>{c.notes}</p>
+            {hasLongNotes && (
+              <button onClick={() => setNotesExpanded(!notesExpanded)} className="text-[11px] text-muted-foreground hover:text-foreground hover:underline">
+                {notesExpanded ? "Show less" : "Show more"}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+      {/* Strength chip — small 0-100 score with tier-tinted background.
+       *  Tooltip exposes the factor breakdown so the user understands the
+       *  number rather than seeing a magic value. */}
+      <ContactStrengthChip contact={c} />
+      {/* Age chip + follow-up date */}
+      <div className="flex flex-col items-end gap-1 shrink-0">
+        <span
+          className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${ageToneClass(days, c.outreachStatus)}`}
+          title={days == null ? "No last-contact date" : `${days} days since last contact`}
+        >
+          {ageLabel}
+        </span>
+        {c.nextFollowUpDate && (
+          <span className={`text-[10.5px] tabular-nums ${needsFollowUp(c) ? "text-orange-500 font-medium" : "text-muted-foreground"}`}>
+            Follow up: {fmt(c.nextFollowUpDate)}
           </span>
         )}
       </div>
-      {c.linkedinUrl && <a href={c.linkedinUrl} target="_blank" rel="noopener noreferrer" className="text-[13px] text-primary hover:text-primary/90 hover:underline mb-1">LinkedIn profile</a>}
-      {c.notes && (
-        <div className="mb-2">
-          <p className={`text-[13px] text-muted-foreground ${notesExpanded ? "" : "line-clamp-3"}`}>{c.notes}</p>
-          {hasLongNotes && (
-            <button onClick={() => setNotesExpanded(!notesExpanded)} className="text-[12px] text-muted-foreground hover:text-foreground hover:underline mt-0.5">
-              {notesExpanded ? "Show less" : "Show more"}
+      {/* "Send follow-up →" CTA: prominent for any contact that owes a touch,
+       *  otherwise tucked under hover so it doesn't compete with the data. */}
+      {needsFollowUp(c) ? (
+        <button
+          type="button"
+          onClick={onEdit}
+          className="text-[11px] font-medium text-primary hover:underline shrink-0"
+          title="Open this contact to log a follow-up"
+        >
+          Send follow-up →
+        </button>
+      ) : null}
+      {/* Action toolbar — Outreach + LinkedIn + Edit + Delete. */}
+      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+        {/* Outreach templates: pick one → email is rendered with the
+         *  contact's name/role/company filled in and copied to clipboard. */}
+        <ActionDropdown
+          align="right"
+          menuWidth="w-56"
+          trigger={
+            <button className={btnIcon} title="Outreach templates" aria-label="Outreach templates">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M22 2L11 13" />
+                <polygon points="22 2 15 22 11 13 2 9 22 2" />
+              </svg>
             </button>
-          )}
-        </div>
-      )}
-      <div className="mt-auto pt-2.5 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
-        <span>Last contact: {fmt(c.lastContactDate)}</span>
-        {c.nextFollowUpDate && <span className={needsFollowUp(c) ? "text-orange-500 font-medium" : ""}>Follow-up: {fmt(c.nextFollowUpDate)}</span>}
+          }
+          items={OUTREACH_TEMPLATES.map((tpl) => ({
+            label: tpl.label,
+            onClick: async () => {
+              const rendered = renderOutreachTemplate(tpl.key, c);
+              const text = templateToClipboard(rendered);
+              try {
+                await navigator.clipboard.writeText(text);
+                toast.success(`${tpl.label} copied — paste into your email client.`);
+              } catch {
+                toast.error("Couldn't access the clipboard — try again or paste manually.");
+              }
+            },
+          }))}
+        />
+        {c.linkedinUrl ? (
+          <a
+            href={c.linkedinUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`${btnIcon} !text-[#0a66c2] hover:!text-[#004182]`}
+            title="Open LinkedIn profile"
+            aria-label="Open LinkedIn profile"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+              <path d="M20.45 20.45h-3.55v-5.57c0-1.33-.03-3.04-1.85-3.04-1.86 0-2.14 1.45-2.14 2.95v5.66H9.36V9h3.41v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.26 2.37 4.26 5.45v6.29zM5.34 7.43a2.06 2.06 0 01-2.06-2.07 2.06 2.06 0 014.13 0 2.07 2.07 0 01-2.07 2.07zm1.78 13.02H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.23.79 24 1.77 24h20.45C23.2 24 24 23.23 24 22.27V1.73C24 .77 23.2 0 22.22 0z" />
+            </svg>
+          </a>
+        ) : (
+          <span className={`${btnIcon} opacity-40 cursor-not-allowed`} title="No LinkedIn URL — add one via Edit" aria-label="LinkedIn unavailable">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+              <path d="M20.45 20.45h-3.55v-5.57c0-1.33-.03-3.04-1.85-3.04-1.86 0-2.14 1.45-2.14 2.95v5.66H9.36V9h3.41v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.26 2.37 4.26 5.45v6.29zM5.34 7.43a2.06 2.06 0 01-2.06-2.07 2.06 2.06 0 014.13 0 2.07 2.07 0 01-2.07 2.07zm1.78 13.02H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.23.79 24 1.77 24h20.45C23.2 24 24 23.23 24 22.27V1.73C24 .77 23.2 0 22.22 0z" />
+            </svg>
+          </span>
+        )}
+        <button className={btnIcon} onClick={onEdit} aria-label="Edit contact">
+          <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden><path d="M8.5 2.5l3 3L4.5 12.5H1.5v-3z" /></svg>
+        </button>
+        <button className={`${btnIcon} !text-danger`} onClick={onDelete} aria-label="Delete contact">
+          <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden><polyline points="2,4 12,4" /><path d="M5 4V2.5a.5.5 0 01.5-.5h3a.5.5 0 01.5.5V4" /><path d="M3 4l.75 8.5a1 1 0 001 .5h4.5a1 1 0 001-.5L11 4" /></svg>
+        </button>
       </div>
     </div>
   );
@@ -297,14 +441,14 @@ export default function Contacts() {
 
   return (
     <div className="fade-up">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between flex-wrap gap-3 mb-6">
         <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
           Contacts
           <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-muted text-muted-foreground">
             {pag.total}
           </span>
         </h1>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <div className="flex rounded-lg border border-border overflow-hidden">
             <button onClick={() => setViewMode("person")} className={`px-3 py-1.5 text-xs font-medium ${viewMode === "person" ? "bg-muted text-foreground" : "bg-card text-secondary-foreground hover:bg-muted"}`}>By Person</button>
             <button onClick={() => setViewMode("company")} className={`px-3 py-1.5 text-xs font-medium ${viewMode === "company" ? "bg-muted text-foreground" : "bg-card text-secondary-foreground hover:bg-muted"}`}>By Company</button>
@@ -380,7 +524,7 @@ export default function Contacts() {
         )
       ) : viewMode === "person" ? (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
             {filtered.map((c) => <ContactCard key={c._id} c={c} onEdit={() => { setEditing(c); setModal(true); }} onDelete={() => handleDelete(c._id)} />)}
           </div>
           <PaginationBar page={page} pag={pag} setPage={setPage} />
@@ -417,7 +561,7 @@ export default function Contacts() {
                       </div>
                     </button>
                     {isExpanded && (
-                      <div className="border-t border-border p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="border-t border-border p-3 space-y-2">
                         {companyContacts.map((c) => <ContactCard key={c._id} c={c} onEdit={() => { setEditing(c); setModal(true); }} onDelete={() => handleDelete(c._id)} />)}
                       </div>
                     )}

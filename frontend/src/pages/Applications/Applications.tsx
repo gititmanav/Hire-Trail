@@ -21,6 +21,7 @@ import ResumePreview from "../../components/ResumePreview/ResumePreview.tsx";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal.tsx";
 import ResumeModal from "../../components/ResumeModal/ResumeModal.tsx";
 import { useConfirm } from "../../hooks/useConfirm.ts";
+import { useDeadlineFollowups } from "../../hooks/useDeadlineFollowups.tsx";
 import { STAGES } from "../../utils/stageStyles.ts";
 import ApplicationRow from "./components/ApplicationRow.tsx";
 import ApplicationsToolbar from "./components/ApplicationsToolbar.tsx";
@@ -202,6 +203,7 @@ export default function Applications() {
   const [focusedIndex, setFocusedIndex] = useState(0);
 
   const { confirm: confirmDelete, confirmState, handleConfirm: onConfirm, handleCancel: onCancel } = useConfirm();
+  const { promptAfterStageChange } = useDeadlineFollowups();
   const focusSearchRef = useRef<(() => void) | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -251,12 +253,34 @@ export default function Applications() {
     }
   }, [searchParams, setSearchParams]);
 
+  /* ─── Funnel deep-link: ?stage=Interview pre-selects the stage filter chip
+   *  (set by the Dashboard's FunnelWidget click-through). Stripped after apply
+   *  so a refresh doesn't re-pin a filter the user has since cleared.
+   *  Stays a no-op for unknown stages — defensive against stale links. */
+  const handledStageRef = useRef(false);
+  const setStageFilter = state.setStageFilter;
+  useEffect(() => {
+    const stageParam = searchParams.get("stage");
+    if (!stageParam) {
+      handledStageRef.current = false;
+      return;
+    }
+    if (handledStageRef.current) return;
+    handledStageRef.current = true;
+    if (STAGES.includes(stageParam as Stage)) {
+      setStageFilter(stageParam as Stage);
+    }
+    const next = new URLSearchParams(searchParams);
+    next.delete("stage");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams, setStageFilter]);
+
   /* ─── Global search deep-link: ?focus=ID opens the detail sidebar.
    *  Fires once per ID; the param is stripped from the URL after open so a
    *  manual close doesn't immediately re-trigger on the next render. If the
-   *  target isn't in the current page of results (e.g. user is deep-linking
-   *  from the AttentionList while paginated past the relevant row), we fall
-   *  back to a single-record fetch so the sidebar still opens. (searchParams /
+   *  target isn't in the current page of results (deep-link from a sibling
+   *  page while paginated past the relevant row), we fall back to a
+   *  single-record fetch so the sidebar still opens. (searchParams /
    *  setSearchParams hoisted above for the ?new handler.) */
   const focusedRef = useRef<string | null>(null);
   useEffect(() => {
@@ -377,12 +401,25 @@ export default function Applications() {
 
   const handleStageChange = useCallback(async (id: string, stage: Stage) => {
     try {
+      const target = apps.find((a) => a._id === id);
+      const fromStage = target?.stage;
       await applicationsAPI.update(id, { stage });
       toast.success(`Stage updated to ${stage}`);
       await fetchData();
       if (sidebarApp && sidebarApp._id === id) setSidebarApp((prev) => prev ? { ...prev, stage } : null);
+      // Phase-3 cross-cutting: prompt the user to close any related open
+      // deadlines now that the stage has moved. Non-blocking — failures are
+      // swallowed by the hook so a flaky fetch doesn't break the main flow.
+      if (target && fromStage && fromStage !== stage) {
+        void promptAfterStageChange({
+          applicationId: id,
+          companyName: target.company,
+          fromStage,
+          toStage: stage,
+        });
+      }
     } catch { /* interceptor */ }
-  }, [fetchData, sidebarApp]);
+  }, [fetchData, sidebarApp, apps, promptAfterStageChange]);
 
   const handleSidebarSave = useCallback(async (id: string, data: Partial<ApplicationFormData> & { jobDescription?: string }) => {
     await applicationsAPI.update(id, data);
@@ -519,9 +556,11 @@ export default function Applications() {
   return (
     <div className="fade-up">
       {/* Header */}
-      <div className="flex items-center justify-between mb-5">
+      {/* Header wraps to a second row below ~430px so the Import/Export/Add
+       *  buttons don't push the H1 off-screen on mobile. */}
+      <div className="flex items-center justify-between flex-wrap gap-3 mb-5">
         <h1 className="text-2xl font-bold text-foreground tracking-tight">Applications</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <button onClick={() => setImportModal(true)} className="btn-secondary" title="Import CSV">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Import
           </button>

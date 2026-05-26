@@ -53,10 +53,35 @@ function applyTheme(theme: Theme) {
   }
 }
 
+/** Briefly suspend CSS transitions during a theme swap so descendants don't
+ *  animate `background-color` / `border-color` / `color` from the old value
+ *  to the new — which produces a visible micro-second lag where every card
+ *  fades between themes a few frames behind the page chrome. The matching CSS
+ *  rule (`html.theme-transitioning *`) lives in App.css.
+ *
+ *  We add the class, apply variables, then drop the class one animation frame
+ *  later — long enough for the browser to commit the new computed styles
+ *  with the suspension still active, short enough that normal hover/focus
+ *  transitions resume immediately. */
+function withTransitionsSuspended(swap: () => void) {
+  if (typeof document === "undefined") { swap(); return; }
+  const root = document.documentElement;
+  root.classList.add("theme-transitioning");
+  swap();
+  // Force a synchronous reflow read so the change is committed under the
+  // suspended-transition rule before we lift it.
+  void root.offsetWidth;
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      root.classList.remove("theme-transitioning");
+    });
+  });
+}
+
 function syncThemeToDocument(theme: Theme) {
   if (lastDomAppliedThemeId === theme.id) return;
   lastDomAppliedThemeId = theme.id;
-  applyTheme(theme);
+  withTransitionsSuspended(() => applyTheme(theme));
 }
 
 function resolveInitialId(userId?: string | null): string {

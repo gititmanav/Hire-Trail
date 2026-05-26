@@ -20,6 +20,9 @@ export interface AppFitSummary {
   summary: string;
   matchedCount: number;
   missingCount: number;
+  /** First few matched skills — surfaced by the Application row AI panel as
+   *  a checkmark list. Capped server-side so the response stays small. */
+  topMatched: string[];
   errorMessage?: string;
 }
 
@@ -47,6 +50,7 @@ async function loadFitSummaries(apps: Array<{ _id: unknown; tailorSessionId: unk
       summary: s.summary || "",
       matchedCount: Array.isArray(s.matchedSkills) ? s.matchedSkills.length : 0,
       missingCount: Array.isArray(s.missingSkills) ? s.missingSkills.length : 0,
+      topMatched: Array.isArray(s.matchedSkills) ? s.matchedSkills.slice(0, 3) : [],
       errorMessage: s.errorMessage || undefined,
     });
   }
@@ -55,9 +59,9 @@ async function loadFitSummaries(apps: Array<{ _id: unknown; tailorSessionId: unk
 
 /** Best-effort background enrichment: only overwrites empty fields and only
  *  with values the extractor was confident about. Idempotent. Failures swallowed. */
-async function enrichApplicationFromJD(appId: string, jobDescription: string) {
+async function enrichApplicationFromJD(appId: string, jobDescription: string, jobUrl?: string | null) {
   try {
-    const fields = extractFieldsFromJD(jobDescription);
+    const fields = extractFieldsFromJD(jobDescription, jobUrl);
     if (!fields || Object.keys(fields).length === 0) return;
     const app = await Application.findById(appId);
     if (!app) return;
@@ -76,8 +80,35 @@ async function enrichApplicationFromJD(appId: string, jobDescription: string) {
   }
 }
 
-function extractDomain(url: string): string {
-  try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return ""; }
+import { extractDomainFromUrl, isJobBoardDomain } from "../utils/companyDomain.js";
+
+/** Local alias kept so existing call sites read naturally. */
+const extractDomain = extractDomainFromUrl;
+
+/** Domain to STORE on a Company doc derived from an Application's jobUrl.
+ *  Returns "" for known job-board hosts (Workday, Greenhouse, etc.) so the
+ *  logo fetcher falls back to a name-derived domain instead of pulling the
+ *  ATS's logo. See utils/companyDomain.ts for context. */
+function companyDomainFromJobUrl(jobUrl?: string | null): string {
+  if (!jobUrl) return "";
+  const d = extractDomain(jobUrl);
+  if (!d || isJobBoardDomain(d)) return "";
+  return d;
+}
+
+/** Website to STORE on a Company doc derived from an Application's jobUrl.
+ *  Mirrors `companyDomainFromJobUrl` — empty for job boards because storing
+ *  e.g. "https://workday.com" as a company's website is just misleading. */
+function companyWebsiteFromJobUrl(jobUrl?: string | null): string {
+  if (!jobUrl) return "";
+  try {
+    const u = new URL(jobUrl);
+    const host = u.hostname.replace(/^www\./, "").toLowerCase();
+    if (isJobBoardDomain(host)) return "";
+    return u.origin;
+  } catch {
+    return "";
+  }
 }
 
 const router = Router();
@@ -150,11 +181,12 @@ router.post("/", validate(createApplicationSchema), async (req: Request, res: Re
     let companyId = req.body.companyId || null;
     let createdOrFoundCompany: typeof Company.prototype | null = null;
     if (!companyId && req.body.company) {
-      const domain = req.body.jobUrl ? extractDomain(req.body.jobUrl) : "";
+      const domain = companyDomainFromJobUrl(req.body.jobUrl);
+      const website = companyWebsiteFromJobUrl(req.body.jobUrl);
       const company = await Company.findOneAndUpdate(
         { name: req.body.company.trim() },
         {
-          $setOnInsert: { name: req.body.company.trim(), website: req.body.jobUrl ? new URL(req.body.jobUrl).origin : "", domain, createdBy: user._id },
+          $setOnInsert: { name: req.body.company.trim(), website, domain, createdBy: user._id },
           $addToSet: { users: user._id },
         },
         { upsert: true, new: true, collation: { locale: "en", strength: 2 } }
@@ -176,11 +208,14 @@ router.post("/", validate(createApplicationSchema), async (req: Request, res: Re
     // AND at least one of the structured fields is missing. Fire-and-forget so
     // the user gets their 201 immediately.
     const jd = req.body.jobDescription || "";
-    if (
-      jd.length >= 200 &&
-      (!req.body.location || !req.body.salary || !req.body.jobType || !req.body.role)
-    ) {
-      void enrichApplicationFromJD(app._id.toString(), jd);
+    // URL-derived company is useful even when the JD body is short or empty,
+    // so trigger enrichment when EITHER (a) the JD is meaty enough to parse
+    // OR (b) we have a jobUrl AND company is still missing.
+    const hasJobUrl = !!req.body.jobUrl;
+    const companyMissing = !req.body.company || !String(req.body.company).trim();
+    const otherFieldsMissing = !req.body.location || !req.body.salary || !req.body.jobType || !req.body.role;
+    if ((jd.length >= 200 && otherFieldsMissing) || (hasJobUrl && companyMissing)) {
+      void enrichApplicationFromJD(app._id.toString(), jd, req.body.jobUrl || null);
     }
     // Background logo fetch — same pattern as contacts.
     if (createdOrFoundCompany) {
@@ -237,8 +272,10 @@ router.put("/:id", validate(updateApplicationSchema), async (req: Request, res: 
     if (data.stage && data.stage !== existing.stage) { existing.stageHistory.push({ stage: data.stage, date: new Date() }); existing.stage = data.stage; }
     if (data.company !== undefined) {
       existing.company = data.company;
-      // Re-link shared company if name changed
-      const domain = data.jobUrl ? extractDomain(data.jobUrl) : (existing.jobUrl ? extractDomain(existing.jobUrl) : "");
+      // Re-link shared company if name changed. Same job-board guard as create
+      // — we never want a Workday/Greenhouse host stored as the canonical
+      // Company.domain. See utils/companyDomain.ts.
+      const domain = companyDomainFromJobUrl(data.jobUrl ?? existing.jobUrl);
       const company = await Company.findOneAndUpdate(
         { name: data.company.trim() },
         {

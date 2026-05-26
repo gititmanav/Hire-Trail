@@ -31,7 +31,22 @@
       "Bash(node --test \"/Users/manav/Projects/Hire Trail/backend/src/services/jdExtractor.test.mjs\" \"/Users/manav/Projects/Hire Trail/frontend/src/utils/applicationHealth.test.mjs\")",
       "Bash(lsof -nP -iTCP:5173 -sTCP:LISTEN)",
       "Bash(lsof -nP -iTCP:5174 -sTCP:LISTEN)",
-      "Bash(lsof -nP -iTCP:5175 -sTCP:LISTEN)"
+      "Bash(lsof -nP -iTCP:5175 -sTCP:LISTEN)",
+      "Bash(lsof -nP -iTCP:3001 -sTCP:LISTEN)",
+      "Bash(lsof -nP -iTCP:3000 -sTCP:LISTEN)",
+      "Bash(lsof -nP -iTCP:4000 -sTCP:LISTEN)",
+      "Bash(curl -sf http://localhost:5050/api/auth/me)",
+      "Bash(curl -s http://localhost:5050/api/auth/me)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:5050/api/auth/me)",
+      "Bash(node --test src/utils/*.test.mjs)",
+      "Bash(awk 'NR==1,/^\\\\/\\\\*\\\\* ───── Hero \"Today\" sentence ───── \\\\*\\\\//{next} /^\\\\/\\\\*\\\\* ───── Streak ───── \\\\*\\\\//,0' frontend/src/utils/dashboardSignals.ts)",
+      "Bash(awk '/^\\\\/\\\\*\\\\* ───── Hero \"Today\" sentence ───── \\\\*\\\\//{f=1} /^\\\\/\\\\*\\\\* ───── Streak ───── \\\\*\\\\//{f=0} !f' frontend/src/utils/dashboardSignals.ts)",
+      "Read(//tmp/**)",
+      "Bash(cp /tmp/dashboardSignals.trimmed.ts \"/Users/manav/Projects/Hire Trail/frontend/src/utils/dashboardSignals.ts\" && wc -l \"/Users/manav/Projects/Hire Trail/frontend/src/utils/dashboardSignals.ts\")",
+      "Bash(grep -v \"border-l-2\\\\|h-1 \\\\|h-1$\\\\|h-1\\\\\\\\b\")",
+      "Bash(ls .claude/launch.json)",
+      "Bash(cat .claude/launch.json)",
+      "Bash(node --test src/services/jdExtractor.test.mjs)"
     ]
   }
 }

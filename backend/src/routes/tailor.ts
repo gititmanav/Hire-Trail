@@ -363,6 +363,11 @@ router.put("/sessions/:id/mark-applied", async (req: Request, res: Response, nex
       }
 
       const resumeName = `Tailored — ${session.company || "Unknown"}${session.jobTitle ? ` / ${session.jobTitle}` : ""}`.slice(0, 200);
+      // Capture the user's primary at THIS moment as the lineage root for
+      // the tailored variant. Lets the Resumes page render the tree:
+      //   <primary> → <tailored A for company X> / <tailored B for company Y>
+      const dbUserForBase = await User.findById(user._id).select("primaryResumeId");
+      const baseResumeId = (dbUserForBase?.primaryResumeId as mongoose.Types.ObjectId | null) ?? null;
       const tailoredResume = await Resume.create({
         userId: user._id,
         name: resumeName,
@@ -371,6 +376,9 @@ router.put("/sessions/:id/mark-applied", async (req: Request, res: Response, nex
         fileName: `hiretrail-${baseName}.pdf`,
         fileUrl,
         filePublicId,
+        baseResumeId,
+        tailorSessionId: session._id,
+        versions: [{ timestamp: new Date(), summary: `Generated from ${session.company || "tailor session"}` }],
       });
       resumeIdForApp = tailoredResume._id as mongoose.Types.ObjectId;
       createdTailoredResumeId = resumeIdForApp;

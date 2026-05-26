@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext, useCallback, useMemo } from "react";
+import { useState, useEffect, useContext, useCallback, useMemo, lazy, Suspense } from "react";
 import { Responsive, WidthProvider } from "react-grid-layout";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -10,25 +10,26 @@ import { useWidgetLayout, ALL_WIDGETS } from "../../hooks/useWidgetLayout.ts";
 import { useRefetchOnFocus } from "../../hooks/useRefetchOnFocus.ts";
 import WidgetPicker from "../../components/WidgetPicker/WidgetPicker.tsx";
 import ActionDropdown from "../../components/ActionDropdown/ActionDropdown.tsx";
-import StatsWidget from "../../components/widgets/StatsWidget.tsx";
-import FunnelWidget from "../../components/widgets/FunnelWidget.tsx";
-import ConversionWidget from "../../components/widgets/ConversionWidget.tsx";
-import TrendWidget from "../../components/widgets/TrendWidget.tsx";
-import PieWidget from "../../components/widgets/PieWidget.tsx";
-import ResumePerformanceWidget from "../../components/widgets/ResumePerformanceWidget.tsx";
-import RecentAppsWidget from "../../components/widgets/RecentAppsWidget.tsx";
-import DeadlinesWidget from "../../components/widgets/DeadlinesWidget.tsx";
-import FollowUpWidget from "../../components/widgets/FollowUpWidget.tsx";
-import MiniCalendarWidget from "../../components/widgets/MiniCalendarWidget.tsx";
+// Chart-driven widgets bring in chart.js + react-chartjs-2 (the heaviest part
+// of the Dashboard bundle). Lazy each so the Dashboard renders shell-first;
+// widgets stream in as their chunks resolve. Non-chart widgets are lazied too
+// for consistency — each is small but together they trim the main chunk.
+const StatsWidget             = lazy(() => import("../../components/widgets/StatsWidget.tsx"));
+const FunnelWidget            = lazy(() => import("../../components/widgets/FunnelWidget.tsx"));
+const ConversionWidget        = lazy(() => import("../../components/widgets/ConversionWidget.tsx"));
+const TrendWidget             = lazy(() => import("../../components/widgets/TrendWidget.tsx"));
+const PieWidget               = lazy(() => import("../../components/widgets/PieWidget.tsx"));
+const ResumePerformanceWidget = lazy(() => import("../../components/widgets/ResumePerformanceWidget.tsx"));
+const RecentAppsWidget        = lazy(() => import("../../components/widgets/RecentAppsWidget.tsx"));
+const DeadlinesWidget         = lazy(() => import("../../components/widgets/DeadlinesWidget.tsx"));
+const FollowUpWidget          = lazy(() => import("../../components/widgets/FollowUpWidget.tsx"));
+const MiniCalendarWidget      = lazy(() => import("../../components/widgets/MiniCalendarWidget.tsx"));
 import GuidedTour from "../../components/GuidedTour/GuidedTour.tsx";
 import { SkeletonStats, SkeletonTable } from "../../components/Skeleton/Skeleton.tsx";
 import { STAGES } from "../../utils/stageStyles.ts";
 import { buildAnalyticsFromApplications, filterDashboardApplications, getDashboardCompanies, getRecentApplications, getStageCounts } from "../../utils/dashboardInsights.ts";
 import { buildCalendarEvents } from "../../utils/calendarEvents.ts";
-import {
-  computeActivityStreak,
-  computeWeeklyCapacity,
-} from "../../utils/dashboardSignals.ts";
+import { computeActivityStreak, computeWeeklyCapacity } from "../../utils/dashboardSignals.ts";
 import StreakCard from "./components/StreakCard.tsx";
 import WeeklyCapacityCard from "./components/WeeklyCapacityCard.tsx";
 import type { Application, Contact, Deadline, Resume, AnalyticsData, Stage } from "../../types";
@@ -141,17 +142,8 @@ export default function Dashboard() {
     [apps, selectedCompany, selectedStage]
   );
 
-  /* ─── New "product-grade" dashboard signals: hero strip, attention list,
-   *  streak, weekly capacity. All derived from the same apps/deadlines/contacts
-   *  the rest of the page already loads. Pure functions live in dashboardSignals.ts.
-   *  Filters do NOT affect these signals — they're intentionally global so the
-   *  "what needs my attention" remains accurate even after the user narrows the
-   *  pipeline view to one company.
-   *
-   *  `nowTick` is a state value bumped once per minute by the effect below. It
-   *  participates in the memo dependencies so signals like "overdue today",
-   *  "due in 2d", and the streak's "active today?" recompute as wall-clock time
-   *  passes — including the midnight rollover during a long session. */
+  /* `nowTick` is bumped once per minute so streak / weekly-capacity
+   *  recompute across the midnight rollover during a long session. */
   const [nowTick, setNowTick] = useState(() => new Date());
   useEffect(() => {
     const id = window.setInterval(() => setNowTick(new Date()), 60_000);
@@ -167,7 +159,10 @@ export default function Dashboard() {
 
   const handleFollowUp = async (id: string) => {
     try {
-      await contactsAPI.update(id, { lastOutreachDate: new Date().toISOString(), nextFollowUpDate: "" } as any);
+      // Clear nextFollowUpDate with null (not "") so the backend stores a
+      // proper unset value — empty string would persist and slip past the
+      // `if (c.nextFollowUpDate)` filters used elsewhere.
+      await contactsAPI.update(id, { lastOutreachDate: new Date().toISOString(), nextFollowUpDate: null });
       setFollowUpContacts((prev) => prev.filter((c) => c._id !== id));
       toast.success("Marked as followed up");
     } catch { toast.error("Failed to update contact"); }
@@ -177,7 +172,7 @@ export default function Dashboard() {
     try {
       const snoozeDate = new Date();
       snoozeDate.setDate(snoozeDate.getDate() + 3);
-      await contactsAPI.update(id, { nextFollowUpDate: snoozeDate.toISOString().split("T")[0] } as any);
+      await contactsAPI.update(id, { nextFollowUpDate: snoozeDate.toISOString().split("T")[0] });
       setFollowUpContacts((prev) => prev.filter((c) => c._id !== id));
       toast.success("Snoozed for 3 days");
     } catch { toast.error("Failed to snooze"); }
@@ -230,6 +225,10 @@ export default function Dashboard() {
                   await Promise.all(staleApps.map((a) => applicationsAPI.archive(a._id, "auto_stale")));
                   toast.success(`Archived ${staleApps.length} stale application${staleApps.length > 1 ? "s" : ""}`);
                   setStaleApps([]);
+                  // Re-sync the full apps list so widgets that depend on it
+                  // (Recent Applications, Funnel, etc.) reflect the archive
+                  // immediately rather than waiting for the next focus refetch.
+                  await loadData();
                 } catch {
                   toast.error("Failed to archive some applications");
                 } finally { setArchiving(false); }
@@ -244,11 +243,6 @@ export default function Dashboard() {
           </div>
         </div>
       )}
-
-      {/* Streak + Weekly-capacity moved into the movable widget grid below
-       *  (see ALL_WIDGETS in useWidgetLayout). The Hero strip, Attention list,
-       *  and the bespoke AnimatedFunnel were removed per product feedback —
-       *  the existing FunnelWidget already covers the pipeline visualization. */}
 
       <StageSuggestionsCard />
 
@@ -335,7 +329,15 @@ export default function Dashboard() {
                     <h3 className="text-[13px] font-semibold text-foreground">{title(l.i)}</h3>
                   </div>
                 )}
-                <div className={`flex-1 ${l.i === "stats" ? "p-3" : "p-4"} overflow-hidden`}>{render(l.i)}</div>
+                <div className={`flex-1 ${l.i === "stats" ? "p-3" : "p-4"} overflow-hidden`}>
+                  {/* Per-widget Suspense — chart-driven widgets are lazy,
+                   *  so they each settle in independently rather than blocking
+                   *  the whole grid behind a single boundary. Skeleton is
+                   *  intentionally muted so the page renders shell-first. */}
+                  <Suspense fallback={<div className="w-full h-full bg-muted/30 rounded animate-pulse" aria-label="Loading widget" />}>
+                    {render(l.i)}
+                  </Suspense>
+                </div>
               </div>
             </div>
           ))}

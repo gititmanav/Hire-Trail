@@ -43,3 +43,17 @@ export const STAGE_CALENDAR_HEX: Record<Stage, { backgroundColor: string; border
   Offer: { backgroundColor: "#059669", borderColor: "#047857" },
   Rejected: { backgroundColor: "#dc2626", borderColor: "#b91c1c" },
 };
+
+/** Stripe color for the left edge of an application card. Single source of
+ *  truth so every card surface (Applications row, Kanban card, future
+ *  variants) renders the same hue for the same stage. 500-shade Tailwind
+ *  classes — they match the Kanban column header dots and the calendar
+ *  hexes, and they read crisply on both light and dark themes. */
+export const STAGE_STRIPE_CLASS: Record<Stage, string> = {
+  Drafting: "bg-slate-500",
+  Applied: "bg-blue-500",
+  OA: "bg-amber-500",
+  Interview: "bg-purple-500",
+  Offer: "bg-emerald-500",
+  Rejected: "bg-red-500",
+};
