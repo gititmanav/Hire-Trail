@@ -427,6 +427,30 @@ below when you make material progress so the next-next session sees the trail.*
 
 ## Progress trail
 
+- **2026-05-26** · **Browser extension UI polish + new feature shipped.**
+  - **FAB button**: was 48×48 with a 22px H glyph (~46% coverage — felt
+    sparse). Now 36×40 tab anchor with a 24px H glyph (~67% — dominant).
+    Brand-tinted ambient shadow + soft inner highlight; hover peeks the
+    tab out by 3px with intensified shadow.
+  - **Popover width** now hugs content (`width: max-content; max-width:
+    312px`) — kills the empty right-hand space.
+  - **Track + Tailor icons** rewritten as crisp single-path fills
+    (bookmark + 4-point sparkle). The old paths were two-path strokes
+    that aliased on retina screens.
+  - **Action rows** redesigned as cards: bigger 36×36 gradient tiles
+    (was 30×30), 18px icons (was 14px), bolder labels, chevron-right
+    affordance that animates on hover. Full-width divider between actions
+    (was a hairline indented divider).
+  - **NEW preview strip — "Detected on this page"**: runs the scraper
+    when the popover opens and previews the role + company that's about
+    to get tracked. Green checkmark eyebrow. Hidden on LinkedIn-profile
+    context (no JD to detect) and when scraper found nothing.
+  - **Rebuilt extension.zip**: 39.7 KB → 45.2 KB. Copied to
+    `frontend/public/extension.zip` so the in-app + landing download
+    buttons serve the new version.
+  - **JS syntax check + structural assertions pass**: width:max-content
+    present, FAB at 36×40, 24px H glyph, new track/tailor SVG paths
+    present.
 - **2026-05-25** · **JD extractor: 4 recall improvements shipped.**
   - **HTML strip step** at the top of `extractFieldsFromJD` — removes
     `<script>`, `<style>`, all tags, and decodes the common entities

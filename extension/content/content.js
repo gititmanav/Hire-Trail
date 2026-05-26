@@ -302,23 +302,32 @@
     fab.id = "hiretrail-fab";
     // Brand background = the same blue gradient used in /favicon.svg on the web app.
     // Status states (loading / success / error) override this via setFabVisual().
+    // FAB tab — anchored to the right edge so the rounded-left / flat-right
+    // shape reads as "pull this out from the side." Width 36px keeps the
+    // touch target well above the 32px floor while leaving the H glyph
+    // dominant (24px = 67% of the button). Shadow uses brand-tinted ambient
+    // light + a subtle inner highlight so it lifts off any host page bg.
     fab.innerHTML = `
       <div style="
         position: fixed; right: 0; top: 10vh; z-index: 999999;
-        width: 48px; height: 48px;
-        border-radius: 12px;
+        width: 36px; height: 40px;
+        border-radius: 10px;
         border-top-right-radius: 0; border-bottom-right-radius: 0;
         background: linear-gradient(135deg, #3B82F6 0%, #1E3A8A 100%);
         color: #fff;
         display: flex; align-items: center; justify-content: center;
         cursor: pointer;
-        box-shadow: 0 10px 26px rgba(0,0,0,0.22), 0 2px 0 rgba(255,255,255,0.08) inset, 0 0 0 1px rgba(255,255,255,0.06) inset;
+        box-shadow:
+          0 6px 16px -2px rgba(30, 58, 138, 0.45),
+          0 2px 4px -1px rgba(15, 23, 42, 0.20),
+          inset 0 1px 0 rgba(255, 255, 255, 0.16),
+          inset 0 0 0 1px rgba(255, 255, 255, 0.06);
         font-weight: 800; font-size: 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        transition: box-shadow 0.2s ease, transform 0.2s ease, background 0.2s ease, filter 0.2s ease;
+        transition: box-shadow 0.2s ease, transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), background 0.2s ease, filter 0.2s ease, width 0.2s ease;
         touch-action: none;
       " id="hiretrail-btn" aria-label="HireTrail tracker" title="HireTrail">
-        <span id="hiretrail-glyph" style="display:flex; align-items:center; justify-content:center;">
-          <svg width="22" height="22" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <span id="hiretrail-glyph" style="display:flex; align-items:center; justify-content:center; pointer-events:none;">
+          <svg width="24" height="24" viewBox="0 0 32 32" fill="none" aria-hidden="true">
             <path d="M10 8h3v6h6V8h3v16h-3v-7h-6v7h-3V8z" fill="#FFFFFF" />
           </svg>
         </span>
@@ -342,7 +351,7 @@
       /** Restore the brand mark — same H glyph used in /favicon.svg on the web app. */
       const setBrandGlyph = () => {
         glyph.innerHTML = `
-          <svg width="22" height="22" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+          <svg width="24" height="24" viewBox="0 0 32 32" fill="none" aria-hidden="true">
             <path d="M10 8h3v6h6V8h3v16h-3v-7h-6v7h-3V8z" fill="#FFFFFF" />
           </svg>
         `;
@@ -449,14 +458,27 @@
       applyFabTop(currentTop);
     });
 
+    // Hover: peek out from the edge by ~4px (the tab feels "grabbed"),
+    // intensify the brand-tinted ambient shadow, and a small brightness lift.
+    // Keeps the surface readable on dark host pages without flashing white.
     btn.addEventListener("mouseenter", () => {
-      btn.style.transform = "translateX(-2px) scale(1.06)";
-      btn.style.boxShadow = "0 14px 34px rgba(0,0,0,0.28), 0 2px 0 rgba(255,255,255,0.06) inset";
-      btn.style.filter = "brightness(1.06)";
+      btn.style.transform = "translateX(-3px)";
+      btn.style.boxShadow = [
+        "0 10px 24px -2px rgba(30, 58, 138, 0.55)",
+        "0 3px 6px -1px rgba(15, 23, 42, 0.25)",
+        "inset 0 1px 0 rgba(255, 255, 255, 0.22)",
+        "inset 0 0 0 1px rgba(255, 255, 255, 0.10)",
+      ].join(", ");
+      btn.style.filter = "brightness(1.08)";
     });
     btn.addEventListener("mouseleave", () => {
-      btn.style.transform = "translateX(0) scale(1)";
-      btn.style.boxShadow = "0 10px 26px rgba(0,0,0,0.22), 0 2px 0 rgba(255,255,255,0.05) inset";
+      btn.style.transform = "translateX(0)";
+      btn.style.boxShadow = [
+        "0 6px 16px -2px rgba(30, 58, 138, 0.45)",
+        "0 2px 4px -1px rgba(15, 23, 42, 0.20)",
+        "inset 0 1px 0 rgba(255, 255, 255, 0.16)",
+        "inset 0 0 0 1px rgba(255, 255, 255, 0.06)",
+      ].join(", ");
       btn.style.filter = "none";
     });
 
@@ -798,30 +820,45 @@
           return host || "This page";
         })();
 
+    // Live preview of what HireTrail will track. Runs the same scraper Track
+    // would run so the user sees the exact role + company that's about to
+    // get saved — and can bail if the detection is wrong. Suppressed for
+    // LinkedIn-profile context (no JD to detect) and when the scraper
+    // didn't find anything substantive.
+    const detected = !isLinkedInProfile ? scrapeWithFallback() : null;
+    const detectedRole = detected?.role?.trim();
+    const detectedCompany = detected?.company?.trim();
+    const hasDetection = !!(detectedRole || detectedCompany);
+
     const popover = document.createElement("div");
     popover.id = "hiretrail-popover";
+    // Hugs content width (max 312px) — no dead right-hand space. Anchors to
+    // the FAB's left edge, clamps to viewport so it never spills off-screen.
     popover.style.cssText = `
       position: fixed;
       right: ${Math.max(8, window.innerWidth - rect.left + 8)}px;
-      top: ${Math.min(rect.top, window.innerHeight - 260)}px;
+      top: ${Math.min(rect.top, window.innerHeight - 280)}px;
       z-index: 1000000;
-      width: 280px;
+      width: max-content;
+      max-width: 312px;
       padding: 0;
       background: #ffffff;
       color: #0f172a;
       border: 1px solid rgba(15, 23, 42, 0.08);
       border-radius: 14px;
-      box-shadow: 0 20px 48px rgba(15, 23, 42, 0.18), 0 4px 12px rgba(15, 23, 42, 0.06);
+      box-shadow: 0 24px 56px -12px rgba(15, 23, 42, 0.24), 0 6px 16px -4px rgba(15, 23, 42, 0.08);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       font-size: 13px;
       overflow: hidden;
-      animation: ht-pop-in 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+      animation: ht-pop-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
     `;
-    // Build the action rows dynamically so we can show "Save contact" only on profile pages.
+    // Save-as-contact only renders on LinkedIn profile pages. Each action is
+    // a self-contained section, separated by an explicit divider — no naked
+    // hover row, every row reads as its own "card."
     const trackContactRow = isLinkedInProfile ? `
       <button id="ht-pop-contact" type="button" class="ht-action">
         <span class="ht-glyph" style="background: linear-gradient(135deg, #0a66c2, #004182);">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
             <path d="M4.98 3.5C4.98 4.88 3.87 6 2.5 6S0 4.88 0 3.5 1.11 1 2.5 1s2.48 1.12 2.48 2.5zM.22 8.55h4.56V23H.22zM8 8.55h4.37v1.98h.06c.61-1.15 2.1-2.36 4.32-2.36 4.62 0 5.48 3.04 5.48 7v7.83h-4.56v-6.94c0-1.65-.03-3.77-2.3-3.77-2.3 0-2.65 1.79-2.65 3.65V23H8z"/>
           </svg>
         </span>
@@ -829,93 +866,175 @@
           <span class="ht-label">Save as contact</span>
           <span class="ht-sub">Adds this person to your contacts with a starter note.</span>
         </span>
+        <svg class="ht-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="9 6 15 12 9 18" />
+        </svg>
       </button>
       <div class="ht-divider"></div>
     ` : "";
 
     popover.innerHTML = `
       <style>
-        @keyframes ht-pop-in { from { opacity: 0; transform: translateY(-6px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        @keyframes ht-pop-in {
+          from { opacity: 0; transform: translateY(-8px) scale(0.96); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
         #hiretrail-popover .ht-header {
-          display: flex; align-items: center; justify-content: space-between;
-          padding: 10px 14px;
-          background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(139, 92, 246, 0.06));
+          display: flex; align-items: center; justify-content: space-between; gap: 10px;
+          padding: 12px 14px;
+          background: linear-gradient(135deg, rgba(59, 130, 246, 0.06), rgba(139, 92, 246, 0.04));
           border-bottom: 1px solid rgba(15, 23, 42, 0.06);
         }
         #hiretrail-popover .ht-brand {
           display: inline-flex; align-items: center; gap: 8px;
-          font-weight: 700; font-size: 12px; letter-spacing: 0.01em;
+          font-weight: 700; font-size: 13px; letter-spacing: -0.01em;
           color: #0f172a;
         }
         #hiretrail-popover .ht-brand-dot {
-          width: 18px; height: 18px; border-radius: 5px;
+          width: 22px; height: 22px; border-radius: 6px;
           background: linear-gradient(135deg, #3B82F6 0%, #1E3A8A 100%);
           display: inline-flex; align-items: center; justify-content: center;
-          color: #fff; font-weight: 800; font-size: 11px; line-height: 1;
+          color: #fff; font-weight: 800; font-size: 13px; line-height: 1;
+          box-shadow:
+            0 2px 4px -1px rgba(30, 58, 138, 0.45),
+            inset 0 1px 0 rgba(255, 255, 255, 0.18);
         }
         #hiretrail-popover .ht-context {
-          font-size: 10.5px; font-weight: 500;
-          color: rgba(15, 23, 42, 0.55);
-          background: rgba(15, 23, 42, 0.04);
-          padding: 2px 7px; border-radius: 999px;
-          max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+          font-size: 10.5px; font-weight: 600; letter-spacing: 0.02em;
+          color: #1e3a8a;
+          background: rgba(59, 130, 246, 0.08);
+          padding: 3px 8px; border-radius: 999px;
+          max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+          text-transform: uppercase;
         }
-        #hiretrail-popover .ht-body { padding: 6px; }
+        #hiretrail-popover .ht-body { padding: 4px; }
         #hiretrail-popover .ht-action {
-          width: 100%;
-          display: flex; align-items: flex-start; gap: 10px;
-          padding: 10px 12px;
+          width: 100%; min-width: 280px;
+          display: flex; align-items: center; gap: 12px;
+          padding: 12px 14px;
           border: none; background: transparent; color: inherit;
           font: inherit; text-align: left; cursor: pointer;
-          border-radius: 9px;
-          transition: background 120ms ease, transform 120ms ease;
+          border-radius: 10px;
+          position: relative;
+          transition: background 140ms ease, transform 140ms ease;
         }
-        #hiretrail-popover .ht-action:hover { background: rgba(15, 23, 42, 0.05); }
+        #hiretrail-popover .ht-action:hover {
+          background: linear-gradient(135deg, rgba(59, 130, 246, 0.06), rgba(139, 92, 246, 0.05));
+        }
+        #hiretrail-popover .ht-action:hover .ht-chev { transform: translateX(2px); color: rgba(15, 23, 42, 0.7); }
         #hiretrail-popover .ht-action:active { transform: scale(0.99); }
         #hiretrail-popover .ht-action:focus-visible {
           outline: 2px solid #3B82F6; outline-offset: -2px;
         }
         #hiretrail-popover .ht-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
-        #hiretrail-popover .ht-label { font-weight: 600; line-height: 1.2; font-size: 13px; }
-        #hiretrail-popover .ht-sub { font-size: 11px; color: rgba(15, 23, 42, 0.6); margin-top: 3px; line-height: 1.4; }
+        #hiretrail-popover .ht-label {
+          font-weight: 600; line-height: 1.2; font-size: 13.5px;
+          letter-spacing: -0.005em;
+        }
+        #hiretrail-popover .ht-sub {
+          font-size: 11.5px; color: rgba(15, 23, 42, 0.55);
+          margin-top: 3px; line-height: 1.35;
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+          max-width: 220px;
+        }
         #hiretrail-popover .ht-glyph {
-          width: 30px; height: 30px; border-radius: 8px;
+          width: 36px; height: 36px; border-radius: 9px;
           display: inline-flex; align-items: center; justify-content: center;
           flex-shrink: 0; color: #ffffff;
-          box-shadow: 0 1px 2px rgba(15, 23, 42, 0.1);
+          box-shadow:
+            0 4px 8px -2px rgba(15, 23, 42, 0.18),
+            inset 0 1px 0 rgba(255, 255, 255, 0.16);
         }
+        #hiretrail-popover .ht-chev {
+          color: rgba(15, 23, 42, 0.32);
+          flex-shrink: 0;
+          transition: transform 140ms ease, color 140ms ease;
+        }
+        /* Full-width divider so each action reads as its own row. */
         #hiretrail-popover .ht-divider {
-          height: 1px; margin: 4px 12px;
+          height: 1px; margin: 0;
           background: rgba(15, 23, 42, 0.06);
         }
-        #hiretrail-popover .ht-footer {
-          padding: 8px 14px;
-          border-top: 1px solid rgba(15, 23, 42, 0.05);
-          background: rgba(15, 23, 42, 0.02);
-          font-size: 10.5px; color: rgba(15, 23, 42, 0.5);
-          display: flex; align-items: center; justify-content: space-between;
+        /* "Detected" preview strip — sits between header and actions when the
+         *  scraper found a real role/company on the page. Reads as a quiet
+         *  confirmation so the user sees what's about to be saved before
+         *  hitting Track. */
+        #hiretrail-popover .ht-detected {
+          padding: 10px 14px 12px;
+          border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+          background: rgba(15, 23, 42, 0.015);
         }
-        #hiretrail-popover .ht-footer a { color: #2563eb; text-decoration: none; font-weight: 500; }
+        #hiretrail-popover .ht-detected-label {
+          display: flex; align-items: center; gap: 6px;
+          font-size: 10px; font-weight: 700;
+          letter-spacing: 0.08em; text-transform: uppercase;
+          color: rgba(15, 23, 42, 0.5);
+          margin-bottom: 5px;
+        }
+        #hiretrail-popover .ht-detected-label svg { color: #10b981; }
+        #hiretrail-popover .ht-detected-role {
+          font-size: 13px; font-weight: 600;
+          color: #0f172a;
+          line-height: 1.25;
+          margin: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+        }
+        #hiretrail-popover .ht-detected-co {
+          font-size: 11.5px; color: rgba(15, 23, 42, 0.6);
+          margin-top: 2px;
+          overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        @media (prefers-color-scheme: dark) {
+          #hiretrail-popover .ht-detected {
+            background: rgba(248, 250, 252, 0.025);
+            border-bottom-color: rgba(248, 250, 252, 0.06);
+          }
+          #hiretrail-popover .ht-detected-label { color: rgba(248, 250, 252, 0.5); }
+          #hiretrail-popover .ht-detected-role { color: #f8fafc; }
+          #hiretrail-popover .ht-detected-co { color: rgba(248, 250, 252, 0.6); }
+        }
+        #hiretrail-popover .ht-footer {
+          padding: 9px 14px;
+          border-top: 1px solid rgba(15, 23, 42, 0.06);
+          background: rgba(15, 23, 42, 0.02);
+          font-size: 10.5px; color: rgba(15, 23, 42, 0.55);
+          display: flex; align-items: center; justify-content: space-between; gap: 10px;
+        }
+        #hiretrail-popover .ht-footer a {
+          color: #2563eb; text-decoration: none; font-weight: 600;
+          display: inline-flex; align-items: center; gap: 4px;
+        }
         #hiretrail-popover .ht-footer a:hover { text-decoration: underline; }
         @media (prefers-color-scheme: dark) {
           #hiretrail-popover {
             background: #0f172a; color: #f8fafc;
             border-color: rgba(248, 250, 252, 0.1);
-            box-shadow: 0 20px 48px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 24px 56px -12px rgba(0, 0, 0, 0.55), 0 6px 16px -4px rgba(0, 0, 0, 0.32);
           }
           #hiretrail-popover .ht-header {
             background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(139, 92, 246, 0.08));
             border-bottom-color: rgba(248, 250, 252, 0.06);
           }
           #hiretrail-popover .ht-brand { color: #f8fafc; }
-          #hiretrail-popover .ht-context { color: rgba(248, 250, 252, 0.6); background: rgba(248, 250, 252, 0.06); }
-          #hiretrail-popover .ht-action:hover { background: rgba(248, 250, 252, 0.07); }
-          #hiretrail-popover .ht-sub { color: rgba(248, 250, 252, 0.6); }
+          #hiretrail-popover .ht-context {
+            color: #93c5fd;
+            background: rgba(59, 130, 246, 0.14);
+          }
+          #hiretrail-popover .ht-action:hover {
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.10), rgba(139, 92, 246, 0.08));
+          }
+          #hiretrail-popover .ht-action:hover .ht-chev { color: rgba(248, 250, 252, 0.8); }
+          #hiretrail-popover .ht-sub { color: rgba(248, 250, 252, 0.55); }
+          #hiretrail-popover .ht-chev { color: rgba(248, 250, 252, 0.35); }
           #hiretrail-popover .ht-divider { background: rgba(248, 250, 252, 0.06); }
           #hiretrail-popover .ht-footer {
             background: rgba(248, 250, 252, 0.03);
             border-top-color: rgba(248, 250, 252, 0.06);
-            color: rgba(248, 250, 252, 0.5);
+            color: rgba(248, 250, 252, 0.55);
           }
         }
       </style>
@@ -926,34 +1045,64 @@
         </span>
         <span class="ht-context" title="${escapeHtml(contextLabel)}">${escapeHtml(contextLabel)}</span>
       </div>
+      ${hasDetection ? `
+        <div class="ht-detected">
+          <div class="ht-detected-label">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            Detected on this page
+          </div>
+          ${detectedRole ? `<p class="ht-detected-role">${escapeHtml(detectedRole)}</p>` : ""}
+          ${detectedCompany ? `<p class="ht-detected-co">${escapeHtml(detectedCompany)}</p>` : ""}
+        </div>
+      ` : ""}
       <div class="ht-body">
         ${trackContactRow}
         <button id="ht-pop-track" type="button" class="ht-action">
-          <span class="ht-glyph" style="background: linear-gradient(135deg, #2563eb, #1e3a8a);">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/>
+          <span class="ht-glyph" style="background: linear-gradient(135deg, #3B82F6, #1E3A8A);">
+            <!-- Crisper Track icon: filled bookmark/save mark, single closed
+                 path at 18px so it reads at retina + non-retina. The previous
+                 "paper plane" used two stroked paths that aliased. -->
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M19 4a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v17a1 1 0 0 0 1.55.83L12 18.2l5.45 3.63A1 1 0 0 0 19 21V4Z"/>
             </svg>
           </span>
           <span class="ht-text">
             <span class="ht-label">Track this job</span>
             <span class="ht-sub">Saves the JD into your pipeline as "Applied".</span>
           </span>
+          <svg class="ht-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="9 6 15 12 9 18" />
+          </svg>
         </button>
+        <div class="ht-divider"></div>
         <button id="ht-pop-tailor" type="button" class="ht-action">
           <span class="ht-glyph" style="background: linear-gradient(135deg, #8b5cf6, #6366f1);">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 2l1.6 4.2L18 8l-4.4 1.8L12 14l-1.6-4.2L6 8l4.4-1.8L12 2zm6 11l1 2.5L21.5 16 19 17l-1 2.5L17 15l1-2z"/>
+            <!-- Crisp four-point sparkle, single closed path. The old SVG had
+                 a broken second-path tail that caused the blurry look on
+                 high-DPI screens. -->
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M11.05 3.4a1 1 0 0 1 1.9 0l1.39 4.16a3 3 0 0 0 1.9 1.9l4.16 1.39a1 1 0 0 1 0 1.9l-4.16 1.39a3 3 0 0 0-1.9 1.9l-1.39 4.16a1 1 0 0 1-1.9 0l-1.39-4.16a3 3 0 0 0-1.9-1.9l-4.16-1.39a1 1 0 0 1 0-1.9l4.16-1.39a3 3 0 0 0 1.9-1.9l1.39-4.16Z"/>
             </svg>
           </span>
           <span class="ht-text">
             <span class="ht-label">Tailor with AI</span>
             <span class="ht-sub">Drafts a tailored resume + opens it in HireTrail.</span>
           </span>
+          <svg class="ht-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="9 6 15 12 9 18" />
+          </svg>
         </button>
       </div>
       <div class="ht-footer">
-        <span>Right-click the FAB to drag</span>
-        <a href="https://hiretrail.manavkaneria.me" target="_blank" rel="noopener noreferrer">Open app →</a>
+        <span>Tip: drag the FAB to reposition</span>
+        <a href="https://hiretrail.manavkaneria.me" target="_blank" rel="noopener noreferrer">
+          Open app
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
+          </svg>
+        </a>
       </div>
     `;
     document.body.appendChild(popover);
