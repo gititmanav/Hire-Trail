@@ -14,6 +14,7 @@ import { z } from "zod";
 import mongoose from "mongoose";
 
 import { getModelForUser } from "./index.js";
+import { withAiRetry } from "./withAiRetry.js";
 import { MasterProfile } from "../../models/MasterProfile.js";
 import type { IMasterProfile } from "../../models/MasterProfile.js";
 
@@ -122,7 +123,7 @@ export async function analyzeJD(userId: string | mongoose.Types.ObjectId, jd: JD
   if (!profile) throw new Error("No master profile yet. Upload a resume on the Profile page first.");
 
   const trimmedJD = jd.jobDescription.slice(0, 12_000);
-  const { model, provider, modelId } = await getModelForUser(userId, "smart");
+  const { model, provider, modelId, byok } = await getModelForUser(userId, "smart");
 
   const profileContext = buildProfileContext(profile);
   const meta = [
@@ -131,20 +132,22 @@ export async function analyzeJD(userId: string | mongoose.Types.ObjectId, jd: JD
     jd.url ? `URL: ${jd.url}` : "",
   ].filter(Boolean).join("\n");
 
-  const { object } = await generateObject({
-    model,
-    schema: analysisSchema,
-    system: SYSTEM_PROMPT,
-    prompt: [
-      "=== JOB ===",
-      meta,
-      "",
-      trimmedJD,
-      "",
-      "=== CANDIDATE PROFILE ===",
-      profileContext,
-    ].join("\n"),
-  });
+  const { object } = await withAiRetry({ provider, byok }, () =>
+    generateObject({
+      model,
+      schema: analysisSchema,
+      system: SYSTEM_PROMPT,
+      prompt: [
+        "=== JOB ===",
+        meta,
+        "",
+        trimmedJD,
+        "",
+        "=== CANDIDATE PROFILE ===",
+        profileContext,
+      ].join("\n"),
+    }),
+  );
 
   return { analysis: object, provider, modelId };
 }

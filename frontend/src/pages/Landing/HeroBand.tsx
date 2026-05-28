@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useOpenAuth } from "./context";
 import { Reveal, Parallax } from "./motion";
 import { BrandLogo, PrimaryCTA, SecondaryCTA, StageChip } from "./brand";
@@ -189,18 +190,37 @@ function FounderBar() {
     <section className="relative max-w-7xl mx-auto px-5 sm:px-8 py-5 sm:py-9">
       <Reveal>
         <div className="rounded-2xl border border-blue-100 bg-white/95 shadow-[0_30px_60px_-30px_rgba(30,58,138,0.25)] px-6 py-5 sm:px-8 sm:py-6 flex flex-col sm:flex-row items-start sm:items-center gap-5">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#3B82F6] to-[#1E3A8A] flex items-center justify-center text-white font-bold text-sm shadow-md shadow-blue-500/30">MK</div>
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#3B82F6] to-[#1E3A8A] flex items-center justify-center text-white font-bold text-sm shadow-md shadow-blue-500/30 shrink-0">MK</div>
           <div className="flex-1 min-w-0">
             <div className="text-[11px] font-bold uppercase tracking-wider text-[#1E3A8A]/70 mb-1">Built by a job seeker, for job seekers</div>
             <p className="text-gray-900 text-[15px] leading-relaxed">
-              I made HireTrail because the other trackers either bloated into enterprise software, hallucinated my resume into fiction, or felt like privacy vacuums. This one respects your data and the work you put in.
+              I built HireTrail in grad school, after 40 applications turned my spreadsheet into a graveyard and every better tool I tried asked for my credit card. The point is simple: the people who need a tracker the most shouldn&rsquo;t have to pay for one.
             </p>
             <div className="text-[12px] text-gray-500 mt-1.5">— Manav Kaneria, creator</div>
           </div>
-          <a href="https://github.com/gititmanav/Hire-Trail" target="_blank" rel="noreferrer noopener" className="self-stretch sm:self-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-[13px] font-medium text-gray-700 transition-colors">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.7.5.5 5.7.5 12c0 5.1 3.3 9.4 7.8 10.9.6.1.8-.2.8-.6v-2c-3.2.7-3.9-1.5-3.9-1.5-.5-1.3-1.3-1.7-1.3-1.7-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.6-.3-5.3-1.3-5.3-5.8 0-1.3.5-2.3 1.2-3.2-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.3 1.2 1-.3 2-.4 3-.4s2 .1 3 .4c2.3-1.5 3.3-1.2 3.3-1.2.6 1.6.2 2.8.1 3.1.8.8 1.2 1.9 1.2 3.2 0 4.5-2.7 5.5-5.3 5.8.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6 4.5-1.5 7.8-5.8 7.8-10.9C23.5 5.7 18.3.5 12 .5z"/></svg>
-            Open source
-          </a>
+          {/* Buttons stack on mobile (full-width), sit side-by-side on desktop. */}
+          <div className="self-stretch sm:self-auto flex flex-col sm:flex-row gap-2 shrink-0">
+            <Link
+              to="/about"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-[13px] font-medium text-gray-700 transition-colors"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="16" x2="12" y2="12" />
+                <line x1="12" y1="8" x2="12.01" y2="8" />
+              </svg>
+              About us
+            </Link>
+            <a
+              href="https://github.com/gititmanav/Hire-Trail"
+              target="_blank"
+              rel="noreferrer noopener"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-[13px] font-medium text-gray-700 transition-colors"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.7.5.5 5.7.5 12c0 5.1 3.3 9.4 7.8 10.9.6.1.8-.2.8-.6v-2c-3.2.7-3.9-1.5-3.9-1.5-.5-1.3-1.3-1.7-1.3-1.7-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.6-.3-5.3-1.3-5.3-5.8 0-1.3.5-2.3 1.2-3.2-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.3 1.2 1-.3 2-.4 3-.4s2 .1 3 .4c2.3-1.5 3.3-1.2 3.3-1.2.6 1.6.2 2.8.1 3.1.8.8 1.2 1.9 1.2 3.2 0 4.5-2.7 5.5-5.3 5.8.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6 4.5-1.5 7.8-5.8 7.8-10.9C23.5 5.7 18.3.5 12 .5z"/></svg>
+              Open source
+            </a>
+          </div>
         </div>
       </Reveal>
     </section>

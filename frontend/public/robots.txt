@@ -1,0 +1,45 @@
+User-agent: *
+Allow: /$
+Allow: /login
+Allow: /register
+Allow: /privacy
+Allow: /terms
+Allow: /about
+
+# Authenticated app surfaces — not useful in search results
+Disallow: /dashboard
+Disallow: /applications
+Disallow: /kanban
+Disallow: /calendar
+Disallow: /companies
+Disallow: /contacts
+Disallow: /deadlines
+Disallow: /resumes
+Disallow: /tailor
+Disallow: /profile
+Disallow: /settings
+Disallow: /job-search
+Disallow: /import-export
+Disallow: /admin
+Disallow: /api/
+
+# AI / scraper bots — opt out
+User-agent: GPTBot
+Disallow: /
+
+User-agent: Google-Extended
+Disallow: /
+
+User-agent: CCBot
+Disallow: /
+
+User-agent: anthropic-ai
+Disallow: /
+
+User-agent: ClaudeBot
+Disallow: /
+
+User-agent: PerplexityBot
+Disallow: /
+
+Sitemap: https://hiretrail.manavkaneria.me/sitemap.xml

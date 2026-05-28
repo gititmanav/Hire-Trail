@@ -7,8 +7,10 @@
  * a check on success, a red dot on error. Successful cards auto-dismiss in 6s;
  * errors stick until acknowledged.
  */
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useBackgroundTasks, type BackgroundTask, type TaskStatus } from "../../hooks/useBackgroundTasks.tsx";
+import { useBackgroundTasks, type BackgroundTask, type StartTaskInput, type TaskStatus } from "../../hooks/useBackgroundTasks.tsx";
+import { buildEmailScanTask } from "../../utils/emailScanTask.ts";
 import "./BackgroundTaskCenter.css";
 
 const KIND_LABEL_FALLBACK: Record<BackgroundTask["kind"], string> = {
@@ -16,13 +18,29 @@ const KIND_LABEL_FALLBACK: Record<BackgroundTask["kind"], string> = {
   profile_sync: "Updating profile",
   tailor_analyze: "Analyzing JD",
   pdf_render: "Rendering PDF",
+  email_scan: "Scanning your inbox",
 };
 
 const MAX_VISIBLE = 4;
 
 export default function BackgroundTaskCenter() {
-  const { tasks, dismissTask } = useBackgroundTasks();
+  const { tasks, dismissTask, registerRecovery } = useBackgroundTasks();
   const navigate = useNavigate();
+
+  // Recovery handler for the email scan — registered here (always-mounted)
+  // rather than in Settings, because a refresh mid-scan should resume polling
+  // no matter what page the user lands on. The provider replays persisted
+  // recovery entries through this handler exactly once on mount.
+  useEffect(() => {
+    return registerRecovery({
+      kind: "email_scan",
+      // Cast: rebuild returns StartTaskInput<unknown> (invariant T), so the
+      // ScanJob-typed task gets widened at the boundary. Same pattern Tailor
+      // uses for tailor_analyze recovery — cast at the seam, type internally.
+      rebuild: (recovery, _label, sublabel) =>
+        buildEmailScanTask({ jobId: recovery.resourceId, sublabel }) as unknown as StartTaskInput<unknown>,
+    });
+  }, [registerRecovery]);
 
   if (tasks.length === 0) return null;
 

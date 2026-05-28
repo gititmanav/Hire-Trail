@@ -11,10 +11,12 @@
  * the user's work on a hover.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import ActionDropdown from "../../../components/ActionDropdown/ActionDropdown.tsx";
 import { STAGES, STAGE_BADGE_CLASS } from "../../../utils/stageStyles.ts";
 import { Icons, IconKey } from "./fieldIcons.tsx";
+import { tailorAPI, type TailorSession } from "../../../utils/api.ts";
 import type { Application, Contact, Deadline, Resume, Stage, ApplicationFormData } from "../../../types";
 
 function FieldLabel({ icon, children }: { icon: IconKey; children: React.ReactNode }) {
@@ -357,6 +359,10 @@ export default function ApplicationDetailBody({
           ) : <p className="text-sm text-muted-foreground">None</p>}
         </div>
 
+        {/* Tailor sessions — every AI analysis run against this application,
+            newest first. Links straight back into the Tailor page. */}
+        <TailorSessionsSection applicationId={app._id} company={app.company} role={app.role} />
+
         {isEditing && (
           <div className="sticky bottom-0 bg-card border-t border-border px-4 py-3 flex items-center justify-end gap-2 z-10">
             <button type="button" onClick={cancelInlineEdit} className="btn-secondary">Cancel</button>
@@ -364,6 +370,109 @@ export default function ApplicationDetailBody({
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/* ============================================================== */
+/* Tailor sessions — analysis history for this application       */
+/* ============================================================== */
+
+const SESSION_STATUS_TONE: Record<string, string> = {
+  succeeded:  "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200",
+  processing: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200",
+  deferred:   "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200",
+  failed:     "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200",
+};
+
+const GRADE_TONE: Record<string, string> = {
+  A: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200",
+  B: "bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200",
+  C: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200",
+  D: "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-200",
+  F: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200",
+};
+
+function TailorSessionsSection({ applicationId, company, role }: { applicationId: string; company: string; role: string }) {
+  const [sessions, setSessions] = useState<TailorSession[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    tailorAPI.listForApplication(applicationId)
+      .then((list) => { if (!cancelled) setSessions(list); })
+      .catch(() => { if (!cancelled) setError("Could not load tailor history."); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [applicationId]);
+
+  const tailorUrl = `/tailor?company=${encodeURIComponent(company)}&role=${encodeURIComponent(role)}&applicationId=${applicationId}`;
+
+  return (
+    <div className="px-4 py-4">
+      <div className="flex items-center justify-between mb-1.5">
+        <FieldLabel icon="jd">Tailor sessions</FieldLabel>
+        <Link
+          to={tailorUrl}
+          className="text-[11px] font-semibold text-primary hover:text-primary/80 inline-flex items-center gap-1"
+        >
+          New
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+        </Link>
+      </div>
+
+      {loading ? (
+        <p className="text-sm text-muted-foreground">Loading…</p>
+      ) : error ? (
+        <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+      ) : !sessions || sessions.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          No analyses yet. <Link to={tailorUrl} className="text-primary hover:underline">Score this against a JD</Link>.
+        </p>
+      ) : (
+        <ul className="space-y-1.5">
+          {sessions.map((s) => {
+            const statusClass = SESSION_STATUS_TONE[s.status] ?? "bg-muted text-muted-foreground";
+            const gradeClass = s.fitGrade ? GRADE_TONE[s.fitGrade] : null;
+            return (
+              <li key={s._id}>
+                <Link
+                  to={`/tailor?session=${s._id}`}
+                  className="block rounded-lg border border-border bg-background hover:bg-muted/40 transition-colors px-3 py-2"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${statusClass}`}>
+                        {s.status}
+                      </span>
+                      {gradeClass && (
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${gradeClass}`}>
+                          {s.fitGrade} · {s.fitScore}/5
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[11px] text-muted-foreground shrink-0">{fmt(s.createdAt)}</span>
+                  </div>
+                  {s.status === "failed" && s.errorMessage && (
+                    <p className="text-[11.5px] text-red-600 dark:text-red-400 mt-1 truncate" title={s.errorMessage}>
+                      {s.errorMessage}
+                    </p>
+                  )}
+                  {s.jobTitle && s.status !== "failed" && (
+                    <p className="text-[11.5px] text-muted-foreground mt-0.5 truncate">{s.jobTitle}</p>
+                  )}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }

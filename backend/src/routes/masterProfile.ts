@@ -14,6 +14,7 @@ import { Router, Request, Response, NextFunction } from "express";
 import { z } from "zod";
 
 import { ensureAuth, getUser } from "../middleware/auth.js";
+import { blockDemoUser } from "../middleware/blockDemoUser.js";
 import { upload } from "../middleware/upload.js";
 import { MasterProfile, type IMasterProfile } from "../models/MasterProfile.js";
 import { Resume } from "../models/Resume.js";
@@ -215,7 +216,7 @@ async function runParseWorker(
 
 /* ----------------- Parse from existing resume ----------------- */
 
-router.post("/parse-from-resume/:resumeId", async (req: Request, res: Response, next: NextFunction) => {
+router.post("/parse-from-resume/:resumeId", blockDemoUser, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = getUser(req);
     const resume = await Resume.findOne({ _id: req.params.resumeId, userId: user._id });
@@ -251,7 +252,7 @@ router.post("/parse-from-resume/:resumeId", async (req: Request, res: Response, 
 
 /* ----------------- Upload + parse in one shot (empty state) ----------------- */
 
-router.post("/upload-and-parse", upload.single("file"), async (req: Request, res: Response, next: NextFunction) => {
+router.post("/upload-and-parse", blockDemoUser, upload.single("file"), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = getUser(req);
     if (!req.file) {

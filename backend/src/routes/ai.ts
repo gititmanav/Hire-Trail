@@ -11,6 +11,7 @@ import { Router, Request, Response, NextFunction } from "express";
 import { z } from "zod";
 
 import { ensureAuth, getUser } from "../middleware/auth.js";
+import { blockDemoUser } from "../middleware/blockDemoUser.js";
 import { AIProviderConfig, AI_PROVIDERS } from "../models/AIProviderConfig.js";
 import { encrypt } from "../utils/encryption.js";
 import { listAvailableProviders, DEFAULT_MODELS } from "../services/ai/index.js";
@@ -19,6 +20,12 @@ import { byokValidateLimiter } from "../middleware/rateLimiter.js";
 
 const router = Router();
 router.use(ensureAuth);
+// Demo user must not be able to add BYOK keys or hit the validation flow that
+// pings third-party providers. Reads (GET routes) stay open so the demo UI
+// can still render the empty state.
+router.post(/.*/, blockDemoUser);
+router.put(/.*/, blockDemoUser);
+router.delete(/.*/, blockDemoUser);
 
 const createKeySchema = z.object({
   provider: z.enum(AI_PROVIDERS),

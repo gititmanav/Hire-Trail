@@ -24,6 +24,14 @@ export interface IUser extends Document {
   outlookConnected: boolean;
   outlookEmail: string | null;
   outlookLastSyncAt: Date | null;
+  /** Set once the one-time backfill scan has been initiated. Hides the
+   *  5/10/15-day window picker on subsequent Gmail connects. */
+  gmailFirstScanCompleted: boolean;
+  /** Window chosen for the first scan (5, 10, or 15). Audit trail only. */
+  gmailFirstScanDays: number | null;
+  /** Privacy consent record for the inbox backfill. `scopeAcknowledged` is
+   *  versioned so a future scope expansion can re-prompt. */
+  gmailScanConsent: { acceptedAt: Date; scopeAcknowledged: string } | null;
   /** When true, re-parsing a resume merges with the master profile via the LLM instead of overwriting it. Default true. */
   mergeResumesEnabled: boolean;
   createdAt: Date;
@@ -79,6 +87,18 @@ const userSchema = new Schema<IUser>(
     outlookConnected: { type: Boolean, default: false },
     outlookEmail: { type: String, default: null },
     outlookLastSyncAt: { type: Date, default: null },
+    gmailFirstScanCompleted: { type: Boolean, default: false },
+    gmailFirstScanDays: { type: Number, default: null },
+    gmailScanConsent: {
+      type: new mongoose.Schema(
+        {
+          acceptedAt: { type: Date, required: true },
+          scopeAcknowledged: { type: String, required: true },
+        },
+        { _id: false },
+      ),
+      default: null,
+    },
     mergeResumesEnabled: { type: Boolean, default: true },
   },
   {

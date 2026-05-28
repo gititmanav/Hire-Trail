@@ -17,7 +17,7 @@ export const RESOURCE_TYPES = [
   "user", "application", "resume", "contact", "deadline",
   "setting", "announcement", "invite", "email_template", "system", "notification",
   "master_profile", "tailor_session", "feedback", "ai_provider", "mailbox",
-  "broadcast",
+  "broadcast", "bug_report",
 ] as const;
 
 export type ResourceType = (typeof RESOURCE_TYPES)[number];

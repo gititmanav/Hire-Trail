@@ -10,6 +10,7 @@ import { z } from "zod";
 import { extractText, getDocumentProxy } from "unpdf";
 
 import { getModelForUser } from "./index.js";
+import { withAiRetry } from "./withAiRetry.js";
 import type mongoose from "mongoose";
 
 const bulletSchema = z.object({
@@ -100,14 +101,16 @@ export async function parseResumePdf(buffer: Buffer, userId: string | mongoose.T
   const text = await extractTextFromPdf(buffer);
   if (!text.trim()) throw new Error("Could not extract text from PDF — file may be scanned/image-only.");
 
-  const { model, provider, modelId } = await getModelForUser(userId, "fast");
+  const { model, provider, modelId, byok } = await getModelForUser(userId, "fast");
 
-  const { object } = await generateObject({
-    model,
-    schema: resumeProfileSchema,
-    system: SYSTEM_PROMPT,
-    prompt: `Extract the structured profile from this resume:\n\n${text}`,
-  });
+  const { object } = await withAiRetry({ provider, byok }, () =>
+    generateObject({
+      model,
+      schema: resumeProfileSchema,
+      system: SYSTEM_PROMPT,
+      prompt: `Extract the structured profile from this resume:\n\n${text}`,
+    }),
+  );
 
   return { profile: object, provider, modelId };
 }

@@ -1,8 +1,10 @@
-/** Header bell — unread badge + popover list. Polls every 60s; refetches on open. */
+/** Header bell — unread badge + popover list. Refetches on focus + a slow
+ *  background tick so the count stays fresh without hammering the API. */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { notificationsAPI } from "../../utils/api.ts";
+import { useRefetchOnFocus } from "../../hooks/useRefetchOnFocus.ts";
 import type { Notification, NotificationType } from "../../types";
 
 const TYPE_LABEL: Record<string, { label: string; tone: string }> = {
@@ -19,7 +21,10 @@ const SUGGESTION_TYPES: NotificationType[] = [
   "follow_up_detected",
 ];
 
-const POLL_MS = 60_000;
+/** Long fallback poll so a tab left visible (e.g. dashboard on a second monitor)
+ *  still refreshes occasionally without the focus event ever firing. Most
+ *  freshness comes from the focus refetch — this is the safety net. */
+const FALLBACK_POLL_MS = 5 * 60_000;
 const MAX_DISPLAY = 8;
 
 export default function NotificationBell() {
@@ -40,12 +45,15 @@ export default function NotificationBell() {
     }
   }, []);
 
-  // Initial fetch + interval poll
+  // Initial fetch + long fallback poll. Focus / visibility-change handle the
+  // common case (user returns to the tab) much faster than any interval would.
   useEffect(() => {
     void refreshCount();
-    const id = setInterval(refreshCount, POLL_MS);
+    const id = setInterval(refreshCount, FALLBACK_POLL_MS);
     return () => clearInterval(id);
   }, [refreshCount]);
+
+  useRefetchOnFocus(refreshCount, { minIntervalMs: 10_000 });
 
   const fetchList = useCallback(async () => {
     setLoadingList(true);

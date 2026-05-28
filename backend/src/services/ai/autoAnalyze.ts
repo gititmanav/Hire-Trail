@@ -127,10 +127,17 @@ export { runAnalyzeWorker };
  * session `deferred`, or skips entirely. Never throws.
  */
 export async function autoAnalyzeOnApplicationCreate(opts: {
-  application: { _id: mongoose.Types.ObjectId; userId: mongoose.Types.ObjectId; jobDescription?: string | null; role?: string; company?: string; jobUrl?: string; tailorSessionId?: mongoose.Types.ObjectId | null };
+  application: { _id: mongoose.Types.ObjectId; userId: mongoose.Types.ObjectId; jobDescription?: string | null; role?: string; company?: string; jobUrl?: string; tailorSessionId?: mongoose.Types.ObjectId | null; source?: string };
 }): Promise<void> {
   try {
     const app = opts.application;
+    // Email-backfill imports never auto-analyze. They land without a JD and the
+    // user opts into scoring later via the Tailor page (existing flow). The
+    // structural bypass (backfill route uses Application.create directly, not
+    // POST /api/applications) means we shouldn't reach here for these — this
+    // is defence-in-depth so any future code path that does hit this function
+    // can't accidentally fan out 50+ LLM calls for a fresh backfill.
+    if (app.source === "email") return;
     const jd = (app.jobDescription || "").trim();
     if (jd.length < 200) return; // not enough signal to analyze
     if (app.tailorSessionId) return; // already linked (e.g. came from /tailor/init)

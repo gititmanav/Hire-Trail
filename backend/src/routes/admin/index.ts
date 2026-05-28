@@ -18,3 +18,4 @@ export { default as gmailRoutes } from "./gmail.js";
 export { default as mailboxRoutes } from "./mailbox.js";
 export { default as broadcastRoutes } from "./broadcasts.js";
 export { default as feedbackAdminRoutes } from "./feedback.js";
+export { default as bugAdminRoutes } from "./bugs.js";

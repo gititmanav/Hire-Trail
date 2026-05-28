@@ -27,3 +27,16 @@ export const byokValidateLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+/** Per-IP limit for the public bug-report endpoint. A genuine client error
+ *  burst (e.g. a broken release breaking many UI flows in quick succession)
+ *  can fire dozens of events per minute — we let through a window-worth of
+ *  signal, then drop. The reporter already dedupes by fingerprint server-side,
+ *  so the DB never blows up even if the limiter lets all of these through. */
+export const bugReportLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  message: { error: "Too many reports." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});

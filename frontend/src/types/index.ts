@@ -89,6 +89,14 @@ export interface Application {
   outreachStatus: OutreachStatus;
   archived: boolean; archivedAt: string | null; archivedReason: ArchiveReason | null;
   source?: ApplicationSource;
+  /** Present when the app was created via the Gmail inbox-backfill scan.
+   *  Drives the "From email" chip. */
+  emailImport?: {
+    scanJobId: string;
+    candidateId: string;
+    threadId: string;
+    importedAt: string;
+  } | null;
   /** Server-derived summary of the linked TailorSession, when one exists. */
   fit?: AppFit | null;
   createdAt: string; updatedAt: string;

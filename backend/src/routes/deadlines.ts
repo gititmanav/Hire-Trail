@@ -36,6 +36,9 @@ router.get("/", async (req: Request, res: Response, next: NextFunction) => {
       query = { ...base, completed: false, dueDate: { $lt: now } };
     } else if (status === "completed") {
       query = { ...base, completed: true };
+    } else if (status === "active") {
+      // Calendar surface: anything not yet completed, regardless of due date.
+      query = { ...base, completed: false };
     }
 
     let sort: Record<string, 1 | -1> = { dueDate: 1 };

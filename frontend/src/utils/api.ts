@@ -6,6 +6,7 @@
 import axios, { AxiosError } from "axios";
 import toast from "react-hot-toast";
 import { getApiBaseURL } from "../config/apiBase.ts";
+import { reportClientBug } from "./bugReporter.ts";
 import type {
   User, Application, Resume, Contact, Deadline, AnalyticsData, AdminOverview,
   ApplicationFormData, ContactFormData, DeadlineFormData, PaginatedResponse,
@@ -29,10 +30,24 @@ api.interceptors.response.use(
   (error: AxiosError<{ error: string; code?: string }>) => {
     const code = error.response?.data?.code;
     if (code === "MAINTENANCE") return Promise.reject(error);
+    const status = error.response?.status;
     const msg = error.response?.data?.error || error.message || "Something went wrong";
-    if (error.response?.status === 401 && error.config?.url?.includes("/auth/me")) return Promise.reject(error);
-    if (error.response?.status === 429) toast.error("Too many requests. Please slow down.");
-    else if (error.response?.status !== 401) toast.error(msg);
+
+    // Silently report 5xx (and AIProviderError's 502 specifically) to the admin
+    // panel. Skip recursive reports on /bugs/report itself — otherwise a broken
+    // reporter endpoint would loop forever feeding itself.
+    if (typeof status === "number" && status >= 500 && !error.config?.url?.includes("/bugs/report")) {
+      reportClientBug({
+        source: "frontend_axios_5xx",
+        errorMessage: `${status} ${error.config?.method?.toUpperCase() || "GET"} ${error.config?.url || "?"} — ${msg}`,
+        errorStack: error.stack,
+        context: { responseBody: error.response?.data },
+      });
+    }
+
+    if (status === 401 && error.config?.url?.includes("/auth/me")) return Promise.reject(error);
+    if (status === 429) toast.error("Too many requests. Please slow down.");
+    else if (status !== 401) toast.error(msg);
     return Promise.reject(error);
   }
 );
@@ -45,6 +60,8 @@ export const authAPI = {
   updateProfile: (data: { name?: string; email?: string; primaryResumeId?: string | null }) =>
     api.put<User>("/auth/profile", data).then((r) => r.data),
   completeTour: () => api.put("/auth/tour").then((r) => r.data),
+  deleteAccount: (confirm: string) =>
+    api.delete<{ message: string }>("/auth/me", { data: { confirm } }).then((r) => r.data),
 };
 
 export const applicationsAPI = {
@@ -114,7 +131,7 @@ export const deadlinesAPI = {
   getAll: (params?: {
     page?: number;
     limit?: number;
-    status?: "all" | "upcoming" | "overdue" | "completed";
+    status?: "all" | "upcoming" | "overdue" | "completed" | "active";
     /** Filter to deadlines linked to a specific application. Used by the
      *  Phase-3 "auto-complete on stage change" prompt. */
     applicationId?: string;
@@ -128,7 +145,7 @@ export const deadlinesAPI = {
       .then((r) => r.data),
 
   /** Fetches every deadline page (API sorts by due date; calendar needs the full set). */
-  async getAllAggregated(params?: { status?: "all" | "upcoming" | "overdue" | "completed" }) {
+  async getAllAggregated(params?: { status?: "all" | "upcoming" | "overdue" | "completed" | "active" }) {
     const acc: Deadline[] = [];
     let page = 1;
     const limit = 500;
@@ -153,9 +170,52 @@ export const deadlinesAPI = {
 };
 
 interface MailboxStatus { connected: boolean; email: string | null; lastSyncAt: string | null }
+export interface GmailMailboxStatus extends MailboxStatus {
+  firstScanCompleted: boolean;
+  firstScanDays: number | null;
+  hasConsent: boolean;
+}
 export interface EmailStatusResponse {
-  gmail: MailboxStatus;
+  gmail: GmailMailboxStatus;
   outlook: MailboxStatus & { configured: boolean };
+}
+
+export type ScanJobStatus =
+  | "pending"
+  | "scanning"
+  | "filtering"
+  | "classifying"
+  | "ready_for_review"
+  | "completed"
+  | "failed";
+
+export interface ScanJob {
+  _id: string;
+  status: ScanJobStatus;
+  windowDays: number;
+  progress: { fetched: number; candidates: number; threadGroups: number; classified: number };
+  counts: { totalCandidates: number; imported: number; skipped: number; merged: number; failed: number };
+  error: string | null;
+  startedAt: string;
+  finishedAt: string | null;
+}
+
+export type ScanCandidateStatus = "pending" | "imported" | "skipped" | "merged" | "failed";
+
+export interface ScanCandidate {
+  _id: string;
+  status: ScanCandidateStatus;
+  threadId: string;
+  company: string;
+  role: string;
+  inferredStage: "Drafting" | "Applied" | "OA" | "Interview" | "Offer" | "Rejected";
+  confidence: "low" | "medium" | "high";
+  earliestEmailDate: string;
+  latestEmailDate: string;
+  evidence: { from: string; subject: string; snippet: string; latestMessageId: string; threadSize: number };
+  matchedApplicationId: string | null;
+  importedApplicationId: string | null;
+  importError: string | null;
 }
 
 export const emailAPI = {
@@ -167,6 +227,44 @@ export const emailAPI = {
   // Outlook
   connectOutlook: () => api.post<{ url: string }>("/email/outlook/connect").then((r) => r.data),
   disconnectOutlook: () => api.post("/email/outlook/disconnect").then((r) => r.data),
+  // First-scan backfill
+  startFirstScan: (windowDays: 5 | 10 | 15) =>
+    api.post<{ scanJobId: string; status: ScanJobStatus }>("/email/first-scan", {
+      windowDays,
+      consent: true,
+    }).then((r) => r.data),
+  getLatestScanJob: () =>
+    api.get<{ job: ScanJob | null }>("/email/scan-jobs/latest").then((r) => r.data),
+  getScanCandidates: (jobId: string) =>
+    api
+      .get<{ job: Pick<ScanJob, "_id" | "status" | "windowDays" | "counts" | "error">; candidates: ScanCandidate[] }>(
+        `/email/scan-jobs/${jobId}/candidates`,
+      )
+      .then((r) => r.data),
+  importCandidate: (
+    id: string,
+    overrides?: { company?: string; role?: string; stage?: ScanCandidate["inferredStage"]; applicationDate?: string },
+  ) =>
+    api.post<{ ok: true; applicationId: string }>(`/email/scan-candidates/${id}`, {
+      action: "import",
+      ...(overrides ?? {}),
+    }).then((r) => r.data),
+  skipCandidate: (id: string) =>
+    api.post<{ ok: true }>(`/email/scan-candidates/${id}`, { action: "skip" }).then((r) => r.data),
+  mergeCandidate: (id: string, targetApplicationId: string, updateStage = true) =>
+    api.post<{ ok: true; applicationId: string }>(`/email/scan-candidates/${id}`, {
+      action: "merge",
+      targetApplicationId,
+      updateStage,
+    }).then((r) => r.data),
+  bulkImport: (jobId: string) =>
+    api.post<{ ok: true; imported: number; failed: number; skipped: number }>(
+      `/email/scan-jobs/${jobId}/bulk-import`,
+    ).then((r) => r.data),
+  skipAll: (jobId: string) =>
+    api.post<{ ok: true; skipped: number }>(`/email/scan-jobs/${jobId}/skip-all`).then((r) => r.data),
+  completeScan: (jobId: string) =>
+    api.post<{ ok: true }>(`/email/scan-jobs/${jobId}/complete`).then((r) => r.data),
 };
 
 export const notificationsAPI = {
@@ -274,6 +372,8 @@ export const tailorAPI = {
   init: (data: { jobDescription: string; jobTitle?: string; company?: string; role?: string; url?: string }) =>
     api.post<TailorInitResult>("/tailor/init", data).then((r) => r.data),
   list: (limit = 30) => api.get<TailorSession[]>("/tailor/sessions", { params: { limit } }).then((r) => r.data),
+  listForApplication: (applicationId: string, limit = 30) =>
+    api.get<TailorSession[]>("/tailor/sessions", { params: { limit, applicationId } }).then((r) => r.data),
   get: (id: string) => api.get<TailorSession>(`/tailor/sessions/${id}`).then((r) => r.data),
   setDecision: (sessionId: string, index: number, decision: TailorDecision) =>
     api.patch<TailorSession>(`/tailor/sessions/${sessionId}/suggestions/${index}`, { decision }).then((r) => r.data),
@@ -478,4 +578,47 @@ export const adminAPI = {
   updateFeedback: (id: string, data: { status?: FeedbackStatus; severity?: FeedbackSeverity; adminNotes?: string }) =>
     api.patch<FeedbackItem>(`/admin/feedback/${id}`, data).then((r) => r.data),
   deleteFeedback: (id: string) => api.delete(`/admin/feedback/${id}`).then((r) => r.data),
+
+  // Admin Bug Reports — silent captures from errorHandler + frontend interceptors.
+  listBugReports: (params?: { page?: number; limit?: number; status?: BugReportStatus; source?: BugReportSource; search?: string }) =>
+    api.get<PaginatedResponse<BugReport>>("/admin/bugs", { params }).then((r) => r.data),
+  getBugReport: (id: string) => api.get<BugReport>(`/admin/bugs/${id}`).then((r) => r.data),
+  getBugReportStats: () =>
+    api.get<{ total: number; open: number; byStatus: Record<string, number>; bySource: Record<string, number> }>("/admin/bugs/stats").then((r) => r.data),
+  updateBugReport: (id: string, data: { status?: BugReportStatus; adminNotes?: string }) =>
+    api.patch<BugReport>(`/admin/bugs/${id}`, data).then((r) => r.data),
+  deleteBugReport: (id: string) => api.delete(`/admin/bugs/${id}`).then((r) => r.data),
 };
+
+/* ----- bug-report types (mirror backend/src/models/BugReport.ts) ----- */
+export const BUG_REPORT_STATUSES = ["new", "triaged", "ignored", "fixed"] as const;
+export type BugReportStatus = (typeof BUG_REPORT_STATUSES)[number];
+
+export const BUG_REPORT_SOURCES = [
+  "backend_500",
+  "backend_async_worker",
+  "frontend_uncaught",
+  "frontend_axios_5xx",
+  "frontend_unhandled_rejection",
+] as const;
+export type BugReportSource = (typeof BUG_REPORT_SOURCES)[number];
+
+export interface BugReport {
+  _id: string;
+  fingerprint: string;
+  count: number;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  affectedUserIds: string[];
+  source: BugReportSource;
+  route: string;
+  method: string;
+  errorMessage: string;
+  errorStack: string;
+  userAgent: string;
+  requestBodyPreview: string;
+  status: BugReportStatus;
+  adminNotes: string;
+  createdAt: string;
+  updatedAt: string;
+}

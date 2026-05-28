@@ -21,6 +21,7 @@ import { Notification } from "../../models/Notification.js";
 import type { NotificationType } from "../../models/Notification.js";
 import type { IUser } from "../../models/User.js";
 import { getModelForUser } from "../ai/index.js";
+import { withAiRetry } from "../ai/withAiRetry.js";
 
 /* -------------------------- types -------------------------- */
 
@@ -119,22 +120,24 @@ matchedCompany: the actual employer named in the email (not a recruiting agency,
 reasoning: one short sentence (<= 20 words).`;
 
 export async function classifyEmail(userId: string | mongoose.Types.ObjectId, email: NormalizedEmail, trackedCompanies: string[]): Promise<ClassificationResult> {
-  const { model } = await getModelForUser(userId, "fast");
+  const { model, provider, byok } = await getModelForUser(userId, "fast");
   const body = email.bodyText.slice(0, 2500);
-  const { object } = await generateObject({
-    model,
-    schema: classificationSchema,
-    system: SYSTEM_PROMPT,
-    prompt: [
-      `From: ${email.from}`,
-      `Subject: ${email.subject}`,
-      "",
-      "Body:",
-      body,
-      "",
-      `User is tracking applications at: ${trackedCompanies.join(", ") || "(none)"}`,
-    ].join("\n"),
-  });
+  const { object } = await withAiRetry({ provider, byok }, () =>
+    generateObject({
+      model,
+      schema: classificationSchema,
+      system: SYSTEM_PROMPT,
+      prompt: [
+        `From: ${email.from}`,
+        `Subject: ${email.subject}`,
+        "",
+        "Body:",
+        body,
+        "",
+        `User is tracking applications at: ${trackedCompanies.join(", ") || "(none)"}`,
+      ].join("\n"),
+    }),
+  );
   return object;
 }
 

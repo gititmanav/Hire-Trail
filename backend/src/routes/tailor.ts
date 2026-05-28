@@ -19,6 +19,7 @@ import { z } from "zod";
 import mongoose from "mongoose";
 
 import { ensureAuth, getUser } from "../middleware/auth.js";
+import { blockDemoUser } from "../middleware/blockDemoUser.js";
 import { TailorSession, type ITailorSession } from "../models/TailorSession.js";
 import { Application } from "../models/Application.js";
 import { MasterProfile } from "../models/MasterProfile.js";
@@ -47,7 +48,7 @@ const analyzeSchema = z.object({
  *  analyzer never got to write back its result. */
 const PROCESSING_TIMEOUT_MS = 90_000;
 
-router.post("/analyze", async (req: Request, res: Response, next: NextFunction) => {
+router.post("/analyze", blockDemoUser, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = getUser(req);
     const parsed = analyzeSchema.safeParse(req.body);
@@ -102,7 +103,7 @@ const initSchema = z.object({
  *  back-to-back — there's no transaction since Atlas free tier doesn't support them,
  *  but the second create runs immediately and the orphan window is negligible).
  *  The extension calls this when the user clicks "Tailor" on a JD. */
-router.post("/init", async (req: Request, res: Response, next: NextFunction) => {
+router.post("/init", blockDemoUser, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = getUser(req);
     const parsed = initSchema.safeParse(req.body);
@@ -196,7 +197,16 @@ router.get("/sessions", async (req: Request, res: Response, next: NextFunction) 
     const user = getUser(req);
     const rawLimit = req.query.limit;
     const limit = Math.min(50, parseInt(typeof rawLimit === "string" ? rawLimit : "20", 10));
-    const sessions = await TailorSession.find({ userId: user._id })
+    const applicationId = typeof req.query.applicationId === "string" ? req.query.applicationId : "";
+
+    const filter: Record<string, unknown> = { userId: user._id };
+    // Filter to a single application's tailor history — drives the sidebar's
+    // "Tailor sessions" section so the user can see every analysis on this app.
+    if (applicationId && mongoose.Types.ObjectId.isValid(applicationId)) {
+      filter.applicationId = new mongoose.Types.ObjectId(applicationId);
+    }
+
+    const sessions = await TailorSession.find(filter)
       .sort({ createdAt: -1 })
       .limit(limit)
       .select("-jobDescription") // skip the bulky raw JD on the list view

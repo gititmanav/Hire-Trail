@@ -65,6 +65,13 @@ export async function disconnectGmail(userId: string): Promise<void> {
     gmailConnected: false,
     gmailEmail: null,
     gmailLastSyncAt: null,
+    // Reset first-scan state too — reconnecting should feel like a clean
+    // start (consent picker shows again, picker offers 5/10/15 again). Without
+    // this, a user who disconnects to "try fresh" gets locked out of the
+    // picker because the old completed/consent flags persist.
+    gmailFirstScanCompleted: false,
+    gmailFirstScanDays: null,
+    gmailScanConsent: null,
   });
 }
 
@@ -98,13 +105,26 @@ export async function scanUserInbox(user: IUser, opts: { windowDays?: number } =
     return { scanned: 0, applied: 0, skipped: 0 };
   }
 
-  const windowDays = opts.windowDays ?? DEFAULT_QUERY_WINDOW_DAYS;
+  // Build the Gmail "since" query. Prefer `after:<unix>` anchored to the last
+  // successful sync — matches the daily 1AM cron's "everything new since the
+  // previous run" semantics. Falls back to a 1-day window when the user has
+  // never synced (e.g. just connected, hasn't done first scan yet).
+  const explicitWindowDays = opts.windowDays;
+  let q: string;
+  if (typeof explicitWindowDays === "number") {
+    q = `newer_than:${explicitWindowDays}d`;
+  } else if (user.gmailLastSyncAt) {
+    const sinceUnix = Math.floor(user.gmailLastSyncAt.getTime() / 1000);
+    q = `after:${sinceUnix}`;
+  } else {
+    q = `newer_than:${DEFAULT_QUERY_WINDOW_DAYS}d`;
+  }
 
   let listRes: gmail_v1.Schema$ListMessagesResponse;
   try {
     const r = await gmail.users.messages.list({
       userId: "me",
-      q: `newer_than:${windowDays}d`,
+      q,
       maxResults: MAX_MESSAGES_PER_SCAN,
     });
     listRes = r.data;

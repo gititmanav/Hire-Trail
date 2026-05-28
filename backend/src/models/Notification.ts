@@ -6,6 +6,8 @@ export const NOTIFICATION_TYPES = [
   "offer_detected",
   "follow_up_detected",
   "info",
+  /** First-scan backfill found candidate applications ready for review. */
+  "scan_ready",
 ] as const;
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
