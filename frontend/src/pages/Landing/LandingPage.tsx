@@ -27,11 +27,11 @@ import { authAPI } from "../../utils/api.ts";
 import { LandingAuthCtx, DEMO_EMAIL, DEMO_PASSWORD } from "./context";
 import Nav from "./Nav";
 import HeroBand from "./HeroBand";
+import TrustPanel from "./TrustPanel";
 import FeatureShowcase from "./FeatureShowcase";
 import Comparison from "./Comparison";
 import Bento from "./Bento";
 import PowerUserGrid from "./PowerUserGrid";
-import StatsStrip from "./StatsStrip";
 import FAQ from "./FAQ";
 import BigCTA from "./BigCTA";
 import Footer from "./Footer";
@@ -103,7 +103,7 @@ export default function LandingPage() {
           <Comparison />
           <Bento />
           <PowerUserGrid />
-          <StatsStrip />
+          <TrustPanel />
           <FAQ />
           <BigCTA />
         </main>

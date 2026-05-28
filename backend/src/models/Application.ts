@@ -72,6 +72,15 @@ export interface IApplication extends Document {
   archivedAt: Date | null;
   archivedReason: ArchiveReason | null;
   source: ApplicationSource;
+  /** Set when this application was created via Gmail inbox backfill.
+   *  Drives the "From email" chip in the UI and lets us trace back to the
+   *  scan job + candidate that produced it. */
+  emailImport: {
+    scanJobId: Types.ObjectId;
+    candidateId: Types.ObjectId;
+    threadId: string;
+    importedAt: Date;
+  } | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -193,6 +202,18 @@ const applicationSchema = new Schema<IApplication>(
       enum: APPLICATION_SOURCES,
       default: "manual",
       index: true,
+    },
+    emailImport: {
+      type: new Schema(
+        {
+          scanJobId: { type: Schema.Types.ObjectId, ref: "EmailScanJob", required: true },
+          candidateId: { type: Schema.Types.ObjectId, ref: "EmailScanCandidate", required: true },
+          threadId: { type: String, required: true },
+          importedAt: { type: Date, required: true },
+        },
+        { _id: false },
+      ),
+      default: null,
     },
   },
   { timestamps: true }

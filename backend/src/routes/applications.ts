@@ -236,6 +236,7 @@ router.post("/", validate(createApplicationSchema), async (req: Request, res: Re
           company: app.company,
           jobUrl: app.jobUrl,
           tailorSessionId: app.tailorSessionId,
+          source: app.source,
         },
       });
     }

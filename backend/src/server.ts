@@ -1,6 +1,11 @@
 /**
  * Express app: Helmet, JSON body, Mongo-backed sessions, Passport, rate-limited /api, SPA static in deploy.
  */
+// Sentry must initialize before any other module imports, so its
+// instrumentation hooks see the rest of the app come up.
+import { initSentry, Sentry } from "./config/sentry.js";
+initSentry();
+
 import express from "express";
 import cors from "cors";
 import session from "express-session";
@@ -34,7 +39,10 @@ import proxyRoutes from "./routes/proxy.js";
 import adminRoutes from "./routes/admin.js";
 import emailRoutes from "./routes/email.js";
 import notificationRoutes from "./routes/notifications.js";
+import bugRoutes from "./routes/bugs.js";
 import { startEmailScanJob } from "./services/emailScanJob.js";
+import { reapStalledScanJobs } from "./services/email/firstScan.js";
+import { backfillResumeVersions } from "./services/migrations/backfillResumeVersions.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -131,6 +139,7 @@ app.use("/api/proxy", proxyRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/email", emailRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/bugs", bugRoutes);
 
 // Monorepo deploy: Vite build at ../frontend/dist (dev UX uses Vite on :5173 with proxy to this API).
 const clientBuildPath = join(__dirname, "..", "..", "frontend", "dist");
@@ -158,6 +167,10 @@ app.get("*", (req, res) => {
   res.sendFile(join(clientBuildPath, "index.html"));
 });
 
+// Sentry's Express error handler runs before our own. It captures unhandled
+// errors (4xx are filtered by default) and re-throws so our errorHandler still
+// formats the JSON response the client expects.
+Sentry.setupExpressErrorHandler(app);
 app.use(errorHandler);
 
 async function start(): Promise<void> {
@@ -167,6 +180,17 @@ async function start(): Promise<void> {
   if (env.ENCRYPTION_KEY && env.ENCRYPTION_KEY !== "0000000000000000000000000000000000000000000000000000000000000000") {
     startEmailScanJob();
   }
+  // Rescue any first-scan jobs that were mid-flight when the server stopped.
+  // Marks them failed with a retryable error so the user can kick a new scan.
+  reapStalledScanJobs().catch((err) => console.error("[firstScan] reaper failed:", err));
+
+  // One-time backfill of resume version timelines so the "edit history" strip
+  // renders on historical resumes. Idempotent — only writes when versions=[].
+  backfillResumeVersions()
+    .then(({ updated }) => {
+      if (updated > 0) console.log(`[migrate] backfilled versions on ${updated} resume(s)`);
+    })
+    .catch((err) => console.error("[migrate] resume versions backfill failed:", err));
 
   app.listen(env.PORT, () => {
     console.log(`HireTrail server running on port ${env.PORT} [${env.NODE_ENV}]`);

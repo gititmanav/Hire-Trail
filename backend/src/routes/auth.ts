@@ -12,6 +12,19 @@ import { isAdminEmail } from "../utils/admin.js";
 import { AdminLoginEvent } from "../models/AdminLoginEvent.js";
 import { ensureAuth, getUser } from "../middleware/auth.js";
 import { Resume } from "../models/Resume.js";
+import { Application } from "../models/Application.js";
+import { Contact } from "../models/Contact.js";
+import { Deadline } from "../models/Deadline.js";
+import { Notification } from "../models/Notification.js";
+import { TailorSession } from "../models/TailorSession.js";
+import { MasterProfile } from "../models/MasterProfile.js";
+import { Feedback } from "../models/Feedback.js";
+import { AuditLog } from "../models/AuditLog.js";
+import { Company } from "../models/Company.js";
+import { Invite } from "../models/Invite.js";
+import { disconnectGmail } from "../services/gmailService.js";
+import { disconnectOutlook } from "../services/outlookService.js";
+import mongoose from "mongoose";
 import {
   getMaintenanceMode,
   isMaintenanceBypassEmail,
@@ -433,6 +446,82 @@ router.put("/profile", ensureAuth, async (req: Request, res: Response, next: Nex
       primaryResumeId: updated.primaryResumeId ? String(updated.primaryResumeId) : null,
       mergeResumesEnabled: updated.mergeResumesEnabled !== false,
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// DELETE account — GDPR right-to-erasure. Revokes external OAuth tokens, cascades
+// owned data across collections, deletes server-side sessions, then deletes the user
+// document. Requires typed confirmation (body: { confirm: "DELETE" }).
+router.delete("/me", ensureAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = getUser(req);
+
+    if (user.email === "demo@hiretrail.com") {
+      throw new AppError("The demo account cannot be deleted.", 403);
+    }
+
+    const { confirm } = (req.body ?? {}) as { confirm?: string };
+    if (confirm !== "DELETE") {
+      throw new AppError('Confirmation phrase did not match. Type "DELETE" to confirm.', 400);
+    }
+
+    const userId = user._id;
+    const userIdStr = String(userId);
+
+    // Revoke external OAuth tokens. Failures here must not block local deletion —
+    // the disconnect helpers already swallow revoke errors and still clear local state.
+    await Promise.allSettled([
+      disconnectGmail(userIdStr),
+      disconnectOutlook(userIdStr),
+    ]);
+
+    // Cascade-delete owned data.
+    await Promise.all([
+      Resume.deleteMany({ userId }),
+      Application.deleteMany({ userId }),
+      Contact.deleteMany({ userId }),
+      Deadline.deleteMany({ userId }),
+      Notification.deleteMany({ userId }),
+      TailorSession.deleteMany({ userId }),
+      MasterProfile.deleteMany({ userId }),
+      Feedback.deleteMany({ userId }),
+      AuditLog.deleteMany({ userId }),
+      AdminLoginEvent.deleteMany({ userId }),
+      Company.updateMany({}, { $pull: { users: userId } }),
+      Invite.deleteMany({ createdBy: userId }),
+      Invite.updateMany({ "usedBy.userId": userId }, { $pull: { usedBy: { userId } } }),
+    ]);
+
+    // Companies with no users remaining are orphans — drop them.
+    await Company.deleteMany({ users: { $size: 0 } });
+
+    // Wipe other active sessions for this user. The session document stores
+    // passport-serialised userId inside a JSON string in the `session` field.
+    const db = mongoose.connection.db;
+    if (db) {
+      try {
+        await db.collection("sessions").deleteMany({
+          session: { $regex: `"user":"${userIdStr}"` },
+        });
+      } catch {
+        // best-effort — TTL + ensureAuth's user lookup will invalidate any leftovers
+      }
+    }
+
+    // Hard delete. The unique email index frees the address for re-registration.
+    await User.deleteOne({ _id: userId });
+
+    const finish = () => {
+      res.clearCookie("connect.sid");
+      res.json({ message: "Account deleted." });
+    };
+    if (req.session) {
+      req.session.destroy(() => finish());
+    } else {
+      finish();
+    }
   } catch (err) {
     next(err);
   }

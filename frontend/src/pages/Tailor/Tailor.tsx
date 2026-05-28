@@ -9,6 +9,15 @@ import { useBackgroundTasks } from "../../hooks/useBackgroundTasks.tsx";
 import { useDemoGate } from "../../hooks/useDemoGate.tsx";
 import type { Application, Resume } from "../../types";
 
+/** Soft warning at this length — the input still works, we just nudge the user.
+ *  Most real JDs are well under 25k. Above this, the analyzer's prompt size
+ *  starts to dominate cost and the LLM's signal-to-noise drops. */
+const JD_SOFT_LIMIT = 25_000;
+/** Hard block. Backend silently truncates at 30k server-side; we cap input at
+ *  50k so a user pasting an entire careers page doesn't see a confusing
+ *  truncated analysis. */
+const JD_HARD_LIMIT = 50_000;
+
 const GRADE_TONE: Record<string, string> = {
   A: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200 border-emerald-300 dark:border-emerald-700",
   B: "bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200 border-sky-300 dark:border-sky-700",
@@ -95,7 +104,16 @@ export default function Tailor() {
         setTitle(s.jobTitle || "");
         setCompany(s.company || "");
         setUrl(s.jobUrl || "");
-        try { localStorage.setItem(LAST_SESSION_STORAGE_KEY, s._id); } catch { /* ignore */ }
+        // Only persist *non-failed* sessions as "last session". A failed session
+        // saved here would cause the next "Try a new analysis" click to restore
+        // the same broken state from localStorage — the user gets trapped.
+        try {
+          if (s.status === "failed") {
+            localStorage.removeItem(LAST_SESSION_STORAGE_KEY);
+          } else {
+            localStorage.setItem(LAST_SESSION_STORAGE_KEY, s._id);
+          }
+        } catch { /* ignore */ }
         // Fetch the linked Drafting application — we need its stage to decide whether
         // to show the "Mark as Applied" button.
         if (s.applicationId) {
@@ -155,6 +173,10 @@ export default function Tailor() {
     if (!requireRealAccount("AI Tailor")) return;
     if (jd.trim().length < 50) {
       toast.error("Paste the full job description (at least a few sentences).");
+      return;
+    }
+    if (jd.length > JD_HARD_LIMIT) {
+      toast.error(`Job description is over ${JD_HARD_LIMIT.toLocaleString()} characters. Trim it before analyzing.`);
       return;
     }
     const jdSnapshot = jd.trim();
@@ -294,18 +316,31 @@ export default function Tailor() {
           <div>
             <label className="block text-xs font-medium text-foreground mb-1.5">Job description *</label>
             <textarea
-              className="input-premium min-h-[260px] resize-y font-mono text-xs leading-relaxed"
+              className={`input-premium min-h-[260px] resize-y font-mono text-xs leading-relaxed ${
+                jd.length > JD_HARD_LIMIT ? "border-red-400 dark:border-red-700" : ""
+              }`}
               placeholder="Paste the full job description here…"
               value={jd}
               onChange={(e) => setJd(e.target.value)}
+              aria-invalid={jd.length > JD_HARD_LIMIT || undefined}
             />
-            <p className="text-[11px] text-muted-foreground mt-1">{jd.length.toLocaleString()} chars</p>
+            {jd.length > JD_HARD_LIMIT ? (
+              <p className="text-[11px] text-red-600 dark:text-red-400 mt-1">
+                {jd.length.toLocaleString()} chars · over the {JD_HARD_LIMIT.toLocaleString()}-char hard limit. Trim it to analyze.
+              </p>
+            ) : jd.length > JD_SOFT_LIMIT ? (
+              <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">
+                {jd.length.toLocaleString()} chars · most JDs are under {JD_SOFT_LIMIT.toLocaleString()}. We&rsquo;ll trim to {JD_HARD_LIMIT.toLocaleString()} when analyzing.
+              </p>
+            ) : (
+              <p className="text-[11px] text-muted-foreground mt-1">{jd.length.toLocaleString()} chars</p>
+            )}
           </div>
           <div className="flex justify-end">
             <button
               type="button"
               onClick={onAnalyze}
-              disabled={analyzing || jd.trim().length < 50}
+              disabled={analyzing || jd.trim().length < 50 || jd.length > JD_HARD_LIMIT}
               className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50"
             >
               {analyzing ? "Analyzing…" : "Analyze JD"}
@@ -348,7 +383,15 @@ export default function Tailor() {
           <p className="text-sm text-red-700 dark:text-red-300 mt-1">{session.errorMessage || "Something went wrong."}</p>
           <button
             type="button"
-            onClick={() => { setParams({}); setSession(null); }}
+            onClick={() => {
+              // Clear the persisted last-session before unsetting params, so the
+              // sessionId=null effect below doesn't immediately restore the URL
+              // back to this same failed session. (Was the root cause of the
+              // "Try again does nothing" trap.)
+              try { localStorage.removeItem(LAST_SESSION_STORAGE_KEY); } catch { /* ignore */ }
+              setParams({});
+              setSession(null);
+            }}
             className="mt-4 px-3 py-1.5 text-xs font-medium border border-red-300 dark:border-red-700 rounded-lg text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/40"
           >
             Try a new analysis

@@ -23,6 +23,7 @@ import {
   mailboxRoutes,
   broadcastRoutes,
   feedbackAdminRoutes,
+  bugAdminRoutes,
 } from "./admin/index.js";
 
 const router = Router();
@@ -51,6 +52,7 @@ router.use("/gmail", gmailRoutes);
 router.use("/mailbox", mailboxRoutes);
 router.use("/broadcasts", broadcastRoutes);
 router.use("/feedback", feedbackAdminRoutes);
+router.use("/bugs", bugAdminRoutes);
 
 // Backward-compatible overview endpoint
 router.get(

@@ -20,7 +20,8 @@ export type TaskKind =
   | "resume_parse"
   | "profile_sync"
   | "tailor_analyze"
-  | "pdf_render";
+  | "pdf_render"
+  | "email_scan";
 
 export type TaskStatus = "running" | "success" | "error";
 
@@ -55,6 +56,10 @@ export interface RunCtx {
   /** Persist a recovery hint mid-run, e.g. once the server-side id is known.
    *  No-op if called after the task has already settled. */
   setRecovery: (recovery: TaskRecovery) => void;
+  /** Update the task's 0..1 progress mid-run. The card UI animates the bar
+   *  from the previous value to this one. Pass `undefined` to flip back to
+   *  the indeterminate animation. No-op if the task has already settled. */
+  setProgress: (progress: number | undefined) => void;
 }
 
 export interface StartTaskInput<T> {
@@ -88,7 +93,7 @@ interface RecoveryHandler {
   rebuild: (recovery: TaskRecovery, label: string, sublabel?: string) => StartTaskInput<unknown> | null;
 }
 
-interface Ctx {
+export interface Ctx {
   tasks: BackgroundTask[];
   /** Kick off a task. Returns the task id. */
   startTask: <T,>(input: StartTaskInput<T>) => string;
@@ -213,6 +218,16 @@ export function BackgroundTasksProvider({ children }: { children: ReactNode }) {
 
     const runCtx: RunCtx = {
       setRecovery: writeRecovery,
+      setProgress: (progress) => {
+        // Clamp into [0, 1] when defined so a buggy caller can't push the bar
+        // past the end of the card or render a negative width.
+        const clamped = typeof progress === "number"
+          ? Math.max(0, Math.min(1, progress))
+          : undefined;
+        setTasks((prev) =>
+          prev.map((t) => (t.id === id ? { ...t, progress: clamped } : t)),
+        );
+      },
     };
 
     // Fire the actual work. Failures here update the card; promise rejections

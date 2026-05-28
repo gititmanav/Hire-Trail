@@ -4,10 +4,12 @@ import { AppError } from "../errors/AppError.js";
 import { ZodError } from "zod";
 import mongoose from "mongoose";
 import { env } from "../config/env.js";
+import { reportBug } from "../services/bugReporter.js";
+import type { IUser } from "../models/User.js";
 
 export function errorHandler(
   err: Error,
-  _req: Request,
+  req: Request,
   res: Response,
   _next: NextFunction
 ): void {
@@ -46,14 +48,33 @@ export function errorHandler(
 
   // Our custom AppError
   if (err instanceof AppError) {
+    // 5xx AppErrors (e.g. AIProviderError on upstream 502s) are still bugs
+    // worth surfacing to the admin panel — they fired despite our safeguards.
+    if (err.statusCode >= 500) reportFromRequest(err, req, "backend_500");
     res.status(err.statusCode).json({ error: err.message });
     return;
   }
 
-  // Unknown errors
+  // Unknown errors — always a bug.
   console.error("Unhandled error:", err);
+  reportFromRequest(err, req, "backend_500");
   res.status(500).json({
     error: "Internal server error",
     ...(env.NODE_ENV === "development" && { stack: err.stack }),
+  });
+}
+
+function reportFromRequest(err: Error, req: Request, source: "backend_500"): void {
+  // Fire-and-forget — reportBug swallows its own errors. We deliberately don't
+  // await this so the response isn't delayed by the DB write.
+  void reportBug({
+    source,
+    errorMessage: err.message || err.name || "Unknown error",
+    errorStack: err.stack,
+    route: req.originalUrl,
+    method: req.method,
+    userId: (req.user as IUser | undefined)?._id ?? null,
+    userAgent: req.get("user-agent"),
+    requestBody: req.body,
   });
 }

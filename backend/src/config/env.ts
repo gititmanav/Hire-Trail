@@ -34,6 +34,9 @@ const envSchema = z
     OPENAI_API_KEY: z.string().default(""),
     GOOGLE_GENERATIVE_AI_API_KEY: z.string().default(""),
     OPENROUTER_API_KEY: z.string().default(""),
+    // Sentry — leave empty to disable error tracking
+    SENTRY_DSN: z.string().default(""),
+    SENTRY_ENVIRONMENT: z.string().default(""),
   })
   .superRefine((data, ctx) => {
     if (data.NODE_ENV !== "production") return;

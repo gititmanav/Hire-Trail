@@ -1,10 +1,14 @@
 /** Settings — single-card scroll-spy layout for Account / Password / Email / AI. */
 import { useCallback, useEffect, useMemo, useRef, useState, FormEvent, lazy, Suspense } from "react";
 import toast from "react-hot-toast";
-import { api, applicationsAPI, emailAPI, aiAPI } from "../../utils/api.ts";
-import type { EmailStatusResponse } from "../../utils/api.ts";
+import { api, applicationsAPI, emailAPI, aiAPI, authAPI } from "../../utils/api.ts";
+import { useBackgroundTasks } from "../../hooks/useBackgroundTasks.tsx";
+import { startEmailScanTask } from "../../utils/emailScanTask.ts";
+import type { EmailStatusResponse, ScanJob } from "../../utils/api.ts";
+import { Link } from "react-router-dom";
 import type { User } from "../../types";
 import { AISettingsCard } from "./AISettingsCard.tsx";
+import EmailScanConsentModal from "./EmailScanConsentModal.tsx";
 import { useFeatureFlags } from "../../hooks/useFeatureFlags.tsx";
 import { useDemoGate } from "../../hooks/useDemoGate.tsx";
 import { Skeleton } from "../../components/Skeleton/Skeleton.tsx";
@@ -18,7 +22,7 @@ const inputCls =
   "w-full px-3 py-2 text-sm bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring transition-shadow";
 
 const DEFAULT_EMAIL_STATUS: EmailStatusResponse = {
-  gmail: { connected: false, email: null, lastSyncAt: null },
+  gmail: { connected: false, email: null, lastSyncAt: null, firstScanCompleted: false, firstScanDays: null, hasConsent: false },
   outlook: { connected: false, email: null, lastSyncAt: null, configured: false },
 };
 
@@ -38,6 +42,7 @@ const SECTIONS: { key: SectionKey; label: string }[] = [
 const SEARCH_INDEX: { key: string; section: SectionKey; aliases?: string[] }[] = [
   { key: "Full name", section: "account" },
   { key: "Email", section: "account", aliases: ["account email"] },
+  { key: "Delete account", section: "account", aliases: ["danger zone", "remove account", "close account", "gdpr"] },
   { key: "Current password", section: "password" },
   { key: "New password", section: "password" },
   { key: "Email Integration", section: "email", aliases: ["inbox", "mailbox"] },
@@ -131,6 +136,86 @@ function ReportRejectionModal({ onClose }: { onClose: () => void }) {
           <div className="flex justify-end gap-2 pt-4 border-t border-border">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium border border-border rounded-lg text-secondary-foreground hover:bg-muted">Cancel</button>
             <button type="submit" disabled={submitting} className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50">{submitting ? "Submitting..." : "Submit"}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function DeleteAccountModal({ email, onClose }: { email: string; onClose: () => void }) {
+  const [confirm, setConfirm] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape" && !submitting) onClose(); };
+    document.addEventListener("keydown", h);
+    return () => document.removeEventListener("keydown", h);
+  }, [onClose, submitting]);
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (confirm !== "DELETE") return;
+    setSubmitting(true);
+    try {
+      await authAPI.deleteAccount(confirm);
+      toast.success("Account deleted.");
+      // Full reload so AuthContext and any in-memory state reset cleanly.
+      window.location.href = "/";
+    } catch (err) {
+      const e = err as { response?: { data?: { error?: string } } };
+      toast.error(e.response?.data?.error || "Account deletion failed");
+      setSubmitting(false);
+    }
+  };
+
+  const canSubmit = confirm === "DELETE" && !submitting;
+
+  return (
+    <div className="fixed inset-0 bg-black/55 flex items-center justify-center z-50" onClick={() => !submitting && onClose()}>
+      <div className="bg-card border border-border rounded-xl p-6 w-full max-w-[480px] animate-in shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-foreground">Delete account</h2>
+          <button onClick={onClose} disabled={submitting} className="w-9 h-9 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted disabled:opacity-50">
+            <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/></svg>
+          </button>
+        </div>
+        <div className="rounded-lg border border-red-300 dark:border-red-900/60 bg-red-50 dark:bg-red-950/30 p-3 mb-4">
+          <p className="text-sm text-red-900 dark:text-red-200 font-medium">This is permanent.</p>
+          <ul className="text-xs text-red-900/85 dark:text-red-200/85 mt-1.5 space-y-0.5 list-disc pl-4">
+            <li>All applications, contacts, resumes, deadlines, notifications, and your master profile.</li>
+            <li>Your Gmail / Outlook connection (tokens revoked at the provider).</li>
+            <li>Your account and all sessions across devices.</li>
+          </ul>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-foreground mb-1.5">
+              Account: <span className="font-normal text-muted-foreground">{email}</span>
+            </label>
+            <label className="block text-xs font-medium text-foreground mb-1.5">
+              Type <span className="font-mono font-semibold text-red-600 dark:text-red-400">DELETE</span> to confirm
+            </label>
+            <input
+              autoFocus
+              className={inputCls}
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              placeholder="DELETE"
+              autoComplete="off"
+              spellCheck={false}
+              disabled={submitting}
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-2 border-t border-border">
+            <button type="button" onClick={onClose} disabled={submitting} className="px-4 py-2 text-sm font-medium border border-border rounded-lg text-secondary-foreground hover:bg-muted disabled:opacity-50">Cancel</button>
+            <button
+              type="submit"
+              disabled={!canSubmit}
+              className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {submitting ? "Deleting…" : "Delete account permanently"}
+            </button>
           </div>
         </form>
       </div>
@@ -245,6 +330,11 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [rejectionModal, setRejectionModal] = useState(false);
+  const [deleteModal, setDeleteModal] = useState(false);
+  const [scanModal, setScanModal] = useState(false);
+  /** Local-session memo so the consent modal doesn't pop again if the user
+   *  dismisses it without consenting — they can reopen via the banner. */
+  const [scanModalDismissed, setScanModalDismissed] = useState(false);
   /** When the user clicks "Request access" on Gmail (because Google's OAuth
    *  app is in test mode), open the feedback modal pre-filled with their
    *  email so the admin can add them to the test users list. */
@@ -254,8 +344,10 @@ export default function Settings() {
   const { isEnabled } = useFeatureFlags();
   const outlookEnabled = isEnabled("feature_outlook_integration");
   const { requireRealAccount } = useDemoGate();
+  const { startTask } = useBackgroundTasks();
   const [mailbox, setMailbox] = useState<EmailStatusResponse>(DEFAULT_EMAIL_STATUS);
   const [mailboxLoading, setMailboxLoading] = useState<null | "gmail" | "outlook" | "scan">(null);
+  const [scanJob, setScanJob] = useState<ScanJob | null>(null);
   const [aiProviderCount, setAiProviderCount] = useState(0);
   const [active, setActive] = useState<SectionKey>("account");
   const [search, setSearch] = useState("");
@@ -277,6 +369,7 @@ export default function Settings() {
         setMergeEnabled(r.data.mergeResumesEnabled !== false);
       }),
       emailAPI.status().then(setMailbox).catch(() => {}),
+      emailAPI.getLatestScanJob().then((r) => setScanJob(r.job)).catch(() => {}),
       aiAPI.listKeys().then((keys) => setAiProviderCount(new Set(keys.filter((k) => k.isActive).map((k) => k.provider)).size)).catch(() => {}),
     ])
       .catch(() => {})
@@ -294,6 +387,19 @@ export default function Settings() {
       window.history.replaceState({}, "", window.location.pathname);
     }
   }, []);
+
+  /** Auto-prompt for the inbox-scan consent the first time a connected user
+   *  hits Settings without having completed the backfill. Only triggers on
+   *  real accounts (the demo gate blocks anything that would write to a real
+   *  Gmail). The modal is one-shot per session if dismissed. */
+  useEffect(() => {
+    if (loading) return;
+    if (scanModalDismissed) return;
+    if (!mailbox.gmail.connected) return;
+    if (mailbox.gmail.firstScanCompleted) return;
+    setScanModal(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, mailbox.gmail.connected, mailbox.gmail.firstScanCompleted]);
 
   // Scroll-spy.
   useEffect(() => {
@@ -527,6 +633,27 @@ export default function Settings() {
                   </button>
                 </div>
               </form>
+
+              {/* Danger zone — surface for GDPR right-to-erasure. Required for
+               *  Google OAuth verification on gmail.readonly. Demo user is gated. */}
+              <div className="mt-8 max-w-xl rounded-lg border border-red-300 dark:border-red-900/60 bg-red-50/50 dark:bg-red-950/20 p-4">
+                <h3 className="text-sm font-semibold text-red-900 dark:text-red-200">
+                  <MatchLabel query={search}>Delete account</MatchLabel>
+                </h3>
+                <p className="text-xs text-red-900/80 dark:text-red-200/80 mt-1 leading-relaxed">
+                  Permanently delete your account and all associated data. Gmail / Outlook tokens are revoked at the provider. This cannot be undone.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!requireRealAccount("Account deletion")) return;
+                    setDeleteModal(true);
+                  }}
+                  className="mt-3 px-4 py-2 text-sm font-medium border border-red-400 dark:border-red-800 text-red-700 dark:text-red-200 hover:bg-red-100 dark:hover:bg-red-900/40 rounded-lg"
+                >
+                  Delete account…
+                </button>
+              </div>
             </section>
 
             {/* Password */}
@@ -568,6 +695,10 @@ export default function Settings() {
                 HireTrail scans your inbox for interview invites, offers, and rejections — and updates your applications automatically. Connect one or both providers.
               </p>
 
+              {scanJob && scanJob.status !== "completed" && (
+                <ScanJobBanner job={scanJob} />
+              )}
+
               <div className="rounded-lg border border-border divide-y divide-border px-4">
                 <MailboxRow
                   provider="Gmail"
@@ -587,7 +718,7 @@ export default function Settings() {
                     setMailboxLoading("gmail");
                     try {
                       await emailAPI.disconnectGmail();
-                      setMailbox((m) => ({ ...m, gmail: { connected: false, email: null, lastSyncAt: null } }));
+                      setMailbox((m) => ({ ...m, gmail: { ...m.gmail, connected: false, email: null, lastSyncAt: null } }));
                       toast.success("Gmail disconnected");
                     } catch { toast.error("Failed to disconnect"); }
                     finally { setMailboxLoading(null); }
@@ -643,24 +774,41 @@ export default function Settings() {
 
               <div className="flex flex-wrap items-center gap-3 mt-4">
                 {(mailbox.gmail.connected || mailbox.outlook.connected) && (
-                  <button
-                    disabled={mailboxLoading === "scan"}
-                    onClick={async () => {
-                      if (!requireRealAccount("Email inbox scan")) return;
-                      setMailboxLoading("scan");
-                      try {
-                        const result = await emailAPI.scan();
-                        toast.success(result.message);
-                        if (result.errors?.length) toast.error(result.errors.join(" · "));
-                        const fresh = await emailAPI.status();
-                        setMailbox(fresh);
-                      } catch { toast.error("Scan failed"); }
-                      finally { setMailboxLoading(null); }
-                    }}
-                    className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50"
-                  >
-                    {mailboxLoading === "scan" ? "Scanning…" : "Scan now"}
-                  </button>
+                  /* Until the first backfill scan actually succeeds, the
+                   *  primary button routes to the 5/10/15 picker (the only way
+                   *  to import historical apps). After that, "Scan now" runs
+                   *  the lightweight incremental scan from gmailLastSyncAt. */
+                  !mailbox.gmail.firstScanCompleted && mailbox.gmail.connected ? (
+                    <button
+                      onClick={() => {
+                        if (!requireRealAccount("Email inbox scan")) return;
+                        setScanModalDismissed(false);
+                        setScanModal(true);
+                      }}
+                      className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg"
+                    >
+                      Run your first scan
+                    </button>
+                  ) : (
+                    <button
+                      disabled={mailboxLoading === "scan"}
+                      onClick={async () => {
+                        if (!requireRealAccount("Email inbox scan")) return;
+                        setMailboxLoading("scan");
+                        try {
+                          const result = await emailAPI.scan();
+                          toast.success(result.message);
+                          if (result.errors?.length) toast.error(result.errors.join(" · "));
+                          const fresh = await emailAPI.status();
+                          setMailbox(fresh);
+                        } catch { toast.error("Scan failed"); }
+                        finally { setMailboxLoading(null); }
+                      }}
+                      className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50"
+                    >
+                      {mailboxLoading === "scan" ? "Scanning…" : "Scan now"}
+                    </button>
+                  )
                 )}
                 <button onClick={() => setRejectionModal(true)} className="px-4 py-2 text-sm font-medium border border-border rounded-lg text-secondary-foreground hover:bg-muted">
                   Report a rejection manually
@@ -779,6 +927,24 @@ export default function Settings() {
       </div>
 
       {rejectionModal && <ReportRejectionModal onClose={() => setRejectionModal(false)} />}
+      {deleteModal && user && <DeleteAccountModal email={user.email} onClose={() => setDeleteModal(false)} />}
+      {scanModal && (
+        <EmailScanConsentModal
+          onClose={() => { setScanModal(false); setScanModalDismissed(true); }}
+          onStarted={({ scanJobId, windowDays }) => {
+            // Register the scan in the global background-tasks system. The
+            // resulting card lives in BackgroundTaskCenter (bottom-right,
+            // persistent across pages) and animates a progress bar driven by
+            // the scan worker's status + counters.
+            startEmailScanTask({
+              jobId: scanJobId,
+              sublabel: `Last ${windowDays} days`,
+              startTask,
+            });
+            emailAPI.status().then(setMailbox).catch(() => {});
+          }}
+        />
+      )}
       {requestAccessModal && (
         <Suspense fallback={null}>
           <FeedbackModal
@@ -792,6 +958,53 @@ export default function Settings() {
         </Suspense>
       )}
     </div>
+  );
+}
+
+function ScanJobBanner({ job }: { job: ScanJob }) {
+  const inFlight = ["pending", "scanning", "filtering", "classifying"].includes(job.status);
+  const ready = job.status === "ready_for_review";
+  const failed = job.status === "failed";
+
+  let tone = "border-primary/30 bg-primary/5";
+  let dot = "bg-primary animate-pulse";
+  let label = "Scanning your inbox in the background…";
+  let cta = "View progress";
+  if (ready) {
+    tone = "border-emerald-300 dark:border-emerald-900/60 bg-emerald-50/50 dark:bg-emerald-950/20";
+    dot = "bg-emerald-500";
+    const n = job.counts.totalCandidates;
+    label = n === 0 ? "Inbox scan finished — no applications detected." : `Inbox scan ready: ${n} application${n === 1 ? "" : "s"} to review.`;
+    cta = "Review now";
+  } else if (failed) {
+    tone = "border-red-300 dark:border-red-900/60 bg-red-50/50 dark:bg-red-950/20";
+    dot = "bg-red-500";
+    label = job.error || "Inbox scan failed.";
+    cta = "Details";
+  }
+
+  return (
+    <Link
+      to="/settings/email-review"
+      className={`mb-4 flex items-center justify-between gap-3 rounded-lg border ${tone} px-4 py-3 hover:bg-muted/20 transition-colors`}
+    >
+      <div className="flex items-center gap-3 min-w-0">
+        <span className={`w-2 h-2 rounded-full shrink-0 ${dot}`} />
+        <span className="text-sm text-foreground truncate">{label}</span>
+      </div>
+      <span className="text-xs font-semibold text-primary shrink-0 inline-flex items-center gap-1">
+        {cta}
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <line x1="5" y1="12" x2="19" y2="12" />
+          <polyline points="12 5 19 12 12 19" />
+        </svg>
+      </span>
+      {inFlight && job.progress.fetched > 0 && (
+        <span className="absolute right-3 bottom-1 text-[10px] text-muted-foreground hidden">
+          {job.progress.fetched} fetched
+        </span>
+      )}
+    </Link>
   );
 }
 

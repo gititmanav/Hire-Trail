@@ -1,7 +1,7 @@
 /** Public privacy policy. Linked from auth pages + sidebar footer; required for Google OAuth verification. */
 import { Link } from "react-router-dom";
 
-const LAST_UPDATED = "May 16, 2026";
+const LAST_UPDATED = "May 27, 2026";
 const CONTACT_EMAIL = "kaneria.ma@northeastern.edu";
 
 export default function Privacy() {
@@ -88,8 +88,81 @@ export default function Privacy() {
             </ul>
           </section>
 
+          <section id="subprocessors">
+            <h2 className="text-xl font-semibold mb-2">5. Subprocessors</h2>
+            <p className="mb-3">
+              The complete list of subprocessors that may process your personal data on our behalf. We update this list before adding a new subprocessor.
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border border-border rounded-lg">
+                <thead className="bg-muted/50">
+                  <tr className="text-left">
+                    <th className="px-3 py-2 font-semibold">Subprocessor</th>
+                    <th className="px-3 py-2 font-semibold">Purpose</th>
+                    <th className="px-3 py-2 font-semibold">Data location</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  <tr>
+                    <td className="px-3 py-2 font-medium">MongoDB Atlas</td>
+                    <td className="px-3 py-2">Primary database (account, applications, resumes metadata, encrypted tokens).</td>
+                    <td className="px-3 py-2">United States</td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2 font-medium">Cloudinary</td>
+                    <td className="px-3 py-2">Storage and delivery of uploaded resume files and company logos.</td>
+                    <td className="px-3 py-2">United States</td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2 font-medium">Vercel</td>
+                    <td className="px-3 py-2">Web application hosting and TLS termination.</td>
+                    <td className="px-3 py-2">United States (global edge)</td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2 font-medium">Google LLC</td>
+                    <td className="px-3 py-2">Google OAuth sign-in and Gmail read-only API for inbox scanning.</td>
+                    <td className="px-3 py-2">United States</td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2 font-medium">Microsoft Corporation</td>
+                    <td className="px-3 py-2">Outlook OAuth and Microsoft Graph mail API (when you connect Outlook).</td>
+                    <td className="px-3 py-2">United States</td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2 font-medium">Anthropic, PBC</td>
+                    <td className="px-3 py-2">Claude models for resume parsing, JD matching, and email classification (when invoked).</td>
+                    <td className="px-3 py-2">United States</td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2 font-medium">OpenAI, OpCo, LLC</td>
+                    <td className="px-3 py-2">GPT models for resume parsing, JD matching, and email classification (when invoked).</td>
+                    <td className="px-3 py-2">United States</td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2 font-medium">Google AI (Gemini)</td>
+                    <td className="px-3 py-2">Gemini models for resume parsing, JD matching, and email classification (when invoked).</td>
+                    <td className="px-3 py-2">United States</td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2 font-medium">OpenRouter</td>
+                    <td className="px-3 py-2">Model gateway for additional AI providers (only when explicitly selected).</td>
+                    <td className="px-3 py-2">United States</td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2 font-medium">Resend</td>
+                    <td className="px-3 py-2">Transactional email delivery (account verification, security alerts, broadcasts).</td>
+                    <td className="px-3 py-2">United States</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-3 text-sm text-muted-foreground">
+              AI subprocessors are only invoked when you trigger an AI feature (Tailor, resume parse, email scan). If you provide your own API key for a provider, requests for that feature are sent under your own account with that vendor and billed to you.
+            </p>
+          </section>
+
           <section>
-            <h2 className="text-xl font-semibold mb-2">5. Storage and security</h2>
+            <h2 className="text-xl font-semibold mb-2">6. Storage and security</h2>
             <ul className="list-disc pl-6 space-y-1.5">
               <li>Passwords are hashed with bcrypt; we never store or transmit plain-text passwords.</li>
               <li>OAuth refresh tokens and BYOK API keys are encrypted at rest with AES-256-GCM before being written to the database.</li>
@@ -99,17 +172,18 @@ export default function Privacy() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold mb-2">6. Data retention</h2>
+            <h2 className="text-xl font-semibold mb-2">7. Data retention</h2>
             <p>
               We retain your data for as long as your account is active. You can delete individual records (applications, resumes,
               contacts, etc.) at any time from inside the app. You can disconnect Gmail / Outlook from the Settings page, which
-              revokes our access and deletes the stored refresh token. To delete your entire account, email us at the address
-              below; we will remove your account and associated data within 30 days.
+              revokes our access at the provider and deletes the stored refresh token. To delete your entire account and all
+              associated data, use the &ldquo;Delete account&rdquo; button under Settings &rarr; Account; this is immediate and
+              irreversible, revokes any connected mailbox tokens, and removes your data from our database.
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold mb-2">7. Your rights</h2>
+            <h2 className="text-xl font-semibold mb-2">8. Your rights</h2>
             <p>
               Depending on where you live, you may have rights to access, correct, export, or delete the data we hold about you,
               and to object to or restrict certain processing. To exercise any of these rights, contact us at the email below.
@@ -117,12 +191,12 @@ export default function Privacy() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold mb-2">8. Children</h2>
+            <h2 className="text-xl font-semibold mb-2">9. Children</h2>
             <p>HireTrail is not directed to children under 13, and we do not knowingly collect personal information from them.</p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold mb-2">9. Changes to this policy</h2>
+            <h2 className="text-xl font-semibold mb-2">10. Changes to this policy</h2>
             <p>
               We will update the &ldquo;Last updated&rdquo; date above whenever this policy changes. Material changes will also be
               announced in-app the next time you sign in.
@@ -130,7 +204,7 @@ export default function Privacy() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold mb-2">10. Contact</h2>
+            <h2 className="text-xl font-semibold mb-2">11. Contact</h2>
             <p>
               Questions or requests about this policy? Email{" "}
               <a href={`mailto:${CONTACT_EMAIL}`} className="text-primary hover:underline">{CONTACT_EMAIL}</a>.

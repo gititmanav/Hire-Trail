@@ -8,11 +8,13 @@ import ProtectedRoute from "./components/ProtectedRoute/ProtectedRoute.tsx";
 import AdminLayout from "./components/AdminLayout/AdminLayout.tsx";
 import Privacy from "./pages/Legal/Privacy.tsx";
 import Terms from "./pages/Legal/Terms.tsx";
+import About from "./pages/Legal/About.tsx";
 import LandingPage from "./pages/Landing/LandingPage.tsx";
 import { BackgroundTasksProvider } from "./hooks/useBackgroundTasks.tsx";
 import { DemoGateProvider } from "./hooks/useDemoGate.tsx";
 import BackgroundTaskCenter from "./components/BackgroundTaskCenter/BackgroundTaskCenter.tsx";
 import GlobalShortcuts from "./components/GlobalShortcuts/GlobalShortcuts.tsx";
+import IdleWarningModal from "./components/IdleWarningModal/IdleWarningModal.tsx";
 // Code-split heavy / rarely-loaded routes. Keeps the initial chunk small —
 // Dashboard + Applications + the core auth shell are in the main chunk,
 // everything else loads on demand. Suspense fallback shares the existing
@@ -33,6 +35,7 @@ const loadImport    = () => import("./pages/ImportExport/ImportExport.tsx");
 const loadProfile   = () => import("./pages/Profile/Profile.tsx");
 const loadSettings  = () => import("./pages/Settings/Settings.tsx");
 const loadTailor    = () => import("./pages/Tailor/Tailor.tsx");
+const loadEmailScanReview = () => import("./pages/EmailScanReview/EmailScanReview.tsx");
 
 const Kanban       = lazy(loadKanban);
 const JobSearch    = lazy(loadJobSearch);
@@ -45,6 +48,7 @@ const ImportExport = lazy(loadImport);
 const Profile      = lazy(loadProfile);
 const Settings     = lazy(loadSettings);
 const Tailor       = lazy(loadTailor);
+const EmailScanReview = lazy(loadEmailScanReview);
 
 /** Warm the chunk cache for sidebar routes ~600ms after the first paint —
  *  late enough not to compete with the initial render, early enough that a
@@ -74,6 +78,7 @@ const SeedManagement      = lazy(() => import("./pages/Admin/SeedManagement.tsx"
 const MailboxManagement   = lazy(() => import("./pages/Admin/MailboxManagement.tsx"));
 const NotificationCenter  = lazy(() => import("./pages/Admin/NotificationCenter.tsx"));
 const FeedbackInbox       = lazy(() => import("./pages/Admin/FeedbackInbox.tsx"));
+const BugReports          = lazy(() => import("./pages/Admin/BugReports.tsx"));
 const Broadcasts          = lazy(() => import("./pages/Admin/Broadcasts.tsx"));
 import { authAPI } from "./utils/api.ts";
 import { useTheme } from "./hooks/useTheme.ts";
@@ -147,9 +152,12 @@ function App() {
           <Route path="/register" element={user ? <Navigate to={user.role === "admin" ? "/admin" : "/"} replace /> : <Navigate to="/?auth=register" replace />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/terms" element={<Terms />} />
+          <Route path="/about" element={<About />} />
 
-          {/* Admin panel — own layout, own sidebar */}
-          <Route element={<ProtectedRoute user={user}>{user?.role === "admin" ? <AdminLayout user={user!} onLogout={async () => {
+          {/* Admin panel — own layout, own sidebar. Demo user is explicitly
+              blocked here even if a future seeding bug grants admin role —
+              defence-in-depth for "no admin surface for the demo persona". */}
+          <Route element={<ProtectedRoute user={user}>{user?.role === "admin" && user?.email !== "demo@hiretrail.com" ? <AdminLayout user={user!} onLogout={async () => {
             setAuthActionLoading(true);
             try { await authAPI.logout(); } catch { } finally { setUser(null); setAuthActionLoading(false); }
           }} /> : <Navigate to="/" replace />}</ProtectedRoute>}>
@@ -168,6 +176,7 @@ function App() {
             <Route path="/admin/gmail" element={<MailboxManagement />} />
             <Route path="/admin/notifications" element={<NotificationCenter />} />
             <Route path="/admin/feedback" element={<FeedbackInbox />} />
+            <Route path="/admin/bugs" element={<BugReports />} />
             <Route path="/admin/broadcasts" element={<Broadcasts />} />
             <Route path="/admin/calendar" element={<CalendarPage />} />
           </Route>
@@ -189,6 +198,7 @@ function App() {
             <Route path="/import-export" element={<FeatureRoute flag="feature_csv_import_export"><ImportExport /></FeatureRoute>} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/settings/email-review" element={<EmailScanReview />} />
             <Route path="/tailor" element={<Tailor />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
@@ -206,6 +216,8 @@ function App() {
         {/* App-wide keyboard shortcuts. Only mounted for authenticated users — */}
         {/* anon visitors on the landing page don't need them. */}
         {user && <GlobalShortcuts />}
+        {/* Idle warning fires after 60 minutes of no input — soft, non-blocking. */}
+        {user && <IdleWarningModal />}
       </BackgroundTasksProvider>
       </JobSearchContext.Provider>
       </FeatureFlagsProvider>

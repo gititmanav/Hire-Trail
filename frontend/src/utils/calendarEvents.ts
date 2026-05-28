@@ -85,11 +85,27 @@ function currentStageEntry(app: Application): { stage: Stage; date: string } | n
   return app.stageHistory[app.stageHistory.length - 1];
 }
 
+/** The calendar surface is forward-looking: drop apps that are archived or in
+ *  a terminal stage (Offer / Rejected), and drop deadlines that are already
+ *  completed. These items live elsewhere in the product — putting them here
+ *  just clutters the day grid. */
+function isCalendarRelevantApp(app: Application): boolean {
+  if (app.archived) return false;
+  if (app.stage === "Offer" || app.stage === "Rejected") return false;
+  return true;
+}
+
+function isCalendarRelevantDeadline(d: Deadline): boolean {
+  return !d.completed;
+}
+
 export function buildCalendarEvents({ applications, deadlines }: BuildCalendarEventsParams): EventInput[] {
   const events: EventInput[] = [];
-  const appById = new Map(applications.map((a) => [idKey(a._id), a]));
+  const relevantApps = applications.filter(isCalendarRelevantApp);
+  const relevantDeadlines = deadlines.filter(isCalendarRelevantDeadline);
+  const appById = new Map(relevantApps.map((a) => [idKey(a._id), a]));
 
-  for (const app of applications) {
+  for (const app of relevantApps) {
     events.push({
       id: `app-submitted-${app._id}`,
       title: `Applied · ${app.company} — ${app.role}`,
@@ -135,7 +151,7 @@ export function buildCalendarEvents({ applications, deadlines }: BuildCalendarEv
     }
   }
 
-  for (const deadline of deadlines) {
+  for (const deadline of relevantDeadlines) {
     const day = dueDateToIsoDay(deadline.dueDate);
     if (!day) continue;
     const { backgroundColor, borderColor } = deadlineChipColors(deadline);

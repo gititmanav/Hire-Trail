@@ -40,6 +40,7 @@ export default function Footer() {
             <li><a href="#features" className="text-slate-300 hover:text-white">Features</a></li>
             <li><a href="#compare" className="text-slate-300 hover:text-white">Compare</a></li>
             <li><a href="#faq" className="text-slate-300 hover:text-white">FAQ</a></li>
+            <li><Link to="/about" className="text-slate-300 hover:text-white">About</Link></li>
           </ul>
         </div>
         <div>

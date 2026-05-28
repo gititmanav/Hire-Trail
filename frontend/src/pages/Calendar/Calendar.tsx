@@ -93,9 +93,13 @@ export default function CalendarPage() {
     setLoading(true);
     setError(null);
     try {
+      // Calendar is a forward-looking surface — only active applications and
+      // open deadlines. Archived / terminal-state apps and completed deadlines
+      // live in the Applications list and Deadlines page; they don't belong on
+      // the calendar.
       const [apps, allDls] = await Promise.all([
-        applicationsAPI.getAll({ limit: 1000, archived: "all" }),
-        deadlinesAPI.getAllAggregated({ status: "all" }),
+        applicationsAPI.getAll({ limit: 1000, archived: "false" }),
+        deadlinesAPI.getAllAggregated({ status: "active" }),
       ]);
       const appList = apps.data as Application[];
       setApplications(appList);
@@ -188,13 +192,25 @@ export default function CalendarPage() {
     const newDate = format(start, "yyyy-MM-dd");
 
     if (factor === "deadline_application" || factor === "deadline_general") {
-      if (r?.completed) { toast.error("Completed deadlines can't be moved."); return; }
+      if (r?.completed) {
+        toast.error("Completed deadlines can't be moved.");
+        // The visual position already shifted in react-big-calendar's local
+        // state — force a refetch + clear selection so the chip snaps back
+        // to where it actually lives in the DB.
+        setSelectedEvent(null);
+        await loadCalendarData();
+        return;
+      }
       try {
         await deadlinesAPI.update(id, { dueDate: newDate });
         toast.success("Deadline rescheduled");
         await loadCalendarData();
       } catch {
         toast.error("Could not update deadline");
+        // Same snap-back as above — any failure must restore the calendar to
+        // ground truth, otherwise the user sees a date that isn't real.
+        setSelectedEvent(null);
+        await loadCalendarData();
       }
       return;
     }
@@ -206,6 +222,8 @@ export default function CalendarPage() {
         await loadCalendarData();
       } catch {
         toast.error("Could not update application date");
+        setSelectedEvent(null);
+        await loadCalendarData();
       }
       return;
     }

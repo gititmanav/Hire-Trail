@@ -10,6 +10,7 @@ const adminNav = [
   { to: "/admin/mailbox", label: "Mailboxes", d: "M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" },
   { to: "/admin/notifications", label: "Notifications", d: "M15 17h5l-1.4-1.4A2 2 0 0118 14V8A6 6 0 006 8v6a2 2 0 01-.6 1.4L4 17h5m6 0a3 3 0 01-6 0m6 0H9" },
   { to: "/admin/feedback", label: "Feedback", d: "M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" },
+  { to: "/admin/bugs", label: "Bug Reports", d: "M12 2l4 4-1 1-3-3-3 3-1-1zM9 8h6a3 3 0 013 3v2H6v-2a3 3 0 013-3zM6 13h12v4a6 6 0 11-12 0v-4zM4 11h2M18 11h2M4 19h2M18 19h2" },
   { to: "/admin/storage", label: "Storage", d: "M4 7v10c0 2 1 3 3 3h10c2 0 3-1 3-3V7M1 4h22M10 11h4" },
   { to: "/admin/settings", label: "Settings", d: "M12 15a3 3 0 100-6 3 3 0 000 6zm7.4-1.8l1.6 1.2-2 3.4-1.8-.8a7 7 0 01-2 1.1L15 20h-4l-.2-1.9a7 7 0 01-2-1.1l-1.8.8-2-3.4 1.6-1.2a7 7 0 010-2.4l-1.6-1.2 2-3.4 1.8.8a7 7 0 012-1.1L11 4h4l.2 1.9a7 7 0 012 1.1l1.8-.8 2 3.4-1.6 1.2a7 7 0 010 2.4z" },
   { to: "/admin/announcements", label: "Announcements", d: "M15 17h5l-1.4-1.4A2 2 0 0118 14V8A6 6 0 006 8v6a2 2 0 01-.6 1.4L4 17h5m6 0a3 3 0 01-6 0m6 0H9" },
