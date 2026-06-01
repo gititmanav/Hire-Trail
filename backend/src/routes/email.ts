@@ -259,6 +259,62 @@ router.post("/first-scan", async (req: Request, res: Response, next: NextFunctio
   }
 });
 
+/** Kick off a manual "Scan now" for a returning user. Same async worker +
+ *  review queue as the backfill, but windowed to an absolute time range
+ *  (`afterEpochSec` → now) instead of a day-count. The client sends "1 AM today"
+ *  in the user's own timezone; we clamp it to a sane range server-side. No
+ *  consent re-prompt — the user already consented at first scan and the act of
+ *  clicking "Scan now" is an explicit, scoped read of recent mail. */
+router.post("/rescan", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = getUser(req);
+    const { afterEpochSec } = (req.body ?? {}) as { afterEpochSec?: number };
+
+    const dbUser = await User.findById(user._id);
+    if (!dbUser) throw new AppError("User not found.", 404);
+    if (!dbUser.gmailConnected || !dbUser.gmailRefreshToken) {
+      throw new AppError("Connect Gmail before scanning.", 400);
+    }
+
+    // Clamp the client-supplied lower bound: never in the future, never older
+    // than 7 days (a manual catch-up scan shouldn't silently turn into a deep
+    // backfill if the client clock is wrong).
+    const nowSec = Math.floor(Date.now() / 1000);
+    const minSec = nowSec - 7 * 24 * 60 * 60;
+    const requested = typeof afterEpochSec === "number" && Number.isFinite(afterEpochSec)
+      ? Math.floor(afterEpochSec)
+      : nowSec - 24 * 60 * 60; // sensible default: last 24h
+    const clampedAfter = Math.min(Math.max(requested, minSec), nowSec - 60);
+
+    // Reject if a non-terminal job is already pending — surface it instead of
+    // starting a duplicate.
+    const existing = await EmailScanJob.findOne({
+      userId: dbUser._id,
+      status: { $in: ["pending", "scanning", "filtering", "classifying"] },
+    });
+    if (existing) {
+      return res.status(202).json({ scanJobId: existing._id.toString(), status: existing.status });
+    }
+
+    const acceptedAt = new Date();
+    const consent = dbUser.gmailScanConsent ?? { acceptedAt, scopeAcknowledged: SCAN_CONSENT_SCOPE_V1 };
+
+    const job = await EmailScanJob.create({
+      userId: dbUser._id,
+      status: "pending",
+      kind: "manual",
+      windowDays: 1, // nominal — the actual window is afterEpochSec → now
+      afterEpochSec: clampedAfter,
+      consentSnapshot: { acceptedAt: consent.acceptedAt, scopeAcknowledged: consent.scopeAcknowledged, windowDays: 1 },
+    });
+
+    kickoffFirstScan(job._id.toString());
+    res.status(202).json({ scanJobId: job._id.toString(), status: "pending" });
+  } catch (err) {
+    next(err);
+  }
+});
+
 /** Latest non-completed scan job for this user — used by the frontend poller. */
 router.get("/scan-jobs/latest", async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -269,6 +325,7 @@ router.get("/scan-jobs/latest", async (req: Request, res: Response, next: NextFu
       job: {
         _id: job._id.toString(),
         status: job.status,
+        kind: job.kind ?? "backfill",
         windowDays: job.windowDays,
         progress: job.progress,
         counts: job.counts,
@@ -410,6 +467,10 @@ router.post("/scan-candidates/:id", async (req: Request, res: Response, next: Ne
         : candidate.earliestEmailDate;
 
       try {
+        // Imports are always visible on the active board by default. We don't
+        // auto-archive even Rejected imports any more: the original behaviour
+        // surprised users by silently making 3 of their 4 imports disappear
+        // from the Applications page. The user can archive any row manually.
         const app = await Application.create({
           userId: user._id,
           company,
@@ -423,10 +484,6 @@ router.post("/scan-candidates/:id", async (req: Request, res: Response, next: Ne
             threadId: candidate.threadId,
             importedAt: new Date(),
           },
-          // archive rejected imports so they stay out of the active board
-          ...(stage === "Rejected"
-            ? { archived: true, archivedAt: new Date(), archivedReason: "rejected" as const }
-            : {}),
         });
         candidate.status = "imported";
         candidate.importedApplicationId = app._id;
@@ -538,6 +595,30 @@ router.post("/scan-jobs/:id/skip-all", async (req: Request, res: Response, next:
       { $inc: { "counts.skipped": result.modifiedCount } },
     );
     res.json({ ok: true, skipped: result.modifiedCount });
+  } catch (err) { next(err); }
+});
+
+/** User explicitly abandoned the scan flow mid-way (closed the modal and
+ *  confirmed they want to drop results). Removes pending candidates so the
+ *  next opened flow starts fresh; imported / merged candidates stay because
+ *  they're already real Applications. The job itself becomes "completed" so
+ *  it doesn't re-trigger the picker. */
+router.post("/scan-jobs/:id/abandon", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = getUser(req);
+    const id = String(req.params.id ?? "");
+    if (!mongoose.Types.ObjectId.isValid(id)) throw new AppError("Invalid scan job id.", 400);
+
+    const job = await EmailScanJob.findOne({ _id: id, userId: user._id });
+    if (!job) throw new AppError("Scan job not found.", 404);
+
+    await EmailScanCandidate.deleteMany({ scanJobId: id, status: "pending" });
+    job.status = "completed";
+    job.finishedAt = new Date();
+    job.error = "Abandoned by user";
+    await job.save();
+
+    res.json({ ok: true });
   } catch (err) { next(err); }
 });
 

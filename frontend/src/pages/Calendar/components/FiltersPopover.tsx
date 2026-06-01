@@ -1,5 +1,6 @@
 /** Toolbar-anchored popover housing Show / Company / Stage filters. */
 import { useEffect, useRef, useState } from "react";
+import { ChevronDown, Filter } from "lucide-react";
 import ActionDropdown from "../../../components/ActionDropdown/ActionDropdown.tsx";
 import { STAGES, STAGE_CALENDAR_HEX } from "../../../utils/stageStyles.ts";
 import type { CalendarFactor } from "../../../utils/calendarEvents.ts";
@@ -68,9 +69,7 @@ export function FiltersPopover(props: Props) {
         aria-expanded={open}
         title="Filters"
       >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
-        </svg>
+        <Filter size={14} strokeWidth={2} />
         <span>Filters</span>
         {modifiedCount > 0 && <span className="cal-toolbar__filters-badge">{modifiedCount}</span>}
       </button>
@@ -114,7 +113,7 @@ export function FiltersPopover(props: Props) {
               trigger={
                 <button type="button" className="cal-filters__select cal-filters__select--trigger">
                   <span className="truncate">{companyFilter || "All companies"}</span>
-                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><polyline points="4,6 8,10 12,6" /></svg>
+                  <ChevronDown size={12} strokeWidth={1.6} />
                 </button>
               }
               items={[

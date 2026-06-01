@@ -39,6 +39,11 @@ export type ArchiveReason = (typeof ARCHIVE_REASONS)[number];
 export const APPLICATION_SOURCES = ["manual", "extension", "email"] as const;
 export type ApplicationSource = (typeof APPLICATION_SOURCES)[number];
 
+/** Status of the on-create AI pass that extracts structured fields and cleans
+ *  the (often page-dump) job description. "idle" = never ran / not applicable. */
+export const AI_EXTRACTION_STATUSES = ["idle", "processing", "done", "failed"] as const;
+export type AiExtractionStatus = (typeof AI_EXTRACTION_STATUSES)[number];
+
 export type Stage = (typeof STAGES)[number];
 
 interface StageEntry {
@@ -72,6 +77,9 @@ export interface IApplication extends Document {
   archivedAt: Date | null;
   archivedReason: ArchiveReason | null;
   source: ApplicationSource;
+  /** Lifecycle of the on-create AI field-extraction + JD-cleaning pass. Drives
+   *  the "AI is reading this posting…" indicator on the application row. */
+  aiExtractionStatus: AiExtractionStatus;
   /** Set when this application was created via Gmail inbox backfill.
    *  Drives the "From email" chip in the UI and lets us trace back to the
    *  scan job + candidate that produced it. */
@@ -202,6 +210,11 @@ const applicationSchema = new Schema<IApplication>(
       enum: APPLICATION_SOURCES,
       default: "manual",
       index: true,
+    },
+    aiExtractionStatus: {
+      type: String,
+      enum: AI_EXTRACTION_STATUSES,
+      default: "idle",
     },
     emailImport: {
       type: new Schema(

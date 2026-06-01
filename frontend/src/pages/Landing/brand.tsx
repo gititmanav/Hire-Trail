@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
+import { ArrowRight } from "lucide-react";
 
 /* ─────────────────────────── brand + CTAs ─────────────────────────── */
 
@@ -27,7 +28,7 @@ export function PrimaryCTA({ to, onClick, children, size = "lg", shape = "rounde
     <>
       <span aria-hidden className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent group-hover:translate-x-full transition-transform duration-700 ease-out" />
       <span className="relative">{children}</span>
-      <svg className="relative transition-transform group-hover:translate-x-0.5" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      <ArrowRight className="relative transition-transform group-hover:translate-x-0.5" size={14} strokeWidth={2.5} />
     </>
   );
   if (onClick) return <button type="button" onClick={onClick} className={cls}>{inner}</button>;

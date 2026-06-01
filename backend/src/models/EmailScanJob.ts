@@ -27,6 +27,12 @@ export type ScanJobStatus = (typeof SCAN_JOB_STATUSES)[number];
 export const SCAN_WINDOW_DAYS = [5, 10, 15] as const;
 export type ScanWindowDays = (typeof SCAN_WINDOW_DAYS)[number];
 
+/** "backfill" = the one-time first-scan over a 5/10/15-day window.
+ *  "manual"  = a returning user's "Scan now", scoped to an absolute time range
+ *  (afterEpochSec → now) instead of a day-window. Both run the same worker. */
+export const SCAN_JOB_KINDS = ["backfill", "manual"] as const;
+export type ScanJobKind = (typeof SCAN_JOB_KINDS)[number];
+
 interface ScanProgress {
   /** Gmail messages returned by the optimized q: search (pre-filter pool). */
   fetched: number;
@@ -61,7 +67,11 @@ export interface IEmailScanJob extends Document {
   _id: Types.ObjectId;
   userId: Types.ObjectId;
   status: ScanJobStatus;
+  kind: ScanJobKind;
   windowDays: number;
+  /** Absolute lower bound (Unix seconds) for the Gmail `after:` filter. Set for
+   *  manual scans ("since 1 AM today"); null for backfill (uses windowDays). */
+  afterEpochSec: number | null;
   progress: ScanProgress;
   counts: ScanCounts;
   error: string | null;
@@ -108,7 +118,9 @@ const emailScanJobSchema = new Schema<IEmailScanJob>(
   {
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
     status: { type: String, enum: SCAN_JOB_STATUSES, default: "pending", index: true },
+    kind: { type: String, enum: SCAN_JOB_KINDS, default: "backfill" },
     windowDays: { type: Number, required: true },
+    afterEpochSec: { type: Number, default: null },
     progress: { type: scanProgressSchema, default: () => ({}) },
     counts: { type: scanCountsSchema, default: () => ({}) },
     error: { type: String, default: null },

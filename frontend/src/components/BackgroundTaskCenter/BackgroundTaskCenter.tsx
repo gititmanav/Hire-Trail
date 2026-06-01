@@ -8,7 +8,9 @@
  * errors stick until acknowledged.
  */
 import { useEffect } from "react";
+import { X, Check, AlertCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import AiPulse from "../AiIndicator/AiPulse.tsx";
 import { useBackgroundTasks, type BackgroundTask, type StartTaskInput, type TaskStatus } from "../../hooks/useBackgroundTasks.tsx";
 import { buildEmailScanTask } from "../../utils/emailScanTask.ts";
 import "./BackgroundTaskCenter.css";
@@ -116,10 +118,7 @@ function TaskCard({
           aria-label="Dismiss"
           title="Dismiss"
         >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="6" y1="6" x2="18" y2="18" />
-            <line x1="18" y1="6" x2="6" y2="18" />
-          </svg>
+          <X size={12} strokeWidth={2} />
         </button>
       </div>
     </div>
@@ -127,28 +126,8 @@ function TaskCard({
 }
 
 function StatusGlyph({ status }: { status: TaskStatus }) {
-  if (status === "success") {
-    return (
-      <svg className="glyph-success" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <polyline points="5,12 10,17 19,7" />
-      </svg>
-    );
-  }
-  if (status === "error") {
-    return (
-      <svg className="glyph-error" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <circle cx="12" cy="12" r="9" />
-        <line x1="12" y1="8" x2="12" y2="13" />
-        <line x1="12" y1="16" x2="12" y2="16.01" />
-      </svg>
-    );
-  }
-  // Running — animated AI sparkle (reuses the star path from the sidebar's AI Tailor item)
-  return (
-    <span className="glyph-running">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <path d="M12 2l1.6 4.2L18 8l-4.4 1.8L12 14l-1.6-4.2L6 8l4.4-1.8L12 2zm6 11l1 2.5L21.5 16 19 17l-1 2.5L17 15l1-2z" />
-      </svg>
-    </span>
-  );
+  if (status === "success") return <Check className="glyph-success" size={20} strokeWidth={2.4} aria-hidden />;
+  if (status === "error") return <AlertCircle className="glyph-error" size={20} strokeWidth={2.2} aria-hidden />;
+  // Running — the shared AI pulse glyph (unified across all AI surfaces).
+  return <AiPulse size={22} />;
 }

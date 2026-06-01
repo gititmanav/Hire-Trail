@@ -8,6 +8,7 @@
  */
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { X, ArrowRight } from "lucide-react";
 import toast from "react-hot-toast";
 import { emailAPI } from "../../utils/api.ts";
 
@@ -102,10 +103,7 @@ export function EmailScanConsentModal({
               className="w-9 h-9 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted disabled:opacity-50 shrink-0"
               aria-label="Close"
             >
-              <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <line x1="4" y1="4" x2="12" y2="12" />
-                <line x1="12" y1="4" x2="4" y2="12" />
-              </svg>
+              <X size={16} strokeWidth={2} />
             </button>
           </div>
         </div>
@@ -210,10 +208,7 @@ export function EmailScanConsentModal({
           >
             {submitting ? "Starting…" : "Start scan"}
             {!submitting && (
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <line x1="5" y1="12" x2="19" y2="12" />
-                <polyline points="12 5 19 12 12 19" />
-              </svg>
+              <ArrowRight size={13} strokeWidth={2.5} aria-hidden="true" />
             )}
           </button>
         </div>

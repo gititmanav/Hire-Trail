@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { XCircle } from "lucide-react";
 
 interface Props {
   title?: string;
@@ -39,11 +40,7 @@ export default function ConfirmModal({
         <div className="flex items-center gap-3 mb-4">
           {danger && (
             <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="text-red-500">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="15" y1="9" x2="9" y2="15" />
-                <line x1="9" y1="9" x2="15" y2="15" />
-              </svg>
+              <XCircle size={20} strokeWidth={1.5} className="text-red-500" />
             </div>
           )}
           <div>

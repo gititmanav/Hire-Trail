@@ -89,6 +89,9 @@ export interface Application {
   outreachStatus: OutreachStatus;
   archived: boolean; archivedAt: string | null; archivedReason: ArchiveReason | null;
   source?: ApplicationSource;
+  /** Lifecycle of the on-create AI extraction + JD-cleaning pass. "processing"
+   *  drives the "AI is reading this posting…" indicator on the row. */
+  aiExtractionStatus?: "idle" | "processing" | "done" | "failed";
   /** Present when the app was created via the Gmail inbox-backfill scan.
    *  Drives the "From email" chip. */
   emailImport?: {

@@ -1,3 +1,4 @@
+import { Search } from "lucide-react";
 import { Reveal, GlowCard, GridTexture } from "./motion";
 import { StageChip } from "./brand";
 
@@ -7,7 +8,7 @@ function CommandPaletteMockup() {
   return (
     <div className="relative rounded-xl border border-gray-200 bg-white shadow-[0_20px_60px_-25px_rgba(15,23,42,0.3)] overflow-hidden">
       <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-200">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-400"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <Search size={14} strokeWidth={2} className="text-gray-400" />
         <input aria-label="Search" readOnly value="stri" className="flex-1 text-sm text-gray-900 bg-transparent outline-none" />
         <kbd className="text-[10px] font-mono text-gray-400 border border-gray-200 rounded px-1.5 py-0.5">esc</kbd>
       </div>

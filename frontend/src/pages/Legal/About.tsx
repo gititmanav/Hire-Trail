@@ -1,5 +1,6 @@
 /** Public About page — the story behind HireTrail, the builder, and the no-paywall promise. */
 import { Link } from "react-router-dom";
+import { Mail, ArrowRight } from "lucide-react";
 
 const CONTACT_EMAIL = "kaneria.ma@northeastern.edu";
 const GITHUB_URL = "https://github.com/gititmanav/Hire-Trail";
@@ -142,10 +143,7 @@ export default function About() {
                   href={`mailto:${CONTACT_EMAIL}`}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-muted text-[12.5px] font-medium"
                 >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M4 4h16a2 2 0 012 2v12a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2z" />
-                    <polyline points="22,6 12,13 2,6" />
-                  </svg>
+                  <Mail size={13} strokeWidth={2} aria-hidden="true" />
                   Email
                 </a>
               </div>
@@ -163,10 +161,7 @@ export default function About() {
               className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 text-sm font-semibold shadow-sm"
             >
               Create a free account
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <line x1="5" y1="12" x2="19" y2="12" />
-                <polyline points="12 5 19 12 12 19" />
-              </svg>
+              <ArrowRight size={13} strokeWidth={2.5} aria-hidden="true" />
             </Link>
             <Link
               to="/"

@@ -7,6 +7,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Search } from "lucide-react";
 import { applicationsAPI, companiesAPI, contactsAPI, deadlinesAPI } from "../../utils/api.ts";
 import type { Application, Company, Contact, Deadline } from "../../types";
 
@@ -180,10 +181,7 @@ export default function GlobalSearch() {
         title="Search applications, companies, contacts, deadlines"
         aria-label="Open global search"
       >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="11" cy="11" r="7" />
-          <line x1="21" y1="21" x2="16.65" y2="16.65" />
-        </svg>
+        <Search size={14} strokeWidth={1.8} />
         <span className="flex-1 text-left">Search…</span>
         <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground border border-border">
           {shortcutLabel}
@@ -198,10 +196,7 @@ export default function GlobalSearch() {
         title="Search"
         aria-label="Open search"
       >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="11" cy="11" r="7" />
-          <line x1="21" y1="21" x2="16.65" y2="16.65" />
-        </svg>
+        <Search size={18} strokeWidth={1.7} />
       </button>
 
       {open && (
@@ -221,10 +216,7 @@ export default function GlobalSearch() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-2 px-4 h-12 border-b border-border">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground">
-                <circle cx="11" cy="11" r="7" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
+              <Search size={16} strokeWidth={1.8} className="text-muted-foreground" />
               <input
                 ref={inputRef}
                 type="text"

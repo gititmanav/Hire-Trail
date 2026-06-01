@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useRef, useState, MouseEvent as ReactMouseEvent } from "react";
+import {
+  Download, X, ExternalLink
+} from "lucide-react";
 
 interface Props {
   fileUrl: string;
@@ -112,15 +115,15 @@ export default function ResumePreview({ fileUrl, name, fileName, onClose }: Prop
           <h2 className="text-[15px] font-semibold text-foreground truncate mr-3">{name}</h2>
           <div className="flex items-center gap-2 shrink-0">
             <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="btn-secondary !py-1.5 !px-3 !text-xs">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="mr-1.5"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15,3 21,3 21,9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              <ExternalLink size={14} strokeWidth={1.5} className="mr-1.5" />
               Open in new tab
             </a>
             <a href={fileUrl} download={fileName} className="btn-secondary !py-1.5 !px-3 !text-xs">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="mr-1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              <Download size={14} strokeWidth={1.5} className="mr-1.5" />
               Download
             </a>
             <button onClick={handleClose} className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted">
-              <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/></svg>
+              <X size={16} strokeWidth={2} />
             </button>
           </div>
         </div>

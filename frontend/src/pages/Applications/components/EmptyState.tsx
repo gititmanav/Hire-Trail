@@ -8,6 +8,8 @@
  * Inline SVG, no asset dependencies — survives a clean-room install.
  */
 
+import { Search, Plus, Puzzle, Upload } from "lucide-react";
+
 interface Props {
   mode: "welcome" | "filtered";
   onAddManually: () => void;
@@ -21,9 +23,7 @@ export default function EmptyState({ mode, onAddManually, onImport, onClearFilte
     return (
       <div className="card-premium card-no-lift p-10 text-center mt-4">
         <div className="mx-auto mb-4 w-12 h-12 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
-          <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
-            <circle cx="9" cy="9" r="6" /><line x1="14" y1="14" x2="19" y2="19" />
-          </svg>
+          <Search size={20} strokeWidth={1.8} aria-hidden />
         </div>
         <h3 className="text-base font-semibold text-foreground mb-1">No matches for these filters</h3>
         <p className="text-sm text-muted-foreground mb-4">Try clearing your search or stage filter.</p>
@@ -53,7 +53,7 @@ export default function EmptyState({ mode, onAddManually, onImport, onClearFilte
               onClick={onAddManually}
               className="btn-accent"
             >
-              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden><line x1="8" y1="3" x2="8" y2="13" /><line x1="3" y1="8" x2="13" y2="8" /></svg>
+              <Plus size={14} strokeWidth={2} aria-hidden />
               Add application
             </button>
             <a
@@ -62,7 +62,7 @@ export default function EmptyState({ mode, onAddManually, onImport, onClearFilte
               target={extensionUrl.startsWith("http") ? "_blank" : undefined}
               rel={extensionUrl.startsWith("http") ? "noopener noreferrer" : undefined}
             >
-              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden><path d="M12 2v6m0 0l-3-3m3 3l3-3" /><path d="M5 12v8a2 2 0 002 2h10a2 2 0 002-2v-8" /></svg>
+              <Puzzle size={14} strokeWidth={1.8} aria-hidden />
               Install extension
             </a>
             <button
@@ -70,7 +70,7 @@ export default function EmptyState({ mode, onAddManually, onImport, onClearFilte
               onClick={onImport}
               className="btn-secondary"
             >
-              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="17,8 12,3 7,8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
+              <Upload size={14} strokeWidth={1.8} aria-hidden />
               Import CSV
             </button>
           </div>

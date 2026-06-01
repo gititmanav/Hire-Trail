@@ -11,6 +11,9 @@
  * On <sm the right panel reflows below content as a footer strip.
  */
 import { memo, useMemo } from "react";
+import {
+  Pencil, Trash2, ExternalLink, Mail, MapPin, DollarSign, FileText, User as UserIcon, Clock,
+} from "lucide-react";
 import PipelinePulse from "./PipelinePulse.tsx";
 import AppFieldGrid from "./AppFieldGrid.tsx";
 import AppFitPanel from "./AppFitPanel.tsx";
@@ -44,6 +47,9 @@ interface Props {
   onResumeClick?: () => void;
   /** Opens the AI fit sidebar for the given session (or null if none yet). */
   onOpenFit?: (sessionId: string | null) => void;
+  /** Whether the signed-in user has finished setting up their master profile.
+   *  Threaded through to AppFitPanel so the empty-state copy is honest. */
+  hasMasterProfile?: boolean;
 }
 
 
@@ -78,6 +84,7 @@ function ApplicationRowImpl({
   app, company, resume, contact, deadlines,
   density, focused, selected, selectionActive, staggerIndex = -1,
   onOpen, onEdit, onDelete, onToggleSelect, onResumeClick, onOpenFit,
+  hasMasterProfile = true,
 }: Props) {
   // Cap stagger to first ~12 rows so a long list doesn't take seconds to materialize.
   const staggerDelay = staggerIndex >= 0 ? Math.min(staggerIndex, 11) * 25 : undefined;
@@ -182,7 +189,7 @@ function ApplicationRowImpl({
                   className="text-muted-foreground/60 hover:text-foreground shrink-0"
                   aria-label="Open job posting"
                 >
-                  <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M9 6.5v3a1 1 0 01-1 1H3a1 1 0 01-1-1V4.5a1 1 0 011-1h3"/><polyline points="7,1.5 10.5,1.5 10.5,5"/><line x1="5.5" y1="6.5" x2="10.5" y2="1.5"/></svg>
+                  <ExternalLink size={12} strokeWidth={1.5} />
                 </a>
               )}
               {app.emailImport ? (
@@ -190,10 +197,7 @@ function ApplicationRowImpl({
                   className="shrink-0 inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
                   title="Imported from a Gmail inbox-scan candidate"
                 >
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M4 4h16a2 2 0 012 2v12a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2z" />
-                    <polyline points="22,6 12,13 2,6" />
-                  </svg>
+                  <Mail size={10} strokeWidth={2} aria-hidden />
                   From email
                 </span>
               ) : app.source && app.source !== "manual" && (
@@ -226,13 +230,13 @@ function ApplicationRowImpl({
           <div className="flex flex-wrap items-center gap-1.5 min-w-0">
             {app.location && (
               <Chip title={app.location}>
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                <MapPin size={10} strokeWidth={2} aria-hidden />
                 <span className="truncate">{app.location}</span>
               </Chip>
             )}
             {app.salary && (
               <Chip title={app.salary}>
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 100 7h5a3.5 3.5 0 110 7H6"/></svg>
+                <DollarSign size={10} strokeWidth={2} aria-hidden />
                 <span className="truncate">{app.salary}</span>
               </Chip>
             )}
@@ -245,14 +249,14 @@ function ApplicationRowImpl({
                   className="inline-flex items-center gap-1 truncate"
                   aria-label={`View resume ${resume.name}`}
                 >
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9l-7-7z"/><path d="M13 2v7h7"/></svg>
+                  <FileText size={10} strokeWidth={1.5} aria-hidden />
                   <span className="truncate">{resume.name}</span>
                 </button>
               </Chip>
             )}
             {contact && (
               <Chip title={`Contact: ${contact.name}`} tone="info">
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                <UserIcon size={10} strokeWidth={1.5} aria-hidden />
                 <span className="truncate">{contact.name}</span>
               </Chip>
             )}
@@ -261,7 +265,7 @@ function ApplicationRowImpl({
                 title={`${upcomingDeadline.type} in ${upcomingDeadline.dueIn} day${upcomingDeadline.dueIn === 1 ? "" : "s"}`}
                 tone={upcomingDeadline.dueIn <= 3 ? "warn" : "info"}
               >
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
+                <Clock size={10} strokeWidth={1.5} aria-hidden />
                 <span className="truncate">
                   {upcomingDeadline.type} · {upcomingDeadline.dueIn <= 0 ? "today" : `${upcomingDeadline.dueIn}d`}
                 </span>
@@ -286,7 +290,7 @@ function ApplicationRowImpl({
           title="Edit"
           aria-label="Edit application"
         >
-          <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden><path d="M8.5 2.5l3 3L4.5 12.5H1.5v-3z"/></svg>
+          <Pencil size={13} strokeWidth={1.6} />
         </button>
         <button
           onClick={(e) => { e.stopPropagation(); onDelete(); }}
@@ -294,13 +298,19 @@ function ApplicationRowImpl({
           title="Delete"
           aria-label="Delete application"
         >
-          <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden><polyline points="2,4 12,4"/><path d="M5 4V2.5a.5.5 0 01.5-.5h3a.5.5 0 01.5.5V4"/><path d="M3 4l.75 8.5a1 1 0 001 .5h4.5a1 1 0 001-.5L11 4"/></svg>
+          <Trash2 size={13} strokeWidth={1.6} aria-hidden />
         </button>
       </div>
 
       {/* Right: Pipeline Pulse */}
       <PipelinePulse app={app} health={health} action={action} onOpen={onOpen} />
-      <AppFitPanel fit={app.fit} onOpen={(sid) => onOpenFit?.(sid)} />
+      <AppFitPanel
+        fit={app.fit}
+        onOpen={(sid) => onOpenFit?.(sid)}
+        hasMasterProfile={hasMasterProfile}
+        hasJobDescription={!!app.jobDescription?.trim()}
+        extracting={app.aiExtractionStatus === "processing"}
+      />
     </div>
   );
 }

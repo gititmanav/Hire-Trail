@@ -2,6 +2,8 @@
  *  accept/reject each, then generate a tailored PDF (export in next iteration). */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { ChevronDown, FileText, UserCheck, Gauge, ListChecks } from "lucide-react";
+import AiStepper from "../../components/AiIndicator/AiStepper.tsx";
 import toast from "react-hot-toast";
 import { tailorAPI, applicationsAPI, authAPI, resumesAPI } from "../../utils/api.ts";
 import type { TailorSession, TailorSuggestion, TailorDecision } from "../../utils/api.ts";
@@ -82,8 +84,12 @@ export default function Tailor() {
   // Restore the last session from localStorage when landing on /tailor with no
   // ?session= param — so navigating away and coming back doesn't drop you into a
   // blank input form. Cleared only by an explicit "Analyze another" click.
+  // Skipped when ?applicationId= is present — that means the user came from a
+  // specific application's sidebar and wants a fresh analysis for THAT app,
+  // not the last unrelated session.
   useEffect(() => {
     if (sessionId) return;
+    if (params.get("applicationId")) return;
     try {
       const last = localStorage.getItem(LAST_SESSION_STORAGE_KEY);
       if (last) setParams({ session: last }, { replace: true });
@@ -91,6 +97,32 @@ export default function Tailor() {
     // setParams is stable; intentionally only re-runs when sessionId flips to null.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
+
+  // Prefill from ?applicationId=... when arriving from the application detail
+  // sidebar's "Run analysis" link. We hydrate jobDescription/company/role/url
+  // from the application so the user lands in front of a populated form
+  // instead of being asked to paste the JD they already had on the app.
+  // No-ops when a ?session=... is also present (session loader below wins).
+  const applicationIdParam = params.get("applicationId");
+  useEffect(() => {
+    if (sessionId || !applicationIdParam) return;
+    applicationsAPI.getOne(applicationIdParam)
+      .then((app) => {
+        if (app.jobDescription?.trim()) setJd(app.jobDescription);
+        if (app.role) setTitle(app.role);
+        if (app.company) setCompany(app.company);
+        if (app.jobUrl) setUrl(app.jobUrl);
+        setLinkedApp(app);
+      })
+      .catch(() => {
+        // Best-effort prefill — fall back to query-param company/role.
+        const c = params.get("company");
+        const r = params.get("role");
+        if (c) setCompany(c);
+        if (r) setTitle(r);
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [applicationIdParam, sessionId]);
 
   // Load existing session if ?session=... was supplied (e.g. from the extension or sidebar history).
   useEffect(() => {
@@ -357,22 +389,7 @@ export default function Tailor() {
 
   /* ---------- processing / failed states ---------- */
   if (session && session.status === "processing") {
-    return (
-      <div className="max-w-2xl mx-auto pt-16 text-center">
-        <div className="inline-flex w-14 h-14 items-center justify-center rounded-2xl bg-primary/10 text-primary mb-5">
-          <svg className="animate-spin" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-          </svg>
-        </div>
-        <h1 className="text-xl font-semibold text-foreground mb-2">Analyzing your job description…</h1>
-        <p className="text-sm text-muted-foreground">
-          {session.jobTitle || session.company
-            ? <>For {session.jobTitle ? <strong>{session.jobTitle}</strong> : null}{session.jobTitle && session.company ? " at " : ""}{session.company ? <strong>{session.company}</strong> : null}.</>
-            : null}
-          {" "}This usually takes 10&ndash;30 seconds. Feel free to navigate elsewhere — we'll keep working in the background and pop a notification when it's ready.
-        </p>
-      </div>
-    );
+    return <AnalyzingScreen jobTitle={session.jobTitle} company={session.company} />;
   }
 
   if (session && session.status === "failed") {
@@ -678,9 +695,7 @@ function RecentSessionsDropdown({
         title="Recent tailor sessions"
       >
         Recent
-        <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" className={`transition-transform ${open ? "rotate-180" : ""}`}>
-          <polyline points="4,6 8,10 12,6" />
-        </svg>
+        <ChevronDown size={10} strokeWidth={1.8} className={`transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
         <div className="absolute left-0 top-full mt-1 w-[320px] max-w-[calc(100vw-32px)] bg-card border border-border rounded-lg shadow-lg z-40 overflow-hidden">
@@ -842,5 +857,45 @@ function ChoiceRow({
         </div>
       </div>
     </button>
+  );
+}
+
+/* Full-screen "analyzing" state. A single tailor analysis is one LLM call with
+ * no backend sub-phases, so we advance an approximate phased stepper on an
+ * elapsed-time timer and hold on the final phase until the result lands (the
+ * parent swaps to the results view once status flips to "succeeded"). */
+const ANALYZE_PHASES = [
+  { key: "read", label: "Reading the posting", icon: FileText },
+  { key: "match", label: "Matching your profile", icon: UserCheck },
+  { key: "score", label: "Scoring your fit", icon: Gauge },
+  { key: "suggest", label: "Writing suggestions", icon: ListChecks },
+];
+
+function AnalyzingScreen({ jobTitle, company }: { jobTitle?: string; company?: string }) {
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  useEffect(() => {
+    // ~6s per phase, but never auto-advance past the last phase — that one
+    // holds until the real result arrives and the parent unmounts this screen.
+    const last = ANALYZE_PHASES.length - 1;
+    const id = window.setInterval(() => {
+      setActiveIndex((i) => (i < last ? i + 1 : i));
+    }, 6000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  return (
+    <div className="max-w-2xl mx-auto pt-16">
+      <div className="text-center mb-8">
+        <h1 className="text-xl font-semibold text-foreground mb-2">Analyzing your job description…</h1>
+        <p className="text-sm text-muted-foreground">
+          {jobTitle || company
+            ? <>For {jobTitle ? <strong>{jobTitle}</strong> : null}{jobTitle && company ? " at " : ""}{company ? <strong>{company}</strong> : null}.{" "}</>
+            : null}
+          This usually takes 10&ndash;30 seconds. Feel free to navigate elsewhere — we'll keep working in the background and notify you when it's ready.
+        </p>
+      </div>
+      <AiStepper steps={ANALYZE_PHASES} activeIndex={activeIndex} />
+    </div>
   );
 }

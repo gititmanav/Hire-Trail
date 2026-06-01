@@ -2,6 +2,9 @@
  * Companies page: card grid with company details, links, and application sidebar.
  */
 import { useState, useEffect, useCallback, useRef, type ReactNode } from "react";
+import {
+  FileText, X, ChevronRight
+} from "lucide-react";
 import toast from "react-hot-toast";
 import { applicationsAPI, companiesAPI, resumesAPI, contactsAPI, deadlinesAPI } from "../../utils/api.ts";
 import { SkeletonTable } from "../../components/Skeleton/Skeleton.tsx";
@@ -75,7 +78,7 @@ function AppDetailSidebar({ app, resumes, contacts, deadlines, onClose, onStageC
       <div className="sticky top-0 bg-card border-b border-border px-6 py-4 flex items-center justify-between shrink-0">
         <h2 className="text-lg font-semibold text-foreground truncate">{app.role}</h2>
         <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground">
-          <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="3" x2="11" y2="11"/><line x1="11" y1="3" x2="3" y2="11"/></svg>
+          <X size={14} strokeWidth={2} />
         </button>
       </div>
       <div className="p-6 space-y-5 overflow-y-auto flex-1">
@@ -105,7 +108,7 @@ function AppDetailSidebar({ app, resumes, contacts, deadlines, onClose, onStageC
           <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Resume</label>
           {resume ? (
             <button onClick={() => onViewResume(resume)} className="text-sm text-muted-foreground hover:text-foreground hover:underline flex items-center gap-1">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9l-7-7z"/><path d="M13 2v7h7"/></svg>
+              <FileText size={14} strokeWidth={1.5} />
               {resume.name}
             </button>
           ) : <p className="text-sm text-muted-foreground">None</p>}
@@ -186,7 +189,7 @@ function CompanyAppsSidebar({ company, onClose, onSelectApp }: {
       <div className="sticky top-0 bg-card border-b border-border px-6 py-4 flex items-center justify-between shrink-0">
         <h2 className="text-lg font-semibold text-foreground truncate">{company.name} — Applications</h2>
         <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground">
-          <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="3" x2="11" y2="11"/><line x1="11" y1="3" x2="3" y2="11"/></svg>
+          <X size={14} strokeWidth={2} />
         </button>
       </div>
       <div className="p-6 overflow-y-auto flex-1">
@@ -490,7 +493,7 @@ export default function Companies() {
                     </span>
                     <button onClick={() => setSidebarCompany(c)} className="text-xs text-muted-foreground hover:text-foreground hover:underline flex items-center gap-1">
                       View apps
-                      <svg width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 1l5 4-5 4"/></svg>
+                      <ChevronRight size={10} strokeWidth={2} />
                     </button>
                   </div>
                 </div>

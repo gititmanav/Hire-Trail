@@ -5,6 +5,7 @@
  * passes companyId="" and the backend will find-or-create on save.
  */
 import { useEffect, useRef, useState } from "react";
+import { Plus } from "lucide-react";
 import { companiesAPI } from "../../utils/api.ts";
 import type { Company } from "../../types";
 
@@ -113,7 +114,7 @@ export default function CompanyCombobox({
               }}
               className="w-full text-left px-3 py-2 text-sm text-primary hover:bg-muted border-t border-border flex items-center gap-1.5"
             >
-              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="8" y1="3" x2="8" y2="13" /><line x1="3" y1="8" x2="13" y2="8" /></svg>
+              <Plus size={12} strokeWidth={2} />
               Create "{name.trim()}"
             </button>
           )}

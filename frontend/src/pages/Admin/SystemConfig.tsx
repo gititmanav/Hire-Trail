@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { Wrench } from "lucide-react";
 import toast from "react-hot-toast";
 import { adminAPI } from "../../utils/api";
 import type { SystemSetting } from "../../types";
@@ -185,9 +186,7 @@ export default function SystemConfig() {
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-start gap-3">
               <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${maintenanceSetting.value ? "bg-red-500/15 text-red-600 dark:text-red-400" : "bg-muted text-muted-foreground"}`}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z" />
-                </svg>
+                <Wrench width={20} height={20} strokeWidth={2} />
               </div>
               <div>
                 <h2 className={`text-lg font-semibold ${maintenanceSetting.value ? "text-red-700 dark:text-red-300" : "text-foreground"}`}>Maintenance mode</h2>

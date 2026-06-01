@@ -1,6 +1,7 @@
 import { useState, useEffect, useContext, useCallback, useMemo, lazy, Suspense } from "react";
 import { Responsive, WidthProvider } from "react-grid-layout";
 import { Link } from "react-router-dom";
+import { ChevronDown, Plus, Bookmark, Info, Lock, Unlock, LayoutGrid } from "lucide-react";
 import toast from "react-hot-toast";
 import { UserContext } from "../../App.tsx";
 import type { EventInput } from "@fullcalendar/core";
@@ -204,7 +205,7 @@ export default function Dashboard() {
       {showOnboarding && !locked && (
         <div className="fixed top-24 left-1/2 -translate-x-1/2 z-50 bg-foreground text-background px-5 py-3 rounded-xl shadow-xl text-sm font-medium animate-in" style={{ animation: "fadeSlideUp 0.4s ease-out, fadeSlideUp 0.4s ease-out 3s reverse forwards" }}>
           <div className="flex items-center gap-2">
-            <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="text-primary"><path d="M14 2H6a2 2 0 00-2 2v16l5-3 5 3V4a2 2 0 00-2-2z"/></svg>
+            <Bookmark size={18} strokeWidth={1.5} className="text-primary" />
             Tip: You can drag and resize these widgets!
           </div>
         </div>
@@ -213,7 +214,7 @@ export default function Dashboard() {
       {staleApps.length > 0 && !staleBannerDismissed && (
         <div className="mb-4 flex items-center justify-between gap-4 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/30 px-5 py-3 text-sm text-amber-800 dark:text-amber-200">
           <div className="flex items-center gap-2">
-            <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="shrink-0"><circle cx="9" cy="9" r="8"/><line x1="9" y1="5" x2="9" y2="9"/><line x1="9" y1="12" x2="9" y2="12"/></svg>
+            <Info size={18} strokeWidth={1.5} className="shrink-0" />
             <span>You have {staleApps.length} application{staleApps.length > 1 ? "s" : ""} with no activity in 90+ days.</span>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -259,9 +260,7 @@ export default function Dashboard() {
               trigger={
                 <button className="btn-secondary h-9 min-w-[210px] justify-between">
                   <span className="truncate text-left">Company: {selectedCompany === "All" ? "All companies" : selectedCompany}</span>
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="shrink-0 text-muted-foreground">
-                    <polyline points="4,6 8,10 12,6" />
-                  </svg>
+                  <ChevronDown size={14} strokeWidth={1.5} className="shrink-0 text-muted-foreground" />
                 </button>
               }
               items={[
@@ -283,9 +282,7 @@ export default function Dashboard() {
               trigger={
                 <button className="btn-secondary h-9 min-w-[190px] justify-between">
                   <span className="truncate text-left">Stage: {selectedStage}</span>
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="shrink-0 text-muted-foreground">
-                    <polyline points="4,6 8,10 12,6" />
-                  </svg>
+                  <ChevronDown size={14} strokeWidth={1.5} className="shrink-0 text-muted-foreground" />
                 </button>
               }
               items={[
@@ -305,16 +302,14 @@ export default function Dashboard() {
         </div>
         <div className="flex items-center gap-2">
           <button data-tour="lock-btn" onClick={toggleLock} className={`btn-secondary !px-2.5 ${locked ? "!border-primary !text-primary dark:!text-primary" : ""}`} title={locked ? "Unlock dashboard" : "Lock dashboard"}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-              {locked ? (<><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></>) : (<><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 019.9-1"/></>)}
-            </svg>
+            {locked ? <Lock size={16} strokeWidth={1.5} /> : <Unlock size={16} strokeWidth={1.5} />}
           </button>
           <button data-tour="widgets-btn" onClick={() => setPickerOpen(true)} className="btn-secondary">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            <LayoutGrid size={16} strokeWidth={1.5} />
             Widgets
           </button>
           <Link to="/applications" className="btn-accent">
-            <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg>New application
+            <Plus size={16} strokeWidth={2} />New application
           </Link>
         </div>
       </div>

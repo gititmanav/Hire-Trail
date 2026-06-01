@@ -189,9 +189,13 @@ export type ScanJobStatus =
   | "completed"
   | "failed";
 
+export type ScanJobKind = "backfill" | "manual";
+
 export interface ScanJob {
   _id: string;
   status: ScanJobStatus;
+  /** "backfill" = first-time 5/10/15-day scan; "manual" = a "Scan now" catch-up. */
+  kind?: ScanJobKind;
   windowDays: number;
   progress: { fetched: number; candidates: number; threadGroups: number; classified: number };
   counts: { totalCandidates: number; imported: number; skipped: number; merged: number; failed: number };
@@ -233,6 +237,13 @@ export const emailAPI = {
       windowDays,
       consent: true,
     }).then((r) => r.data),
+  /** Manual "Scan now" for a returning user. `afterEpochSec` is the lower bound
+   *  (Unix seconds) computed client-side as 1 AM of the user's current local
+   *  day. Runs the same async job + review queue as the backfill. */
+  startManualScan: (afterEpochSec: number) =>
+    api.post<{ scanJobId: string; status: ScanJobStatus }>("/email/rescan", {
+      afterEpochSec,
+    }).then((r) => r.data),
   getLatestScanJob: () =>
     api.get<{ job: ScanJob | null }>("/email/scan-jobs/latest").then((r) => r.data),
   getScanCandidates: (jobId: string) =>
@@ -265,6 +276,8 @@ export const emailAPI = {
     api.post<{ ok: true; skipped: number }>(`/email/scan-jobs/${jobId}/skip-all`).then((r) => r.data),
   completeScan: (jobId: string) =>
     api.post<{ ok: true }>(`/email/scan-jobs/${jobId}/complete`).then((r) => r.data),
+  abandonScan: (jobId: string) =>
+    api.post<{ ok: true }>(`/email/scan-jobs/${jobId}/abandon`).then((r) => r.data),
 };
 
 export const notificationsAPI = {

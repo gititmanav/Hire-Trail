@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
+import { Bell } from "lucide-react";
 import { notificationsAPI } from "../../utils/api.ts";
 import { useRefetchOnFocus } from "../../hooks/useRefetchOnFocus.ts";
 import type { Notification, NotificationType } from "../../types";
@@ -140,10 +141,7 @@ export default function NotificationBell() {
         title="Notifications"
         aria-label={unread > 0 ? `${unread} unread notifications` : "Notifications"}
       >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
-          <path d="M13.73 21a2 2 0 01-3.46 0" />
-        </svg>
+        <Bell size={18} strokeWidth={1.7} />
         {unread > 0 && (
           <span
             className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center border border-background"

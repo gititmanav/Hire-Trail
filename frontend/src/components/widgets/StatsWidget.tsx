@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { ArrowUp, ArrowDown, FileText, Clock, Gift, Activity } from "lucide-react";
 import type { AnalyticsData, Stage } from "../../types";
 
 interface Props {
@@ -28,16 +29,8 @@ function TrendGlyph({ trend }: { trend: Trend }) {
         : "text-muted-foreground";
   return (
     <span className={`inline-flex items-center gap-0.5 text-[11px] font-medium ${cls}`} title="vs prior week (new applications)">
-      {trend === "up" && (
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d="M12 19V5M5 12l7-7 7 7" />
-        </svg>
-      )}
-      {trend === "down" && (
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d="M12 5v14M19 12l-7 7-7-7" />
-        </svg>
-      )}
+      {trend === "up" && <ArrowUp size={12} strokeWidth={2} aria-hidden />}
+      {trend === "down" && <ArrowDown size={12} strokeWidth={2} aria-hidden />}
       {trend === "flat" && <span className="text-muted-foreground">—</span>}
       <span className="sr-only">{trend === "up" ? "Up vs prior week" : trend === "down" ? "Down vs prior week" : "Flat vs prior week"}</span>
     </span>
@@ -65,43 +58,25 @@ export default function StatsWidget({ data }: Props) {
       value: total,
       color: "",
       trend: volTrend,
-      icon: (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="text-primary/80">
-          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
-          <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" />
-        </svg>
-      ),
+      icon: <FileText size={18} strokeWidth={1.5} className="text-primary/80" />,
     },
     {
       label: "In progress",
       value: inPipeline,
       color: "",
-      icon: (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="text-amber-600/90 dark:text-amber-400/90">
-          <circle cx="12" cy="12" r="10" />
-          <path d="M12 6v6l4 2" />
-        </svg>
-      ),
+      icon: <Clock size={18} strokeWidth={1.5} className="text-amber-600/90 dark:text-amber-400/90" />,
     },
     {
       label: "Offers",
       value: offers,
       color: "text-success",
-      icon: (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="text-emerald-600/90 dark:text-emerald-400/90">
-          <path d="M20 12v10H4V12M2 7h20v5H2V7zM12 22V7M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z" />
-        </svg>
-      ),
+      icon: <Gift size={18} strokeWidth={1.5} className="text-emerald-600/90 dark:text-emerald-400/90" />,
     },
     {
       label: "Response rate",
       value: `${responsePct}%`,
       color: "text-primary",
-      icon: (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="text-primary/80">
-          <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-        </svg>
-      ),
+      icon: <Activity size={18} strokeWidth={1.5} className="text-primary/80" />,
     },
   ];
 

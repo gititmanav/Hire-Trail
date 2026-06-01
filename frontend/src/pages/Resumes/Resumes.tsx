@@ -1,5 +1,9 @@
 /** Resume versions with optional PDF to Cloudinary; usage counts come from the list API. */
 import { useState, useEffect, useCallback, useMemo } from "react";
+import {
+  ChevronDown, ChevronRight, Eye, FileText, LayoutGrid, List, Pencil, Plus,
+  RefreshCw, Search, Star, StarOff, Trash2, X,
+} from "lucide-react";
 import toast from "react-hot-toast";
 import { resumesAPI, authAPI, masterProfileAPI, pollMasterProfileParse } from "../../utils/api.ts";
 import { SkeletonCard } from "../../components/Skeleton/Skeleton.tsx";
@@ -76,9 +80,7 @@ function VersionHistoryStrip({ versions }: { versions: ResumeVersion[] | undefin
         aria-expanded={open}
         aria-label={`Toggle version history (${sorted.length} entr${sorted.length === 1 ? "y" : "ies"})`}
       >
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className={`transition-transform shrink-0 ${open ? "rotate-90" : ""}`}>
-          <polyline points="9 6 15 12 9 18" />
-        </svg>
+        <ChevronRight size={11} strokeWidth={2} className={`transition-transform shrink-0 ${open ? "rotate-90" : ""}`} />
         <span className="font-semibold uppercase tracking-wider text-[10px]">History</span>
         <span className="tabular-nums">· {sorted.length}</span>
         {!open && (
@@ -169,9 +171,7 @@ function ResumeCard({ r, isPrimary, tagColorMap, setAsPrimary, setEditing, setMo
     <div className={`card-premium p-5 flex flex-col group ${isPrimary ? "ring-2 ring-emerald-500/50 border-emerald-500" : ""}`}>
       <div className="flex items-start justify-between mb-3">
         <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${r.fileUrl ? "bg-red-100 dark:bg-red-900/30" : "bg-primary/10"}`}>
-          <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className={r.fileUrl ? "text-red-500" : "text-primary"}>
-            <path d="M12 2H5a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7l-5-5z"/><polyline points="12,2 12,7 17,7"/>
-          </svg>
+          <FileText size={20} strokeWidth={1.5} className={r.fileUrl ? "text-red-500" : "text-primary"} />
         </div>
         <div className="flex gap-1 opacity-100">
           <button
@@ -182,10 +182,7 @@ function ResumeCard({ r, isPrimary, tagColorMap, setAsPrimary, setEditing, setMo
             }`}
             disabled={!r.fileUrl}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z" />
-              <circle cx="12" cy="12" r="3" />
-            </svg>
+            <Eye size={14} strokeWidth={1.6} />
           </button>
           <button
             onClick={() => r.fileUrl && !isParsing && parseWithAI(r._id)}
@@ -195,22 +192,20 @@ function ResumeCard({ r, isPrimary, tagColorMap, setAsPrimary, setEditing, setMo
               r.fileUrl ? "text-muted-foreground hover:text-primary hover:border-primary" : "text-muted-foreground/50 cursor-not-allowed opacity-60"
             } ${isParsing ? "animate-pulse" : ""}`}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
-            </svg>
+            <RefreshCw size={14} strokeWidth={1.6} />
           </button>
           {isPrimary ? (
             <button onClick={() => setAsPrimary(null)} title="Remove as primary" className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-emerald-500 hover:text-red-500 hover:border-red-400">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/><line x1="4" y1="4" x2="20" y2="20" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
+              <StarOff size={14} strokeWidth={1.8} fill="currentColor" />
             </button>
           ) : (
             <button onClick={() => setAsPrimary(r._id)} title="Set as primary for extension" className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-emerald-500 hover:border-emerald-400">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+              <Star size={14} strokeWidth={1.5} />
             </button>
           )}
-          <button onClick={() => { setEditing(r); setModal(true); }} title="Edit" className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary"><svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M8.5 2.5l3 3L4.5 12.5H1.5v-3z"/></svg></button>
+          <button onClick={() => { setEditing(r); setModal(true); }} title="Edit" className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary"><Pencil size={14} strokeWidth={1.5} /></button>
           {!r.isProtected && (
-            <button onClick={() => handleDelete(r._id)} title="Delete" className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-danger hover:border-danger"><svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="2,4 12,4"/><path d="M5 4V2.5a.5.5 0 01.5-.5h3a.5.5 0 01.5.5V4"/><path d="M3 4l.75 8.5a1 1 0 001 .5h4.5a1 1 0 001-.5L11 4"/></svg></button>
+            <button onClick={() => handleDelete(r._id)} title="Delete" className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-danger hover:border-danger"><Trash2 size={14} strokeWidth={1.5} /></button>
           )}
         </div>
       </div>
@@ -257,9 +252,7 @@ function ResumeListRow({ r, isPrimary, tagColorMap, setAsPrimary, setEditing, se
   return (
     <div className={`card-premium p-3 flex items-center gap-3 ${isPrimary ? "ring-2 ring-emerald-500/50 border-emerald-500" : ""}`}>
       <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${r.fileUrl ? "bg-red-100 dark:bg-red-900/30" : "bg-primary/10"}`}>
-        <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className={r.fileUrl ? "text-red-500" : "text-primary"}>
-          <path d="M12 2H5a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7l-5-5z"/><polyline points="12,2 12,7 17,7"/>
-        </svg>
+        <FileText size={18} strokeWidth={1.5} className={r.fileUrl ? "text-red-500" : "text-primary"} />
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 flex-wrap">
@@ -298,23 +291,20 @@ function ResumeListRow({ r, isPrimary, tagColorMap, setAsPrimary, setEditing, se
           }`}
           disabled={!r.fileUrl}
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
-            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z" />
-            <circle cx="12" cy="12" r="3" />
-          </svg>
+          <Eye size={14} strokeWidth={1.6} />
         </button>
         {isPrimary ? (
           <button onClick={() => setAsPrimary(null)} title="Remove primary" className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-emerald-500 hover:text-red-500 hover:border-red-400">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/><line x1="4" y1="4" x2="20" y2="20" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
+            <StarOff size={14} strokeWidth={1.8} fill="currentColor" />
           </button>
         ) : (
           <button onClick={() => setAsPrimary(r._id)} title="Set primary" className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-emerald-500 hover:border-emerald-400">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+            <Star size={14} strokeWidth={1.5} />
           </button>
         )}
-        <button onClick={() => { setEditing(r); setModal(true); }} title="Edit" className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary"><svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M8.5 2.5l3 3L4.5 12.5H1.5v-3z"/></svg></button>
+        <button onClick={() => { setEditing(r); setModal(true); }} title="Edit" className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary"><Pencil size={14} strokeWidth={1.5} /></button>
         {!r.isProtected && (
-          <button onClick={() => handleDelete(r._id)} title="Delete" className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-danger hover:border-danger"><svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="2,4 12,4"/><path d="M5 4V2.5a.5.5 0 01.5-.5h3a.5.5 0 01.5.5V4"/><path d="M3 4l.75 8.5a1 1 0 001 .5h4.5a1 1 0 001-.5L11 4"/></svg></button>
+          <button onClick={() => handleDelete(r._id)} title="Delete" className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-danger hover:border-danger"><Trash2 size={14} strokeWidth={1.5} /></button>
         )}
       </div>
     </div>
@@ -496,7 +486,7 @@ export default function Resumes() {
           <p className="text-sm text-muted-foreground mt-1">Set a primary resume so the browser extension attaches it when you track a job.</p>
         </div>
         <button onClick={() => { setEditing(null); setModal(true); }} className="btn-accent">
-          <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg>Add resume
+          <Plus size={16} strokeWidth={2} />Add resume
         </button>
       </div>
 
@@ -505,7 +495,7 @@ export default function Resumes() {
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-3">
               <div className="relative">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <Search size={16} strokeWidth={2} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
               <input
                 className="input-premium !pl-9 w-[280px]"
                 placeholder="Search by name, role, or tag..."
@@ -514,7 +504,7 @@ export default function Resumes() {
               />
               {search && (
                 <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                  <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="3" x2="11" y2="11"/><line x1="11" y1="3" x2="3" y2="11"/></svg>
+                  <X size={14} strokeWidth={2} />
                 </button>
               )}
               </div>
@@ -527,12 +517,7 @@ export default function Resumes() {
                     title="Grid view"
                     aria-label="Grid view"
                   >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                      <rect x="3" y="3" width="7" height="7" rx="1" />
-                      <rect x="14" y="3" width="7" height="7" rx="1" />
-                      <rect x="3" y="14" width="7" height="7" rx="1" />
-                      <rect x="14" y="14" width="7" height="7" rx="1" />
-                    </svg>
+                    <LayoutGrid size={16} strokeWidth={2} />
                   </button>
                   <button
                     onClick={() => setViewMode("list")}
@@ -540,14 +525,7 @@ export default function Resumes() {
                     title="List view"
                     aria-label="List view"
                   >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                      <line x1="8" y1="6" x2="21" y2="6" />
-                      <line x1="8" y1="12" x2="21" y2="12" />
-                      <line x1="8" y1="18" x2="21" y2="18" />
-                      <circle cx="4" cy="6" r="1" />
-                      <circle cx="4" cy="12" r="1" />
-                      <circle cx="4" cy="18" r="1" />
-                    </svg>
+                    <List size={16} strokeWidth={2} />
                   </button>
                 </div>
                 <ActionDropdown
@@ -558,9 +536,7 @@ export default function Resumes() {
                       <span>
                         {sortBy === "recent" ? "Most recent" : sortBy === "name" ? "Name A-Z" : "Most used"}
                       </span>
-                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                        <polyline points="4,6 8,10 12,6" />
-                      </svg>
+                      <ChevronDown size={14} strokeWidth={1.5} />
                     </button>
                   }
                   items={[
@@ -620,7 +596,7 @@ export default function Resumes() {
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <div className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                    <Star size={12} fill="currentColor" strokeWidth={0} />
                     Primary Resume
                   </div>
                   <h3 className="mt-2 text-sm font-semibold text-foreground truncate">{primaryResume.name}</h3>
@@ -761,9 +737,7 @@ function TailoredResumesSection({
         className="flex items-center gap-2 mb-4 text-left w-full"
         aria-expanded={open}
       >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className={`text-muted-foreground transition-transform ${open ? "rotate-90" : ""}`}>
-          <polyline points="9 6 15 12 9 18" />
-        </svg>
+        <ChevronRight size={14} strokeWidth={2} className={`text-muted-foreground transition-transform ${open ? "rotate-90" : ""}`} />
         <div>
           <h2 className="text-lg font-semibold text-foreground">Tailored variants</h2>
           <p className="text-xs text-muted-foreground">
@@ -776,9 +750,7 @@ function TailoredResumesSection({
           {groups.map((g) => (
             <div key={g.base?._id ?? "__untraced__"} className="rounded-xl border border-border bg-card/40 p-4">
               <div className="flex items-center gap-2 mb-3">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="text-muted-foreground shrink-0">
-                  <path d="M12 2H5a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7l-5-5z"/><polyline points="12,2 12,7 17,7"/>
-                </svg>
+                <FileText size={14} strokeWidth={1.5} className="text-muted-foreground shrink-0" />
                 <h3 className="text-sm font-semibold text-foreground truncate">{g.label}</h3>
                 <span className="text-[11px] text-muted-foreground tabular-nums ml-auto">
                   {g.children.length} variant{g.children.length === 1 ? "" : "s"}

@@ -2,6 +2,7 @@
  * JSearch-backed listings; "Track" creates applications via the API. State lifted in `JobSearchContext`.
  */
 import { useState, useCallback, FormEvent } from "react";
+import { Loader2, Search, Briefcase, MapPin, ExternalLink, Check, Plus } from "lucide-react";
 import toast from "react-hot-toast";
 import { api, applicationsAPI } from "../../utils/api.ts";
 import { useJobSearch } from "../../hooks/useJobSearchState.ts";
@@ -106,9 +107,9 @@ export default function JobSearch() {
           <div className="flex items-end">
             <button type="submit" disabled={loading} className="btn-accent w-full md:w-auto justify-center h-[38px]">
               {loading ? (
-                <svg width="16" height="16" viewBox="0 0 16 16" className="animate-spin"><circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="2" fill="none" strokeDasharray="32" strokeDashoffset="8" /></svg>
+                <Loader2 size={16} className="animate-spin" />
               ) : (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+                <Search size={16} strokeWidth={2} />
               )}
               Search
             </button>
@@ -117,7 +118,7 @@ export default function JobSearch() {
 
         <div className="flex flex-wrap items-center gap-3">
           <button type="button" onClick={() => update({ remote: !s.remote })} className={`inline-flex items-center gap-1.5 px-3 py-1 text-[13px] font-medium rounded-full border ${s.remote ? "bg-primary/10 border-primary text-primary" : "bg-card border-border text-muted-foreground hover:border-primary"}`}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="3" width="20" height="14" rx="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" /></svg>
+            <Briefcase size={14} strokeWidth={1.5} />
             Remote only
           </button>
           {DATE_OPTIONS.map((opt) => (
@@ -157,7 +158,7 @@ export default function JobSearch() {
                       <p className="text-sm text-secondary-foreground">{job.company}</p>
                       <div className="flex flex-wrap items-center gap-2 mt-1.5">
                         <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" /><circle cx="12" cy="10" r="3" /></svg>
+                          <MapPin size={12} strokeWidth={1.5} />
                           {job.location}
                         </span>
                         {job.remote && <span className="text-xs bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full font-medium">Remote</span>}
@@ -171,7 +172,7 @@ export default function JobSearch() {
                       {job.applyUrl && (
                         <a href={job.applyUrl} target="_blank" rel="noopener noreferrer" className="btn-secondary !py-1.5 !px-3 !text-xs">
                           Apply
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" /><polyline points="15,3 21,3 21,9" /><line x1="10" y1="14" x2="21" y2="3" /></svg>
+                          <ExternalLink size={12} strokeWidth={2} />
                         </a>
                       )}
                       <button
@@ -180,9 +181,9 @@ export default function JobSearch() {
                         className={`!py-1.5 !px-3 !text-xs ${s.tracking.has(job.id) ? "btn-secondary !text-success !border-success" : "btn-accent"}`}
                       >
                         {s.tracking.has(job.id) ? (
-                          <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20,6 9,17 4,12" /></svg>Tracked</>
+                          <><Check size={12} strokeWidth={2} />Tracked</>
                         ) : (
-                          <><svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="6" y1="1" x2="6" y2="11" /><line x1="1" y1="6" x2="11" y2="6" /></svg>Track</>
+                          <><Plus size={12} strokeWidth={2} />Track</>
                         )}
                       </button>
                     </div>
@@ -217,7 +218,7 @@ export default function JobSearch() {
 
       {!s.searched && !loading && (
         <div className="card-premium p-12 text-center">
-          <svg className="mx-auto mb-4 text-muted-foreground dark:text-secondary-foreground" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+          <Search className="mx-auto mb-4 text-muted-foreground dark:text-secondary-foreground" size={48} strokeWidth={1.5} />
           <h3 className="text-base font-medium text-muted-foreground mb-1">Search for jobs</h3>
           <p className="text-sm text-muted-foreground">Find internships and positions, then track them in your pipeline</p>
         </div>

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useContext } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Calendar, Sun, Moon, ChevronDown, User as UserIcon, LogOut } from "lucide-react";
 import AdminSidebar from "./AdminSidebar.tsx";
 import { ThemeContext } from "../../App.tsx";
 import type { User } from "../../types";
@@ -50,12 +51,7 @@ export default function AdminLayout({ user, onLogout }: Props) {
                 title="Open calendar"
                 aria-label="Open calendar"
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M8 2v3" />
-                  <path d="M16 2v3" />
-                  <rect x="3" y="5" width="18" height="16" rx="2" />
-                  <path d="M3 10h18" />
-                </svg>
+                <Calendar size={18} strokeWidth={1.7} />
               </button>
               <button
                 onClick={() => toggle()}
@@ -63,19 +59,7 @@ export default function AdminLayout({ user, onLogout }: Props) {
                 title={dark ? "Switch to light mode" : "Switch to dark mode"}
                 aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
               >
-                {dark ? (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="4" />
-                    <path d="M12 2v2" /><path d="M12 20v2" />
-                    <path d="m4.93 4.93 1.41 1.41" /><path d="m17.66 17.66 1.41 1.41" />
-                    <path d="M2 12h2" /><path d="M20 12h2" />
-                    <path d="m6.34 17.66-1.41 1.41" /><path d="m19.07 4.93-1.41 1.41" />
-                  </svg>
-                ) : (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z" />
-                  </svg>
-                )}
+                {dark ? <Sun size={18} strokeWidth={1.8} /> : <Moon size={18} strokeWidth={1.8} />}
               </button>
 
               {/* Profile dropdown */}
@@ -89,7 +73,7 @@ export default function AdminLayout({ user, onLogout }: Props) {
                     <span className="text-[13px] font-medium text-foreground leading-tight">{user.name}</span>
                     <span className="text-[11px] text-muted-foreground leading-tight">{user.email}</span>
                   </div>
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className={`text-muted-foreground transition-transform duration-200 ${profileOpen ? "rotate-180" : ""}`}><polyline points="4,6 8,10 12,6"/></svg>
+                  <ChevronDown size={14} strokeWidth={1.5} className={`text-muted-foreground transition-transform duration-200 ${profileOpen ? "rotate-180" : ""}`} />
                 </button>
 
                 {profileOpen && (
@@ -102,7 +86,7 @@ export default function AdminLayout({ user, onLogout }: Props) {
                       onClick={() => { setProfileOpen(false); navigate("/profile"); }}
                       className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-secondary-foreground hover:bg-muted/50"
                     >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="text-muted-foreground"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                      <UserIcon size={16} strokeWidth={1.5} className="text-muted-foreground" />
                       Edit profile
                     </button>
                     <div className="border-t border-border mt-1 pt-1">
@@ -110,7 +94,7 @@ export default function AdminLayout({ user, onLogout }: Props) {
                         onClick={() => { setProfileOpen(false); onLogout(); }}
                         className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-red-500 hover:bg-red-50 hover:bg-destructive/10"
                       >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                        <LogOut size={16} strokeWidth={1.5} />
                         Sign out
                       </button>
                     </div>

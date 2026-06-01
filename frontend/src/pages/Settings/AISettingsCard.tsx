@@ -1,5 +1,6 @@
 /** BYOK panel — add/remove API keys per provider, pick a model override per key. */
 import { useEffect, useRef, useState } from "react";
+import { Check, X } from "lucide-react";
 import toast from "react-hot-toast";
 import { aiAPI } from "../../utils/api.ts";
 import type { AIProvider, AIKey } from "../../utils/api.ts";
@@ -201,13 +202,13 @@ export function AISettingsCard() {
                   )}
                   {validation.state === "ok" && (
                     <>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden><polyline points="20 6 9 17 4 12"/></svg>
+                      <Check size={12} strokeWidth={2.4} aria-hidden />
                       Key validates with {PROVIDER_META[provider].label.split(" ")[0]}.
                     </>
                   )}
                   {validation.state === "invalid" && (
                     <>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                      <X size={12} strokeWidth={2.4} aria-hidden />
                       {validation.reason}
                     </>
                   )}

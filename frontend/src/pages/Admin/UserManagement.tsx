@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { Search } from "lucide-react";
 import toast from "react-hot-toast";
 import { adminAPI } from "../../utils/api";
 import ActionDropdown from "../../components/ActionDropdown/ActionDropdown";
@@ -248,7 +249,7 @@ export default function UserManagement() {
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1 min-w-0">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" width={16} height={16} strokeWidth={2} />
           <input
             type="text"
             placeholder="Search by name or email..."

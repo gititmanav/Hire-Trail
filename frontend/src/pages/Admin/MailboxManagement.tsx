@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { Mail } from "lucide-react";
 import toast from "react-hot-toast";
 import { adminAPI } from "../../utils/api";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal";
@@ -187,7 +188,7 @@ export default function MailboxManagement() {
                     {u.gmailConnected ? (
                       <div className="space-y-1">
                         <span className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-medium rounded-full bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20">
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M22 5l-10 7L2 5v14h20V5z"/></svg>
+                          <Mail width={10} height={10} strokeWidth={2} />
                           Connected
                         </span>
                         <div className="text-xs text-secondary-foreground">{u.gmailEmail || "—"}</div>
@@ -199,7 +200,7 @@ export default function MailboxManagement() {
                     {u.outlookConnected ? (
                       <div className="space-y-1">
                         <span className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-medium rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M22 5l-10 7L2 5v14h20V5z"/></svg>
+                          <Mail width={10} height={10} strokeWidth={2} />
                           Connected
                         </span>
                         <div className="text-xs text-secondary-foreground">{u.outlookEmail || "—"}</div>

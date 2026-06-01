@@ -3,6 +3,7 @@
  * page. Opened by pressing "?" or clicking the toolbar help button.
  */
 import { useEffect } from "react";
+import { X } from "lucide-react";
 
 const SHORTCUTS: { keys: string[]; label: string }[] = [
   { keys: ["j", "k"], label: "Move row focus down / up" },
@@ -36,7 +37,7 @@ export default function ShortcutsModal({ onClose }: { onClose: () => void }) {
             className="w-7 h-7 inline-flex items-center justify-center rounded-md border border-border text-muted-foreground hover:text-foreground"
             aria-label="Close shortcuts"
           >
-            <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden><line x1="3" y1="3" x2="11" y2="11"/><line x1="11" y1="3" x2="3" y2="11"/></svg>
+            <X size={13} strokeWidth={2} />
           </button>
         </div>
         <ul className="space-y-1.5">

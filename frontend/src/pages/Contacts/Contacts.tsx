@@ -1,6 +1,7 @@
 /** Paginated contact cards with client-side search across the current page. */
 import { useState, useEffect, useCallback, useRef, FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
+import { ChevronDown, ChevronRight, Pencil, Plus, Send, Star, Trash2, X } from "lucide-react";
 import toast from "react-hot-toast";
 import { contactsAPI } from "../../utils/api.ts";
 import { SkeletonCard } from "../../components/Skeleton/Skeleton.tsx";
@@ -64,7 +65,7 @@ function Modal({ contact, onSave, onClose }: { contact: Contact | null; onSave: 
   return (
     <div className="fixed inset-0 bg-black/45 flex items-center justify-center z-50" onClick={onClose}>
       <div className="bg-card rounded-xl p-6 w-full max-w-[520px] max-h-[90vh] overflow-y-auto shadow-2xl animate-in" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-5"><h2 className="text-lg font-semibold text-foreground">{contact ? "Edit contact" : "New contact"}</h2><button className={btnIcon} onClick={onClose}><svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="4" y1="4" x2="12" y2="12" /><line x1="12" y1="4" x2="4" y2="12" /></svg></button></div>
+        <div className="flex items-center justify-between mb-5"><h2 className="text-lg font-semibold text-foreground">{contact ? "Edit contact" : "New contact"}</h2><button className={btnIcon} onClick={onClose}><X size={16} strokeWidth={2} /></button></div>
         <form onSubmit={(e: FormEvent) => { e.preventDefault(); setSaving(true); onSave(form).catch(() => setSaving(false)); }} className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div><label className="block text-sm font-medium text-foreground mb-1.5">Name *</label><input className={inputCls} value={form.name} onChange={(e) => u("name", e.target.value)} required /></div>
@@ -91,7 +92,7 @@ function Modal({ contact, onSave, onClose }: { contact: Contact | null; onSave: 
                 trigger={
                   <button type="button" className={`${inputCls} h-9 flex items-center justify-between text-left`}>
                     <span className="truncate">{form.connectionSource || "Select..."}</span>
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="4,6 8,10 12,6" /></svg>
+                    <ChevronDown size={14} strokeWidth={1.5} />
                   </button>
                 }
                 items={[
@@ -111,7 +112,7 @@ function Modal({ contact, onSave, onClose }: { contact: Contact | null; onSave: 
                 trigger={
                   <button type="button" className={`${inputCls} h-9 flex items-center justify-between text-left`}>
                     <span>{OUTREACH_STATUSES.find((s) => s.value === form.outreachStatus)?.label || "Not contacted"}</span>
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="4,6 8,10 12,6" /></svg>
+                    <ChevronDown size={14} strokeWidth={1.5} />
                   </button>
                 }
                 items={OUTREACH_STATUSES.map((s) => ({
@@ -169,9 +170,7 @@ function ContactStrengthChip({ contact }: { contact: Contact }) {
       title={title}
       aria-label={`Contact strength ${s.score} of 100`}
     >
-      <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-        <path d="M12 2l2.39 7.36H22l-6.18 4.49L18.21 22 12 17.27 5.79 22l2.39-8.15L2 9.36h7.61z" />
-      </svg>
+      <Star size={9} fill="currentColor" strokeWidth={0} aria-hidden />
       {s.score}
     </span>
   );
@@ -290,10 +289,7 @@ function ContactCard({ c, onEdit, onDelete }: { c: Contact; onEdit: () => void; 
           menuWidth="w-56"
           trigger={
             <button className={btnIcon} title="Outreach templates" aria-label="Outreach templates">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d="M22 2L11 13" />
-                <polygon points="22 2 15 22 11 13 2 9 22 2" />
-              </svg>
+              <Send size={14} strokeWidth={1.6} aria-hidden />
             </button>
           }
           items={OUTREACH_TEMPLATES.map((tpl) => ({
@@ -331,10 +327,10 @@ function ContactCard({ c, onEdit, onDelete }: { c: Contact; onEdit: () => void; 
           </span>
         )}
         <button className={btnIcon} onClick={onEdit} aria-label="Edit contact">
-          <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden><path d="M8.5 2.5l3 3L4.5 12.5H1.5v-3z" /></svg>
+          <Pencil size={14} strokeWidth={1.5} aria-hidden />
         </button>
         <button className={`${btnIcon} !text-danger`} onClick={onDelete} aria-label="Delete contact">
-          <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden><polyline points="2,4 12,4" /><path d="M5 4V2.5a.5.5 0 01.5-.5h3a.5.5 0 01.5.5V4" /><path d="M3 4l.75 8.5a1 1 0 001 .5h4.5a1 1 0 001-.5L11 4" /></svg>
+          <Trash2 size={14} strokeWidth={1.5} aria-hidden />
         </button>
       </div>
     </div>
@@ -453,7 +449,7 @@ export default function Contacts() {
             <button onClick={() => setViewMode("person")} className={`px-3 py-1.5 text-xs font-medium ${viewMode === "person" ? "bg-muted text-foreground" : "bg-card text-secondary-foreground hover:bg-muted"}`}>By Person</button>
             <button onClick={() => setViewMode("company")} className={`px-3 py-1.5 text-xs font-medium ${viewMode === "company" ? "bg-muted text-foreground" : "bg-card text-secondary-foreground hover:bg-muted"}`}>By Company</button>
           </div>
-          <button onClick={() => { setEditing(null); setModal(true); }} className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary hover:bg-primary/90 text-white text-sm font-medium rounded-lg"><svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="8" y1="3" x2="8" y2="13" /><line x1="3" y1="8" x2="13" y2="8" /></svg>Add contact</button>
+          <button onClick={() => { setEditing(null); setModal(true); }} className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary hover:bg-primary/90 text-white text-sm font-medium rounded-lg"><Plus size={16} strokeWidth={2} />Add contact</button>
         </div>
       </div>
 
@@ -554,7 +550,7 @@ export default function Contacts() {
                       className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-muted/50"
                     >
                       <div className="flex items-center gap-2.5">
-                        <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className={`text-muted-foreground transition-transform ${isExpanded ? "rotate-90" : ""}`}><path d="M6 4l4 4-4 4" /></svg>
+                        <ChevronRight size={16} strokeWidth={1.5} className={`text-muted-foreground transition-transform ${isExpanded ? "rotate-90" : ""}`} />
                         <span className="text-[15px] font-semibold text-foreground">{company}</span>
                         <span className="text-xs text-muted-foreground font-medium">{companyContacts.length} contact{companyContacts.length !== 1 ? "s" : ""}</span>
                         {hasFollowUp && <span className="w-2 h-2 rounded-full bg-orange-400" title="Has contacts needing follow-up" />}

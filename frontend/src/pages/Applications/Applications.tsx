@@ -9,8 +9,11 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState, useLayoutEffect, FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
+import {
+  ChevronDown, Download, Plus, Upload, X
+} from "lucide-react";
 import toast from "react-hot-toast";
-import { applicationsAPI, resumesAPI, contactsAPI, deadlinesAPI, companiesAPI } from "../../utils/api.ts";
+import { applicationsAPI, resumesAPI, contactsAPI, deadlinesAPI, companiesAPI, masterProfileAPI } from "../../utils/api.ts";
 import { useRefetchOnFocus } from "../../hooks/useRefetchOnFocus.ts";
 import { useApplicationsListState } from "../../hooks/useApplicationsListState.ts";
 import { exportToCSV } from "../../utils/csv.ts";
@@ -84,7 +87,7 @@ function Modal({ app, resumes, onSave, onClose, onResumesChanged }: {
           <div className="flex items-center justify-between mb-5">
             <h2 className="text-lg font-semibold text-foreground">{app ? "Edit application" : "New application"}</h2>
             <button onClick={onClose} className="w-9 h-9 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted">
-              <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden><line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/></svg>
+              <X size={16} strokeWidth={2} aria-hidden />
             </button>
           </div>
           <form onSubmit={(e: FormEvent) => { e.preventDefault(); setSaving(true); onSave(form).catch(() => setSaving(false)); }} className="space-y-4">
@@ -105,7 +108,7 @@ function Modal({ app, resumes, onSave, onClose, onResumesChanged }: {
                   trigger={
                     <button type="button" className="input-premium h-9 flex items-center justify-between text-left">
                       <span>{form.stage}</span>
-                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="4,6 8,10 12,6" /></svg>
+                      <ChevronDown size={14} strokeWidth={1.5} />
                     </button>
                   }
                   items={STAGES.map((s) => ({
@@ -128,7 +131,7 @@ function Modal({ app, resumes, onSave, onClose, onResumesChanged }: {
                       trigger={
                         <button type="button" className="input-premium h-9 flex items-center justify-between text-left">
                           <span className="truncate">{resumes.find((r) => r._id === form.resumeId)?.name || "None"}</span>
-                          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="4,6 8,10 12,6" /></svg>
+                          <ChevronDown size={14} strokeWidth={1.5} />
                         </button>
                       }
                       items={[
@@ -142,7 +145,7 @@ function Modal({ app, resumes, onSave, onClose, onResumesChanged }: {
                     />
                   </div>
                   <button type="button" onClick={() => setShowResumeModal(true)} title="Add new resume" className="w-9 h-9 shrink-0 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground/40">
-                    <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg>
+                    <Plus size={16} strokeWidth={2} />
                   </button>
                 </div>
               </div>
@@ -201,6 +204,15 @@ export default function Applications() {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [focusedIndex, setFocusedIndex] = useState(0);
+  /** Whether this user has a master profile — drives the AppFit empty-state
+   *  message ("set up your profile" vs "run analysis"). Fetched once on mount;
+   *  treat missing/error as "no profile" so the nudge still appears. */
+  const [hasMasterProfile, setHasMasterProfile] = useState(false);
+  useEffect(() => {
+    masterProfileAPI.get()
+      .then((p) => setHasMasterProfile(!!p))
+      .catch(() => setHasMasterProfile(false));
+  }, []);
 
   const { confirm: confirmDelete, confirmState, handleConfirm: onConfirm, handleCancel: onCancel } = useConfirm();
   const { promptAfterStageChange } = useDeadlineFollowups();
@@ -235,6 +247,31 @@ export default function Applications() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useRefetchOnFocus(fetchData);
+
+  /* While any visible app has an AI pass in flight (extraction reading the
+   *  posting, or fit analysis), poll the applications list so the row updates
+   *  live — fields populate and the fit grade lands without a manual refresh.
+   *  Polls only the apps endpoint (not the full 6-call fetchData) and stops as
+   *  soon as nothing is processing. */
+  const hasInFlightAi = useMemo(
+    () => apps.some((a) => a.aiExtractionStatus === "processing" || a.fit?.status === "processing"),
+    [apps],
+  );
+  useEffect(() => {
+    if (!hasInFlightAi) return;
+    const id = window.setInterval(async () => {
+      try {
+        const a = await applicationsAPI.getAll({
+          page: state.page, limit: 25,
+          sort: state.sort.field, order: state.sort.order,
+          search: state.debouncedSearch || undefined,
+          archived: state.archiveTab === "archived" ? "true" : "false",
+        });
+        setApps(a.data); setPag(a.pagination);
+      } catch { /* interceptor surfaces errors */ }
+    }, 4000);
+    return () => window.clearInterval(id);
+  }, [hasInFlightAi, state.page, state.sort, state.debouncedSearch, state.archiveTab]);
 
   /* ─── Shortcut deep-link: ?new=1 opens the create modal. We share the
    *  useSearchParams instance with the ?focus handler below — strip the
@@ -562,13 +599,13 @@ export default function Applications() {
         <h1 className="text-2xl font-bold text-foreground tracking-tight">Applications</h1>
         <div className="flex items-center gap-2 flex-wrap">
           <button onClick={() => setImportModal(true)} className="btn-secondary" title="Import CSV">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Import
+            <Upload size={16} strokeWidth={1.5} />Import
           </button>
           <button onClick={handleExport} className="btn-secondary" title="Export CSV">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export
+            <Download size={16} strokeWidth={1.5} />Export
           </button>
           <button onClick={() => { setEditing(null); setModal(true); }} className="btn-accent">
-            <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg>Add application
+            <Plus size={16} strokeWidth={2} />Add application
           </button>
         </div>
       </div>
@@ -656,6 +693,7 @@ export default function Applications() {
                               if (r?.fileUrl) setSidebarResume(r);
                             }}
                             onOpenFit={(sid) => sid && setAiSidebarSessionId(sid)}
+                            hasMasterProfile={hasMasterProfile}
                           />
                         );
                       })}
@@ -687,6 +725,7 @@ export default function Applications() {
                   if (r?.fileUrl) setSidebarResume(r);
                 }}
                 onOpenFit={(sid) => sid && setAiSidebarSessionId(sid)}
+                hasMasterProfile={hasMasterProfile}
               />
             ))
           )}

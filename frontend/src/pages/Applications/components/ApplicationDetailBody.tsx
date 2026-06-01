@@ -12,6 +12,9 @@
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import {
+  ChevronDown, FileText, Pencil, X, MapPin, Plus
+} from "lucide-react";
 import toast from "react-hot-toast";
 import ActionDropdown from "../../../components/ActionDropdown/ActionDropdown.tsx";
 import { STAGES, STAGE_BADGE_CLASS } from "../../../utils/stageStyles.ts";
@@ -137,7 +140,7 @@ export default function ApplicationDetailBody({
               aria-label="Edit details"
               className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground/40"
             >
-              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden><path d="M8.5 2.5l3 3L4.5 12.5H1.5v-3z"/></svg>
+              <Pencil size={14} strokeWidth={1.8} />
             </button>
           )}
           {onClose && (
@@ -147,7 +150,7 @@ export default function ApplicationDetailBody({
               className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground"
               aria-label="Close detail panel"
             >
-              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden><line x1="3" y1="3" x2="11" y2="11"/><line x1="11" y1="3" x2="3" y2="11"/></svg>
+              <X size={14} strokeWidth={2} />
             </button>
           )}
         </div>
@@ -188,7 +191,7 @@ export default function ApplicationDetailBody({
                 trigger={
                   <button type="button" className="input-premium !h-8 text-sm flex items-center justify-between text-left">
                     <span className="truncate">{resumes.find((r) => r._id === form.resumeId)?.name || "None"}</span>
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="4,6 8,10 12,6" /></svg>
+                    <ChevronDown size={14} strokeWidth={1.5} />
                   </button>
                 }
                 items={[
@@ -198,7 +201,7 @@ export default function ApplicationDetailBody({
               />
             ) : resume ? (
               <button type="button" onClick={() => onViewResume(resume)} className="text-sm text-muted-foreground hover:text-foreground hover:underline flex items-center gap-1.5">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9l-7-7z"/><path d="M13 2v7h7"/></svg>
+                <FileText size={13} strokeWidth={1.5} />
                 {resume.name}
               </button>
             ) : <p className="text-sm text-muted-foreground">None</p>}
@@ -211,7 +214,7 @@ export default function ApplicationDetailBody({
                 trigger={
                   <button type="button" className="input-premium !h-8 text-sm flex items-center justify-between text-left">
                     <span>{form.stage || app.stage}</span>
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="4,6 8,10 12,6" /></svg>
+                    <ChevronDown size={14} strokeWidth={1.5} />
                   </button>
                 }
                 items={STAGES.map((s) => ({ label: s, onClick: () => updateFormField("stage", s), className: (form.stage || app.stage) === s ? "text-primary font-medium" : undefined }))}
@@ -237,7 +240,7 @@ export default function ApplicationDetailBody({
               <input className="input-premium !h-8 text-sm" value={form.location || ""} onChange={(e) => updateFormField("location", e.target.value)} />
             ) : app.location ? (
               <span className="inline-flex items-center gap-1 text-sm text-foreground">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground shrink-0"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                <MapPin size={11} strokeWidth={2} className="text-muted-foreground shrink-0" />
                 {app.location}
               </span>
             ) : <p className="text-sm text-muted-foreground">None</p>}
@@ -289,7 +292,7 @@ export default function ApplicationDetailBody({
                 trigger={
                   <button type="button" className="input-premium !h-8 text-sm flex items-center justify-between text-left">
                     <span className="truncate">{contacts.find((c) => c._id === form.contactId)?.name || "None"}</span>
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="4,6 8,10 12,6" /></svg>
+                    <ChevronDown size={14} strokeWidth={1.5} />
                   </button>
                 }
                 items={[
@@ -361,7 +364,12 @@ export default function ApplicationDetailBody({
 
         {/* Tailor sessions — every AI analysis run against this application,
             newest first. Links straight back into the Tailor page. */}
-        <TailorSessionsSection applicationId={app._id} company={app.company} role={app.role} />
+        <TailorSessionsSection
+          applicationId={app._id}
+          company={app.company}
+          role={app.role}
+          hasJobDescription={!!app.jobDescription?.trim()}
+        />
 
         {isEditing && (
           <div className="sticky bottom-0 bg-card border-t border-border px-4 py-3 flex items-center justify-end gap-2 z-10">
@@ -393,7 +401,19 @@ const GRADE_TONE: Record<string, string> = {
   F: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200",
 };
 
-function TailorSessionsSection({ applicationId, company, role }: { applicationId: string; company: string; role: string }) {
+function TailorSessionsSection({
+  applicationId,
+  company,
+  role,
+  hasJobDescription,
+}: {
+  applicationId: string;
+  company: string;
+  role: string;
+  /** When false, the "+ New" link is disabled and the empty-state copy points
+   *  the user to add a JD before tailoring is possible. */
+  hasJobDescription: boolean;
+}) {
   const [sessions, setSessions] = useState<TailorSession[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -415,16 +435,25 @@ function TailorSessionsSection({ applicationId, company, role }: { applicationId
     <div className="px-4 py-4">
       <div className="flex items-center justify-between mb-1.5">
         <FieldLabel icon="jd">Tailor sessions</FieldLabel>
-        <Link
-          to={tailorUrl}
-          className="text-[11px] font-semibold text-primary hover:text-primary/80 inline-flex items-center gap-1"
-        >
-          New
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-        </Link>
+        {hasJobDescription ? (
+          <Link
+            to={tailorUrl}
+            className="text-[11px] font-semibold text-primary hover:text-primary/80 inline-flex items-center gap-1"
+          >
+            New
+            <Plus size={10} strokeWidth={2.5} aria-hidden="true" />
+          </Link>
+        ) : (
+          // No JD on this app → no Tailor session can be started. Visible chip
+          // signals the action is unavailable instead of letting the user click
+          // through to the Tailor page and get an empty-textarea dead-end.
+          <span
+            className="text-[11px] font-semibold text-muted-foreground/70 cursor-not-allowed select-none"
+            title="Add a job description to this application before tailoring."
+          >
+            Add JD to enable
+          </span>
+        )}
       </div>
 
       {loading ? (
@@ -432,9 +461,15 @@ function TailorSessionsSection({ applicationId, company, role }: { applicationId
       ) : error ? (
         <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
       ) : !sessions || sessions.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          No analyses yet. <Link to={tailorUrl} className="text-primary hover:underline">Score this against a JD</Link>.
-        </p>
+        !hasJobDescription ? (
+          <p className="text-sm text-muted-foreground">
+            No analyses yet. Add a job description to this application before tailoring.
+          </p>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            No analyses yet. <Link to={tailorUrl} className="text-primary hover:underline">Run analysis →</Link>
+          </p>
+        )
       ) : (
         <ul className="space-y-1.5">
           {sessions.map((s) => {

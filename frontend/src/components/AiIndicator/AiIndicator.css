@@ -1,0 +1,311 @@
+/* Unified "AI is working" visual language.
+ *
+ * Two primitives share this file:
+ *   - AiPulse   — a sparkle glyph (breathe + slow rotate + blue glow) with an
+ *                 optional shimmering label. The atomic "AI is thinking" mark.
+ *   - AiStepper — a horizontal row of process boxes. The active box gets a
+ *                 pulsing theme-blue border + shimmering label; a connector
+ *                 line animates toward the next box; on completion a FaceID-style
+ *                 circle-check lands at the bottom center.
+ *
+ * Everything is driven by the existing theme tokens (--primary etc.) so it
+ * tracks light/dark automatically.
+ */
+
+/* ───────────────────────── AiPulse ───────────────────────── */
+
+.ai-pulse {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.ai-pulse__glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: hsl(var(--primary));
+  animation: aiBreathe 1.8s ease-in-out infinite;
+  filter: drop-shadow(0 0 5px color-mix(in srgb, hsl(var(--primary)) 55%, transparent));
+}
+
+.ai-pulse__glyph > svg {
+  animation: aiRotate 4.5s linear infinite;
+}
+
+.ai-pulse--subtle .ai-pulse__glyph {
+  filter: drop-shadow(0 0 3px color-mix(in srgb, hsl(var(--primary)) 35%, transparent));
+}
+
+/* Shimmering label — a soft gradient sweeps across the text to read as
+ * "actively generating", not a static caption. */
+.ai-pulse__label {
+  font-weight: 600;
+  line-height: 1.25;
+  background: linear-gradient(
+    100deg,
+    color-mix(in srgb, hsl(var(--foreground)) 55%, transparent) 0%,
+    hsl(var(--foreground)) 20%,
+    hsl(var(--primary)) 38%,
+    hsl(var(--foreground)) 56%,
+    color-mix(in srgb, hsl(var(--foreground)) 55%, transparent) 100%
+  );
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: aiShimmer 2.4s linear infinite;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ───────────────────────── AiStepper ───────────────────────── */
+
+.ai-stepper {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.ai-stepper__track {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+}
+
+.ai-stepper__step {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.ai-stepper__box {
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 14px 10px;
+  border-radius: 14px;
+  border: 1.5px solid hsl(var(--border));
+  background: hsl(var(--card));
+  text-align: center;
+  transition: border-color 280ms ease, background 280ms ease, box-shadow 280ms ease, transform 280ms ease;
+}
+
+.ai-stepper__box-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  color: hsl(var(--muted-foreground));
+  transition: color 280ms ease;
+}
+
+.ai-stepper__box-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: hsl(var(--muted-foreground));
+  transition: color 280ms ease;
+}
+
+/* Pending → nothing extra (muted defaults above). */
+
+/* Completed box — calm, settled. */
+.ai-stepper__step.is-done .ai-stepper__box {
+  border-color: color-mix(in srgb, hsl(var(--primary)) 35%, transparent);
+  background: color-mix(in srgb, hsl(var(--primary)) 6%, hsl(var(--card)));
+}
+.ai-stepper__step.is-done .ai-stepper__box-icon {
+  color: hsl(var(--primary));
+}
+.ai-stepper__step.is-done .ai-stepper__box-label {
+  color: hsl(var(--foreground));
+}
+
+/* Active box — pulsing theme-blue border + glow + shimmering label. */
+.ai-stepper__step.is-active .ai-stepper__box {
+  border-color: hsl(var(--primary));
+  background: color-mix(in srgb, hsl(var(--primary)) 9%, hsl(var(--card)));
+  animation: aiBoxPulse 1.9s ease-in-out infinite;
+}
+.ai-stepper__step.is-active .ai-stepper__box-icon {
+  color: hsl(var(--primary));
+  animation: aiBreathe 1.8s ease-in-out infinite;
+  filter: drop-shadow(0 0 5px color-mix(in srgb, hsl(var(--primary)) 55%, transparent));
+}
+.ai-stepper__step.is-active .ai-stepper__box-icon > svg {
+  animation: aiRotate 4.5s linear infinite;
+}
+.ai-stepper__step.is-active .ai-stepper__box-label {
+  background: linear-gradient(
+    100deg,
+    color-mix(in srgb, hsl(var(--primary)) 50%, transparent) 0%,
+    hsl(var(--primary)) 22%,
+    color-mix(in srgb, hsl(var(--foreground)) 90%, transparent) 50%,
+    hsl(var(--primary)) 78%,
+    color-mix(in srgb, hsl(var(--primary)) 50%, transparent) 100%
+  );
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: aiShimmer 2.2s linear infinite;
+}
+
+/* Connector between boxes. The fill draws left→right. */
+.ai-stepper__line {
+  flex: 0 0 auto;
+  align-self: center;
+  position: relative;
+  height: 2.5px;
+  width: clamp(14px, 4vw, 40px);
+  margin: 0 -1px;
+  margin-bottom: 24px; /* visually align with the box body, above the labels */
+  border-radius: 999px;
+  background: hsl(var(--border));
+  overflow: hidden;
+}
+
+.ai-stepper__line-fill {
+  position: absolute;
+  inset: 0;
+  width: 0%;
+  border-radius: 999px;
+  background: hsl(var(--primary));
+  transition: width 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.ai-stepper__line.is-done .ai-stepper__line-fill {
+  width: 100%;
+}
+
+/* Line leaving the active step — an indeterminate "drawing" sweep. */
+.ai-stepper__line.is-drawing .ai-stepper__line-fill {
+  width: 60%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    hsl(var(--primary)) 45%,
+    hsl(var(--primary)) 60%,
+    transparent 100%
+  );
+  animation: aiLineDraw 1.4s ease-in-out infinite;
+}
+
+/* ── FaceID-style success: a circle-check that lands at the bottom center. ── */
+.ai-stepper__done {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.ai-stepper__done-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  color: #fff;
+  background: hsl(var(--primary));
+  box-shadow: 0 0 0 0 color-mix(in srgb, hsl(var(--primary)) 45%, transparent);
+  animation: aiCheckPop 520ms cubic-bezier(0.18, 0.9, 0.28, 1.4) both,
+             aiCheckRing 900ms ease-out 180ms both;
+}
+
+/* Draw the checkmark stroke on, like FaceID. */
+.ai-stepper__done-badge > svg {
+  stroke-dasharray: 26;
+  stroke-dashoffset: 26;
+  animation: aiCheckDraw 420ms cubic-bezier(0.65, 0, 0.35, 1) 220ms forwards;
+}
+
+.ai-stepper__done-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+  animation: aiFadeUp 360ms ease 360ms both;
+}
+
+/* ───────────────────────── keyframes ───────────────────────── */
+
+@keyframes aiBreathe {
+  0%, 100% { transform: scale(0.92); opacity: 0.85; }
+  50%      { transform: scale(1.08); opacity: 1; }
+}
+
+@keyframes aiRotate {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes aiShimmer {
+  0%   { background-position: 140% 0; }
+  100% { background-position: -140% 0; }
+}
+
+@keyframes aiBoxPulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, hsl(var(--primary)) 0%, transparent); }
+  50%      { box-shadow: 0 0 0 5px color-mix(in srgb, hsl(var(--primary)) 16%, transparent); }
+}
+
+@keyframes aiLineDraw {
+  0%   { transform: translateX(-110%); }
+  100% { transform: translateX(180%); }
+}
+
+@keyframes aiCheckPop {
+  0%   { transform: scale(0.2); opacity: 0; }
+  60%  { transform: scale(1.12); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes aiCheckRing {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, hsl(var(--primary)) 45%, transparent); }
+  100% { box-shadow: 0 0 0 14px color-mix(in srgb, hsl(var(--primary)) 0%, transparent); }
+}
+
+@keyframes aiCheckDraw {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes aiFadeUp {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Respect reduced-motion: keep states legible, drop the looping motion. */
+@media (prefers-reduced-motion: reduce) {
+  .ai-pulse__glyph,
+  .ai-pulse__glyph > svg,
+  .ai-pulse__label,
+  .ai-stepper__step.is-active .ai-stepper__box,
+  .ai-stepper__step.is-active .ai-stepper__box-icon,
+  .ai-stepper__step.is-active .ai-stepper__box-icon > svg,
+  .ai-stepper__step.is-active .ai-stepper__box-label,
+  .ai-stepper__line.is-drawing .ai-stepper__line-fill,
+  .ai-stepper__done-badge,
+  .ai-stepper__done-badge > svg,
+  .ai-stepper__done-label {
+    animation: none !important;
+  }
+  .ai-pulse__label,
+  .ai-stepper__step.is-active .ai-stepper__box-label {
+    -webkit-text-fill-color: hsl(var(--primary));
+    color: hsl(var(--primary));
+  }
+  .ai-stepper__done-badge > svg { stroke-dashoffset: 0; }
+}

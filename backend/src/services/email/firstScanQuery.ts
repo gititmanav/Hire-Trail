@@ -117,14 +117,22 @@ function buildSubjectClause(): string {
 }
 
 /**
- * Build the full Gmail q: string for a first-scan window.
+ * Build the full Gmail q: string for a scan window.
+ *
+ * Two windowing modes:
+ *   - `afterEpochSec` set → absolute lower bound (`after:<unix-seconds>`), used
+ *     by manual "Scan now" ("since 1 AM today").
+ *   - otherwise → relative `newer_than:<windowDays>d`, used by the backfill.
  *
  * Example output (slightly trimmed):
- *   `newer_than:15d category:primary subject:(apply OR applying OR "thanks for applying" OR ... OR career OR careers OR hiring)`
+ *   `newer_than:15d category:primary subject:(apply OR applying OR ... OR hiring)`
  */
-export function buildFirstScanQuery(windowDays: number): string {
+export function buildFirstScanQuery(opts: { windowDays?: number; afterEpochSec?: number | null }): string {
+  const window = opts.afterEpochSec
+    ? `after:${Math.floor(opts.afterEpochSec)}`
+    : `newer_than:${opts.windowDays ?? 7}d`;
   return [
-    `newer_than:${windowDays}d`,
+    window,
     "category:primary",
     buildSubjectClause(),
   ].join(" ");
