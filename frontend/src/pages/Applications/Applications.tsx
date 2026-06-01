@@ -273,6 +273,25 @@ export default function Applications() {
     return () => window.clearInterval(id);
   }, [hasInFlightAi, state.page, state.sort, state.debouncedSearch, state.archiveTab]);
 
+  /** Manually (re)run AI fit analysis for one application — backs the
+   *  "Run AI analysis" / "Retry" / "Run now" CTAs on the row. Optimistically
+   *  flips the row to "processing" (which also kicks off the poller above) so
+   *  the result lands live. */
+  const handleRunFit = useCallback(async (appId: string) => {
+    setApps((prev) => prev.map((a) =>
+      a._id === appId
+        ? { ...a, fit: { sessionId: "", status: "processing", fitScore: 0, fitGrade: "", summary: "", matchedCount: 0, missingCount: 0, topMatched: [] } }
+        : a,
+    ));
+    try {
+      await applicationsAPI.reanalyze(appId);
+    } catch (e) {
+      const err = e as { response?: { data?: { error?: string } } };
+      toast.error(err.response?.data?.error || "Couldn't start analysis.");
+      void fetchData(); // revert optimistic state to the server truth
+    }
+  }, [fetchData]);
+
   /* ─── Shortcut deep-link: ?new=1 opens the create modal. We share the
    *  useSearchParams instance with the ?focus handler below — strip the
    *  param after the modal opens so a hard reload doesn't reopen it. */
@@ -693,6 +712,7 @@ export default function Applications() {
                               if (r?.fileUrl) setSidebarResume(r);
                             }}
                             onOpenFit={(sid) => sid && setAiSidebarSessionId(sid)}
+                            onRunFit={() => handleRunFit(a._id)}
                             hasMasterProfile={hasMasterProfile}
                           />
                         );
@@ -725,6 +745,7 @@ export default function Applications() {
                   if (r?.fileUrl) setSidebarResume(r);
                 }}
                 onOpenFit={(sid) => sid && setAiSidebarSessionId(sid)}
+                onRunFit={() => handleRunFit(a._id)}
                 hasMasterProfile={hasMasterProfile}
               />
             ))

@@ -88,7 +88,7 @@ export default function AiAnalysisSidebar({ sessionId, onClose }: Props) {
           </button>
         </div>
 
-        <div className="overflow-y-auto flex-1 px-5 py-4 space-y-5">
+        <div className="overflow-y-auto overscroll-contain flex-1 px-5 py-4 space-y-5">
           {loading ? (
             <div className="space-y-3">
               <div className="h-20 rounded-xl bg-muted animate-pulse" />

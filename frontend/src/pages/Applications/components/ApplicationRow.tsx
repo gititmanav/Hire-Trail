@@ -47,6 +47,8 @@ interface Props {
   onResumeClick?: () => void;
   /** Opens the AI fit sidebar for the given session (or null if none yet). */
   onOpenFit?: (sessionId: string | null) => void;
+  /** Triggers a (re)run of fit analysis for this application. */
+  onRunFit?: () => void;
   /** Whether the signed-in user has finished setting up their master profile.
    *  Threaded through to AppFitPanel so the empty-state copy is honest. */
   hasMasterProfile?: boolean;
@@ -83,7 +85,7 @@ const DAY_MS = 86_400_000;
 function ApplicationRowImpl({
   app, company, resume, contact, deadlines,
   density, focused, selected, selectionActive, staggerIndex = -1,
-  onOpen, onEdit, onDelete, onToggleSelect, onResumeClick, onOpenFit,
+  onOpen, onEdit, onDelete, onToggleSelect, onResumeClick, onOpenFit, onRunFit,
   hasMasterProfile = true,
 }: Props) {
   // Cap stagger to first ~12 rows so a long list doesn't take seconds to materialize.
@@ -307,6 +309,7 @@ function ApplicationRowImpl({
       <AppFitPanel
         fit={app.fit}
         onOpen={(sid) => onOpenFit?.(sid)}
+        onRun={onRunFit}
         hasMasterProfile={hasMasterProfile}
         hasJobDescription={!!app.jobDescription?.trim()}
         extracting={app.aiExtractionStatus === "processing"}
