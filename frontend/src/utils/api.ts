@@ -73,6 +73,10 @@ export const applicationsAPI = {
     api.put<Application>(`/applications/${id}`, data).then((r) => r.data),
   delete: (id: string) => api.delete(`/applications/${id}`).then((r) => r.data),
   bulkImport: (applications: any[]) => api.post<{ message: string; count: number }>("/applications/bulk", { applications }).then((r) => r.data),
+  /** Manually (re)run AI fit analysis for one application. Returns the new
+   *  processing session id. */
+  reanalyze: (id: string) =>
+    api.post<{ sessionId: string; status: "processing" }>(`/applications/${id}/reanalyze`).then((r) => r.data),
   archive: (id: string, reason?: string) => api.put<Application>(`/applications/${id}/archive`, { reason }).then((r) => r.data),
   unarchive: (id: string) => api.put<Application>(`/applications/${id}/unarchive`).then((r) => r.data),
 };

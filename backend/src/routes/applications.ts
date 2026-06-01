@@ -7,7 +7,10 @@ import { createApplicationSchema, updateApplicationSchema } from "../validators/
 import { NotFoundError, ValidationError } from "../errors/AppError.js";
 import { ensureCompanyLogo } from "./companies.js";
 import { enrichAndAnalyzeOnCreate } from "../services/ai/enrichOnCreate.js";
+import { runAnalyzeWorker } from "../services/ai/autoAnalyze.js";
+import { blockDemoUser } from "../middleware/blockDemoUser.js";
 import { User } from "../models/User.js";
+import { MasterProfile } from "../models/MasterProfile.js";
 import { TailorSession } from "../models/TailorSession.js";
 
 /** Thin summary of a TailorSession for inlining into Application list/get responses. */
@@ -204,6 +207,49 @@ router.post("/", validate(createApplicationSchema), async (req: Request, res: Re
     // Background AI pipeline (fire-and-forget): URL-slug company seed → AI field
     // extraction + JD cleaning → fit auto-analysis on the cleaned JD.
     void enrichAndAnalyzeOnCreate(app._id, { isDemoUser });
+  } catch (err) { next(err); }
+});
+
+/** Manually (re)run the AI fit analysis for one application. Backs the
+ *  "Run AI analysis" / "Retry" / "Run now" CTAs on the application row. Creates
+ *  a fresh processing TailorSession, links it to the app, and runs the worker —
+ *  bypassing the daily auto-analyze cap because the user explicitly asked. */
+router.post("/:id/reanalyze", blockDemoUser, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = getUser(req);
+    const app = await Application.findOne({ _id: req.params.id, userId: user._id });
+    if (!app) throw new NotFoundError("Application");
+
+    const jd = (app.jobDescription || "").trim();
+    if (jd.length < 50) throw new ValidationError("Add a job description before running AI analysis.");
+
+    const hasProfile = await MasterProfile.exists({ userId: user._id });
+    if (!hasProfile) throw new ValidationError("Set up your master profile first to enable AI analysis.");
+
+    const session = await TailorSession.create({
+      userId: user._id,
+      applicationId: app._id,
+      jobTitle: app.role || "",
+      company: app.company || "",
+      jobUrl: app.jobUrl || "",
+      jobDescription: jd.slice(0, 30_000),
+      status: "processing",
+      fitScore: 0,
+      fitGrade: "",
+      provider: "",
+      modelId: "",
+    });
+    await Application.updateOne({ _id: app._id }, { $set: { tailorSessionId: session._id } });
+
+    res.status(202).json({ sessionId: session._id.toString(), status: "processing" });
+
+    runAnalyzeWorker(session._id, user._id, {
+      applicationId: app._id,
+      jobTitle: app.role || "",
+      company: app.company || "",
+      url: app.jobUrl || "",
+      jobDescription: jd,
+    });
   } catch (err) { next(err); }
 });
 

@@ -156,7 +156,7 @@ export default function ApplicationDetailBody({
         </div>
       </div>
 
-      <div className="overflow-y-auto flex-1">
+      <div className="overflow-y-auto overscroll-contain flex-1">
         {/* Company | Applied */}
         <div className="grid grid-cols-2 border-b border-border/40">
           <div className="p-4 border-r border-border/40">

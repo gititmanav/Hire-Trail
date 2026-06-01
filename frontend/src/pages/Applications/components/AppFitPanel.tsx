@@ -51,6 +51,10 @@ interface Props {
   /** The on-create AI extraction pass is still reading/cleaning this posting.
    *  Takes visual priority over fit state — fit analysis only runs afterwards. */
   extracting?: boolean;
+  /** Trigger a (re)run of fit analysis. Wired to the "Run AI analysis" / "Retry"
+   *  / "Run now" CTAs; when present, those states act on click instead of
+   *  opening the (empty) sidebar. */
+  onRun?: () => void;
 }
 
 function Checkmark() {
@@ -59,15 +63,27 @@ function Checkmark() {
   );
 }
 
-function FitPanelImpl({ fit, onOpen, hasMasterProfile = true, hasJobDescription = true, extracting = false }: Props) {
+function FitPanelImpl({ fit, onOpen, hasMasterProfile = true, hasJobDescription = true, extracting = false, onRun }: Props) {
   const status: FitStatus | "none" = fit?.status ?? "none";
   const grade = (fit?.fitGrade || "") as Grade | "";
   const meta = grade ? GRADE_META[grade] : null;
 
+  // States where the panel offers an action (run/retry) rather than a result.
+  // Clicking these runs analysis directly instead of opening an empty sidebar.
+  const actionable =
+    !extracting && !!onRun &&
+    (status === "failed" || status === "deferred" ||
+      (status === "none" && hasMasterProfile && hasJobDescription));
+
   return (
     <button
       type="button"
-      onClick={(e) => { e.stopPropagation(); onOpen(fit?.sessionId ?? null); }}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (extracting) return;
+        if (actionable) { onRun!(); return; }
+        onOpen(fit?.sessionId ?? null);
+      }}
       className="w-[200px] shrink-0 text-left text-white flex flex-col gap-2 p-3 border-l border-white/10 cursor-pointer transition-colors hover:bg-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
       style={{ background: "linear-gradient(160deg, #0f172a 0%, #1e293b 100%)" }}
       aria-label={
@@ -132,7 +148,7 @@ function FitPanelImpl({ fit, onOpen, hasMasterProfile = true, hasJobDescription 
       ) : status === "processing" ? (
         <div className="flex items-center gap-2 text-[11px] text-white/90">
           <AiPulse size={13} />
-          Analyzing…
+          Scoring your fit…
         </div>
       ) : status === "deferred" ? (
         <p className="text-[11px] text-white/85 leading-snug">

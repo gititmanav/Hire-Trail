@@ -32,6 +32,13 @@ function clip(s: string, n: number): string {
   return s.trim().slice(0, n);
 }
 
+/** Placeholder values the extension/`/init` write when a scrape misses — these
+ *  should be treated as "empty" and overwritten by a confident AI value. */
+const PLACEHOLDERS = new Set(["", "unknown", "unknown company", "untitled role", "n/a", "none"]);
+function isBlankish(v: string | undefined | null): boolean {
+  return PLACEHOLDERS.has((v ?? "").trim().toLowerCase());
+}
+
 export async function enrichAndAnalyzeOnCreate(
   appId: mongoose.Types.ObjectId,
   opts: { isDemoUser: boolean },
@@ -55,17 +62,24 @@ export async function enrichAndAnalyzeOnCreate(
 
         const patch: Record<string, string> = {};
         if (fields.isJobPosting) {
-          // Fill-empty only — never clobber what the user/extension provided.
-          if (fields.company && !app.company?.trim()) patch.company = clip(fields.company, 200);
-          if (fields.title && !app.role?.trim()) patch.role = clip(fields.title, 200);
-          if (fields.location && !app.location?.trim()) patch.location = clip(fields.location, 200);
-          if (fields.salary && !app.salary?.trim()) patch.salary = clip(fields.salary, 200);
-          if (fields.employmentType && !app.jobType?.trim()) patch.jobType = clip(fields.employmentType, 200);
+          // Extension scrapes aren't user-authored — they're frequently the raw
+          // page <title> ("Role | Company | LinkedIn") or the literal "Unknown".
+          // For those, a confident AI value REPLACES the scrape. For manual
+          // entries we only fill blanks (and treat "Unknown"/placeholder as blank)
+          // so we never clobber something the user deliberately typed.
+          const fromExtension = app.source === "extension";
+          const canFill = (current: string | undefined) => fromExtension || isBlankish(current);
+
+          if (fields.company && canFill(app.company)) patch.company = clip(fields.company, 200);
+          if (fields.title && canFill(app.role)) patch.role = clip(fields.title, 200);
+          if (fields.location && canFill(app.location)) patch.location = clip(fields.location, 200);
+          if (fields.salary && canFill(app.salary)) patch.salary = clip(fields.salary, 200);
+          if (fields.employmentType && canFill(app.jobType)) patch.jobType = clip(fields.employmentType, 200);
 
           // Only replace the stored JD for EXTENSION captures — those are the
           // ones at risk of being a full-page DOM dump. A manually pasted JD is
           // user-authored; extract fields from it but never overwrite it.
-          if (app.source === "extension") {
+          if (fromExtension) {
             const cleaned = fields.cleanedJobDescription?.trim();
             if (cleaned && cleaned.length >= MIN_CLEANED_JD) {
               patch.jobDescription = cleaned.slice(0, 50_000);
@@ -86,9 +100,10 @@ export async function enrichAndAnalyzeOnCreate(
       }
     }
 
-    // Company fallback: if it's STILL empty (AI skipped, not a posting, failed,
-    // or didn't find one), the deterministic ATS URL-slug is our best signal.
-    if (!app.company?.trim()) {
+    // Company fallback: if it's STILL blank/placeholder (AI skipped, not a
+    // posting, failed, or didn't find one), the deterministic ATS URL-slug is
+    // our best signal.
+    if (isBlankish(app.company)) {
       const slug = companyFromJobUrl(app.jobUrl);
       if (slug) {
         app.company = clip(slug, 200);
