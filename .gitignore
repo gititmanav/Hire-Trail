@@ -5,9 +5,8 @@ node_modules/
 frontend/dist/
 backend/dist/
 
-# Generated from extension/ by `npm run pack:extension` (single source of truth = extension/)
-extension.zip
-frontend/public/extension.zip
+# Redundant local copy — the served artifact is frontend/public/extension.zip (kept tracked).
+/extension.zip
 
 # Environment variables
 .env

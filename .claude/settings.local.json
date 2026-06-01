@@ -92,7 +92,10 @@
       "Bash(md5 -q frontend/public/extension.zip frontend/dist/extension.zip)",
       "Bash(unzip -p frontend/dist/extension.zip manifest.json)",
       "Bash(unzip -p frontend/dist/extension.zip content/content.js)",
-      "Bash(echo \"old-UI markers in dist \\(want 0\\): $\\(unzip -p frontend/dist/extension.zip content/content.js)"
+      "Bash(echo \"old-UI markers in dist \\(want 0\\): $\\(unzip -p frontend/dist/extension.zip content/content.js)",
+      "Bash(git add *)",
+      "Bash(awk '{print $5, $9}')",
+      "Bash(echo \"old-UI markers \\(want 0\\): $\\(unzip -p frontend/public/extension.zip content/content.js)"
     ]
   }
 }
