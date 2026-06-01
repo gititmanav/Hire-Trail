@@ -4,12 +4,13 @@
   "private": true,
   "scripts": {
     "install-all": "cd backend && npm install --include=dev && cd ../frontend && npm install --include=dev",
-    "build": "cd frontend && npm run build",
+    "pack:extension": "rm -f frontend/public/extension.zip && cd extension && zip -rq ../frontend/public/extension.zip . -x 'tests/*' 'node_modules/*' '*.DS_Store' 'icons/icons48.png'",
+    "build": "npm run pack:extension && cd frontend && npm run build",
     "start": "cd backend && node dist/server.js",
     "dev:backend": "cd backend && npm run dev",
-    "dev:frontend": "cd frontend && npm run dev",
+    "dev:frontend": "npm run pack:extension && cd frontend && npm run dev",
     "seed": "cd backend && npm run seed",
-    "render-build": "npm run install-all && cd backend && npm run build && cd ../frontend && npm run build",
+    "render-build": "npm run install-all && npm run pack:extension && cd backend && npm run build && cd ../frontend && npm run build",
     "test:extension": "node --test extension/tests/*.test.js"
   },
   "license": "MIT",

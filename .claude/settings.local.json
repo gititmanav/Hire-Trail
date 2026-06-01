@@ -82,7 +82,17 @@
       "Bash(cd \"/Users/manav/Projects/Hire Trail\" && rm -f frontend/public/__popover.html && cd extension && node -c content/content.js && node --test tests/*.test.js 2>&1 | grep -E \"# \\(tests|pass|fail\\)\"; rm -f ../extension.zip && zip -r ../extension.zip . -x \"tests/*\" \"node_modules/*\" \"*.DS_Store\" \"icons/icons48.png\" >/dev/null && echo \"=== zip rebuilt ===\" && unzip -l ../extension.zip | grep -c \"content/\\\\|popup/\\\\|background/\\\\|manifest\")",
       "Bash(unzip -p extension.zip content/content.js)",
       "Bash(rm -f /tmp/_z.js)",
-      "Bash(unzip -l extension.zip)"
+      "Bash(unzip -l extension.zip)",
+      "Bash(unzip -p frontend/public/extension.zip manifest.json)",
+      "Bash(unzip -p frontend/public/extension.zip content/content.js)",
+      "Bash(unzip -l frontend/public/extension.zip)",
+      "Bash(echo \"files in served zip: $\\(unzip -l frontend/public/extension.zip)",
+      "Bash(git rm *)",
+      "Bash(echo \"git now ignores it? $\\(git check-ignore frontend/public/extension.zip || echo 'NOT ignored'\\)\")",
+      "Bash(md5 -q frontend/public/extension.zip frontend/dist/extension.zip)",
+      "Bash(unzip -p frontend/dist/extension.zip manifest.json)",
+      "Bash(unzip -p frontend/dist/extension.zip content/content.js)",
+      "Bash(echo \"old-UI markers in dist \\(want 0\\): $\\(unzip -p frontend/dist/extension.zip content/content.js)"
     ]
   }
 }
