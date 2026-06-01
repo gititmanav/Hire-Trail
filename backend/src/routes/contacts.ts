@@ -24,7 +24,9 @@ function parseDate(v: unknown): Date | null {
  *  Fires a background logo fetch so the next page load shows the brand mark. */
 async function findOrCreateCompanyId(name: string, userId: any): Promise<string | null> {
   const trimmed = (name || "").trim();
-  if (!trimmed) return null;
+  // Skip blanks and placeholders ("Unknown") so we never pollute the company
+  // graph with a junk doc when the contact's employer wasn't captured.
+  if (!trimmed || ["unknown", "unknown company", "n/a"].includes(trimmed.toLowerCase())) return null;
   const company = await Company.findOneAndUpdate(
     { name: trimmed },
     {

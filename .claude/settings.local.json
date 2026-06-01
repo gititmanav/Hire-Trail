@@ -71,7 +71,18 @@
       "Bash(ls -la backend/src/models/)",
       "Bash(grep -rl -i \"scrap\" backend/src frontend/src)",
       "Bash(grep -rl -iE \"cheerio|puppeteer|playwright|jsdom\" backend/src frontend/src)",
-      "Bash(node --test src/services/*.test.mjs)"
+      "Bash(node --test src/services/*.test.mjs)",
+      "Bash(cat ../.claude/launch.json)",
+      "Read(//private/tmp/**)",
+      "Bash(node --test extension/tests/*.test.js)",
+      "Bash(rm -f /tmp/li-scrape-check.mjs && echo cleaned)",
+      "Bash(zip -r ../extension.zip . -x \"tests/*\" \"node_modules/*\" \"*.DS_Store\" \"icons/icons48.png\")",
+      "Bash(unzip -l ../extension.zip)",
+      "Bash(node --test tests/*.test.js)",
+      "Bash(cd \"/Users/manav/Projects/Hire Trail\" && rm -f frontend/public/__popover.html && cd extension && node -c content/content.js && node --test tests/*.test.js 2>&1 | grep -E \"# \\(tests|pass|fail\\)\"; rm -f ../extension.zip && zip -r ../extension.zip . -x \"tests/*\" \"node_modules/*\" \"*.DS_Store\" \"icons/icons48.png\" >/dev/null && echo \"=== zip rebuilt ===\" && unzip -l ../extension.zip | grep -c \"content/\\\\|popup/\\\\|background/\\\\|manifest\")",
+      "Bash(unzip -p extension.zip content/content.js)",
+      "Bash(rm -f /tmp/_z.js)",
+      "Bash(unzip -l extension.zip)"
     ]
   }
 }

@@ -5,14 +5,15 @@
  * broken-image icon ever flashes.
  */
 import { useState, memo } from "react";
+import { Building2 } from "lucide-react";
 
 interface Props {
   /** Display name — also used to derive monogram + tile background. */
   name: string;
   /** Cached CDN URL (Cloudinary). When empty, the monogram fallback renders. */
   logoUrl?: string;
-  /** Visual size. lg = 56px, md = 40px, sm = 32px. */
-  size?: "lg" | "md" | "sm";
+  /** Visual size. lg = 56px, md = 40px, sm = 32px, xs = 24px. */
+  size?: "lg" | "md" | "sm" | "xs";
   /** When true, the image renders raw — no padding, no white tile, no
    *  border. Use when the logo is meant to sit directly on a colored card
    *  surface (Applications row redesign). The monogram fallback still has
@@ -28,6 +29,13 @@ function monogram(name: string): string {
     .slice(0, 2)
     .map((w) => w[0]?.toUpperCase() ?? "")
     .join("") || "?";
+}
+
+/** Names that carry no brand identity — render a generic company icon instead
+ *  of a meaningless "?" monogram (e.g. a contact whose employer wasn't captured). */
+function isUnknownName(name: string): boolean {
+  const n = (name || "").trim().toLowerCase();
+  return n === "" || n === "unknown" || n === "unknown company" || n === "n/a";
 }
 
 function hueFromString(s: string): number {
@@ -49,7 +57,8 @@ function CompanyLogoImpl({ name, logoUrl, size = "md", bare = false, className =
   const sizeClass =
     size === "lg" ? "w-14 h-14 text-base" :
     size === "md" ? "w-10 h-10 text-sm" :
-    "w-8 h-8 text-xs";
+    size === "sm" ? "w-8 h-8 text-xs" :
+    "w-6 h-6 text-[10px]";
   const usableLogo = logoUrl && !failed && !isUnreachableLogoUrl(logoUrl);
 
   if (usableLogo) {
@@ -71,6 +80,19 @@ function CompanyLogoImpl({ name, logoUrl, size = "md", bare = false, className =
           referrerPolicy="no-referrer"
           draggable={false}
         />
+      </div>
+    );
+  }
+
+  // No brand identity (blank / "Unknown") → neutral company icon, never a "?".
+  if (isUnknownName(name)) {
+    const iconSize = size === "lg" ? 24 : size === "md" ? 18 : size === "sm" ? 15 : 12;
+    return (
+      <div
+        className={`${sizeClass} rounded-lg flex items-center justify-center bg-muted text-muted-foreground shrink-0 select-none ${className}`}
+        aria-hidden
+      >
+        <Building2 size={iconSize} strokeWidth={1.8} />
       </div>
     );
   }

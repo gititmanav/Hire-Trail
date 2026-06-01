@@ -164,49 +164,118 @@
       && /^\/in\/[^\/?#]+/.test(window.location.pathname);
   }
 
-  /** Scrape the displayed profile. LinkedIn's class names change often, so we
-   *  try several selectors and fall back to the document title (which is
-   *  "<Name> | LinkedIn" or "(N) <Name> | LinkedIn"). */
+  /** Scrape the displayed profile.
+   *
+   *  LinkedIn migrated profiles to a server-driven UI whose class names are
+   *  obfuscated hashes ("_6bc9d9b3") that rotate frequently, so selector-based
+   *  scraping rots fast. We instead match on the *text shape* of elements
+   *  (which is stable) and fall back to the legacy selectors for older layouts.
+   *
+   *  Company precedence (most → least reliable for the *current* employer):
+   *    1. Headline: "Role @ Company | …" / "Role at Company"  (user-authored)
+   *    2. "Company · School" summary line under the headline
+   *    3. First company logo in the Experience section (alt = "Company logo")
+   *    4. Legacy top-card selectors
+   */
   function scrapeLinkedInProfile() {
-    const top = document.querySelector("section.pv-top-card")
-      || document.querySelector(".scaffold-layout__main")
-      || document.body;
-
-    const nameEl = top.querySelector("h1");
-    let name = nameEl?.textContent?.trim() || "";
-    if (!name) {
-      const t = (document.title || "").replace(/\s*\|\s*LinkedIn.*$/i, "").replace(/^\(\d+\)\s*/, "").trim();
-      name = t;
-    }
-
-    const headline = top.querySelector(".text-body-medium.break-words")?.textContent?.trim()
-      || top.querySelector("[data-generated-suggestion-target]")?.textContent?.trim()
-      || "";
-
-    const location = top.querySelector(".text-body-small.inline.t-black--light.break-words")?.textContent?.trim()
-      || top.querySelector(".pv-text-details__left-panel .text-body-small")?.textContent?.trim()
-      || "";
-
-    // Current company: LinkedIn renders a list of "experience" buttons in the
-    // top card showing the user's current orgs. Prefer the first one.
-    let company = "";
-    let role = "";
-    const expBtn = top.querySelector('[aria-label*="Current company"]')
-      || top.querySelector('button[data-field="experience_company_logo"]');
-    if (expBtn) {
-      const text = expBtn.textContent?.trim() || "";
-      if (text) company = text.split("\n").map((s) => s.trim()).filter(Boolean)[0] || "";
-    }
-    // Fallback: parse headline like "Software Engineer at Verkada"
-    if (!company && headline) {
-      const m = headline.match(/^(.*?)\s+(?:at|@)\s+(.+)$/i);
-      if (m) { role = m[1].trim(); company = m[2].trim(); }
-    }
-    if (!role && headline) role = headline.split(/\s+at\s+/i)[0]?.trim() || "";
-
-    // Canonical profile URL — strip query + trailing slash.
     const url = `${window.location.origin}${window.location.pathname}`.replace(/\/$/, "");
+    let name = "", headline = "", company = "", role = "", location = "";
 
+    try {
+      const cleanTitle = (document.title || "")
+        .replace(/\s*\|\s*LinkedIn.*$/i, "")
+        .replace(/^\(\d+\)\s*/, "")
+        .trim();
+
+      // ---- name ---- (the page <h1>/<h2> first, else the document title) ----
+      name = document.querySelector("main h1, main h2")?.textContent?.trim()
+        || document.querySelector("h1")?.textContent?.trim()
+        || cleanTitle;
+
+      // Lines we never want to treat as headline/company/location.
+      const isNoise = (t) =>
+        !t || t.length < 4 || t.length > 320
+        || /^·/.test(t)
+        || /·\s*(1st|2nd|3rd)\b/i.test(t)
+        || /\b(followers?|connections?|mutual connection)\b/i.test(t)
+        || /^Contact info$/i.test(t);
+
+      // Snapshot of the top ~60 paragraph-ish lines, in document order.
+      const lines = Array.from(document.querySelectorAll("main p, section p"))
+        .slice(0, 60)
+        .map((p) => (p.textContent || "").replace(/\s+/g, " ").trim());
+
+      // ---- headline ---- (first title-like line: has "@"/" at "/"|") ----
+      for (const t of lines) {
+        if (isNoise(t)) continue;
+        if (/(@|\bat\b)/i.test(t) || t.includes("|")) { headline = t; break; }
+      }
+      if (!headline) {
+        headline = document.querySelector(".text-body-medium.break-words")?.textContent?.trim()
+          || document.querySelector("[data-generated-suggestion-target]")?.textContent?.trim()
+          || "";
+      }
+
+      // ---- (1) parse company + role from the headline ----
+      if (headline) {
+        const seg = headline.split("|")[0].trim();
+        const m = seg.match(/^(.*?)\s*(?:@|\bat\b)\s*(.+)$/i);
+        if (m) { role = m[1].trim(); company = m[2].trim(); }
+        else { role = seg; }
+        // Strip a trailing ",City" / "· …" the headline sometimes appends.
+        company = company.split(/[,|·]/)[0].trim();
+      }
+
+      // ---- (2) "Company · School" summary line ----
+      if (!company) {
+        for (const t of lines) {
+          if (isNoise(t) || /\d/.test(t) || t.length > 120) continue;
+          const parts = t.split("·").map((s) => s.trim()).filter(Boolean);
+          if (parts.length >= 2 && parts.length <= 3) { company = parts[0]; break; }
+        }
+      }
+
+      // ---- (3) first company logo alt in the Experience section ----
+      if (!company) {
+        const expHeading = Array.from(document.querySelectorAll("section h2, section h3"))
+          .find((h) => /^experience$/i.test((h.textContent || "").trim()));
+        const scope = expHeading?.closest("section") || document;
+        const logo = scope.querySelector('img[alt$=" logo" i]');
+        if (logo) company = (logo.getAttribute("alt") || "").replace(/\s+logo$/i, "").trim();
+      }
+
+      // ---- (4) legacy top-card selectors ----
+      if (!company) {
+        const expBtn = document.querySelector('[aria-label*="Current company" i]')
+          || document.querySelector('button[data-field="experience_company_logo"]');
+        const t = expBtn?.textContent?.trim();
+        if (t) company = t.split("\n").map((s) => s.trim()).filter(Boolean)[0] || "";
+      }
+
+      if (!role && headline) {
+        role = headline.split("|")[0].split(/\s*(?:@|\bat\b)\s*/i)[0].trim();
+      }
+
+      // ---- location ---- (labelled selector, else a place-shaped line) ----
+      location = document.querySelector(".text-body-small.inline.t-black--light.break-words")?.textContent?.trim()
+        || document.querySelector(".pv-text-details__left-panel .text-body-small")?.textContent?.trim()
+        || "";
+      if (!location) {
+        for (const t of lines) {
+          if (isNoise(t) || /[@|·]/.test(t) || /\d/.test(t) || t.length > 80) continue;
+          if (/(United States|United Kingdom|India|Canada|Australia|Germany|France|Singapore|, [A-Z]{2}\b)/.test(t)) {
+            location = t; break;
+          }
+        }
+      }
+    } catch (err) {
+      // Never let a DOM change break the FAB — return whatever we have.
+      console.warn("[HireTrail] LinkedIn scrape failed:", err);
+    }
+
+    // Guard against the page-title leaking a non-name when nothing parsed.
+    company = (company || "").slice(0, 200);
+    role = (role || "").slice(0, 120);
     return { name, headline, company, role, location, linkedinUrl: url };
   }
 
@@ -839,17 +908,9 @@
       right: ${Math.max(8, window.innerWidth - rect.left + 8)}px;
       top: ${Math.min(rect.top, window.innerHeight - 280)}px;
       z-index: 1000000;
-      width: max-content;
-      max-width: 312px;
+      width: 248px;
+      max-width: calc(100vw - 16px);
       padding: 0;
-      background: #ffffff;
-      color: #0f172a;
-      border: 1px solid rgba(15, 23, 42, 0.08);
-      border-radius: 14px;
-      box-shadow: 0 24px 56px -12px rgba(15, 23, 42, 0.24), 0 6px 16px -4px rgba(15, 23, 42, 0.08);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      font-size: 13px;
-      overflow: hidden;
       animation: ht-pop-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
     `;
     // Save-as-contact only renders on LinkedIn profile pages. Each action is
@@ -864,7 +925,6 @@
         </span>
         <span class="ht-text">
           <span class="ht-label">Save as contact</span>
-          <span class="ht-sub">Adds this person to your contacts with a starter note.</span>
         </span>
         <svg class="ht-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <polyline points="9 6 15 12 9 18" />
@@ -878,6 +938,21 @@
         @keyframes ht-pop-in {
           from { opacity: 0; transform: translateY(-8px) scale(0.96); }
           to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        /* Card appearance lives here (not inline) so the dark-mode media query
+         * below can flip the whole surface — background AND text — together.
+         * Previously the white bg was set inline and won over the media query,
+         * leaving light text on a white card (invisible header) in OS dark mode. */
+        #hiretrail-popover {
+          box-sizing: border-box;
+          background: #ffffff;
+          color: #0f172a;
+          border: 1px solid rgba(15, 23, 42, 0.08);
+          border-radius: 14px;
+          box-shadow: 0 24px 56px -12px rgba(15, 23, 42, 0.24), 0 6px 16px -4px rgba(15, 23, 42, 0.08);
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+          font-size: 13px;
+          overflow: hidden;
         }
         #hiretrail-popover .ht-header {
           display: flex; align-items: center; justify-content: space-between; gap: 10px;
@@ -909,9 +984,9 @@
         }
         #hiretrail-popover .ht-body { padding: 4px; }
         #hiretrail-popover .ht-action {
-          width: 100%; min-width: 280px;
-          display: flex; align-items: center; gap: 12px;
-          padding: 12px 14px;
+          width: 100%; min-width: 0;
+          display: flex; align-items: center; gap: 10px;
+          padding: 10px 12px;
           border: none; background: transparent; color: inherit;
           font: inherit; text-align: left; cursor: pointer;
           border-radius: 10px;
@@ -938,7 +1013,7 @@
           max-width: 220px;
         }
         #hiretrail-popover .ht-glyph {
-          width: 36px; height: 36px; border-radius: 9px;
+          width: 32px; height: 32px; border-radius: 8px;
           display: inline-flex; align-items: center; justify-content: center;
           flex-shrink: 0; color: #ffffff;
           box-shadow:
@@ -1002,7 +1077,7 @@
           border-top: 1px solid rgba(15, 23, 42, 0.06);
           background: rgba(15, 23, 42, 0.02);
           font-size: 10.5px; color: rgba(15, 23, 42, 0.55);
-          display: flex; align-items: center; justify-content: space-between; gap: 10px;
+          display: flex; align-items: center; justify-content: center; gap: 10px;
         }
         #hiretrail-popover .ht-footer a {
           color: #2563eb; text-decoration: none; font-weight: 600;
@@ -1070,7 +1145,6 @@
           </span>
           <span class="ht-text">
             <span class="ht-label">Track this job</span>
-            <span class="ht-sub">Saves the JD into your pipeline as "Applied".</span>
           </span>
           <svg class="ht-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <polyline points="9 6 15 12 9 18" />
@@ -1088,7 +1162,6 @@
           </span>
           <span class="ht-text">
             <span class="ht-label">Tailor with AI</span>
-            <span class="ht-sub">Drafts a tailored resume + opens it in HireTrail.</span>
           </span>
           <svg class="ht-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <polyline points="9 6 15 12 9 18" />
@@ -1096,7 +1169,6 @@
         </button>
       </div>
       <div class="ht-footer">
-        <span>Tip: drag the FAB to reposition</span>
         <a href="https://hiretrail.manavkaneria.me" target="_blank" rel="noopener noreferrer">
           Open app
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
