@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { HelpCircle, ChevronDown, ArrowRight } from "lucide-react";
 import { Reveal, GridTexture } from "./motion";
 import { useOpenAuth } from "./context";
 
@@ -15,15 +16,11 @@ function FAQItem({ q, a, open: defaultOpen = false }: { q: string; a: ReactNode;
       >
         <span className="text-[14px] sm:text-[15px] font-semibold flex items-center gap-2.5 sm:gap-3">
           <span className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center transition-colors shrink-0 ${open ? "bg-gradient-to-br from-[#3B82F6] to-[#1E3A8A] text-white" : "bg-blue-50 text-[#3B82F6]"}`}>
-            {/* Proper question-mark glyph — curl + dot rendered as a rounded-cap line so the dot is actually visible at small sizes. */}
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M9.5 9a2.5 2.5 0 1 1 4.5 1.5c-.8 1-2 1.3-2 2.5" />
-              <line x1="12" y1="17" x2="12" y2="17" />
-            </svg>
+            <HelpCircle size={18} strokeWidth={2.4} aria-hidden />
           </span>
           {q}
         </span>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={`shrink-0 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`}><polyline points="6 9 12 15 18 9"/></svg>
+        <ChevronDown size={18} strokeWidth={2.5} className={`shrink-0 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       <div className={`overflow-hidden transition-[max-height,opacity] duration-300 ease-out ${open ? "max-h-80 opacity-100" : "max-h-0 opacity-0"}`}>
         <div className="px-4 sm:px-5 pb-5 text-[14px] text-gray-600 leading-relaxed pl-14 sm:pl-[60px]">{a}</div>
@@ -60,7 +57,7 @@ export default function FAQ() {
                 <div className="relative">
                   <div className="text-[11px] font-bold uppercase tracking-wider text-blue-200 mb-2">Still curious?</div>
                   <p className="text-[14px] leading-relaxed mb-4">Sign up, kick the tires, delete the account if it's not for you. No card needed.</p>
-                  <button type="button" onClick={() => openAuth("register")} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-[#1E3A8A] text-sm font-semibold hover:bg-blue-50 transition-colors">Try it free<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></button>
+                  <button type="button" onClick={() => openAuth("register")} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white text-[#1E3A8A] text-sm font-semibold hover:bg-blue-50 transition-colors">Try it free<ArrowRight size={12} strokeWidth={2.5} /></button>
                 </div>
               </div>
             </Reveal>

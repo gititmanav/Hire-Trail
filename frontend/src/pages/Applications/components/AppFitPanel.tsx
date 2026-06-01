@@ -16,6 +16,8 @@
  * The whole panel is a single click target → opens the AI sidebar.
  */
 import { memo } from "react";
+import { Check, Sparkle } from "lucide-react";
+import AiPulse from "../../../components/AiIndicator/AiPulse.tsx";
 import type { AppFit, FitStatus } from "../../../types";
 
 type Grade = "A" | "B" | "C" | "D" | "F";
@@ -38,27 +40,26 @@ interface Props {
   fit?: AppFit | null;
   /** Click opens the AI sidebar; parent owns sidebar state. */
   onOpen: (sessionId: string | null) => void;
-}
-
-function pulseDot(delay: string) {
-  return (
-    <span
-      className="inline-block w-1 h-1 rounded-full bg-white/80 animate-pulse"
-      style={{ animationDelay: delay }}
-      aria-hidden
-    />
-  );
+  /** Whether the signed-in user has finished their master profile. When false,
+   *  the "none" state nudges profile setup. When true, the "none" state
+   *  surfaces a "Run analysis" CTA (or a "Add JD first" hint when the
+   *  application is missing its JD). */
+  hasMasterProfile?: boolean;
+  /** Whether this specific application has a job description on record. Drives
+   *  the empty-state copy: no JD = no analysis possible until one is added. */
+  hasJobDescription?: boolean;
+  /** The on-create AI extraction pass is still reading/cleaning this posting.
+   *  Takes visual priority over fit state — fit analysis only runs afterwards. */
+  extracting?: boolean;
 }
 
 function Checkmark() {
   return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0 text-emerald-400">
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
+    <Check size={11} strokeWidth={3} aria-hidden className="shrink-0 text-emerald-400" />
   );
 }
 
-function FitPanelImpl({ fit, onOpen }: Props) {
+function FitPanelImpl({ fit, onOpen, hasMasterProfile = true, hasJobDescription = true, extracting = false }: Props) {
   const status: FitStatus | "none" = fit?.status ?? "none";
   const grade = (fit?.fitGrade || "") as Grade | "";
   const meta = grade ? GRADE_META[grade] : null;
@@ -85,9 +86,7 @@ function FitPanelImpl({ fit, onOpen }: Props) {
        *  Kept compact so the grade band below stays the dominant element. */}
       <div className="flex items-center justify-between">
         <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-white/60">
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
-            <path d="M12 2l1.6 4.2L18 8l-4.4 1.8L12 14l-1.6-4.2L6 8l4.4-1.8L12 2z"/>
-          </svg>
+          <Sparkle size={10} strokeWidth={2} aria-hidden />
           AI Fit
         </span>
         {status === "succeeded" && fit && (
@@ -95,7 +94,12 @@ function FitPanelImpl({ fit, onOpen }: Props) {
         )}
       </div>
 
-      {status === "succeeded" && fit && meta ? (
+      {extracting ? (
+        <div className="flex items-center gap-2 text-[11px] text-white/90">
+          <AiPulse size={13} />
+          Reading this posting…
+        </div>
+      ) : status === "succeeded" && fit && meta ? (
         <>
           {/* Grade band — the dominant element. Coloured + bordered per grade. */}
           <div className={`inline-flex items-center gap-2 self-start px-2.5 py-1 rounded-md border ${meta.band}`}>
@@ -127,9 +131,7 @@ function FitPanelImpl({ fit, onOpen }: Props) {
         </>
       ) : status === "processing" ? (
         <div className="flex items-center gap-2 text-[11px] text-white/90">
-          <span className="inline-flex items-center gap-0.5">
-            {pulseDot("0ms")}{pulseDot("150ms")}{pulseDot("300ms")}
-          </span>
+          <AiPulse size={13} />
           Analyzing…
         </div>
       ) : status === "deferred" ? (
@@ -141,9 +143,20 @@ function FitPanelImpl({ fit, onOpen }: Props) {
           <p className="text-[11px] text-white/85 line-clamp-2">{fit?.errorMessage || "Analysis failed."}</p>
           <span className="text-[10.5px] text-white/70 underline">Retry →</span>
         </div>
-      ) : (
+      ) : !hasMasterProfile ? (
+        // Genuine "you need to do setup" case — only shown when the user has
+        // no master profile at all. Without this guard the message used to
+        // appear even for users who'd long-since set up their profile.
         <p className="text-[11px] text-white/75 leading-snug">
           <span className="underline">Set up your profile</span> to enable AI analysis.
+        </p>
+      ) : !hasJobDescription ? (
+        <p className="text-[11px] text-white/75 leading-snug">
+          Add a job description to this application to run AI analysis.
+        </p>
+      ) : (
+        <p className="text-[11px] text-white/85 leading-snug">
+          <span className="underline">Run AI analysis →</span>
         </p>
       )}
     </button>

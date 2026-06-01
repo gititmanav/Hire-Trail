@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { AlertCircle } from "lucide-react";
 import toast from "react-hot-toast";
 import { adminAPI } from "../../utils/api";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal";
@@ -180,9 +181,7 @@ export default function EmailTemplates() {
 
       {/* Notice */}
       <div className="mb-5 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 flex items-start gap-3">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-600 dark:text-amber-400 mt-0.5 shrink-0">
-          <path d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
+        <AlertCircle width={18} height={18} strokeWidth={2} className="text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
         <p className="text-xs text-amber-700 dark:text-amber-300">Email sending isn't connected yet — templates created here will be used once the email integration ships.</p>
       </div>
 

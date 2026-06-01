@@ -1,6 +1,7 @@
 /** Quick-add deadline triggered by clicking an empty day in the calendar. */
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
+import { X } from "lucide-react";
 
 const DEADLINE_TYPES = [
   "OA due date",
@@ -47,7 +48,7 @@ export function QuickAddDeadlineModal({ initialDate, onClose, onCreate }: Props)
         <div className="quick-add__head">
           <h3>New deadline</h3>
           <button type="button" onClick={onClose} className="quick-add__close" aria-label="Close">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+            <X size={14} strokeWidth={2} />
           </button>
         </div>
         <form onSubmit={handleSubmit} className="quick-add__form">

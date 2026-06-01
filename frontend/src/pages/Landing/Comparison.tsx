@@ -1,3 +1,4 @@
+import { X, Check } from "lucide-react";
 import { Reveal, GridTexture } from "./motion";
 import { BrandLogo } from "./brand";
 
@@ -39,11 +40,11 @@ export default function Comparison() {
                     <div className="grid grid-cols-[1.1fr_1fr_1fr] px-5 py-4 items-start hover:bg-gray-50/60 transition-colors">
                       <div className="text-[14px] font-semibold text-gray-900 pr-3">{r.feature}</div>
                       <div className="text-[13px] text-gray-500 leading-relaxed flex items-start gap-2 pr-3">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-gray-400 shrink-0 mt-0.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        <X size={14} strokeWidth={2.5} className="text-gray-400 shrink-0 mt-0.5" />
                         {r.them}
                       </div>
                       <div className="text-[13px] text-gray-900 leading-relaxed flex items-start gap-2">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-emerald-500 shrink-0 mt-0.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        <Check size={14} strokeWidth={2.5} className="text-emerald-500 shrink-0 mt-0.5" />
                         {r.us}
                       </div>
                     </div>

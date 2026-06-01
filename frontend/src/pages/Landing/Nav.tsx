@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { Play } from "lucide-react";
 import { useOpenAuth, useDemoLogin } from "./context";
 import { BrandLogo, PrimaryCTA } from "./brand";
 
@@ -64,7 +65,7 @@ export default function Nav() {
               className="hidden sm:inline-flex items-center gap-1.5 text-sm font-medium text-gray-700 hover:text-gray-900 px-3 py-1.5 rounded-full bg-white/70 hover:bg-white border border-gray-200 hover:border-gray-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B82F6] focus-visible:ring-offset-2 disabled:opacity-60 disabled:cursor-wait"
               title="Skip signup and explore with the demo account"
             >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+              <Play size={13} strokeWidth={2.2} aria-hidden="true" />
               {demoLoading ? "Signing in…" : "Try demo"}
             </button>
             <button type="button" onClick={() => openAuth("login")} className="hidden sm:inline-flex text-sm font-medium text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B82F6] focus-visible:ring-offset-2">Log in</button>

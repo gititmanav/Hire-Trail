@@ -9,6 +9,8 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { X, Sparkle, ArrowRight } from "lucide-react";
+import AiPulse from "../../components/AiIndicator/AiPulse.tsx";
 import { tailorAPI } from "../../utils/api.ts";
 import type { TailorSession } from "../../utils/api.ts";
 
@@ -73,7 +75,7 @@ export default function AiAnalysisSidebar({ sessionId, onClose }: Props) {
               style={{ background: "linear-gradient(135deg, #3B82F6 0%, #1E3A8A 100%)" }}
               aria-hidden
             >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 2l1.6 4.2L18 8l-4.4 1.8L12 14l-1.6-4.2L6 8l4.4-1.8L12 2z"/></svg>
+              <Sparkle size={13} strokeWidth={2.2} />
             </span>
             <h2 className="text-base font-semibold text-foreground">AI Fit Analysis</h2>
           </div>
@@ -82,7 +84,7 @@ export default function AiAnalysisSidebar({ sessionId, onClose }: Props) {
             aria-label="Close"
             className="w-8 h-8 inline-flex items-center justify-center rounded-md border border-border text-muted-foreground hover:text-foreground"
           >
-            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden><line x1="3" y1="3" x2="11" y2="11"/><line x1="11" y1="3" x2="3" y2="11"/></svg>
+            <X size={14} strokeWidth={2} />
           </button>
         </div>
 
@@ -101,10 +103,7 @@ export default function AiAnalysisSidebar({ sessionId, onClose }: Props) {
           ) : !session ? (
             <p className="text-sm text-muted-foreground">No analysis yet.</p>
           ) : session.status === "processing" ? (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span className="inline-flex w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-              Analyzing this JD against your profile…
-            </div>
+            <AiPulse size={15} label="Analyzing this JD against your profile…" labelSize={14} />
           ) : session.status === "failed" || session.status === "deferred" ? (
             <div className="p-4 rounded-xl border border-amber-200 bg-amber-50 text-sm text-amber-700 dark:border-amber-800/50 dark:bg-amber-900/20 dark:text-amber-300">
               {session.errorMessage || "Analysis is not available yet."}
@@ -192,7 +191,7 @@ export default function AiAnalysisSidebar({ sessionId, onClose }: Props) {
               className="btn-accent inline-flex items-center gap-1.5"
             >
               Open full Tailor
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12,5 19,12 12,19"/></svg>
+              <ArrowRight size={13} strokeWidth={2} aria-hidden />
             </Link>
           </div>
         )}

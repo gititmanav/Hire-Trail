@@ -1,6 +1,7 @@
 /** Profile page — single-card, scroll-spy tab layout for the user's master profile.
  *  Right sidebar shows the source-resume preview + quick stats. */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { UploadCloud, FileText, ChevronRight, MapPin, Mail, Phone, Globe, Pencil } from "lucide-react";
 import toast from "react-hot-toast";
 import { masterProfileAPI, resumesAPI, pollMasterProfileParse } from "../../utils/api.ts";
 import ResumePreview from "../../components/ResumePreview/ResumePreview.tsx";
@@ -286,11 +287,7 @@ export default function Profile() {
           />
           <div className="flex flex-col items-center gap-3">
             <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="text-primary">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="17 8 12 3 7 8" />
-                <line x1="12" y1="3" x2="12" y2="15" />
-              </svg>
+              <UploadCloud size={22} strokeWidth={1.8} className="text-primary" />
             </div>
             <div>
               <p className="text-sm font-medium text-foreground">Drop your resume PDF here, or</p>
@@ -460,10 +457,7 @@ export default function Profile() {
               <div className="px-4 pb-4">
                 <div className="flex items-start gap-3 mb-3">
                   <div className="w-11 h-14 rounded-md border border-border bg-red-50 dark:bg-red-900/20 flex items-center justify-center shrink-0">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-red-500">
-                      <path d="M12 2H5a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V7l-7-5z"/>
-                      <polyline points="12 2 12 7 17 7"/>
-                    </svg>
+                    <FileText size={20} strokeWidth={1.5} className="text-red-500" />
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-foreground truncate">{sourceResume.name}</p>
@@ -562,10 +556,7 @@ function Section({
             aria-label={`Edit ${title}`}
             title={`Edit ${title}`}
           >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-            </svg>
+            <Pencil size={13} strokeWidth={2} />
             Edit
           </button>
         )}
@@ -614,16 +605,16 @@ function PersonalSection({ profile }: { profile: MasterProfile }) {
       )}
       <div className="flex flex-wrap gap-2">
         <Chip
-          icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>}
+          icon={<MapPin size={14} strokeWidth={1.8} />}
           label={c.location}
         />
         <Chip
-          icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>}
+          icon={<Mail size={14} strokeWidth={1.8} />}
           label={c.email}
           href={c.email ? `mailto:${c.email}` : undefined}
         />
         <Chip
-          icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>}
+          icon={<Phone size={14} strokeWidth={1.8} />}
           label={c.phone}
           href={c.phone ? `tel:${c.phone.replace(/[^+0-9]/g, "")}` : undefined}
         />
@@ -638,7 +629,7 @@ function PersonalSection({ profile }: { profile: MasterProfile }) {
           href={linkHref(c.github)}
         />
         <Chip
-          icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>}
+          icon={<Globe size={14} strokeWidth={1.8} />}
           label={stripUrlPrefix(c.portfolio)}
           href={linkHref(c.portfolio)}
         />

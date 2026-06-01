@@ -2,6 +2,7 @@
  *  All edits stay client-side until "Update" is clicked; then we PUT the changed
  *  section keys back to the master profile. */
 import { useCallback, useEffect, useState } from "react";
+import { ChevronLeft, ChevronUp, ChevronDown, Trash2, X } from "lucide-react";
 import toast from "react-hot-toast";
 import { masterProfileAPI } from "../../utils/api.ts";
 
@@ -126,7 +127,7 @@ export default function EditDrawer({ section, profile, onClose, onSaved }: Props
         <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
           <div className="flex items-center gap-2">
             <button onClick={handleClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground" aria-label="Close">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+              <ChevronLeft size={16} strokeWidth={2} />
             </button>
             <h2 className="text-base font-semibold text-foreground">{SECTION_TITLE[section]}</h2>
           </div>
@@ -264,13 +265,13 @@ function ListEditor<T>({
               </button>
               <div className="flex items-center gap-1 shrink-0">
                 <button onClick={() => move(i, -1)} disabled={i === 0} title="Move up" className="w-7 h-7 flex items-center justify-center rounded hover:bg-muted text-muted-foreground disabled:opacity-30">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="18 15 12 9 6 15"/></svg>
+                  <ChevronUp size={13} strokeWidth={2} />
                 </button>
                 <button onClick={() => move(i, 1)} disabled={i === items.length - 1} title="Move down" className="w-7 h-7 flex items-center justify-center rounded hover:bg-muted text-muted-foreground disabled:opacity-30">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+                  <ChevronDown size={13} strokeWidth={2} />
                 </button>
                 <button onClick={() => remove(i)} title="Remove" className="w-7 h-7 flex items-center justify-center rounded hover:bg-red-50 dark:hover:bg-red-900/30 text-muted-foreground hover:text-red-600">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+                  <Trash2 size={13} strokeWidth={2} />
                 </button>
               </div>
             </div>
@@ -318,7 +319,7 @@ function BulletList({
             className="w-7 h-7 mt-1 flex items-center justify-center rounded hover:bg-red-50 dark:hover:bg-red-900/30 text-muted-foreground hover:text-red-600 shrink-0"
             aria-label="Remove bullet"
           >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            <X size={13} strokeWidth={2} />
           </button>
         </div>
       ))}

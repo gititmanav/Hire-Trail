@@ -12,6 +12,7 @@
  */
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
+import { X, Info } from "lucide-react";
 import toast from "react-hot-toast";
 import { AxiosError } from "axios";
 import { authAPI, settingsAPI } from "../../utils/api.ts";
@@ -109,7 +110,7 @@ function AuthCard({ mode, onModeChange, onClose, onLogin, contextHeader }: Omit<
         onClick={onClose}
         className="absolute top-3 right-3 w-8 h-8 inline-flex items-center justify-center rounded-md text-slate-400 hover:text-slate-100 hover:bg-muted/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B82F6]"
       >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+        <X size={16} strokeWidth={2} aria-hidden />
       </button>
 
       {contextHeader && (
@@ -118,10 +119,7 @@ function AuthCard({ mode, onModeChange, onClose, onLogin, contextHeader }: Omit<
           className="mb-5 rounded-lg border border-[#3B82F6]/40 bg-[#3B82F6]/10 px-4 py-3 text-left text-[13px] leading-snug text-slate-100"
         >
           <div className="flex items-start gap-2">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="mt-0.5 shrink-0 text-[#60A5FA]">
-              <circle cx="12" cy="12" r="10" />
-              <path d="M12 16v-4M12 8h.01" />
-            </svg>
+            <Info size={16} strokeWidth={2} aria-hidden className="mt-0.5 shrink-0 text-[#60A5FA]" />
             <span>{contextHeader}</span>
           </div>
         </div>

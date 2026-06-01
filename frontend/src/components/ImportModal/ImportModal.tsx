@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { X, Upload, FileText, CheckCircle2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { parseCSV, downloadTemplate, type CSVRow } from "../../utils/csv.ts";
 import { applicationsAPI } from "../../utils/api.ts";
@@ -59,7 +60,7 @@ export default function ImportModal({ onClose, onImported }: Props) {
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-semibold text-foreground">Import Applications</h2>
           <button onClick={onClose} className="w-9 h-9 flex items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted">
-            <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="4" y1="4" x2="12" y2="12" /><line x1="12" y1="4" x2="4" y2="12" /></svg>
+            <X size={16} strokeWidth={2} />
           </button>
         </div>
 
@@ -71,11 +72,7 @@ export default function ImportModal({ onClose, onImported }: Props) {
               onDragOver={(e) => e.preventDefault()}
               onDrop={handleDrop}
             >
-              <svg className="mx-auto mb-3 text-muted-foreground" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-                <polyline points="17,8 12,3 7,8" />
-                <line x1="12" y1="3" x2="12" y2="15" />
-              </svg>
+              <Upload className="mx-auto mb-3 text-muted-foreground" size={40} strokeWidth={1.5} />
               <p className="text-sm font-medium text-foreground mb-1">
                 Drop your CSV here or click to browse
               </p>
@@ -110,9 +107,7 @@ export default function ImportModal({ onClose, onImported }: Props) {
             <div className="mb-4">
               <div className="flex items-center gap-3 mb-3">
                 <div className="flex items-center gap-2 text-sm">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-muted-foreground">
-                    <path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9l-7-7z" />
-                  </svg>
+                  <FileText size={16} strokeWidth={1.5} className="text-muted-foreground" />
                   <span className="text-secondary-foreground">{file?.name}</span>
                 </div>
                 <button onClick={() => { setStep("upload"); setParsed(null); setErrors([]); setFile(null); }} className="text-xs text-primary hover:underline">
@@ -132,10 +127,7 @@ export default function ImportModal({ onClose, onImported }: Props) {
               )}
 
               <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-success shrink-0">
-                  <path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
-                  <polyline points="22,4 12,14.01 9,11.01" />
-                </svg>
+                <CheckCircle2 size={20} strokeWidth={1.5} className="text-success shrink-0" />
                 <span className="text-sm text-foreground">
                   <strong>{parsed.length}</strong> application{parsed.length !== 1 ? "s" : ""} ready to import
                 </span>
@@ -185,10 +177,7 @@ export default function ImportModal({ onClose, onImported }: Props) {
 
         {step === "done" && (
           <div className="text-center py-6">
-            <svg className="mx-auto mb-3 text-success" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
-              <polyline points="22,4 12,14.01 9,11.01" />
-            </svg>
+            <CheckCircle2 className="mx-auto mb-3 text-success" size={48} strokeWidth={1.5} />
             <h3 className="text-lg font-semibold text-foreground mb-1">Import complete!</h3>
             <p className="text-sm text-muted-foreground mb-4">
               {parsed?.length} applications have been added to your tracker

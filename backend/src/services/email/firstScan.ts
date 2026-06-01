@@ -218,7 +218,7 @@ async function fetchFilteredMessages(
   job: IEmailScanJob,
   userId: string,
 ): Promise<FetchedMessage[] | null> {
-  const q = buildFirstScanQuery(job.windowDays);
+  const q = buildFirstScanQuery({ windowDays: job.windowDays, afterEpochSec: job.afterEpochSec });
   const idsAndThreads: { id: string; threadId: string }[] = [];
   let pageToken: string | undefined;
 
@@ -397,8 +397,12 @@ async function finalizeJob(job: IEmailScanJob, candidateCount: number): Promise<
 
   // Now (and only now) flip firstScanCompleted on the User. The picker stays
   // available until the scan actually succeeds — multiple failed attempts no
-  // longer lock the user out.
-  await User.findByIdAndUpdate(job.userId, { gmailFirstScanCompleted: true });
+  // longer lock the user out. Manual "Scan now" runs also bump the last-sync
+  // timestamp so the mailbox card reflects the fresh read.
+  await User.findByIdAndUpdate(job.userId, {
+    gmailFirstScanCompleted: true,
+    ...(job.kind === "manual" ? { gmailLastSyncAt: new Date() } : {}),
+  });
 
   // Push a notification so the bell badge increments — user sees the prompt
   // even if they navigated away from Settings.

@@ -1,5 +1,6 @@
 /** Shared resume add/edit modal — used by Resumes page and Application form. */
 import { useState, useRef, useEffect, useMemo, FormEvent, KeyboardEvent } from "react";
+import { X, Tag, FileText, CheckCircle2, UploadCloud } from "lucide-react";
 import toast from "react-hot-toast";
 import type { Resume } from "../../types";
 
@@ -89,7 +90,7 @@ export default function ResumeModal({ resume, existingTags = [], onSave, onClose
       <div className="card-premium p-6 w-full max-w-[520px] max-h-[90vh] overflow-y-auto animate-in" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-semibold text-foreground">{resume ? "Edit resume" : "New resume version"}</h2>
-          <button onClick={onClose} className="w-9 h-9 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted"><svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/></svg></button>
+          <button onClick={onClose} className="w-9 h-9 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted"><X size={16} strokeWidth={2} /></button>
         </div>
         <form onSubmit={(e: FormEvent) => { e.preventDefault(); setSaving(true); onSave({ name, targetRole, fileName, tags, file }).catch(() => setSaving(false)); }} className="space-y-4">
           <div><label className="block text-sm font-medium text-foreground mb-1.5">Version name *</label><input className="input-premium" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. SWE Resume v2" required /></div>
@@ -106,7 +107,7 @@ export default function ResumeModal({ resume, existingTags = [], onSave, onClose
                 <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-primary/10 text-primary">
                   {t}
                   <button type="button" onClick={() => removeTag(i)} className="hover:text-destructive">
-                    <svg width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="2" y1="2" x2="8" y2="8"/><line x1="8" y1="2" x2="2" y2="8"/></svg>
+                    <X size={10} strokeWidth={2.5} />
                   </button>
                 </span>
               ))}
@@ -145,7 +146,7 @@ export default function ResumeModal({ resume, existingTags = [], onSave, onClose
                         : "text-foreground hover:bg-muted"
                     }`}
                   >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-muted-foreground shrink-0"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+                    <Tag size={12} strokeWidth={2} className="text-muted-foreground shrink-0" />
                     {s}
                   </button>
                 ))}
@@ -163,23 +164,23 @@ export default function ResumeModal({ resume, existingTags = [], onSave, onClose
             >
               {file ? (
                 <div className="flex items-center gap-3 justify-center">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-danger shrink-0"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9l-7-7z"/><polyline points="13,2 13,9 20,9"/></svg>
+                  <FileText size={24} strokeWidth={1.5} className="text-danger shrink-0" />
                   <div className="text-left">
                     <p className="text-sm font-medium text-foreground">{file.name}</p>
                     <p className="text-xs text-muted-foreground">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
                   </div>
                   <button type="button" onClick={(e) => { e.stopPropagation(); setFile(null); }} className="text-muted-foreground hover:text-danger ml-2">
-                    <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/></svg>
+                    <X size={16} strokeWidth={2} />
                   </button>
                 </div>
               ) : resume?.fileUrl ? (
                 <div className="flex items-center gap-3 justify-center">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-success"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/></svg>
+                  <CheckCircle2 size={20} strokeWidth={1.5} className="text-success" />
                   <p className="text-sm text-secondary-foreground">File uploaded — click to replace</p>
                 </div>
               ) : (
                 <>
-                  <svg className="mx-auto mb-2 text-muted-foreground dark:text-secondary-foreground" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  <UploadCloud className="mx-auto mb-2 text-muted-foreground dark:text-secondary-foreground" size={32} strokeWidth={1.5} />
                   <p className="text-sm text-muted-foreground">Drop PDF here or click to browse</p>
                   <p className="text-xs text-muted-foreground mt-1">Max 10MB</p>
                 </>

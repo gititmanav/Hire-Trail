@@ -162,30 +162,6 @@
   color: hsl(var(--foreground));
 }
 
-/* Running glyph: gentle rotate + breathe + glow — evokes Claude/GPT "thinking" mark. */
-.glyph-running {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  animation: bgTaskBreathe 1.8s ease-in-out infinite;
-  filter: drop-shadow(0 0 4px color-mix(in srgb, hsl(var(--primary)) 50%, transparent));
-}
-
-.glyph-running > svg {
-  animation: bgTaskRotate 4.5s linear infinite;
-  color: hsl(var(--primary));
-}
-
-@keyframes bgTaskBreathe {
-  0%, 100% { transform: scale(0.94); opacity: 0.85; }
-  50%      { transform: scale(1.08); opacity: 1; }
-}
-
-@keyframes bgTaskRotate {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
-}
-
 .bg-task-overflow {
   text-align: center;
   font-size: 11px;

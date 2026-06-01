@@ -2,13 +2,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState, FormEvent, lazy, Suspense } from "react";
 import toast from "react-hot-toast";
 import { api, applicationsAPI, emailAPI, aiAPI, authAPI } from "../../utils/api.ts";
-import { useBackgroundTasks } from "../../hooks/useBackgroundTasks.tsx";
-import { startEmailScanTask } from "../../utils/emailScanTask.ts";
 import type { EmailStatusResponse, ScanJob } from "../../utils/api.ts";
 import { Link } from "react-router-dom";
+import { ArrowRight, Calendar, Check, Mail, Search, X } from "lucide-react";
 import type { User } from "../../types";
 import { AISettingsCard } from "./AISettingsCard.tsx";
-import EmailScanConsentModal from "./EmailScanConsentModal.tsx";
+import EmailScanFlowModal from "./EmailScanFlowModal.tsx";
 import { useFeatureFlags } from "../../hooks/useFeatureFlags.tsx";
 import { useDemoGate } from "../../hooks/useDemoGate.tsx";
 import { Skeleton } from "../../components/Skeleton/Skeleton.tsx";
@@ -121,7 +120,7 @@ function ReportRejectionModal({ onClose }: { onClose: () => void }) {
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-semibold text-foreground">Report a rejection</h2>
           <button onClick={onClose} className="w-9 h-9 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted">
-            <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/></svg>
+            <X size={16} strokeWidth={2} />
           </button>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -177,7 +176,7 @@ function DeleteAccountModal({ email, onClose }: { email: string; onClose: () => 
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-foreground">Delete account</h2>
           <button onClick={onClose} disabled={submitting} className="w-9 h-9 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted disabled:opacity-50">
-            <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/></svg>
+            <X size={16} strokeWidth={2} />
           </button>
         </div>
         <div className="rounded-lg border border-red-300 dark:border-red-900/60 bg-red-50 dark:bg-red-950/30 p-3 mb-4">
@@ -245,18 +244,9 @@ function MailboxRow({
     <div className="flex items-center justify-between gap-3 flex-wrap py-3">
       <div className="flex items-center gap-3 min-w-0">
         <div className="w-10 h-10 rounded-lg bg-muted/60 flex items-center justify-center shrink-0">
-          {provider === "Gmail" ? (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="text-foreground">
-              <path d="M4 4h16a2 2 0 012 2v12a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2z" />
-              <polyline points="22,6 12,13 2,6" />
-            </svg>
-          ) : (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="text-foreground">
-              <rect x="2" y="6" width="14" height="12" rx="1.5" />
-              <rect x="16" y="3" width="6" height="18" rx="1.5" />
-              <line x1="2" y1="11" x2="16" y2="11" />
-            </svg>
-          )}
+          {provider === "Gmail"
+            ? <Mail size={20} strokeWidth={1.6} className="text-foreground" />
+            : <Calendar size={20} strokeWidth={1.6} className="text-foreground" />}
         </div>
         <div className="min-w-0">
           <div className="flex items-center gap-2">
@@ -344,7 +334,6 @@ export default function Settings() {
   const { isEnabled } = useFeatureFlags();
   const outlookEnabled = isEnabled("feature_outlook_integration");
   const { requireRealAccount } = useDemoGate();
-  const { startTask } = useBackgroundTasks();
   const [mailbox, setMailbox] = useState<EmailStatusResponse>(DEFAULT_EMAIL_STATUS);
   const [mailboxLoading, setMailboxLoading] = useState<null | "gmail" | "outlook" | "scan">(null);
   const [scanJob, setScanJob] = useState<ScanJob | null>(null);
@@ -551,10 +540,7 @@ export default function Settings() {
          *  field labels (find-in-page style). Aliases map "api key" → AI etc.
          *  Index lives in SEARCH_INDEX above. */}
         <div className="relative w-full sm:w-72">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
-            <circle cx="11" cy="11" r="8" />
-            <path d="m21 21-4.3-4.3" />
-          </svg>
+          <Search size={14} strokeWidth={2} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
           <input
             type="search"
             value={search}
@@ -651,7 +637,7 @@ export default function Settings() {
                   }}
                   className="mt-3 px-4 py-2 text-sm font-medium border border-red-400 dark:border-red-800 text-red-700 dark:text-red-200 hover:bg-red-100 dark:hover:bg-red-900/40 rounded-lg"
                 >
-                  Delete account…
+                  Delete account
                 </button>
               </div>
             </section>
@@ -696,7 +682,17 @@ export default function Settings() {
               </p>
 
               {scanJob && scanJob.status !== "completed" && (
-                <ScanJobBanner job={scanJob} />
+                // Banner shows when the user closed the modal mid-scan (kept tab
+                // open elsewhere, refreshed, etc). Clicking re-opens the modal,
+                // which auto-routes to the right step from the job status.
+                <ScanJobBanner
+                  job={scanJob}
+                  onOpen={() => {
+                    if (!requireRealAccount("Email inbox scan")) return;
+                    setScanModalDismissed(false);
+                    setScanModal(true);
+                  }}
+                />
               )}
 
               <div className="rounded-lg border border-border divide-y divide-border px-4">
@@ -796,17 +792,38 @@ export default function Settings() {
                         if (!requireRealAccount("Email inbox scan")) return;
                         setMailboxLoading("scan");
                         try {
-                          const result = await emailAPI.scan();
-                          toast.success(result.message);
-                          if (result.errors?.length) toast.error(result.errors.join(" · "));
-                          const fresh = await emailAPI.status();
-                          setMailbox(fresh);
-                        } catch { toast.error("Scan failed"); }
-                        finally { setMailboxLoading(null); }
+                          // Catch-up window: from 1 AM of the user's local day up
+                          // to now. If it's currently before 1 AM, fall back to
+                          // yesterday's 1 AM so the window is never in the future.
+                          const oneAm = new Date();
+                          oneAm.setHours(1, 0, 0, 0);
+                          let afterMs = oneAm.getTime();
+                          if (afterMs >= Date.now()) afterMs -= 24 * 60 * 60 * 1000;
+                          const afterEpochSec = Math.floor(afterMs / 1000);
+                          const { scanJobId, status } = await emailAPI.startManualScan(afterEpochSec);
+                          // Open the same review-queue modal as the backfill,
+                          // landing on the scanning step.
+                          setScanJob({
+                            _id: scanJobId,
+                            status,
+                            kind: "manual",
+                            windowDays: 1,
+                            progress: { fetched: 0, candidates: 0, threadGroups: 0, classified: 0 },
+                            counts: { totalCandidates: 0, imported: 0, skipped: 0, merged: 0, failed: 0 },
+                            error: null,
+                            startedAt: new Date().toISOString(),
+                            finishedAt: null,
+                          });
+                          setScanModalDismissed(false);
+                          setScanModal(true);
+                        } catch (e) {
+                          const err = e as { response?: { data?: { error?: string } } };
+                          toast.error(err.response?.data?.error || "Could not start the scan.");
+                        } finally { setMailboxLoading(null); }
                       }}
                       className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50"
                     >
-                      {mailboxLoading === "scan" ? "Scanning…" : "Scan now"}
+                      {mailboxLoading === "scan" ? "Starting…" : "Scan now"}
                     </button>
                   )
                 )}
@@ -929,19 +946,20 @@ export default function Settings() {
       {rejectionModal && <ReportRejectionModal onClose={() => setRejectionModal(false)} />}
       {deleteModal && user && <DeleteAccountModal email={user.email} onClose={() => setDeleteModal(false)} />}
       {scanModal && (
-        <EmailScanConsentModal
-          onClose={() => { setScanModal(false); setScanModalDismissed(true); }}
-          onStarted={({ scanJobId, windowDays }) => {
-            // Register the scan in the global background-tasks system. The
-            // resulting card lives in BackgroundTaskCenter (bottom-right,
-            // persistent across pages) and animates a progress bar driven by
-            // the scan worker's status + counters.
-            startEmailScanTask({
-              jobId: scanJobId,
-              sublabel: `Last ${windowDays} days`,
-              startTask,
-            });
+        <EmailScanFlowModal
+          initialJob={scanJob}
+          onClose={() => {
+            setScanModal(false);
+            setScanModalDismissed(true);
+            // Refresh mailbox + scan-job state so the page reflects whatever
+            // the user did in the modal (started a scan, abandoned, finished).
             emailAPI.status().then(setMailbox).catch(() => {});
+            emailAPI.getLatestScanJob().then((r) => setScanJob(r.job)).catch(() => {});
+          }}
+          onFinished={() => {
+            // After a successful full review, surface the refreshed flags.
+            emailAPI.status().then(setMailbox).catch(() => {});
+            emailAPI.getLatestScanJob().then((r) => setScanJob(r.job)).catch(() => {});
           }}
         />
       )}
@@ -961,15 +979,14 @@ export default function Settings() {
   );
 }
 
-function ScanJobBanner({ job }: { job: ScanJob }) {
-  const inFlight = ["pending", "scanning", "filtering", "classifying"].includes(job.status);
+function ScanJobBanner({ job, onOpen }: { job: ScanJob; onOpen: () => void }) {
   const ready = job.status === "ready_for_review";
   const failed = job.status === "failed";
 
   let tone = "border-primary/30 bg-primary/5";
   let dot = "bg-primary animate-pulse";
   let label = "Scanning your inbox in the background…";
-  let cta = "View progress";
+  let cta = "Resume";
   if (ready) {
     tone = "border-emerald-300 dark:border-emerald-900/60 bg-emerald-50/50 dark:bg-emerald-950/20";
     dot = "bg-emerald-500";
@@ -980,13 +997,14 @@ function ScanJobBanner({ job }: { job: ScanJob }) {
     tone = "border-red-300 dark:border-red-900/60 bg-red-50/50 dark:bg-red-950/20";
     dot = "bg-red-500";
     label = job.error || "Inbox scan failed.";
-    cta = "Details";
+    cta = "Retry";
   }
 
   return (
-    <Link
-      to="/settings/email-review"
-      className={`mb-4 flex items-center justify-between gap-3 rounded-lg border ${tone} px-4 py-3 hover:bg-muted/20 transition-colors`}
+    <button
+      type="button"
+      onClick={onOpen}
+      className={`w-full mb-4 flex items-center justify-between gap-3 rounded-lg border ${tone} px-4 py-3 hover:bg-muted/20 transition-colors text-left`}
     >
       <div className="flex items-center gap-3 min-w-0">
         <span className={`w-2 h-2 rounded-full shrink-0 ${dot}`} />
@@ -994,17 +1012,9 @@ function ScanJobBanner({ job }: { job: ScanJob }) {
       </div>
       <span className="text-xs font-semibold text-primary shrink-0 inline-flex items-center gap-1">
         {cta}
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <line x1="5" y1="12" x2="19" y2="12" />
-          <polyline points="12 5 19 12 12 19" />
-        </svg>
+        <ArrowRight size={11} strokeWidth={2.5} aria-hidden />
       </span>
-      {inFlight && job.progress.fetched > 0 && (
-        <span className="absolute right-3 bottom-1 text-[10px] text-muted-foreground hidden">
-          {job.progress.fetched} fetched
-        </span>
-      )}
-    </Link>
+    </button>
   );
 }
 

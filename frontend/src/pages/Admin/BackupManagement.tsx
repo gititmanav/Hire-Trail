@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { Loader2, AlertCircle, Database, User } from "lucide-react";
 import toast from "react-hot-toast";
 import { adminAPI } from "../../utils/api";
 
@@ -51,12 +52,7 @@ export default function BackupManagement() {
     }
   };
 
-  const Spinner = () => (
-    <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-    </svg>
-  );
+  const Spinner = () => <Loader2 className="animate-spin h-4 w-4" />;
 
   return (
     <div className="fade-up space-y-6">
@@ -67,9 +63,7 @@ export default function BackupManagement() {
 
       {/* Notice */}
       <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 flex items-start gap-3">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-600 dark:text-amber-400 mt-0.5 shrink-0">
-          <path d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
+        <AlertCircle width={18} height={18} strokeWidth={2} className="text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
         <div>
           <p className="text-sm font-medium text-amber-700 dark:text-amber-300">Backups can be large</p>
           <p className="text-xs text-amber-700 dark:text-amber-300/80 mt-0.5">
@@ -83,9 +77,7 @@ export default function BackupManagement() {
         <div className="bg-card border border-border rounded-xl p-6 flex flex-col">
           <div className="flex items-center gap-2 mb-2">
             <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <ellipse cx="12" cy="5" rx="9" ry="3" /><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" /><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
-              </svg>
+              <Database width={18} height={18} strokeWidth={2} />
             </div>
             <h2 className="text-lg font-semibold text-foreground">Full database export</h2>
           </div>
@@ -105,9 +97,7 @@ export default function BackupManagement() {
         <div className="bg-card border border-border rounded-xl p-6 flex flex-col">
           <div className="flex items-center gap-2 mb-2">
             <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" /><circle cx="12" cy="7" r="4" />
-              </svg>
+              <User width={18} height={18} strokeWidth={2} />
             </div>
             <h2 className="text-lg font-semibold text-foreground">Single user export</h2>
           </div>

@@ -1,43 +1,17 @@
 /** Outlook-style event chip: left color bar + factor icon + title. */
 import type { EventProps } from "react-big-calendar";
+import { Check, Send, Repeat, Clock } from "lucide-react";
 import type { CalendarFactor } from "../../../utils/calendarEvents.ts";
 import type { HireTrailCalendarEvent } from "../../../utils/calendarRbc.ts";
 
 function FactorIcon({ factor, completed }: { factor?: CalendarFactor; completed?: boolean }) {
-  if (completed) {
-    return (
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <polyline points="20 6 9 17 4 12" />
-      </svg>
-    );
-  }
+  if (completed) return <Check size={11} strokeWidth={2.5} aria-hidden />;
   switch (factor) {
-    case "application_submitted":
-      return (
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <line x1="22" y1="2" x2="11" y2="13" />
-          <polygon points="22 2 15 22 11 13 2 9 22 2" />
-        </svg>
-      );
-    case "stage_change":
-      return (
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <polyline points="17 1 21 5 17 9" />
-          <path d="M3 11V9a4 4 0 0 1 4-4h14" />
-          <polyline points="7 23 3 19 7 15" />
-          <path d="M21 13v2a4 4 0 0 1-4 4H3" />
-        </svg>
-      );
+    case "application_submitted": return <Send size={11} strokeWidth={2} aria-hidden />;
+    case "stage_change":          return <Repeat size={11} strokeWidth={2} aria-hidden />;
     case "deadline_application":
-    case "deadline_general":
-      return (
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <circle cx="12" cy="12" r="10" />
-          <polyline points="12 6 12 12 16 14" />
-        </svg>
-      );
-    default:
-      return null;
+    case "deadline_general":      return <Clock size={11} strokeWidth={2} aria-hidden />;
+    default: return null;
   }
 }
 

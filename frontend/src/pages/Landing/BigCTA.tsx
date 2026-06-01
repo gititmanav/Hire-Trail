@@ -1,3 +1,4 @@
+import { ArrowRight, Download } from "lucide-react";
 import { Reveal } from "./motion";
 import { useOpenAuth } from "./context";
 
@@ -35,10 +36,10 @@ export default function BigCTA() {
             <button type="button" onClick={() => openAuth("register")} className="group relative inline-flex items-center justify-center gap-2 font-semibold px-8 py-4 text-base rounded-lg text-[#1E3A8A] bg-white hover:bg-blue-50 shadow-xl shadow-blue-950/40 hover:-translate-y-px transition-[transform,box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-blue-900 overflow-hidden">
               <span aria-hidden className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-[#3B82F6]/15 to-transparent group-hover:translate-x-full transition-transform duration-700" />
               <span className="relative">Create your account</span>
-              <svg className="relative" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+              <ArrowRight className="relative" size={14} strokeWidth={2.5} />
             </button>
             <a href="/extension.zip" download="HireTrail-Extension.zip" className="inline-flex items-center justify-center gap-2 font-medium px-7 py-4 text-base rounded-lg text-white bg-white/10 hover:bg-white/15 ring-1 ring-white/20 backdrop-blur-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-blue-900">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              <Download size={16} strokeWidth={2} />
               Get the extension
             </a>
           </div>

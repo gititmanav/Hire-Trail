@@ -12,6 +12,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { X } from "lucide-react";
 
 interface Binding {
   /** Display label: e.g. "g a". */
@@ -141,7 +142,7 @@ export default function GlobalShortcuts() {
             aria-label="Close"
             type="button"
           >
-            <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden><line x1="3" y1="3" x2="11" y2="11"/><line x1="11" y1="3" x2="3" y2="11"/></svg>
+            <X size={13} strokeWidth={2} />
           </button>
         </div>
         <div className="px-5 py-4 max-h-[60vh] overflow-y-auto space-y-5">

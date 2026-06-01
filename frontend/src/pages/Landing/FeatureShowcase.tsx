@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Check, MessageCircle, BookmarkCheck, Sparkles, ChevronRight } from "lucide-react";
 import { Reveal, GridTexture } from "./motion";
 import { BrandLogo, StageChip, STAGE_CHIP } from "./brand";
 
@@ -33,7 +34,7 @@ function FeatureSection({ eyebrow, number, title, body, mockup, reverse, bullets
                 <ul className="mt-5 space-y-2.5">
                   {bullets.map((b) => (
                     <li key={b} className="flex items-start gap-2.5 text-[14px] text-gray-700">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="mt-1 text-[#3B82F6] shrink-0" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                      <Check size={16} strokeWidth={2.5} className="mt-1 text-[#3B82F6] shrink-0" />
                       <span>{b}</span>
                     </li>
                   ))}
@@ -173,7 +174,7 @@ function StageSuggestionsMockup() {
     <div className="rounded-xl border border-gray-200 bg-white shadow-[0_20px_60px_-25px_rgba(15,23,42,0.3)] overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-50/60">
         <div className="flex items-center gap-2">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="text-[#3B82F6]"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          <MessageCircle size={14} strokeWidth={1.8} className="text-[#3B82F6]" />
           <span className="text-sm font-semibold text-gray-900">Stage suggestions from email</span>
         </div>
         <span className="text-[10px] text-gray-500">3 pending</span>
@@ -240,7 +241,7 @@ function ExtensionPopoverMockup() {
           <button className="w-full text-left rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-50 px-3 py-2.5 transition-colors">
             <div className="flex items-center gap-2">
               <span className="w-7 h-7 rounded-md bg-blue-50 text-blue-600 flex items-center justify-center">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M9 11l3 3 8-8"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                <BookmarkCheck size={14} strokeWidth={2} />
               </span>
               <div className="flex-1 min-w-0">
                 <div className="text-[12px] font-semibold text-gray-900">Track this JD</div>
@@ -251,7 +252,7 @@ function ExtensionPopoverMockup() {
           <button className="w-full text-left rounded-lg border-2 border-[#3B82F6]/30 bg-[#3B82F6]/5 hover:bg-[#3B82F6]/10 px-3 py-2.5 transition-colors">
             <div className="flex items-center gap-2">
               <span className="w-7 h-7 rounded-md bg-gradient-to-br from-[#3B82F6] to-[#1E3A8A] text-white flex items-center justify-center">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l2.4 7.4H22l-6.2 4.5L18.2 22 12 17.5 5.8 22l2.4-8.1L2 9.4h7.6L12 2z"/></svg>
+                <Sparkles size={14} strokeWidth={2} />
               </span>
               <div className="flex-1 min-w-0">
                 <div className="text-[12px] font-semibold text-gray-900">Tailor with AI</div>
@@ -324,7 +325,7 @@ function ResumesMockup() {
       {/* Tailored variants tree */}
       <div className="px-4 py-3 border-t border-gray-200 bg-gray-50/40">
         <div className="flex items-center gap-2 mb-2">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="text-gray-500"><polyline points="9 6 15 12 9 18"/></svg>
+          <ChevronRight size={11} strokeWidth={2.5} className="text-gray-500" />
           <span className="text-[11px] font-bold uppercase tracking-wider text-gray-600">Tailored variants</span>
           <span className="ml-auto text-[10px] text-gray-500">2 from this base</span>
         </div>

@@ -1,5 +1,6 @@
 /** Admin bug-report inbox — silent captures from errorHandler + frontend interceptors. */
 import { useCallback, useEffect, useState } from "react";
+import { X } from "lucide-react";
 import toast from "react-hot-toast";
 import { adminAPI } from "../../utils/api.ts";
 import type { BugReport, BugReportStatus, BugReportSource } from "../../utils/api.ts";
@@ -301,7 +302,7 @@ function BugReportDetail({
             className="w-9 h-9 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted shrink-0"
             aria-label="Close"
           >
-            <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/></svg>
+            <X size={16} strokeWidth={2} />
           </button>
         </div>
 

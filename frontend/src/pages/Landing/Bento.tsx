@@ -1,3 +1,4 @@
+import { ArrowRight } from "lucide-react";
 import { Reveal, GlowCard } from "./motion";
 
 /* ─────────────────────────── Bento (DARK, mouse-tracked glow) ─────────────────────────── */
@@ -49,9 +50,9 @@ export default function Bento() {
                 <p className="text-sm text-slate-300 leading-relaxed mb-4">Resumes-in-progress live in a Drafting stage. The card transitions to Applied automatically when you actually hit Apply.</p>
                 <div className="mt-auto flex items-center gap-2 text-[11px] flex-wrap">
                   <span className="px-2 py-1 rounded ring-1 ring-slate-700 bg-slate-900 text-slate-300">Drafting</span>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-slate-500"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                  <ArrowRight size={14} strokeWidth={2} className="text-slate-500" />
                   <span className="px-2 py-1 rounded ring-1 ring-blue-500/30 bg-blue-500/10 text-blue-200">Applied</span>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-slate-500"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                  <ArrowRight size={14} strokeWidth={2} className="text-slate-500" />
                   <span className="px-2 py-1 rounded ring-1 ring-purple-500/30 bg-purple-500/10 text-purple-200">Interview</span>
                 </div>
               </div>

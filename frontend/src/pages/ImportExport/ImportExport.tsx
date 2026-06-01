@@ -1,5 +1,6 @@
 /** CSV export with filters; import flows reuse `parseCSV` + bulk application create. */
 import { useState, useRef, useEffect } from "react";
+import { Download, Upload, CheckCircle2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { applicationsAPI, contactsAPI } from "../../utils/api.ts";
 import { exportToCSV, parseCSV, downloadTemplate } from "../../utils/csv.ts";
@@ -49,7 +50,7 @@ function ExportSection() {
     <div className="card-premium p-6">
       <div className="flex items-center gap-3 mb-5">
         <div className="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="text-emerald-600 dark:text-emerald-400"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <Download size={20} strokeWidth={1.5} className="text-emerald-600 dark:text-emerald-400" />
         </div>
         <div><h2 className="text-base font-semibold text-foreground">Export Data</h2><p className="text-sm text-muted-foreground">Download your data as CSV</p></div>
       </div>
@@ -84,7 +85,7 @@ function ExportSection() {
         )}
 
         <button onClick={handleExport} disabled={exporting} className="btn-accent w-full justify-center mt-2">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <Download size={16} strokeWidth={2} />
           {exporting ? "Exporting..." : `Export ${type}`}
         </button>
       </div>
@@ -146,7 +147,7 @@ function ImportSection({ onDone }: { onDone: () => void }) {
     <div className="card-premium p-6">
       <div className="flex items-center gap-3 mb-5">
         <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="text-blue-600 dark:text-blue-400"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <Upload size={20} strokeWidth={1.5} className="text-blue-600 dark:text-blue-400" />
         </div>
         <div><h2 className="text-base font-semibold text-foreground">Import Data</h2><p className="text-sm text-muted-foreground">Upload a CSV to bulk-add records</p></div>
       </div>
@@ -164,7 +165,7 @@ function ImportSection({ onDone }: { onDone: () => void }) {
             </div>
           </div>
           <div className="border-2 border-dashed border-border rounded-xl p-8 text-center hover:border-primary dark:hover:border-primary cursor-pointer" onClick={() => inputRef.current?.click()} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f?.name.endsWith(".csv")) handleFile(f); else toast.error("CSV files only"); }}>
-            <svg className="mx-auto mb-3 text-muted-foreground dark:text-secondary-foreground" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <Upload className="mx-auto mb-3 text-muted-foreground dark:text-secondary-foreground" size={36} strokeWidth={1.5} />
             <p className="text-sm font-medium text-secondary-foreground mb-1">Drop CSV here or click to browse</p>
             <p className="text-xs text-muted-foreground">{type === "applications" ? "Company, Role, Stage, Job URL, Application Date, Notes" : "Name, Company, Role, LinkedIn URL, Connection Source, Notes"}</p>
             <input ref={inputRef} type="file" accept=".csv" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
@@ -188,7 +189,7 @@ function ImportSection({ onDone }: { onDone: () => void }) {
           )}
 
           <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-900/10 rounded-lg">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-success"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/></svg>
+            <CheckCircle2 size={18} strokeWidth={1.5} className="text-success" />
             <span className="text-sm text-foreground"><strong>{parsed.length}</strong> {type} ready to import</span>
           </div>
 
@@ -213,7 +214,7 @@ function ImportSection({ onDone }: { onDone: () => void }) {
 
       {step === "done" && (
         <div className="text-center py-8">
-          <svg className="mx-auto mb-3 text-success" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/></svg>
+          <CheckCircle2 className="mx-auto mb-3 text-success" size={44} strokeWidth={1.5} />
           <h3 className="text-base font-semibold text-foreground mb-1">Import complete!</h3>
           <p className="text-sm text-muted-foreground mb-4">{parsed?.length} {type} added successfully</p>
           <button onClick={() => setStep("upload")} className="btn-secondary">Import more</button>

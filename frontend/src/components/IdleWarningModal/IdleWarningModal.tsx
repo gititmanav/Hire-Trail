@@ -10,6 +10,7 @@
  * Heavy events (mousemove) are coalesced via a single timestamp.
  */
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
+import { Clock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { UserContext } from "../../App.tsx";
 import { authAPI } from "../../utils/api.ts";
@@ -83,10 +84,7 @@ export default function IdleWarningModal() {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 flex items-center justify-center mb-3">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <circle cx="12" cy="12" r="10" />
-            <polyline points="12 6 12 12 16 14" />
-          </svg>
+          <Clock size={20} strokeWidth={2} aria-hidden="true" />
         </div>
         <h2 id="idle-warning-title" className="text-lg font-semibold text-foreground">Still there?</h2>
         <p className="text-sm text-muted-foreground mt-1 leading-relaxed">

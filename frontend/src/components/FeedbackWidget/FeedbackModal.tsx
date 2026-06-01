@@ -3,6 +3,7 @@
 import { useEffect, useState, FormEvent } from "react";
 import { createPortal } from "react-dom";
 import { useLocation } from "react-router-dom";
+import { Bug, Clock, Lightbulb, ThumbsUp, MessageSquare, X } from "lucide-react";
 import toast from "react-hot-toast";
 import { feedbackAPI } from "../../utils/api.ts";
 import type { FeedbackType } from "../../utils/api.ts";
@@ -16,58 +17,11 @@ interface Props {
 interface TypeOption { value: FeedbackType; label: string; description: string; icon: React.ReactNode }
 
 const TYPES: TypeOption[] = [
-  {
-    value: "bug",
-    label: "Bug",
-    description: "Something broke or behaved wrong.",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="8" y="2" width="8" height="14" rx="4" />
-        <path d="M19 7l-3 2M5 7l3 2M19 13l-3-1M5 13l3-1M12 20v2M9 22h6" />
-      </svg>
-    ),
-  },
-  {
-    value: "suggestion",
-    label: "Suggestion",
-    description: "A change to something that exists.",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="9" />
-        <path d="M12 8v4l3 2" />
-      </svg>
-    ),
-  },
-  {
-    value: "idea",
-    label: "Idea",
-    description: "Something new we could build.",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M9 18h6M10 22h4M12 2a7 7 0 00-4 12.7c1 .8 1.5 1.7 1.5 2.8h5c0-1.1.5-2 1.5-2.8A7 7 0 0012 2z" />
-      </svg>
-    ),
-  },
-  {
-    value: "praise",
-    label: "Praise",
-    description: "Tell us what's working.",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M14 9V5a3 3 0 00-6 0v4H4a2 2 0 00-2 2v9a2 2 0 002 2h16a2 2 0 002-2v-9a2 2 0 00-2-2h-6z" />
-      </svg>
-    ),
-  },
-  {
-    value: "other",
-    label: "Other",
-    description: "Anything else.",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
-      </svg>
-    ),
-  },
+  { value: "bug",        label: "Bug",        description: "Something broke or behaved wrong.",   icon: <Bug size={18} strokeWidth={1.7} /> },
+  { value: "suggestion", label: "Suggestion", description: "A change to something that exists.",  icon: <Clock size={18} strokeWidth={1.7} /> },
+  { value: "idea",       label: "Idea",       description: "Something new we could build.",       icon: <Lightbulb size={18} strokeWidth={1.7} /> },
+  { value: "praise",     label: "Praise",     description: "Tell us what's working.",             icon: <ThumbsUp size={18} strokeWidth={1.7} /> },
+  { value: "other",      label: "Other",      description: "Anything else.",                      icon: <MessageSquare size={18} strokeWidth={1.7} /> },
 ];
 
 export default function FeedbackModal({ onClose, initial }: Props) {
@@ -129,7 +83,7 @@ export default function FeedbackModal({ onClose, initial }: Props) {
             <p className="text-xs text-muted-foreground mt-0.5">Bugs, ideas, what's broken, what's missing — anything.</p>
           </div>
           <button onClick={handleClose} className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted" aria-label="Close">
-            <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/></svg>
+            <X size={16} strokeWidth={2} />
           </button>
         </div>
 

@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { Info } from "lucide-react";
 import { useOpenAuth } from "./context";
 import { Reveal, Parallax } from "./motion";
 import { BrandLogo, PrimaryCTA, SecondaryCTA, StageChip } from "./brand";
@@ -204,11 +205,7 @@ function FounderBar() {
               to="/about"
               className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-[13px] font-medium text-gray-700 transition-colors"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="12" y1="16" x2="12" y2="12" />
-                <line x1="12" y1="8" x2="12.01" y2="8" />
-              </svg>
+              <Info size={14} strokeWidth={2} aria-hidden />
               About us
             </Link>
             <a

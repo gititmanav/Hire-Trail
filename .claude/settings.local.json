@@ -49,7 +49,29 @@
       "Bash(node --test src/services/jdExtractor.test.mjs)",
       "Bash(node -e \"new Function\\(require\\('fs'\\).readFileSync\\('content/content.js', 'utf8'\\)\\)\")",
       "Bash(node -e ' *)",
-      "Bash(awk '/popover.innerHTML = `/,/^    `;$/' content/content.js)"
+      "Bash(awk '/popover.innerHTML = `/,/^    `;$/' content/content.js)",
+      "Bash(npm install *)",
+      "Bash(awk -F: '$2 > 0')",
+      "Bash(sort -t: -k2 -n -r)",
+      "Bash(npm view *)",
+      "Bash(node -e \"const x = require\\('lucide-react'\\); console.log\\('exports:', Object.keys\\(x\\).length, 'icons'\\); console.log\\('sample:', Object.keys\\(x\\).slice\\(0,8\\).join\\(', '\\)\\);\")",
+      "Bash(awk -F: '{s+=$2} END{print s}')",
+      "Bash(awk -F: '{s+=$2}END{print s}')",
+      "Bash(awk -F: '{s+=$2}END{print \"total in chrome:\", s}')",
+      "Bash(node /tmp/lucide-bulk-replace.mjs src)",
+      "Bash(awk -F: '$2 > 4')",
+      "Bash(grep -E \"\\\\.\\(tsx|ts\\)$\")",
+      "Bash(node /tmp/lucide-bulk-v3.mjs src)",
+      "Bash(awk -F: '$2 > 3')",
+      "Bash(grep -E \"\\\\.tsx$\")",
+      "Bash(awk -F: '$2 > 2')",
+      "Bash(awk -F: '$2 > 1')",
+      "Bash(ls -la backend/src/routes/)",
+      "Bash(ls -la backend/src/services/)",
+      "Bash(ls -la backend/src/models/)",
+      "Bash(grep -rl -i \"scrap\" backend/src frontend/src)",
+      "Bash(grep -rl -iE \"cheerio|puppeteer|playwright|jsdom\" backend/src frontend/src)",
+      "Bash(node --test src/services/*.test.mjs)"
     ]
   }
 }

@@ -5,9 +5,8 @@ import { ensureAuth, getUser } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
 import { createApplicationSchema, updateApplicationSchema } from "../validators/applications.js";
 import { NotFoundError, ValidationError } from "../errors/AppError.js";
-import { extractFieldsFromJD } from "../services/jdExtractor.js";
 import { ensureCompanyLogo } from "./companies.js";
-import { autoAnalyzeOnApplicationCreate } from "../services/ai/autoAnalyze.js";
+import { enrichAndAnalyzeOnCreate } from "../services/ai/enrichOnCreate.js";
 import { User } from "../models/User.js";
 import { TailorSession } from "../models/TailorSession.js";
 
@@ -55,29 +54,6 @@ async function loadFitSummaries(apps: Array<{ _id: unknown; tailorSessionId: unk
     });
   }
   return out;
-}
-
-/** Best-effort background enrichment: only overwrites empty fields and only
- *  with values the extractor was confident about. Idempotent. Failures swallowed. */
-async function enrichApplicationFromJD(appId: string, jobDescription: string, jobUrl?: string | null) {
-  try {
-    const fields = extractFieldsFromJD(jobDescription, jobUrl);
-    if (!fields || Object.keys(fields).length === 0) return;
-    const app = await Application.findById(appId);
-    if (!app) return;
-    const patch: Record<string, string> = {};
-    // Don't allow extractor to override role at all if it's already non-empty —
-    // even if the extracted title looks "better", the user's source-of-truth wins.
-    if (fields.title && !app.role.trim()) patch.role = fields.title;
-    if (fields.location && !app.location?.trim()) patch.location = fields.location;
-    if (fields.salary && !app.salary?.trim()) patch.salary = fields.salary;
-    if (fields.jobType && !app.jobType?.trim()) patch.jobType = fields.jobType;
-    if (fields.company && !app.company?.trim()) patch.company = fields.company;
-    if (Object.keys(patch).length === 0) return;
-    await Application.updateOne({ _id: app._id }, { $set: patch });
-  } catch (err) {
-    console.warn("[enrichApplicationFromJD]", err instanceof Error ? err.message : err);
-  }
 }
 
 import { extractDomainFromUrl, isJobBoardDomain } from "../utils/companyDomain.js";
@@ -201,45 +177,33 @@ router.post("/", validate(createApplicationSchema), async (req: Request, res: Re
         return res.status(409).json({ error: "Already tracked", applicationId: existing._id });
       }
     }
-    const app = await Application.create({ ...req.body, userId: user._id, companyId, resumeId: req.body.resumeId || null });
+    // The demo user is skipped entirely by the AI pipeline (seeded fake
+    // sessions instead) so we don't burn real LLM quota on the ~650 demo apps.
+    const isDemoUser = (await User.findById(user._id).select("email").lean())?.email === "demo@hiretrail.com";
+
+    // Seed the extraction status synchronously when the AI pass will run, so the
+    // create response already carries "processing" — the client shows the
+    // "Reading this posting…" indicator and starts polling immediately, instead
+    // of waiting for the next focus refetch to notice the background job.
+    const jdLen = (req.body.jobDescription || "").trim().length;
+    const willExtract = !isDemoUser && req.body.source !== "email" && jdLen >= 200;
+    const app = await Application.create({
+      ...req.body,
+      userId: user._id,
+      companyId,
+      resumeId: req.body.resumeId || null,
+      aiExtractionStatus: willExtract ? "processing" : "idle",
+    });
     res.status(201).json(app);
 
-    // Background enrichment: only if the JD is meaty enough to be worth parsing,
-    // AND at least one of the structured fields is missing. Fire-and-forget so
-    // the user gets their 201 immediately.
-    const jd = req.body.jobDescription || "";
-    // URL-derived company is useful even when the JD body is short or empty,
-    // so trigger enrichment when EITHER (a) the JD is meaty enough to parse
-    // OR (b) we have a jobUrl AND company is still missing.
-    const hasJobUrl = !!req.body.jobUrl;
-    const companyMissing = !req.body.company || !String(req.body.company).trim();
-    const otherFieldsMissing = !req.body.location || !req.body.salary || !req.body.jobType || !req.body.role;
-    if ((jd.length >= 200 && otherFieldsMissing) || (hasJobUrl && companyMissing)) {
-      void enrichApplicationFromJD(app._id.toString(), jd, req.body.jobUrl || null);
-    }
     // Background logo fetch — same pattern as contacts.
     if (createdOrFoundCompany) {
       void ensureCompanyLogo(createdOrFoundCompany).catch(() => undefined);
     }
 
-    // Background AI auto-analyze. Demo user is skipped entirely — they get
-    // seeded fake sessions instead, so we don't burn real LLM quota on the
-    // ~650 demo apps.
-    const isDemoUser = (await User.findById(user._id).select("email").lean())?.email === "demo@hiretrail.com";
-    if (!isDemoUser) {
-      void autoAnalyzeOnApplicationCreate({
-        application: {
-          _id: app._id,
-          userId: user._id,
-          jobDescription: app.jobDescription,
-          role: app.role,
-          company: app.company,
-          jobUrl: app.jobUrl,
-          tailorSessionId: app.tailorSessionId,
-          source: app.source,
-        },
-      });
-    }
+    // Background AI pipeline (fire-and-forget): URL-slug company seed → AI field
+    // extraction + JD cleaning → fit auto-analysis on the cleaned JD.
+    void enrichAndAnalyzeOnCreate(app._id, { isDemoUser });
   } catch (err) { next(err); }
 });
 

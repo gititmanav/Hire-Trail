@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { AlertCircle, X } from "lucide-react";
 import toast from "react-hot-toast";
 import { adminAPI } from "../../utils/api";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal";
@@ -212,9 +213,7 @@ export default function Broadcasts() {
       {/* Mailer status */}
       {mailer && !mailer.configured && (
         <div className="rounded-lg border border-red-500/30 bg-red-500/5 px-4 py-3 flex items-start gap-3">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-600 dark:text-red-400 mt-0.5 shrink-0">
-            <path d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
+          <AlertCircle width={18} height={18} strokeWidth={2} className="text-red-600 dark:text-red-400 mt-0.5 shrink-0" />
           <div className="text-sm">
             <p className="font-medium text-red-700 dark:text-red-300">Email sender is not configured</p>
             <p className="text-red-700/80 dark:text-red-300/80 mt-0.5">
@@ -310,7 +309,7 @@ export default function Broadcasts() {
                     <div key={u.id} className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-md bg-muted/50 text-xs">
                       <span className="truncate">{u.label}</span>
                       <button onClick={() => removeSelected(u.id)} className="text-muted-foreground hover:text-destructive shrink-0" aria-label="Remove">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        <X width={12} height={12} strokeWidth={2.5} />
                       </button>
                     </div>
                   ))}
@@ -424,7 +423,7 @@ export default function Broadcasts() {
             <div className="px-5 py-4 border-b border-border flex items-center justify-between">
               <h3 className="font-semibold text-foreground">Pick users</h3>
               <button onClick={() => setPickerOpen(false)} className="text-muted-foreground hover:text-foreground">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                <X width={18} height={18} strokeWidth={2} />
               </button>
             </div>
             <div className="p-4 border-b border-border">

@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
+import { ChevronLeft, Check, ArrowRight, Mail } from "lucide-react";
 import { emailAPI, type ScanCandidate, type ScanJob } from "../../utils/api.ts";
 
 const POLL_MS = 3500;
@@ -162,7 +163,7 @@ export default function EmailScanReview() {
       {/* Header */}
       <div className="mb-6">
         <Link to="/settings" className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mb-3">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          <ChevronLeft size={12} strokeWidth={2.5} />
           Back to Settings
         </Link>
         <h1 className="text-2xl font-semibold text-foreground">Review found applications</h1>
@@ -318,7 +319,7 @@ function ProgressCard({ job }: { job: ScanJob }) {
                 }`}
               >
                 {p.done ? (
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  <Check size={10} strokeWidth={3.5} className="text-white" />
                 ) : active ? (
                   <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
                 ) : null}
@@ -409,10 +410,7 @@ function CandidateCard({ c, onImport, onSkip, onMerge }: {
           className="px-3 py-1.5 text-xs font-medium text-white bg-primary hover:bg-primary/90 rounded-lg inline-flex items-center gap-1.5"
         >
           {isFailed ? "Retry import" : "Import"}
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <line x1="5" y1="12" x2="19" y2="12" />
-            <polyline points="12 5 19 12 12 19" />
-          </svg>
+          <ArrowRight size={11} strokeWidth={2.5} aria-hidden="true" />
         </button>
         {onMerge && (
           <button
@@ -442,10 +440,7 @@ function EmptyState({ title, body, ctaLabel, ctaHref }: { title: string; body: s
   return (
     <div className="max-w-md mx-auto text-center py-20 px-5">
       <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground">
-          <path d="M4 4h16a2 2 0 012 2v12a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2z" />
-          <polyline points="22,6 12,13 2,6" />
-        </svg>
+        <Mail size={22} strokeWidth={1.8} className="text-muted-foreground" />
       </div>
       <h2 className="text-base font-semibold text-foreground">{title}</h2>
       <p className="text-sm text-muted-foreground mt-1.5 mb-5">{body}</p>

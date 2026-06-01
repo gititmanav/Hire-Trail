@@ -3,6 +3,7 @@
  * filter chips with counts, and view controls (density, group toggle).
  */
 import { memo, useEffect, useRef } from "react";
+import { Search, Group, Rows3, Rows4 } from "lucide-react";
 import type { Stage } from "../../../types";
 import type { Density, StageFilter } from "../../../hooks/useApplicationsListState.ts";
 import {
@@ -46,7 +47,7 @@ function ApplicationsToolbarImpl({
     <div className="sticky top-[49px] z-20 bg-background/95 backdrop-blur-sm py-3 -mx-4 md:-mx-6 px-4 md:px-6 border-b border-border/40">
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative w-[300px] max-w-full">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" size={14} strokeWidth={2} aria-hidden />
           <input
             ref={inputRef}
             className="input-premium w-full !pl-9"
@@ -106,7 +107,7 @@ function ApplicationsToolbarImpl({
             aria-pressed={groupByCompany}
             title="Group rows by company"
           >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden><path d="M3 6h18M3 12h12M3 18h6"/></svg>
+            <Group size={12} strokeWidth={1.8} aria-hidden />
             Group
           </button>
 
@@ -117,7 +118,7 @@ function ApplicationsToolbarImpl({
               aria-pressed={density === "comfortable"}
               title="Comfortable density"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+              <Rows3 size={14} strokeWidth={1.8} aria-hidden />
             </button>
             <button
               onClick={() => onDensity("compact")}
@@ -125,7 +126,7 @@ function ApplicationsToolbarImpl({
               aria-pressed={density === "compact"}
               title="Compact density"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden><path d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+              <Rows4 size={14} strokeWidth={1.8} aria-hidden />
             </button>
           </div>
 

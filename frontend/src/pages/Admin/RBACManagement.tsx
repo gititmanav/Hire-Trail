@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { Shield, CheckCircle2, User, Search, Check, type LucideIcon } from "lucide-react";
 import toast from "react-hot-toast";
 import { adminAPI } from "../../utils/api";
 import ActionDropdown from "../../components/ActionDropdown/ActionDropdown";
@@ -22,10 +23,10 @@ const roleBadge: Record<string, string> = {
   user: "bg-blue-500/10 text-blue-700 dark:text-blue-300",
 };
 
-const roleIcon: Record<string, string> = {
-  admin: "M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z",
-  moderator: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z",
-  user: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z",
+const roleIcon: Record<string, LucideIcon> = {
+  admin: Shield,
+  moderator: CheckCircle2,
+  user: User,
 };
 
 function statusBadge(u: AdminUserDetail): { label: string; cls: string; dot: string } {
@@ -166,13 +167,13 @@ export default function RBACManagement() {
         <h2 className="text-base font-semibold uppercase tracking-wider text-muted-foreground mb-3">Role Definitions</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {roles.map((role) => {
-            const icon = roleIcon[role.role] || roleIcon.user;
+            const Icon = roleIcon[role.role] || roleIcon.user;
             const badge = roleBadge[role.role] || roleBadge.user;
             return (
               <div key={role.role} className="bg-card border border-border rounded-xl p-5">
                 <div className="flex items-center gap-3 mb-2">
                   <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${badge}`}>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={icon}/></svg>
+                    <Icon width={18} height={18} strokeWidth={2} />
                   </div>
                   <h3 className="text-base font-semibold text-foreground capitalize">{role.role}</h3>
                 </div>
@@ -197,7 +198,7 @@ export default function RBACManagement() {
           </div>
           <div className="flex items-center gap-3">
             <div className="relative">
-              <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" width={14} height={14} strokeWidth={2} />
               <input
                 type="text"
                 placeholder="Search users..."
@@ -300,7 +301,7 @@ export default function RBACManagement() {
                       <td key={r.role} className="px-4 py-2 text-center">
                         {has ? (
                           <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+                            <Check width={12} height={12} strokeWidth={3} />
                           </span>
                         ) : (
                           <span className="inline-block w-3 h-px bg-muted-foreground/40" />
