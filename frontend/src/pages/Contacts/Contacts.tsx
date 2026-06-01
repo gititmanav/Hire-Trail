@@ -3,7 +3,8 @@ import { useState, useEffect, useCallback, useRef, FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 import { ChevronDown, ChevronRight, Pencil, Plus, Send, Star, Trash2, X } from "lucide-react";
 import toast from "react-hot-toast";
-import { contactsAPI } from "../../utils/api.ts";
+import { contactsAPI, companiesAPI } from "../../utils/api.ts";
+import CompanyLogo from "../../components/CompanyLogo/CompanyLogo.tsx";
 import { SkeletonCard } from "../../components/Skeleton/Skeleton.tsx";
 import EmptyState from "../../components/EmptyState/EmptyState.tsx";
 import ActionDropdown from "../../components/ActionDropdown/ActionDropdown.tsx";
@@ -206,7 +207,7 @@ function ageToneClass(days: number | null, outreach: ContactOutreachStatus): str
  *  avatar → name + role @ company + outreach badge + connection-source chip
  *  + days-since-last-contact age chip + "Send follow-up →" CTA → hover toolbar.
  *  Notes collapse inline so a 5-line note doesn't break the row rhythm. */
-function ContactCard({ c, onEdit, onDelete }: { c: Contact; onEdit: () => void; onDelete: () => void }) {
+function ContactCard({ c, onEdit, onDelete, companyLogoUrl }: { c: Contact; onEdit: () => void; onDelete: () => void; companyLogoUrl?: string }) {
   const [notesExpanded, setNotesExpanded] = useState(false);
   const hasLongNotes = c.notes && c.notes.length > 80;
   const days = daysSinceLastContact(c);
@@ -236,9 +237,12 @@ function ContactCard({ c, onEdit, onDelete }: { c: Contact; onEdit: () => void; 
             </span>
           )}
         </div>
-        <p className="text-[12.5px] text-muted-foreground truncate">
-          {c.role ? `${c.role} at ` : ""}{c.company}
-        </p>
+        <div className="flex items-center gap-1.5 min-w-0">
+          {c.company && <CompanyLogo size="xs" name={c.company} logoUrl={companyLogoUrl} />}
+          <p className="text-[12.5px] text-muted-foreground truncate">
+            {c.role ? `${c.role} at ` : ""}{c.company}
+          </p>
+        </div>
         {c.notes && (
           <div className="mt-0.5">
             <p className={`text-[11.5px] text-muted-foreground/85 italic ${notesExpanded ? "" : "line-clamp-1"}`}>{c.notes}</p>
@@ -364,6 +368,20 @@ export default function Contacts() {
   }, [page, sourceFilter]);
 
   useEffect(() => { fetchContacts(); }, [fetchContacts]);
+
+  // Company logos for contact cards/headers, keyed by lowercased company name.
+  // Fetched once — the company graph is small and doesn't change per page.
+  const [companyLogos, setCompanyLogos] = useState<Record<string, string>>({});
+  useEffect(() => {
+    companiesAPI.getAll({ limit: 500 }).then((res) => {
+      const map: Record<string, string> = {};
+      for (const co of res.data) {
+        if (co.logoUrl) map[co.name.trim().toLowerCase()] = co.logoUrl;
+      }
+      setCompanyLogos(map);
+    }).catch(() => {});
+  }, []);
+  const logoFor = useCallback((name?: string) => companyLogos[(name || "").trim().toLowerCase()] || "", [companyLogos]);
 
   /* ─── Shortcut deep-link: `?new=1` opens the create modal and strips the
    *  param so a hard reload doesn't reopen it. */
@@ -521,7 +539,7 @@ export default function Contacts() {
       ) : viewMode === "person" ? (
         <>
           <div className="space-y-2">
-            {filtered.map((c) => <ContactCard key={c._id} c={c} onEdit={() => { setEditing(c); setModal(true); }} onDelete={() => handleDelete(c._id)} />)}
+            {filtered.map((c) => <ContactCard key={c._id} c={c} companyLogoUrl={logoFor(c.company)} onEdit={() => { setEditing(c); setModal(true); }} onDelete={() => handleDelete(c._id)} />)}
           </div>
           <PaginationBar page={page} pag={pag} setPage={setPage} />
         </>
@@ -551,6 +569,7 @@ export default function Contacts() {
                     >
                       <div className="flex items-center gap-2.5">
                         <ChevronRight size={16} strokeWidth={1.5} className={`text-muted-foreground transition-transform ${isExpanded ? "rotate-90" : ""}`} />
+                        <CompanyLogo size="sm" name={company} logoUrl={logoFor(company)} />
                         <span className="text-[15px] font-semibold text-foreground">{company}</span>
                         <span className="text-xs text-muted-foreground font-medium">{companyContacts.length} contact{companyContacts.length !== 1 ? "s" : ""}</span>
                         {hasFollowUp && <span className="w-2 h-2 rounded-full bg-orange-400" title="Has contacts needing follow-up" />}
@@ -558,7 +577,7 @@ export default function Contacts() {
                     </button>
                     {isExpanded && (
                       <div className="border-t border-border p-3 space-y-2">
-                        {companyContacts.map((c) => <ContactCard key={c._id} c={c} onEdit={() => { setEditing(c); setModal(true); }} onDelete={() => handleDelete(c._id)} />)}
+                        {companyContacts.map((c) => <ContactCard key={c._id} c={c} companyLogoUrl={logoFor(c.company)} onEdit={() => { setEditing(c); setModal(true); }} onDelete={() => handleDelete(c._id)} />)}
                       </div>
                     )}
                   </div>
