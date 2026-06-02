@@ -95,7 +95,11 @@
       "Bash(echo \"old-UI markers in dist \\(want 0\\): $\\(unzip -p frontend/dist/extension.zip content/content.js)",
       "Bash(git add *)",
       "Bash(awk '{print $5, $9}')",
-      "Bash(echo \"old-UI markers \\(want 0\\): $\\(unzip -p frontend/public/extension.zip content/content.js)"
+      "Bash(echo \"old-UI markers \\(want 0\\): $\\(unzip -p frontend/public/extension.zip content/content.js)",
+      "Bash(curl -sS -o /dev/null -w \"privacy page → HTTP %{http_code}  \\(%{content_type}\\)\\\\n\" https://hiretrail.manavkaneria.me/privacy)",
+      "Bash(echo \"activeTab still present? $\\(unzip -p frontend/public/extension.zip manifest.json)",
+      "Bash(sed -n '1,45p' src/pages/Legal/Privacy.tsx)",
+      "Bash(sed -n '1,45p' src/pages/Legal/Terms.tsx)"
     ]
   }
 }

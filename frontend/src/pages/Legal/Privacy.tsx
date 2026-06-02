@@ -1,5 +1,6 @@
 /** Public privacy policy. Linked from auth pages + sidebar footer; required for Google OAuth verification. */
 import { Link } from "react-router-dom";
+import { BrandLogo } from "../Landing/brand";
 
 const LAST_UPDATED = "May 27, 2026";
 const CONTACT_EMAIL = "kaneria.ma@northeastern.edu";
@@ -9,12 +10,9 @@ export default function Privacy() {
     <div className="min-h-screen bg-background text-foreground">
       <header className="border-b border-border">
         <div className="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 font-extrabold tracking-tight">
-            <img src="/logo.svg" alt="" className="w-7 h-7" />
-            <span>
-              <span className="text-foreground">Hire</span>
-              <span className="text-primary">Trail</span>
-            </span>
+          <Link to="/" className="flex items-center gap-2">
+            <BrandLogo size={28} />
+            <span className="font-semibold tracking-tight text-base text-foreground">HireTrail</span>
           </Link>
           <nav className="text-sm flex items-center gap-4">
             <Link to="/terms" className="text-muted-foreground hover:text-foreground">Terms</Link>
