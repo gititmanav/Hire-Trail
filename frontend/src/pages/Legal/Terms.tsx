@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { BrandLogo } from "../Landing/brand";
 
 const LAST_UPDATED = "May 16, 2026";
-const CONTACT_EMAIL = "kaneria.ma@northeastern.edu";
+const CONTACT_EMAIL = "manavkaneria@gmail.com";
 
 export default function Terms() {
   return (

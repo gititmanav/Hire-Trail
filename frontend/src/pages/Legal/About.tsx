@@ -2,7 +2,7 @@
 import { Link } from "react-router-dom";
 import { Mail, ArrowRight } from "lucide-react";
 
-const CONTACT_EMAIL = "kaneria.ma@northeastern.edu";
+const CONTACT_EMAIL = "manavkaneria@gmail.com";
 const GITHUB_URL = "https://github.com/gititmanav/Hire-Trail";
 const LINKEDIN_URL = "https://www.linkedin.com/in/manavkaneria";
 

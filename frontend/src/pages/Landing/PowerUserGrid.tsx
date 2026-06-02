@@ -40,7 +40,7 @@ function PdfMockup() {
       <div className="absolute top-2 right-2 text-[9px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 ring-1 ring-inset ring-emerald-200 rounded px-1.5 py-0.5">1 page</div>
       <div className="text-center mb-3">
         <div className="text-base font-bold text-gray-900">Manav Kaneria</div>
-        <div className="text-[10px] text-gray-500">kaneria.ma@northeastern.edu · linkedin.com/in/manavk</div>
+        <div className="text-[10px] text-gray-500">manavkaneria@gmail.com · linkedin.com/in/manavk</div>
       </div>
       <div className="h-px bg-gray-200 my-2" />
       <div className="text-[10px] font-bold uppercase tracking-wider text-gray-700 mb-1">Experience</div>
