@@ -14,6 +14,7 @@ import { User } from "../models/User.js";
 import { Application, STAGES, type Stage } from "../models/Application.js";
 import { EmailScanJob, SCAN_WINDOW_DAYS, type ScanWindowDays } from "../models/EmailScanJob.js";
 import { EmailScanCandidate } from "../models/EmailScanCandidate.js";
+import { Notification } from "../models/Notification.js";
 import { AppError } from "../errors/AppError.js";
 import { env } from "../config/env.js";
 import { kickoffFirstScan } from "../services/email/firstScan.js";
@@ -411,6 +412,7 @@ router.post("/scan-candidates/:id", async (req: Request, res: Response, next: Ne
       candidate.importError = null;
       await candidate.save();
       await bumpCount(candidate.scanJobId.toString(), "skipped", 1);
+      await resolveScanReadyIfDone(user._id, candidate.scanJobId);
       return res.json({ ok: true });
     }
 
@@ -450,6 +452,7 @@ router.post("/scan-candidates/:id", async (req: Request, res: Response, next: Ne
       candidate.importError = null;
       await candidate.save();
       await bumpCount(candidate.scanJobId.toString(), "merged", 1);
+      await resolveScanReadyIfDone(user._id, candidate.scanJobId);
       return res.json({ ok: true, applicationId: target._id.toString() });
     }
 
@@ -494,6 +497,7 @@ router.post("/scan-candidates/:id", async (req: Request, res: Response, next: Ne
         if (req.body?._wasFailed) {
           await bumpCount(candidate.scanJobId.toString(), "failed", -1);
         }
+        await resolveScanReadyIfDone(user._id, candidate.scanJobId);
         return res.json({ ok: true, applicationId: app._id.toString() });
       } catch (err) {
         const msg = (err as Error)?.message?.slice(0, 300) ?? "Import failed.";
@@ -575,6 +579,7 @@ router.post("/scan-jobs/:id/bulk-import", async (req: Request, res: Response, ne
     job.counts.imported += summary.imported;
     job.counts.skipped += summary.skipped;
     await job.save();
+    await resolveScanReadyIfDone(user._id, id);
     res.json({ ok: true, ...summary });
   } catch (err) { next(err); }
 });
@@ -594,6 +599,7 @@ router.post("/scan-jobs/:id/skip-all", async (req: Request, res: Response, next:
       { _id: id, userId: user._id },
       { $inc: { "counts.skipped": result.modifiedCount } },
     );
+    await resolveScanReadyIfDone(user._id, id);
     res.json({ ok: true, skipped: result.modifiedCount });
   } catch (err) { next(err); }
 });
@@ -618,6 +624,7 @@ router.post("/scan-jobs/:id/abandon", async (req: Request, res: Response, next: 
     job.error = "Abandoned by user";
     await job.save();
 
+    await resolveScanReadyNotification(user._id, id);
     res.json({ ok: true });
   } catch (err) { next(err); }
 });
@@ -633,6 +640,7 @@ router.post("/scan-jobs/:id/complete", async (req: Request, res: Response, next:
       { _id: id, userId: user._id, status: { $in: ["ready_for_review", "failed"] } },
       { $set: { status: "completed", finishedAt: new Date() } },
     );
+    await resolveScanReadyNotification(user._id, id);
     res.json({ ok: true });
   } catch (err) { next(err); }
 });
@@ -643,6 +651,33 @@ async function bumpCount(
   delta: number,
 ): Promise<void> {
   await EmailScanJob.updateOne({ _id: jobId }, { $inc: { [`counts.${field}`]: delta } });
+}
+
+/** Archive a scan's "scan_ready" bell notification. Called once the user has
+ *  worked through (or explicitly closed) that scan's review queue — the
+ *  "Open the review queue" prompt has been acted on, so it leaves the Current
+ *  tab and moves to Past (resolved) for later reference. */
+async function resolveScanReadyNotification(
+  userId: mongoose.Types.ObjectId,
+  scanJobId: mongoose.Types.ObjectId | string,
+): Promise<void> {
+  await Notification.updateMany(
+    { userId, scanJobId, type: "scan_ready", resolved: false },
+    { $set: { resolved: true, resolvedAt: new Date(), read: true, readAt: new Date() } },
+  );
+}
+
+/** Resolve the scan_ready prompt once nothing is left to review for the job. */
+async function resolveScanReadyIfDone(
+  userId: mongoose.Types.ObjectId,
+  scanJobId: mongoose.Types.ObjectId | string,
+): Promise<void> {
+  const remaining = await EmailScanCandidate.countDocuments({
+    scanJobId,
+    userId,
+    status: { $in: ["pending", "failed"] },
+  });
+  if (remaining === 0) await resolveScanReadyNotification(userId, scanJobId);
 }
 
 export default router;

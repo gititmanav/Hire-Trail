@@ -1,8 +1,8 @@
 /**
  * AiPulse — the atomic "AI is thinking" mark.
  *
- * A sparkle glyph that breathes, slowly rotates, and glows in the theme blue,
- * optionally paired with a shimmering label. Use it inline anywhere the app is
+ * A sparkle glyph that pulses with a soft theme-blue glow (steady size, no
+ * rotation), optionally paired with a shimmering label. Use it inline anywhere the app is
  * generating/parsing/analyzing with AI (replaces ad-hoc Loader2 spinners and
  * pulse-dots so every AI surface speaks the same visual language).
  */

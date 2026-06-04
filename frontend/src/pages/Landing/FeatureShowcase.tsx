@@ -5,7 +5,7 @@ import { BrandLogo, StageChip, STAGE_CHIP } from "./brand";
 
 /* ─────────────────────────── feature section layout ─────────────────────────── */
 
-function FeatureSection({ eyebrow, number, title, body, mockup, reverse, bullets, tone = "light" }: {
+function FeatureSection({ eyebrow, number, title, body, mockup, reverse, bullets, cta, tone = "light" }: {
   eyebrow: string;
   number: string;
   title: string;
@@ -13,6 +13,7 @@ function FeatureSection({ eyebrow, number, title, body, mockup, reverse, bullets
   mockup: ReactNode;
   reverse?: boolean;
   bullets?: string[];
+  cta?: ReactNode;
   tone?: "light" | "muted";
 }) {
   const bg = tone === "muted" ? "bg-gradient-to-br from-gray-50/80 via-blue-50/30 to-gray-50/80 border-y border-gray-200/70" : "bg-white";
@@ -28,7 +29,14 @@ function FeatureSection({ eyebrow, number, title, body, mockup, reverse, bullets
                 <span className="h-px w-8 bg-[#3B82F6]/40" />
                 <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">{eyebrow}</span>
               </div>
-              <h2 className="text-3xl sm:text-[40px] sm:leading-[1.1] font-black tracking-tight text-gray-900 mb-3">{title}</h2>
+              {cta ? (
+                <div className="flex flex-wrap items-center justify-between gap-x-5 gap-y-3 mb-3">
+                  <h2 className="text-3xl sm:text-[40px] sm:leading-[1.1] font-black tracking-tight text-gray-900">{title}</h2>
+                  <div className="shrink-0">{cta}</div>
+                </div>
+              ) : (
+                <h2 className="text-3xl sm:text-[40px] sm:leading-[1.1] font-black tracking-tight text-gray-900 mb-3">{title}</h2>
+              )}
               <p className="text-[16px] text-gray-600 leading-relaxed">{body}</p>
               {bullets && (
                 <ul className="mt-5 space-y-2.5">
@@ -398,6 +406,17 @@ export default function FeatureShowcase() {
           "No autofill — recruiters can't tell you're using us",
         ]}
         mockup={<ExtensionPopoverMockup />}
+        cta={
+          <a
+            href="https://chromewebstore.google.com/detail/cgibkejpkbfhkcdjlnkgebdnacpfonhl"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Available in the Chrome Web Store"
+            className="inline-flex items-center rounded-[13px] transition-transform hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B82F6] focus-visible:ring-offset-2"
+          >
+            <img src="/chrome-web-store-badge.png" alt="Available in the Chrome Web Store" className="h-[52px] w-auto" width={496} height={150} />
+          </a>
+        }
         reverse
         tone="muted"
       />
