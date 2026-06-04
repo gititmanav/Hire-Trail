@@ -38,10 +38,24 @@ export default function BigCTA() {
               <span className="relative">Create your account</span>
               <ArrowRight className="relative" size={14} strokeWidth={2.5} />
             </button>
-            <a href="/extension.zip" download="HireTrail-Extension.zip" className="inline-flex items-center justify-center gap-2 font-medium px-7 py-4 text-base rounded-lg text-white bg-white/10 hover:bg-white/15 ring-1 ring-white/20 backdrop-blur-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-blue-900">
+            <a href="https://chromewebstore.google.com/detail/cgibkejpkbfhkcdjlnkgebdnacpfonhl" target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center gap-2 font-medium px-7 py-4 text-base rounded-lg text-white bg-white/10 hover:bg-white/15 ring-1 ring-white/20 backdrop-blur-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-blue-900">
               <Download size={16} strokeWidth={2} />
               Get the extension
             </a>
+            {/* Speech-bubble callout (with a tail pointing back at the button)
+             *  surfacing the official Chrome Web Store badge. */}
+            <div className="relative hidden sm:block">
+              <a
+                href="https://chromewebstore.google.com/detail/cgibkejpkbfhkcdjlnkgebdnacpfonhl"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Available in the Chrome Web Store"
+                className="block transition-transform hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-blue-900 rounded-[13px]"
+              >
+                <img src="/chrome-web-store-badge.png" alt="Available in the Chrome Web Store" className="h-[52px] w-auto" width={496} height={150} />
+              </a>
+              <span aria-hidden className="absolute right-full top-1/2 -mr-px -translate-y-1/2 border-y-[7px] border-y-transparent border-r-[9px] border-r-white" />
+            </div>
           </div>
         </Reveal>
       </div>

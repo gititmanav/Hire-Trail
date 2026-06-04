@@ -6,7 +6,10 @@ import { ensureAuth, getUser } from "../middleware/auth.js";
 const router = Router();
 router.use(ensureAuth);
 
-// GET paginated list
+// GET paginated list.
+//   ?status=current → still needs attention (not yet dealt with): resolved:false
+//   ?status=past    → already dealt with / archived: resolved:true
+//   (omitted)       → everything, newest first
 router.get("/", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = getUser(req);
@@ -14,9 +17,14 @@ router.get("/", async (req: Request, res: Response, next: NextFunction) => {
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 20));
     const skip = (page - 1) * limit;
 
+    const status = String(req.query.status ?? "");
+    const filter: Record<string, unknown> = { userId: user._id };
+    if (status === "current") filter.resolved = false;
+    else if (status === "past") filter.resolved = true;
+
     const [data, total] = await Promise.all([
-      Notification.find({ userId: user._id }).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
-      Notification.countDocuments({ userId: user._id }),
+      Notification.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+      Notification.countDocuments(filter),
     ]);
 
     res.json({ data, pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
@@ -27,7 +35,7 @@ router.get("/", async (req: Request, res: Response, next: NextFunction) => {
 router.get("/unread-count", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = getUser(req);
-    const count = await Notification.countDocuments({ userId: user._id, read: false });
+    const count = await Notification.countDocuments({ userId: user._id, read: false, resolved: false });
     res.json({ count });
   } catch (err) { next(err); }
 });
@@ -55,6 +63,32 @@ router.put("/read-all", async (req: Request, res: Response, next: NextFunction) 
       { read: true, readAt: new Date() }
     );
     res.json({ message: "All notifications marked as read" });
+  } catch (err) { next(err); }
+});
+
+// PUT dismiss — mark a notification "dealt with". It leaves the Current tab and
+// moves to Past (resolved), where the user can still refer back to it. This is
+// the default ✕ action in the Current view.
+router.put("/:id/dismiss", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = getUser(req);
+    const notif = await Notification.findOneAndUpdate(
+      { _id: req.params.id, userId: user._id },
+      { resolved: true, resolvedAt: new Date(), read: true, readAt: new Date() },
+      { new: true }
+    );
+    if (!notif) return res.status(404).json({ error: "Notification not found" });
+    res.json(notif);
+  } catch (err) { next(err); }
+});
+
+// DELETE one — permanently remove a notification (the ✕ in the Past tab).
+router.delete("/:id", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = getUser(req);
+    const notif = await Notification.findOneAndDelete({ _id: req.params.id, userId: user._id });
+    if (!notif) return res.status(404).json({ error: "Notification not found" });
+    res.json({ message: "Notification deleted" });
   } catch (err) { next(err); }
 });
 

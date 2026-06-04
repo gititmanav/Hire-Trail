@@ -89,10 +89,20 @@ export default function ApplicationDetailBody({
   useEffect(() => { onEditingChange?.(isEditing); }, [isEditing, onEditingChange]);
 
   const resume = useMemo(() => resumes.find((r) => r._id === app.resumeId), [resumes, app.resumeId]);
-  const companyContacts = useMemo(
-    () => contacts.filter((c) => c.company.toLowerCase() === app.company.toLowerCase()),
-    [contacts, app.company]
-  );
+  // Contacts shown on an application are those that actually belong to it:
+  // either explicitly linked (applicationIds) or working at the same company.
+  // We trim + require a non-empty company before matching — otherwise a blank
+  // app.company would match every blank-company contact and dump the whole
+  // address book onto every application.
+  const companyContacts = useMemo(() => {
+    const appCompany = app.company.trim().toLowerCase();
+    return contacts.filter((c) => {
+      const linked = c.applicationIds?.some((id) => id === app._id);
+      const sameCompany =
+        appCompany.length > 0 && c.company.trim().toLowerCase() === appCompany;
+      return linked || sameCompany;
+    });
+  }, [contacts, app.company, app._id]);
   const appDeadlines = useMemo(
     () => deadlines.filter((d) => d.applicationId === app._id && !d.completed),
     [deadlines, app._id]

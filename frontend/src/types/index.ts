@@ -17,6 +17,7 @@ export type NotificationType =
   | "interview_detected"
   | "offer_detected"
   | "follow_up_detected"
+  | "scan_ready"
   | "info";
 
 export interface Notification {
@@ -26,6 +27,7 @@ export interface Notification {
   title: string;
   message: string;
   applicationId: string | null;
+  scanJobId: string | null;
   source: "gmail" | "outlook" | null;
   sourceEmailId: string | null;
   previousStage: string | null;

@@ -409,6 +409,7 @@ async function finalizeJob(job: IEmailScanJob, candidateCount: number): Promise<
   await Notification.create({
     userId: job.userId,
     type: "scan_ready",
+    scanJobId: job._id,
     title:
       candidateCount === 0
         ? "Inbox scan finished"

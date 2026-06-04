@@ -19,6 +19,9 @@ export interface INotification extends Document {
   title: string;
   message: string;
   applicationId: Types.ObjectId | null;
+  /** The scan job a `scan_ready` notification belongs to — lets us resolve it
+   *  once the user has worked through that scan's review queue. */
+  scanJobId: Types.ObjectId | null;
   /** Source mailbox: gmail | outlook | null (manual/system). */
   source: "gmail" | "outlook" | null;
   /** Provider-side message id used for dedupe across signal types. */
@@ -40,6 +43,7 @@ const notificationSchema = new Schema<INotification>(
     title: { type: String, required: true },
     message: { type: String, required: true },
     applicationId: { type: Schema.Types.ObjectId, ref: "Application", default: null },
+    scanJobId: { type: Schema.Types.ObjectId, ref: "EmailScanJob", default: null },
     source: { type: String, enum: ["gmail", "outlook", null], default: null },
     sourceEmailId: { type: String, default: null },
     previousStage: { type: String, default: null },

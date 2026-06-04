@@ -36,6 +36,7 @@ const loadProfile   = () => import("./pages/Profile/Profile.tsx");
 const loadSettings  = () => import("./pages/Settings/Settings.tsx");
 const loadTailor    = () => import("./pages/Tailor/Tailor.tsx");
 const loadEmailScanReview = () => import("./pages/EmailScanReview/EmailScanReview.tsx");
+const loadNotifications = () => import("./pages/Notifications/Notifications.tsx");
 
 const Kanban       = lazy(loadKanban);
 const JobSearch    = lazy(loadJobSearch);
@@ -49,6 +50,7 @@ const Profile      = lazy(loadProfile);
 const Settings     = lazy(loadSettings);
 const Tailor       = lazy(loadTailor);
 const EmailScanReview = lazy(loadEmailScanReview);
+const NotificationsPage = lazy(loadNotifications);
 
 /** Warm the chunk cache for sidebar routes ~600ms after the first paint —
  *  late enough not to compete with the initial render, early enough that a
@@ -199,6 +201,7 @@ function App() {
             <Route path="/profile" element={<Profile />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/settings/email-review" element={<EmailScanReview />} />
+            <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="/tailor" element={<Tailor />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
-import { Bell } from "lucide-react";
+import { Bell, X } from "lucide-react";
 import { notificationsAPI } from "../../utils/api.ts";
 import { useRefetchOnFocus } from "../../hooks/useRefetchOnFocus.ts";
 import type { Notification, NotificationType } from "../../types";
@@ -13,6 +13,7 @@ const TYPE_LABEL: Record<string, { label: string; tone: string }> = {
   offer_detected: { label: "Offer", tone: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200" },
   rejection_detected: { label: "Rejection", tone: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200" },
   follow_up_detected: { label: "Follow-up", tone: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200" },
+  scan_ready: { label: "Inbox scan", tone: "bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200" },
 };
 
 const SUGGESTION_TYPES: NotificationType[] = [
@@ -28,6 +29,8 @@ const SUGGESTION_TYPES: NotificationType[] = [
 const FALLBACK_POLL_MS = 5 * 60_000;
 const MAX_DISPLAY = 8;
 
+type Tab = "current" | "past";
+
 export default function NotificationBell() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -35,6 +38,7 @@ export default function NotificationBell() {
   const [items, setItems] = useState<Notification[]>([]);
   const [loadingList, setLoadingList] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [tab, setTab] = useState<Tab>("current");
   const rootRef = useRef<HTMLDivElement>(null);
 
   const refreshCount = useCallback(async () => {
@@ -56,10 +60,10 @@ export default function NotificationBell() {
 
   useRefetchOnFocus(refreshCount, { minIntervalMs: 10_000 });
 
-  const fetchList = useCallback(async () => {
+  const fetchList = useCallback(async (which: Tab) => {
     setLoadingList(true);
     try {
-      const res = await notificationsAPI.getAll({ limit: 20 });
+      const res = await notificationsAPI.getAll({ limit: 20, status: which });
       setItems(res.data);
     } catch {
       setItems([]);
@@ -68,10 +72,10 @@ export default function NotificationBell() {
     }
   }, []);
 
-  // Refetch list each time the popover opens
+  // Refetch list each time the popover opens or the tab changes.
   useEffect(() => {
-    if (open) void fetchList();
-  }, [open, fetchList]);
+    if (open) void fetchList(tab);
+  }, [open, tab, fetchList]);
 
   // Click-outside + Escape close
   useEffect(() => {
@@ -88,12 +92,19 @@ export default function NotificationBell() {
     };
   }, [open]);
 
+  // Confirm / revert / dismiss all "deal with" the notification — it leaves the
+  // Current tab (becomes resolved → Past). We drop it from the visible list and
+  // decrement the unread badge if it was unread.
+  const dealtWith = (n: Notification) => {
+    setItems((prev) => prev.filter((x) => x._id !== n._id));
+    if (!n.read) setUnread((c) => Math.max(0, c - 1));
+  };
+
   const onConfirm = async (n: Notification) => {
     setBusyId(n._id);
     try {
       await notificationsAPI.confirm(n._id);
-      setItems((prev) => prev.map((x) => x._id === n._id ? { ...x, resolved: true, read: true } : x));
-      if (!n.read) setUnread((c) => Math.max(0, c - 1));
+      dealtWith(n);
       toast.success("Confirmed");
     } catch { toast.error("Could not confirm"); }
     finally { setBusyId(null); }
@@ -103,10 +114,28 @@ export default function NotificationBell() {
     setBusyId(n._id);
     try {
       await notificationsAPI.revert(n._id);
-      setItems((prev) => prev.map((x) => x._id === n._id ? { ...x, resolved: true, read: true } : x));
-      if (!n.read) setUnread((c) => Math.max(0, c - 1));
+      dealtWith(n);
       toast.success(`Reverted to ${n.previousStage}`);
     } catch { toast.error("Could not revert"); }
+    finally { setBusyId(null); }
+  };
+
+  const onDismiss = async (n: Notification) => {
+    setBusyId(n._id);
+    try {
+      await notificationsAPI.dismiss(n._id);
+      dealtWith(n);
+    } catch { toast.error("Could not dismiss"); }
+    finally { setBusyId(null); }
+  };
+
+  // Past tab: permanently delete.
+  const onRemove = async (n: Notification) => {
+    setBusyId(n._id);
+    try {
+      await notificationsAPI.remove(n._id);
+      setItems((prev) => prev.filter((x) => x._id !== n._id));
+    } catch { toast.error("Could not delete"); }
     finally { setBusyId(null); }
   };
 
@@ -128,15 +157,16 @@ export default function NotificationBell() {
       } catch { /* ignore */ }
     }
     setOpen(false);
-    if (n.applicationId) navigate(`/applications?focus=${n.applicationId}`);
-    else navigate("/");
+    if (n.type === "scan_ready") navigate("/settings/email-review");
+    else if (n.applicationId) navigate(`/applications?focus=${n.applicationId}`);
+    else navigate("/notifications");
   };
 
   return (
     <div className="relative" ref={rootRef}>
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => setOpen((o) => { if (!o) setTab("current"); return !o; })}
         className="relative w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-secondary-foreground"
         title="Notifications"
         aria-label={unread > 0 ? `${unread} unread notifications` : "Notifications"}
@@ -155,8 +185,20 @@ export default function NotificationBell() {
       {open && (
         <div className="absolute right-0 top-full mt-1.5 w-[360px] max-w-[calc(100vw-24px)] card-premium z-50 animate-in">
           <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
-            <p className="text-sm font-semibold text-foreground">Notifications</p>
-            {unread > 0 && (
+            <div className="inline-flex items-center gap-0.5 rounded-lg bg-muted p-0.5">
+              {(["current", "past"] as const).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setTab(t)}
+                  className={`px-2.5 py-1 text-[11px] font-semibold rounded-md capitalize transition-colors ${
+                    tab === t ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+            {tab === "current" && unread > 0 && (
               <button onClick={onMarkAllRead} className="text-[11px] text-muted-foreground hover:text-foreground">
                 Mark all as read
               </button>
@@ -167,8 +209,17 @@ export default function NotificationBell() {
             <div className="px-4 py-8 text-center text-sm text-muted-foreground">Loading…</div>
           ) : items.length === 0 ? (
             <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-              <p>You're all caught up.</p>
-              <p className="text-[11px] mt-1">Connected-mailbox detections show up here.</p>
+              {tab === "current" ? (
+                <>
+                  <p>You're all caught up.</p>
+                  <p className="text-[11px] mt-1">Connected-mailbox detections show up here.</p>
+                </>
+              ) : (
+                <>
+                  <p>Nothing in your history yet.</p>
+                  <p className="text-[11px] mt-1">Dealt-with notifications are kept here for reference.</p>
+                </>
+              )}
             </div>
           ) : (
             <ul className="divide-y divide-border max-h-[420px] overflow-y-auto">
@@ -180,12 +231,22 @@ export default function NotificationBell() {
                 return (
                   <li
                     key={n._id}
-                    className={`px-4 py-3 hover:bg-muted/40 cursor-pointer ${!n.read ? "bg-primary/5" : ""}`}
+                    className={`group relative px-4 py-3 hover:bg-muted/40 cursor-pointer ${!n.read ? "bg-primary/5" : ""}`}
                     onClick={() => onOpenItem(n)}
                   >
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); void (tab === "past" ? onRemove(n) : onDismiss(n)); }}
+                      disabled={busyId === n._id}
+                      title={tab === "past" ? "Delete" : "Dismiss"}
+                      aria-label={tab === "past" ? "Delete notification" : "Dismiss notification"}
+                      className="absolute top-2 right-2 w-6 h-6 flex items-center justify-center rounded-md text-muted-foreground/60 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-muted hover:text-foreground disabled:opacity-50"
+                    >
+                      <X size={13} strokeWidth={2} />
+                    </button>
                     <div className="flex items-start gap-2.5">
                       {!n.read && <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-primary shrink-0" aria-hidden />}
-                      <div className="min-w-0 flex-1">
+                      <div className="min-w-0 flex-1 pr-5">
                         <div className="flex items-center gap-2 flex-wrap">
                           {meta && (
                             <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${meta.tone}`}>
@@ -229,13 +290,13 @@ export default function NotificationBell() {
             </ul>
           )}
 
-          {items.length > MAX_DISPLAY && (
+          {items.length > 0 && (
             <div className="px-4 py-2 border-t border-border text-center">
               <button
-                onClick={() => { setOpen(false); navigate("/"); }}
+                onClick={() => { setOpen(false); navigate("/notifications"); }}
                 className="text-[11px] text-primary hover:underline"
               >
-                See all on Dashboard
+                See all notifications
               </button>
             </div>
           )}

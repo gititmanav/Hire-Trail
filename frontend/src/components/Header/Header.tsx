@@ -77,8 +77,9 @@ export default function Header({ user, onLogout, onMobileMenuToggle }: Props) {
             </button>
           )}
           <a
-            href="/extension.zip"
-            download="HireTrail-Extension.zip"
+            href="https://chromewebstore.google.com/detail/cgibkejpkbfhkcdjlnkgebdnacpfonhl"
+            target="_blank"
+            rel="noopener noreferrer"
             onClick={handleExtDownload}
             title="Download the browser extension to track jobs from LinkedIn, Indeed, Glassdoor & more with one click"
             className={`group flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-[transform,box-shadow,filter] duration-200 ${
@@ -89,7 +90,7 @@ export default function Header({ user, onLogout, onMobileMenuToggle }: Props) {
           >
             <Puzzle size={16} strokeWidth={1.8} className={extHighlight ? "text-primary-foreground" : ""} />
             <span className="hidden sm:inline">
-              {extHighlight ? "Get the Extension" : "Download Extension"}
+              {extHighlight ? "Get the Extension" : "Add to Chrome"}
             </span>
             {extHighlight && (
               <Download size={14} strokeWidth={2} className="hidden sm:block" />

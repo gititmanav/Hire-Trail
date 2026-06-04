@@ -285,13 +285,17 @@ export const emailAPI = {
 };
 
 export const notificationsAPI = {
-  getAll: (params?: { page?: number; limit?: number }) =>
+  getAll: (params?: { page?: number; limit?: number; status?: "current" | "past" }) =>
     api.get<PaginatedResponse<Notification>>("/notifications", { params }).then((r) => r.data),
   getUnreadCount: () => api.get<{ count: number }>("/notifications/unread-count").then((r) => r.data),
   markRead: (id: string) => api.put<Notification>(`/notifications/${id}/read`).then((r) => r.data),
   markAllRead: () => api.put("/notifications/read-all").then((r) => r.data),
   confirm: (id: string) => api.put<Notification>(`/notifications/${id}/confirm`).then((r) => r.data),
   revert: (id: string) => api.put<{ message: string; notification: Notification }>(`/notifications/${id}/revert`).then((r) => r.data),
+  /** Move to Past (mark dealt-with). Default ✕ action in the Current tab. */
+  dismiss: (id: string) => api.put<Notification>(`/notifications/${id}/dismiss`).then((r) => r.data),
+  /** Permanently delete. The ✕ action in the Past tab. */
+  remove: (id: string) => api.delete<{ message: string }>(`/notifications/${id}`).then((r) => r.data),
 };
 
 export const analyticsAPI = {

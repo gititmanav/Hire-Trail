@@ -224,6 +224,26 @@ export async function processIncomingEmail(user: IUser, email: NormalizedEmail, 
   const notifType = notificationTypeFor(classification.signal);
   if (!newStage || !notifType) return { skipped: "no_signal" };
 
+  // Suppress repeat noise. Once we've flagged a given signal on an application
+  // we don't keep firing the same notification. This is what made accepting an
+  // offer spam the bell: every follow-up (onboarding, paperwork, "welcome!")
+  // re-classified as an offer for the same already-in-Offer application.
+  //   - offer / rejection are terminal, one-time events → suppress forever.
+  //   - interview / follow_up can legitimately recur (a new round, another
+  //     status update) → only collapse repeats fired within a short window.
+  const isTerminalSignal = classification.signal === "offer" || classification.signal === "rejection";
+  const dedupeQuery: Record<string, unknown> = {
+    userId: user._id,
+    applicationId: app._id,
+    type: notifType,
+  };
+  if (!isTerminalSignal) {
+    const RECENT_MS = 10 * 24 * 60 * 60 * 1000;
+    dedupeQuery.createdAt = { $gte: new Date(Date.now() - RECENT_MS) };
+  }
+  const alreadyFlagged = await Notification.findOne(dedupeQuery).lean();
+  if (alreadyFlagged) return { skipped: "duplicate" };
+
   const previousStage = app.stage;
   // Don't downgrade — only apply if it's a forward move (or rejection/offer terminal).
   const forwardOk = previousStage === newStage ? false

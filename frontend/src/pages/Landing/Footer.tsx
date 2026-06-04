@@ -31,7 +31,7 @@ export default function Footer() {
           <ul className="space-y-2 text-[13px]">
             <li><button type="button" onClick={() => openAuth("login")} className="text-slate-300 hover:text-white">Log in</button></li>
             <li><button type="button" onClick={() => openAuth("register")} className="text-slate-300 hover:text-white">Sign up</button></li>
-            <li><a href="/extension.zip" download="HireTrail-Extension.zip" className="text-slate-300 hover:text-white">Extension</a></li>
+            <li><a href="https://chromewebstore.google.com/detail/cgibkejpkbfhkcdjlnkgebdnacpfonhl" target="_blank" rel="noopener noreferrer" className="text-slate-300 hover:text-white">Extension</a></li>
           </ul>
         </div>
         <div>
