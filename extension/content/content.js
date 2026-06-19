@@ -7,6 +7,90 @@
   let isFabInitialized = false;
   const FAB_TOP_RATIO_KEY = "fabTopRatio";
 
+  // --- Clipboard copy -------------------------------------------------------
+  // Cached user prefs so the content script can decide what/whether to copy
+  // synchronously at click-time. A network fetch here would lose the clipboard
+  // user-gesture, so prefs are hydrated from chrome.storage (synced by the
+  // background script from /auth/me) and kept live via storage change events.
+  const clipboardPrefs = { copyOnTrack: false, format: "metadata" };
+  chrome.storage.local
+    .get(["clipboardCopyOnTrack", "clipboardFormat"])
+    .then((r) => {
+      if (typeof r.clipboardCopyOnTrack === "boolean") clipboardPrefs.copyOnTrack = r.clipboardCopyOnTrack;
+      if (typeof r.clipboardFormat === "string") clipboardPrefs.format = r.clipboardFormat;
+    })
+    .catch(() => {});
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== "local") return;
+    if (changes.clipboardCopyOnTrack && typeof changes.clipboardCopyOnTrack.newValue === "boolean") {
+      clipboardPrefs.copyOnTrack = changes.clipboardCopyOnTrack.newValue;
+    }
+    if (changes.clipboardFormat && typeof changes.clipboardFormat.newValue === "string") {
+      clipboardPrefs.format = changes.clipboardFormat.newValue;
+    }
+  });
+  // Ask the background to refresh prefs from the server for next time.
+  try { chrome.runtime.sendMessage({ type: "REFRESH_PREFS" }).catch(() => {}); } catch { /* context not ready */ }
+
+  /** Write text to the clipboard. Must be called synchronously inside a user
+   *  gesture (e.g. a FAB-popover click) for the async Clipboard API to be
+   *  allowed; falls back to a hidden-textarea execCommand copy. */
+  async function copyTextToClipboard(text) {
+    if (!text) return false;
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.setAttribute("readonly", "");
+        ta.style.position = "fixed";
+        ta.style.top = "-1000px";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand("copy");
+        ta.remove();
+        return ok;
+      } catch {
+        return false;
+      }
+    }
+  }
+
+  /** One-line "Role · Company · Location" header for the metadata/prompt formats. */
+  function clipboardJobLine(data) {
+    const parts = [];
+    const title = (data.title || data.role || "").trim();
+    const company = (data.company || "").trim();
+    const location = (data.location || "").trim();
+    if (title) parts.push(title);
+    if (company) parts.push(company);
+    if (location) parts.push(location);
+    return parts.join(" · ");
+  }
+
+  /** Build the clipboard payload for the chosen format. Uses the full scraped
+   *  JD (not the truncated copy that tracking sends to the server). */
+  function buildClipboardText(data, format) {
+    const jd = (data.jobDescription || "").trim();
+    if (format === "raw") return jd;
+    const jobLine = clipboardJobLine(data);
+    const url = (data.url || "").trim();
+    const header = (jobLine ? jobLine + "\n" : "") + (url ? "Source: " + url + "\n" : "");
+    if (format === "prompt") {
+      return (
+        "I'm considering applying for this job. Based on the description below, what should I emphasize from my background, and what gaps should I prepare for?\n\n" +
+        header +
+        "\n--- Job Description ---\n" +
+        jd
+      );
+    }
+    // "metadata" (default)
+    return header + "\n--- Job Description ---\n" + jd;
+  }
+
   const scrapers = {
     "linkedin.com": () => {
       // Scope selectors to LinkedIn's own containers to avoid third-party extension
@@ -563,6 +647,12 @@
         showStatus("This page does not look like a job posting yet", "warning");
         return;
       }
+      // Opt-in: copy the JD to the clipboard as part of tracking. Done before
+      // the network call so the write still rides the click's user-gesture.
+      let jdCopied = false;
+      if (clipboardPrefs.copyOnTrack && data.jobDescription) {
+        jdCopied = await copyTextToClipboard(buildClipboardText(data, clipboardPrefs.format));
+      }
       btn.style.opacity = "0.6";
       btn.style.pointerEvents = "none";
       setFabVisual("loading");
@@ -570,7 +660,7 @@
         const result = await chrome.runtime.sendMessage({ type: "TRACK_JOB", data });
         if (result && result.success) {
           lastTrackedUrl = data.url;
-          showStatus("Tracked!", "success");
+          showStatus(jdCopied ? "Tracked · JD copied" : "Tracked!", "success");
           setFabVisual("success");
         } else if (result && result.duplicate) {
           showStatus("Already tracked!", "warning");
@@ -589,6 +679,26 @@
           btn.style.pointerEvents = "auto";
         }, 2000);
       }
+    }
+
+    /** Copy the scraped JD to the clipboard, independent of tracking. Always
+     *  available in the FAB popover regardless of the auto-copy-on-track pref. */
+    async function performCopyJd() {
+      const data = scrapeWithFallback();
+      const jd = (data.jobDescription || "").trim();
+      if (jd.length < 30) {
+        showStatus("Couldn't find a job description on this page", "warning");
+        return;
+      }
+      const ok = await copyTextToClipboard(buildClipboardText(data, clipboardPrefs.format));
+      if (ok) {
+        showStatus("JD copied to clipboard", "success");
+        setFabVisual("success");
+      } else {
+        showStatus("Couldn't copy — try again", "error");
+        setFabVisual("error");
+      }
+      setTimeout(() => setFabVisual("idle"), 1600);
     }
 
     /** Save the current LinkedIn profile as a HireTrail contact. */
@@ -673,6 +783,7 @@
         openHireTrailPopover(btn, {
           onTrack: performTrack,
           onTailor: performTailor,
+          onCopyJd: performCopyJd,
           onTrackContact: performTrackContact,
           isLinkedInProfile: isLinkedInProfilePage(),
         });
@@ -877,7 +988,7 @@
 
   /** Show a small popover next to the FAB with contextual actions.
    *  Closes on outside click, Escape, or after any action runs. */
-  function openHireTrailPopover(anchorEl, { onTrack, onTailor, onTrackContact, isLinkedInProfile }) {
+  function openHireTrailPopover(anchorEl, { onTrack, onTailor, onCopyJd, onTrackContact, isLinkedInProfile }) {
     if (document.getElementById("hiretrail-popover")) return;
     const rect = anchorEl.getBoundingClientRect();
 
@@ -1167,6 +1278,22 @@
             <polyline points="9 6 15 12 9 18" />
           </svg>
         </button>
+        <div class="ht-divider"></div>
+        <button id="ht-pop-copyjd" type="button" class="ht-action">
+          <span class="ht-glyph" style="background: linear-gradient(135deg, #0ea5e9, #0369a1);">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+            </svg>
+          </span>
+          <span class="ht-text">
+            <span class="ht-label">Copy JD</span>
+            <span class="ht-sub">Copy the job description to your clipboard</span>
+          </span>
+          <svg class="ht-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="9 6 15 12 9 18" />
+          </svg>
+        </button>
       </div>
       <div class="ht-footer">
         <a href="https://hiretrail.manavkaneria.me" target="_blank" rel="noopener noreferrer">
@@ -1181,9 +1308,12 @@
 
     const handleTrack = () => { closeHireTrailPopover(); void onTrack(); };
     const handleTailor = () => { closeHireTrailPopover(); void onTailor(); };
+    const handleCopyJd = () => { closeHireTrailPopover(); void onCopyJd(); };
     const handleTrackContact = () => { closeHireTrailPopover(); void onTrackContact(); };
     popover.querySelector("#ht-pop-track").addEventListener("click", handleTrack);
     popover.querySelector("#ht-pop-tailor").addEventListener("click", handleTailor);
+    const copyJdBtn = popover.querySelector("#ht-pop-copyjd");
+    if (copyJdBtn && typeof onCopyJd === "function") copyJdBtn.addEventListener("click", handleCopyJd);
     const contactBtn = popover.querySelector("#ht-pop-contact");
     if (contactBtn) contactBtn.addEventListener("click", handleTrackContact);
 

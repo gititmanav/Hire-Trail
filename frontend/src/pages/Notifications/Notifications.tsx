@@ -19,6 +19,7 @@ const TYPE_LABEL: Record<string, { label: string; tone: string }> = {
   rejection_detected: { label: "Rejection", tone: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200" },
   follow_up_detected: { label: "Follow-up", tone: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200" },
   scan_ready: { label: "Inbox scan", tone: "bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200" },
+  clipboard_config: { label: "Tip", tone: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200" },
 };
 
 const SUGGESTION_TYPES: NotificationType[] = [
@@ -115,6 +116,7 @@ export default function Notifications() {
       } catch { /* ignore */ }
     }
     if (n.type === "scan_ready") navigate("/settings/email-review");
+    else if (n.type === "clipboard_config") navigate("/settings#clipboard");
     else if (n.applicationId) navigate(`/applications?focus=${n.applicationId}`);
   };
 
@@ -174,7 +176,7 @@ export default function Notifications() {
             const isSuggestion = SUGGESTION_TYPES.includes(n.type);
             const canRevert = isSuggestion && !n.resolved && !!n.previousStage && !!n.applicationId;
             const canConfirm = isSuggestion && !n.resolved;
-            const clickable = n.type === "scan_ready" || !!n.applicationId;
+            const clickable = n.type === "scan_ready" || n.type === "clipboard_config" || !!n.applicationId;
             return (
               <li
                 key={n._id}

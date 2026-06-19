@@ -24,6 +24,7 @@ import { Company } from "../models/Company.js";
 import { Invite } from "../models/Invite.js";
 import { disconnectGmail } from "../services/gmailService.js";
 import { disconnectOutlook } from "../services/outlookService.js";
+import { ensureClipboardNudge } from "../services/migrations/seedClipboardNudge.js";
 import mongoose from "mongoose";
 import {
   getMaintenanceMode,
@@ -67,6 +68,8 @@ router.post(
         password,
         role: isAdminEmail(email) ? "admin" : "user",
       });
+
+      void ensureClipboardNudge(user._id).catch(() => {});
 
       req.login(user, (err) => {
         if (err) return next(err);
@@ -149,6 +152,12 @@ router.get("/me", ensureAuth, async (req: Request, res: Response, next: NextFunc
     }
     const doc = await User.findById(user._id).lean();
     if (!doc) throw new AppError("Not found", 404);
+    // One-time clipboard discovery nudge. Fire-and-forget and gated by the
+    // already-loaded flag so this only does a write the very first time a user
+    // (from any signup path) loads — never on subsequent /me calls.
+    if (!doc.clipboardNudgeSeeded) {
+      void ensureClipboardNudge(doc._id).catch(() => {});
+    }
     res.json({
       _id: doc._id,
       name: doc.name,
@@ -157,6 +166,8 @@ router.get("/me", ensureAuth, async (req: Request, res: Response, next: NextFunc
       tourCompleted: doc.tourCompleted ?? false,
       primaryResumeId: doc.primaryResumeId ? String(doc.primaryResumeId) : null,
       mergeResumesEnabled: doc.mergeResumesEnabled !== false,
+      clipboardCopyOnTrack: doc.clipboardCopyOnTrack === true,
+      clipboardFormat: doc.clipboardFormat ?? "metadata",
     });
   } catch (err) {
     next(err);
@@ -407,7 +418,7 @@ router.post(
 // PUT update profile (session or Bearer)
 router.put("/profile", ensureAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { name, email, primaryResumeId, mergeResumesEnabled } = req.body;
+    const { name, email, primaryResumeId, mergeResumesEnabled, clipboardCopyOnTrack, clipboardFormat } = req.body;
     const user = getUser(req);
 
     if (email && email !== user.email) {
@@ -434,6 +445,17 @@ router.put("/profile", ensureAuth, async (req: Request, res: Response, next: Nex
       $set.mergeResumesEnabled = Boolean(mergeResumesEnabled);
     }
 
+    if (clipboardCopyOnTrack !== undefined) {
+      $set.clipboardCopyOnTrack = Boolean(clipboardCopyOnTrack);
+    }
+
+    if (clipboardFormat !== undefined) {
+      if (!["raw", "metadata", "prompt"].includes(String(clipboardFormat))) {
+        throw new AppError("Invalid clipboard format", 400);
+      }
+      $set.clipboardFormat = String(clipboardFormat);
+    }
+
     const updated = await User.findByIdAndUpdate(user._id, { $set }, { new: true, runValidators: true }).lean();
     if (!updated) throw new AppError("Not found", 404);
 
@@ -445,6 +467,8 @@ router.put("/profile", ensureAuth, async (req: Request, res: Response, next: Nex
       tourCompleted: updated.tourCompleted ?? false,
       primaryResumeId: updated.primaryResumeId ? String(updated.primaryResumeId) : null,
       mergeResumesEnabled: updated.mergeResumesEnabled !== false,
+      clipboardCopyOnTrack: updated.clipboardCopyOnTrack === true,
+      clipboardFormat: updated.clipboardFormat ?? "metadata",
     });
   } catch (err) {
     next(err);

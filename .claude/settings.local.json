@@ -104,7 +104,11 @@
       "Bash(curl -fsSL -o chrome-web-store-badge.png \"https://storage.googleapis.com/chrome-gcs-uploader.appspot.com/image/WlD8wC6g8khYWPJUsQceQkhXSlv1/UV4C4ybeBTsZt43U4xis.png\")",
       "Bash(sips -g pixelWidth -g pixelHeight chrome-web-store-badge.png)",
       "Bash(awk '/pixel/{print}')",
-      "WebFetch(domain:developer.chrome.com)"
+      "WebFetch(domain:developer.chrome.com)",
+      "Bash(sed -n '/export interface User/,/^}/p' src/types/index.ts)",
+      "Bash(sed -n '/Notification/,/^}/p' src/types/index.ts)",
+      "Bash(grep -n 'data-section=\"profileSync\"\\\\|requireRealAccount\\\\b\\\\|</section>\\\\|</div>\\\\s*$\\\\|<select\\\\|peer-checked:bg-primary' src/pages/Settings/Settings.tsx)",
+      "Bash(unzip -p frontend/public/extension.zip background/background.js)"
     ]
   }
 }

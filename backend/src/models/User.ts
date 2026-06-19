@@ -34,6 +34,12 @@ export interface IUser extends Document {
   gmailScanConsent: { acceptedAt: Date; scopeAcknowledged: string } | null;
   /** When true, re-parsing a resume merges with the master profile via the LLM instead of overwriting it. Default true. */
   mergeResumesEnabled: boolean;
+  /** When true, the extension also copies the JD to the clipboard each time the user tracks a job. Opt-in; default false. */
+  clipboardCopyOnTrack: boolean;
+  /** Shape of the text the extension's "Copy JD" / auto-copy writes to the clipboard. */
+  clipboardFormat: "raw" | "metadata" | "prompt";
+  /** Set once the one-time "configure clipboard copy" discovery notification has been created for this user. */
+  clipboardNudgeSeeded: boolean;
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidate: string): Promise<boolean>;
@@ -100,6 +106,13 @@ const userSchema = new Schema<IUser>(
       default: null,
     },
     mergeResumesEnabled: { type: Boolean, default: true },
+    clipboardCopyOnTrack: { type: Boolean, default: false },
+    clipboardFormat: {
+      type: String,
+      enum: ["raw", "metadata", "prompt"],
+      default: "metadata",
+    },
+    clipboardNudgeSeeded: { type: Boolean, default: false },
   },
   {
     timestamps: true,

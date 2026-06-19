@@ -43,6 +43,7 @@ import bugRoutes from "./routes/bugs.js";
 import { startEmailScanJob } from "./services/emailScanJob.js";
 import { reapStalledScanJobs } from "./services/email/firstScan.js";
 import { backfillResumeVersions } from "./services/migrations/backfillResumeVersions.js";
+import { seedClipboardNudgeForAll } from "./services/migrations/seedClipboardNudge.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -191,6 +192,14 @@ async function start(): Promise<void> {
       if (updated > 0) console.log(`[migrate] backfilled versions on ${updated} resume(s)`);
     })
     .catch((err) => console.error("[migrate] resume versions backfill failed:", err));
+
+  // One-time discovery notification so existing users learn the extension can
+  // copy a JD to the clipboard. Idempotent — guarded by clipboardNudgeSeeded.
+  seedClipboardNudgeForAll()
+    .then(({ created }) => {
+      if (created > 0) console.log(`[migrate] seeded clipboard nudge for ${created} user(s)`);
+    })
+    .catch((err) => console.error("[migrate] clipboard nudge seed failed:", err));
 
   app.listen(env.PORT, () => {
     console.log(`HireTrail server running on port ${env.PORT} [${env.NODE_ENV}]`);
