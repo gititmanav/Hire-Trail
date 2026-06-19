@@ -15,6 +15,8 @@ export interface User {
   clipboardCopyOnTrack?: boolean;
   /** Shape of the text the extension's clipboard copy writes. Default "metadata". */
   clipboardFormat?: "raw" | "metadata" | "prompt";
+  /** Custom instruction used by the "prompt" clipboard format. */
+  clipboardPromptTemplate?: string;
 }
 export type NotificationType =
   | "rejection_detected"

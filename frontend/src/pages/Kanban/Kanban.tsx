@@ -4,7 +4,8 @@
 import { useState, useEffect, useCallback, useMemo, useRef, memo } from "react";
 import {
   DndContext, DragOverlay, DragStartEvent, DragEndEvent, DragOverEvent,
-  PointerSensor, useSensor, useSensors, closestCenter,
+  PointerSensor, useSensor, useSensors, pointerWithin, rectIntersection,
+  type CollisionDetection,
 } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -173,7 +174,7 @@ function SortableCard({ app, resumeName, density }: { app: Application; resumeNa
   );
 }
 
-const KanbanColumn = memo(function KanbanColumn({ stage, apps, resumeById, dwell, density, ghosts }: { stage: Stage; apps: Application[]; resumeById: Record<string, string>; dwell: { avgDays: number | null; sampleSize: number }; density: KanbanDensity; ghosts: { app: Application; fromStage: Stage }[] }) {
+const KanbanColumn = memo(function KanbanColumn({ stage, apps, resumeById, dwell, density, ghosts, terminalControl }: { stage: Stage; apps: Application[]; resumeById: Record<string, string>; dwell: { avgDays: number | null; sampleSize: number }; density: KanbanDensity; ghosts: { app: Application; fromStage: Stage }[]; terminalControl?: { value: "Offer" | "Rejected"; onChange: (s: "Offer" | "Rejected") => void; counts: Record<"Offer" | "Rejected", number> } }) {
   const c = CFG[stage];
   const { setNodeRef, isOver } = useSortable({ id: `column-${stage}`, data: { type: "column", stage } });
   const ids = useMemo(() => apps.map((a) => a._id), [apps]);
@@ -183,8 +184,35 @@ const KanbanColumn = memo(function KanbanColumn({ stage, apps, resumeById, dwell
       <div className={`flex flex-col gap-0.5 px-3 py-2 rounded-t-xl ${c.hBg} min-w-0`}>
         <div className="flex items-center gap-2 min-w-0">
           <div className={`w-2.5 h-2.5 rounded-full ${c.dot} shrink-0`} />
-          <span className="text-[13px] font-semibold text-foreground truncate">{stage}</span>
-          <span className="text-[11px] text-muted-foreground ml-auto bg-white/70 dark:bg-black/25 px-2 py-0.5 rounded-full font-semibold tabular-nums shrink-0">{apps.length}</span>
+          {terminalControl ? (
+            /* Offer ⇄ Rejected segmented toggle. The terminal slot of the board
+             *  hosts one of these two stages at a time so the grid stays 5-wide
+             *  and Rejected never wraps below. Each side shows its live count so
+             *  the hidden stage's cards aren't a surprise. */
+            <div role="group" aria-label="Switch terminal stage" className="inline-flex items-center rounded-lg border border-border bg-card/80 overflow-hidden shrink-0">
+              {(["Offer", "Rejected"] as const).map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => terminalControl.onChange(s)}
+                  aria-pressed={terminalControl.value === s}
+                  title={`Show the ${s} column`}
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 text-[12px] font-semibold transition-colors ${
+                    terminalControl.value === s ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full ${CFG[s].dot}`} aria-hidden />
+                  {s}
+                  <span className="text-[10px] tabular-nums opacity-70">{terminalControl.counts[s]}</span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <>
+              <span className="text-[13px] font-semibold text-foreground truncate">{stage}</span>
+              <span className="text-[11px] text-muted-foreground ml-auto bg-white/70 dark:bg-black/25 px-2 py-0.5 rounded-full font-semibold tabular-nums shrink-0">{apps.length}</span>
+            </>
+          )}
         </div>
         {/* WIP-style stage stat: average closed-transition dwell time.
          *  Null when the user has no sample of apps that have moved through
@@ -291,6 +319,9 @@ export default function Kanban() {
   const [companyFilter, setCompanyFilter] = useState<string>("All");
   const [sourceFilter, setSourceFilter] = useState<string>("All");
   const [suggestionDismissed, setSuggestionDismissed] = useState(false);
+  /* The board shows 5 columns; the terminal slot hosts either Offer or Rejected
+   *  (toggled in that column's header) so Rejected never wraps below the grid. */
+  const [terminalStage, setTerminalStage] = useState<"Offer" | "Rejected">("Offer");
   const [bulkBusy, setBulkBusy] = useState(false);
   const { confirm, confirmState, handleConfirm, handleCancel } = useConfirm();
   const { promptAfterStageChange } = useDeadlineFollowups();
@@ -309,6 +340,23 @@ export default function Kanban() {
   const filtersActive = resumeFilter !== "All" || companyFilter !== "All" || sourceFilter !== "All";
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+
+  /* Collision detection: pointer-within first so EMPTY columns (e.g. OA /
+   *  Interview with zero cards) are valid drop targets — closestCenter resolves
+   *  to the nearest card center, which lives in populated columns, so empty
+   *  columns could never receive a drop. Fall back to rect-intersection when the
+   *  pointer is between droppables mid-drag. */
+  const collisionDetection = useCallback<CollisionDetection>((args) => {
+    const pointerCollisions = pointerWithin(args);
+    return pointerCollisions.length > 0 ? pointerCollisions : rectIntersection(args);
+  }, []);
+
+  /* Drafting · Applied · OA · Interview are always shown; the 5th column is the
+   *  toggled terminal stage. Keeps the grid exactly 5-wide. */
+  const visibleStages = useMemo<Stage[]>(
+    () => ["Drafting", "Applied", "OA", "Interview", terminalStage],
+    [terminalStage],
+  );
 
   const resumeById = useMemo(() => Object.fromEntries(resumes.map((r) => [r._id, r.name])), [resumes]);
 
@@ -650,10 +698,25 @@ export default function Kanban() {
           </div>
         </div>
       )}
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
+      <DndContext sensors={sensors} collisionDetection={collisionDetection} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 pb-4">
-          <SortableContext items={STAGES.map((s) => `column-${s}`)}>
-            {STAGES.map((s) => <KanbanColumn key={s} stage={s} apps={grouped[s]} resumeById={resumeById} dwell={dwell[s]} density={density} ghosts={ghostMap[s]} />)}
+          <SortableContext items={visibleStages.map((s) => `column-${s}`)}>
+            {visibleStages.map((s) => (
+              <KanbanColumn
+                key={s}
+                stage={s}
+                apps={grouped[s]}
+                resumeById={resumeById}
+                dwell={dwell[s]}
+                density={density}
+                ghosts={ghostMap[s]}
+                terminalControl={
+                  s === terminalStage
+                    ? { value: terminalStage, onChange: setTerminalStage, counts: { Offer: grouped.Offer.length, Rejected: grouped.Rejected.length } }
+                    : undefined
+                }
+              />
+            ))}
           </SortableContext>
         </div>
         <DragOverlay dropAnimation={{ duration: 200, easing: "cubic-bezier(0.16, 1, 0.3, 1)" }}>

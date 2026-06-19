@@ -2,7 +2,7 @@
  *  accept/reject each, then generate a tailored PDF (export in next iteration). */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { ChevronDown, FileText, UserCheck, Gauge, ListChecks } from "lucide-react";
+import { ChevronDown, FileText, UserCheck, Gauge, ListChecks, ArrowRight, Check, X, Plus, Sparkles } from "lucide-react";
 import AiStepper from "../../components/AiIndicator/AiStepper.tsx";
 import toast from "react-hot-toast";
 import { tailorAPI, applicationsAPI, authAPI, resumesAPI } from "../../utils/api.ts";
@@ -321,60 +321,99 @@ export default function Tailor() {
   /* ---------- empty / input state ---------- */
   if (!session && !loadingSession) {
     return (
-      <div className="max-w-4xl mx-auto">
-        <div className="flex items-center gap-2 mb-2">
-          <h1 className="text-2xl font-semibold text-foreground">Tailor a resume</h1>
-          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-primary/15 text-primary">Beta</span>
+      <div className="max-w-3xl mx-auto fade-up">
+        {/* Hero */}
+        <div className="text-center mb-6">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-500 to-primary text-white shadow-sm mb-3">
+            <Sparkles size={22} strokeWidth={1.8} />
+          </div>
+          <div className="flex items-center justify-center gap-2">
+            <h1 className="text-2xl font-bold text-foreground tracking-tight">Tailor a resume</h1>
+            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-primary/15 text-primary">Beta</span>
+          </div>
+          <p className="text-sm text-muted-foreground mt-2 max-w-lg mx-auto leading-relaxed">
+            Paste a job description — we compare it against your master profile and return a fit score plus specific, accept-or-reject edits.
+          </p>
         </div>
-        <p className="text-sm text-muted-foreground mb-6">
-          Paste a job description. We'll compare it against your master profile and surface a fit score plus a punch list of specific, accept-or-reject suggestions.
-        </p>
 
-        <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-foreground mb-1.5">Company (optional)</label>
-              <input className="input-premium" placeholder="e.g. Stripe" value={company} onChange={(e) => setCompany(e.target.value)} />
+        {/* How it works */}
+        <div className="grid grid-cols-3 gap-2 mb-5">
+          {[
+            { n: 1, label: "Paste the JD" },
+            { n: 2, label: "We match your profile" },
+            { n: 3, label: "Accept or reject edits" },
+          ].map((s) => (
+            <div key={s.n} className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 min-w-0">
+              <span className="w-5 h-5 rounded-full bg-primary/10 text-primary text-[11px] font-bold flex items-center justify-center shrink-0">{s.n}</span>
+              <span className="text-xs text-muted-foreground truncate">{s.label}</span>
             </div>
-            <div>
-              <label className="block text-xs font-medium text-foreground mb-1.5">Role title (optional)</label>
-              <input className="input-premium" placeholder="e.g. Senior Backend Engineer" value={title} onChange={(e) => setTitle(e.target.value)} />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-foreground mb-1.5">Job URL (optional)</label>
-              <input className="input-premium" placeholder="https://…" value={url} onChange={(e) => setUrl(e.target.value)} />
+          ))}
+        </div>
+
+        {/* Input card — JD is the star */}
+        <div className="bg-card border border-border rounded-xl p-5 sm:p-6">
+          <div className="flex items-center justify-between mb-1.5">
+            <label htmlFor="tailor-jd" className="text-sm font-semibold text-foreground">Job description <span className="text-primary">*</span></label>
+            <span className={`text-[11px] tabular-nums ${
+              jd.length > JD_HARD_LIMIT ? "text-red-600 dark:text-red-400"
+              : jd.length > JD_SOFT_LIMIT ? "text-amber-600 dark:text-amber-400"
+              : "text-muted-foreground"
+            }`}>
+              {jd.length.toLocaleString()} chars
+            </span>
+          </div>
+          <textarea
+            id="tailor-jd"
+            autoFocus
+            className={`w-full min-h-[280px] resize-y rounded-lg border bg-background px-3.5 py-3 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring/30 ${
+              jd.length > JD_HARD_LIMIT ? "border-red-400 dark:border-red-700" : "border-border focus:border-ring"
+            }`}
+            placeholder="Paste the full job description here — responsibilities, requirements, the works. The more complete it is, the sharper the suggestions."
+            value={jd}
+            onChange={(e) => setJd(e.target.value)}
+            aria-invalid={jd.length > JD_HARD_LIMIT || undefined}
+          />
+          {jd.length > JD_HARD_LIMIT ? (
+            <p className="text-[11px] text-red-600 dark:text-red-400 mt-1.5">Over the {JD_HARD_LIMIT.toLocaleString()}-char limit — trim it to analyze.</p>
+          ) : jd.length > JD_SOFT_LIMIT ? (
+            <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1.5">Most JDs are under {JD_SOFT_LIMIT.toLocaleString()} chars. We&rsquo;ll trim to {JD_HARD_LIMIT.toLocaleString()} when analyzing.</p>
+          ) : (
+            <p className="text-[11px] text-muted-foreground mt-1.5">Tip: include the requirements and responsibilities sections for the best match.</p>
+          )}
+
+          {/* Optional context */}
+          <div className="mt-5 pt-5 border-t border-border">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2.5">Optional context</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Company</label>
+                <input className="input-premium" placeholder="e.g. Stripe" value={company} onChange={(e) => setCompany(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Role title</label>
+                <input className="input-premium" placeholder="e.g. Senior Backend Engineer" value={title} onChange={(e) => setTitle(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">Job URL</label>
+                <input className="input-premium" placeholder="https://…" value={url} onChange={(e) => setUrl(e.target.value)} />
+              </div>
             </div>
           </div>
-          <div>
-            <label className="block text-xs font-medium text-foreground mb-1.5">Job description *</label>
-            <textarea
-              className={`input-premium min-h-[260px] resize-y font-mono text-xs leading-relaxed ${
-                jd.length > JD_HARD_LIMIT ? "border-red-400 dark:border-red-700" : ""
-              }`}
-              placeholder="Paste the full job description here…"
-              value={jd}
-              onChange={(e) => setJd(e.target.value)}
-              aria-invalid={jd.length > JD_HARD_LIMIT || undefined}
-            />
-            {jd.length > JD_HARD_LIMIT ? (
-              <p className="text-[11px] text-red-600 dark:text-red-400 mt-1">
-                {jd.length.toLocaleString()} chars · over the {JD_HARD_LIMIT.toLocaleString()}-char hard limit. Trim it to analyze.
-              </p>
-            ) : jd.length > JD_SOFT_LIMIT ? (
-              <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">
-                {jd.length.toLocaleString()} chars · most JDs are under {JD_SOFT_LIMIT.toLocaleString()}. We&rsquo;ll trim to {JD_HARD_LIMIT.toLocaleString()} when analyzing.
-              </p>
-            ) : (
-              <p className="text-[11px] text-muted-foreground mt-1">{jd.length.toLocaleString()} chars</p>
-            )}
-          </div>
-          <div className="flex justify-end">
+
+          {/* CTA */}
+          <div className="mt-5 flex items-center justify-between gap-3 flex-wrap">
+            <p className="text-xs text-muted-foreground">
+              {jd.trim().length >= 50 && jd.length <= JD_HARD_LIMIT
+                ? "Ready to analyze."
+                : "Paste a job description (at least a few lines) to begin."}
+            </p>
             <button
               type="button"
               onClick={onAnalyze}
               disabled={analyzing || jd.trim().length < 50 || jd.length > JD_HARD_LIMIT}
-              className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-colors"
             >
+              <Sparkles size={16} strokeWidth={2} />
               {analyzing ? "Analyzing…" : "Analyze JD"}
             </button>
           </div>
@@ -608,13 +647,12 @@ function SuggestionRow({
 }) {
   const accepted = suggestion.decision === "accepted";
   const rejected = suggestion.decision === "rejected";
+  const hasOriginal = !!suggestion.targetBullet?.trim();
   return (
-    <li className={`px-6 py-5 transition-colors ${
-      accepted ? "bg-emerald-50/50 dark:bg-emerald-900/10" :
-      rejected ? "bg-muted/50 opacity-70" : ""
-    }`}>
+    <li className={`px-5 py-5 transition-all ${rejected ? "opacity-55" : ""}`}>
+      {/* Header: section + kind + target, with inline accept/reject. */}
       <div className="flex items-start justify-between gap-3 mb-3 flex-wrap">
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap min-w-0">
           <span className="text-[11px] px-2 py-0.5 font-semibold uppercase tracking-wider rounded bg-muted text-foreground">
             {SECTION_LABEL[suggestion.section] || suggestion.section}
           </span>
@@ -622,40 +660,79 @@ function SuggestionRow({
             {suggestion.kind}
           </span>
           {suggestion.targetCompanyOrName && (
-            <span className="text-sm text-muted-foreground">→ {suggestion.targetCompanyOrName}</span>
+            <span className="text-sm text-muted-foreground truncate">→ {suggestion.targetCompanyOrName}</span>
           )}
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           <button
             onClick={onReject}
-            className={`px-3 py-1.5 text-sm font-medium border rounded-md ${
+            aria-pressed={rejected}
+            className={`inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium border rounded-md transition-colors ${
               rejected
                 ? "bg-foreground/10 border-foreground/30 text-foreground"
                 : "border-border text-muted-foreground hover:text-foreground hover:bg-muted"
             }`}
           >
+            <X size={14} strokeWidth={2} aria-hidden />
             {rejected ? "Rejected" : "Reject"}
           </button>
           <button
             onClick={onAccept}
-            className={`px-3 py-1.5 text-sm font-medium border rounded-md ${
+            aria-pressed={accepted}
+            className={`inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium border rounded-md transition-colors ${
               accepted
                 ? "bg-emerald-600 border-emerald-600 text-white"
-                : "border-border text-muted-foreground hover:text-emerald-700 hover:border-emerald-300"
+                : "border-border text-muted-foreground hover:text-emerald-700 dark:hover:text-emerald-400 hover:border-emerald-300"
             }`}
           >
+            <Check size={14} strokeWidth={2.4} aria-hidden />
             {accepted ? "Accepted" : "Accept"}
           </button>
         </div>
       </div>
 
-      {suggestion.targetBullet && (
-        <div className="text-sm text-muted-foreground mb-1.5">
-          <span className="font-semibold mr-1">Replaces:</span>
-          <span className="line-through">{suggestion.targetBullet}</span>
+      {/* Diff: current bullet (left) vs AI-tailored version (right). GitHub-style
+       *  before/after — red gutter for the original, green for the suggestion.
+       *  Net-new additions show a dashed "new" placeholder on the left. */}
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-2.5 items-stretch">
+        {/* CURRENT */}
+        <div className={`rounded-lg border p-3 min-w-0 ${
+          hasOriginal
+            ? "border-red-200/70 dark:border-red-900/40 bg-red-50/40 dark:bg-red-950/15"
+            : "border-dashed border-border bg-muted/25"
+        }`}>
+          <div className="flex items-center gap-1.5 mb-1.5">
+            {hasOriginal
+              ? <span className="font-mono text-sm font-bold text-red-500/80 leading-none" aria-hidden>−</span>
+              : <Plus size={12} strokeWidth={2.5} className="text-muted-foreground" aria-hidden />}
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              {hasOriginal ? "Current" : "New addition"}
+            </span>
+          </div>
+          {hasOriginal
+            ? <p className={`text-sm leading-relaxed ${accepted ? "text-muted-foreground line-through decoration-red-400/50" : "text-foreground/80"}`}>{suggestion.targetBullet}</p>
+            : <p className="text-sm text-muted-foreground italic leading-relaxed">Nothing here yet — this bullet isn't in your resume.</p>}
         </div>
-      )}
-      <p className="text-[15px] text-foreground leading-relaxed">{suggestion.suggested}</p>
+
+        {/* arrow (md+) */}
+        <div className="hidden md:flex items-center justify-center text-muted-foreground/60" aria-hidden>
+          <ArrowRight size={16} strokeWidth={2} />
+        </div>
+
+        {/* TAILORED */}
+        <div className={`rounded-lg border p-3 min-w-0 transition-colors ${
+          accepted
+            ? "border-emerald-400 dark:border-emerald-600 bg-emerald-50/70 dark:bg-emerald-900/20 ring-1 ring-emerald-400/40"
+            : "border-emerald-200/70 dark:border-emerald-900/40 bg-emerald-50/40 dark:bg-emerald-950/15"
+        }`}>
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <span className="font-mono text-sm font-bold text-emerald-600/90 leading-none" aria-hidden>+</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">Tailored</span>
+          </div>
+          <p className="text-sm text-foreground leading-relaxed">{suggestion.suggested}</p>
+        </div>
+      </div>
+
       {suggestion.rationale && (
         <div className="mt-3 flex items-start gap-2 pl-3 border-l-2 border-primary/30">
           <span className="text-[10px] font-bold uppercase tracking-wider text-primary mt-0.5 shrink-0">Why</span>

@@ -4,8 +4,9 @@ import toast from "react-hot-toast";
 import { api, applicationsAPI, emailAPI, aiAPI, authAPI } from "../../utils/api.ts";
 import type { EmailStatusResponse, ScanJob } from "../../utils/api.ts";
 import { Link } from "react-router-dom";
-import { ArrowRight, Calendar, Check, Mail, Search, X } from "lucide-react";
+import { ArrowRight, Calendar, Check, ChevronDown, Mail, Search, X } from "lucide-react";
 import type { User } from "../../types";
+import ActionDropdown from "../../components/ActionDropdown/ActionDropdown.tsx";
 import { AISettingsCard } from "./AISettingsCard.tsx";
 import EmailScanFlowModal from "./EmailScanFlowModal.tsx";
 import { useFeatureFlags } from "../../hooks/useFeatureFlags.tsx";
@@ -19,6 +20,17 @@ const FeedbackModal = lazy(() => import("../../components/FeedbackWidget/Feedbac
 /* ---------- shared field styles ---------- */
 const inputCls =
   "w-full px-3 py-2 text-sm bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring transition-shadow";
+
+const DEFAULT_CLIPBOARD_PROMPT =
+  "Here's a job description. Based on my resume, what should I emphasize for this role, and what gaps should I prepare to address?";
+
+/** Clipboard-copy format options. Each is self-descriptive so the choice is
+ *  unambiguous; "prompt" reveals a textarea to define the instruction. */
+const CLIPBOARD_FORMAT_OPTIONS: { value: "raw" | "metadata" | "prompt"; label: string; hint: string }[] = [
+  { value: "metadata", label: "Job details + description", hint: "Title, company and link, followed by the full description." },
+  { value: "raw", label: "Description only", hint: "Just the raw job description text — nothing else." },
+  { value: "prompt", label: "Custom prompt + description", hint: "Your own instruction, with the description added after it." },
+];
 
 const DEFAULT_EMAIL_STATUS: EmailStatusResponse = {
   gmail: { connected: false, email: null, lastSyncAt: null, firstScanCompleted: false, firstScanDays: null, hasConsent: false },
@@ -349,9 +361,11 @@ export default function Settings() {
 
   const [clipboardCopyOnTrack, setClipboardCopyOnTrack] = useState(false);
   const [clipboardFormat, setClipboardFormat] = useState<"raw" | "metadata" | "prompt">("metadata");
+  const [clipboardPromptTemplate, setClipboardPromptTemplate] = useState(DEFAULT_CLIPBOARD_PROMPT);
   const [clipboardSaving, setClipboardSaving] = useState(false);
+  /** Last-persisted prompt, so the textarea only saves on blur when it changed. */
+  const promptBaselineRef = useRef(DEFAULT_CLIPBOARD_PROMPT);
 
-  const scrollerRef = useRef<HTMLDivElement>(null);
   const sectionRefs = useRef<Record<SectionKey, HTMLElement | null>>({
     account: null, password: null, email: null, ai: null, profileSync: null, clipboard: null,
   });
@@ -365,6 +379,8 @@ export default function Settings() {
         setMergeEnabled(r.data.mergeResumesEnabled !== false);
         setClipboardCopyOnTrack(r.data.clipboardCopyOnTrack === true);
         setClipboardFormat(r.data.clipboardFormat ?? "metadata");
+        setClipboardPromptTemplate(r.data.clipboardPromptTemplate ?? DEFAULT_CLIPBOARD_PROMPT);
+        promptBaselineRef.current = r.data.clipboardPromptTemplate ?? DEFAULT_CLIPBOARD_PROMPT;
       }),
       emailAPI.status().then(setMailbox).catch(() => {}),
       emailAPI.getLatestScanJob().then((r) => setScanJob(r.job)).catch(() => {}),
@@ -399,11 +415,10 @@ export default function Settings() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, mailbox.gmail.connected, mailbox.gmail.firstScanCompleted]);
 
-  // Scroll-spy.
+  // Scroll-spy — observes the viewport (the whole page scrolls) and lights up
+  // the quick-nav pill for whichever section is near the top.
   useEffect(() => {
     if (loading) return;
-    const root = scrollerRef.current;
-    if (!root) return;
     const observer = new IntersectionObserver(
       (entries) => {
         const visible = entries
@@ -414,7 +429,7 @@ export default function Settings() {
           if (key) setActive(key);
         }
       },
-      { root, rootMargin: "-20% 0px -60% 0px", threshold: [0, 0.25, 0.5, 0.75, 1] }
+      { root: null, rootMargin: "-25% 0px -65% 0px", threshold: [0, 0.25, 0.5, 1] }
     );
     SECTIONS.forEach(({ key }) => {
       const node = sectionRefs.current[key];
@@ -474,7 +489,7 @@ export default function Settings() {
 
   /** Persist a clipboard preference. Optimistic with rollback on failure;
    *  blocked for the demo account like the other write-backed settings. */
-  const saveClipboard = async (patch: Partial<Pick<User, "clipboardCopyOnTrack" | "clipboardFormat">>) => {
+  const saveClipboard = async (patch: Partial<Pick<User, "clipboardCopyOnTrack" | "clipboardFormat" | "clipboardPromptTemplate">>) => {
     setClipboardSaving(true);
     try {
       await api.put<User>("/auth/profile", patch);
@@ -528,44 +543,29 @@ export default function Settings() {
     // a couple of form rows; right rail simulates the profile + integration
     // summary cards.
     return (
-      <div className="settings-page max-w-7xl fade-up">
+      <div className="settings-page max-w-4xl mx-auto fade-up">
         <div className="mb-5">
           <Skeleton className="h-7 w-32 mb-2" />
           <Skeleton className="h-3 w-72" />
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-5">
-          <div className="bg-card border border-border rounded-xl overflow-hidden">
-            <div className="border-b border-border px-5 py-3 flex gap-3">
-              {[1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-5 w-16" />)}
+        <div className="flex gap-1.5 mb-5">
+          {[1, 2, 3, 4, 5, 6].map((i) => <Skeleton key={i} className="h-8 w-20 !rounded-full" />)}
+        </div>
+        <div className="space-y-5">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="bg-card border border-border rounded-xl p-5 sm:p-7 space-y-3">
+              <Skeleton className="h-5 w-40" />
+              <Skeleton className="h-3 w-64" />
+              <Skeleton className="h-10 w-full max-w-xl mt-2" />
             </div>
-            <div className="px-7 py-6 space-y-6">
-              <div className="space-y-2 max-w-xl">
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-4 w-24 mt-3" />
-                <Skeleton className="h-10 w-full" />
-              </div>
-            </div>
-          </div>
-          <aside className="space-y-4">
-            <div className="bg-card border border-border rounded-xl p-4 flex items-center gap-3">
-              <Skeleton className="h-12 w-12 !rounded-full" />
-              <div className="flex-1 space-y-1.5">
-                <Skeleton className="h-4 w-32" />
-                <Skeleton className="h-3 w-40" />
-              </div>
-            </div>
-            <div className="bg-card border border-border rounded-xl p-4 space-y-2">
-              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-4 w-full" />)}
-            </div>
-          </aside>
+          ))}
         </div>
       </div>
     );
   }
 
   return (
-    <div className="settings-page max-w-7xl">
+    <div className="settings-page max-w-4xl mx-auto">
       <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Settings</h1>
@@ -592,50 +592,52 @@ export default function Settings() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-5">
-        {/* ===== Main card ===== */}
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
-          {/* Underline tabs */}
-          <div className="sticky top-0 z-10 bg-card border-b border-border">
-            <nav className="flex gap-1 px-5 overflow-x-auto" role="tablist">
-              {SECTIONS.map((s) => {
-                const isHit = !!search.trim() && searchHits.matchedSections.has(s.key);
-                return (
-                  <button
-                    key={s.key}
-                    type="button"
-                    role="tab"
-                    aria-selected={active === s.key}
-                    onClick={() => scrollTo(s.key)}
-                    className={`relative px-3 py-3 text-sm font-medium transition-colors whitespace-nowrap ${
-                      active === s.key ? "text-foreground" : isHit ? "text-foreground" : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    {/* Tab label highlight matches the same yellow tint we use
-                     *  inside the section so the user can spot which tabs hold
-                     *  matches without scrolling. */}
-                    <MatchLabel query={search}>{s.label}</MatchLabel>
-                    {isHit && active !== s.key && (
-                      <span className="ml-1 inline-block w-1.5 h-1.5 rounded-full bg-yellow-400" aria-hidden />
-                    )}
-                    <span
-                      className={`absolute left-2 right-2 -bottom-px h-[2px] rounded-full transition-opacity ${
-                        active === s.key ? "bg-primary opacity-100" : "opacity-0"
-                      }`}
-                    />
-                  </button>
-                );
-              })}
-            </nav>
-          </div>
+      {/* Sticky quick-nav. The whole page scrolls; these pills jump to a section
+       *  and the scroll-spy above highlights the active one. */}
+      <div className="sticky top-0 z-20 -mx-1 mb-5 bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70 border-b border-border/60">
+        <nav className="flex gap-1.5 px-1 py-2.5 overflow-x-auto" role="tablist" aria-label="Settings sections">
+          {SECTIONS.map((s) => {
+            const isHit = !!search.trim() && searchHits.matchedSections.has(s.key);
+            return (
+              <button
+                key={s.key}
+                type="button"
+                role="tab"
+                aria-selected={active === s.key}
+                onClick={() => scrollTo(s.key)}
+                className={`relative shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors whitespace-nowrap border ${
+                  active === s.key
+                    ? "bg-primary/10 border-primary/40 text-primary"
+                    : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                }`}
+              >
+                <MatchLabel query={search}>{s.label}</MatchLabel>
+                {isHit && active !== s.key && (
+                  <span className="ml-1 inline-block w-1.5 h-1.5 rounded-full bg-yellow-400" aria-hidden />
+                )}
+              </button>
+            );
+          })}
+        </nav>
+      </div>
 
-          {/* Sections */}
-          <div ref={scrollerRef} className="max-h-[calc(100dvh-220px)] overflow-y-auto px-7 py-6 space-y-10">
+      {/* Each section is its own card; the page itself scrolls. */}
+      <div className="space-y-5">
+        {/* Account summary */}
+        <div className="bg-card border border-border rounded-xl p-5 sm:p-7 flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-base font-semibold shadow-sm shrink-0">
+            {initials}
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-foreground truncate">{user?.name}</p>
+            <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+          </div>
+        </div>
             {/* Account */}
             <section
               ref={(el) => { sectionRefs.current.account = el; }}
               data-section="account"
-              className={`scroll-mt-2 transition-opacity ${search && !searchHits.matchedSections.has("account") ? "opacity-40" : ""}`}
+              className={`bg-card border border-border rounded-xl p-5 sm:p-7 scroll-mt-24 transition-opacity ${search && !searchHits.matchedSections.has("account") ? "opacity-40" : ""}`}
             >
               <h2 className="text-base font-semibold text-foreground mb-1">Account</h2>
               <p className="text-xs text-muted-foreground mb-4">Your name and the email associated with your HireTrail account.</p>
@@ -681,7 +683,7 @@ export default function Settings() {
             <section
               ref={(el) => { sectionRefs.current.password = el; }}
               data-section="password"
-              className={`scroll-mt-2 transition-opacity ${search && !searchHits.matchedSections.has("password") ? "opacity-40" : ""}`}
+              className={`bg-card border border-border rounded-xl p-5 sm:p-7 scroll-mt-24 transition-opacity ${search && !searchHits.matchedSections.has("password") ? "opacity-40" : ""}`}
             >
               <h2 className="text-base font-semibold text-foreground mb-1">Password</h2>
               <p className="text-xs text-muted-foreground mb-4">Use at least 6 characters. If you sign in with Google, you can set a password to enable email login.</p>
@@ -706,7 +708,7 @@ export default function Settings() {
             <section
               ref={(el) => { sectionRefs.current.email = el; }}
               data-section="email"
-              className={`scroll-mt-2 transition-opacity ${search && !searchHits.matchedSections.has("email") ? "opacity-40" : ""}`}
+              className={`bg-card border border-border rounded-xl p-5 sm:p-7 scroll-mt-24 transition-opacity ${search && !searchHits.matchedSections.has("email") ? "opacity-40" : ""}`}
             >
               <div className="flex items-center gap-2 mb-1">
                 <h2 className="text-base font-semibold text-foreground"><MatchLabel query={search}>Email Integration</MatchLabel></h2>
@@ -872,7 +874,7 @@ export default function Settings() {
             <section
               ref={(el) => { sectionRefs.current.ai = el; }}
               data-section="ai"
-              className={`scroll-mt-2 transition-opacity ${search && !searchHits.matchedSections.has("ai") ? "opacity-40" : ""}`}
+              className={`bg-card border border-border rounded-xl p-5 sm:p-7 scroll-mt-24 transition-opacity ${search && !searchHits.matchedSections.has("ai") ? "opacity-40" : ""}`}
             >
               <h2 className="text-base font-semibold text-foreground mb-1"><MatchLabel query={search}>AI Providers</MatchLabel></h2>
               <p className="text-xs text-muted-foreground mb-4">
@@ -885,7 +887,7 @@ export default function Settings() {
             <section
               ref={(el) => { sectionRefs.current.profileSync = el; }}
               data-section="profileSync"
-              className={`scroll-mt-2 transition-opacity ${search && !searchHits.matchedSections.has("profileSync") ? "opacity-40" : ""}`}
+              className={`bg-card border border-border rounded-xl p-5 sm:p-7 scroll-mt-24 transition-opacity ${search && !searchHits.matchedSections.has("profileSync") ? "opacity-40" : ""}`}
             >
               <h2 className="text-base font-semibold text-foreground mb-1"><MatchLabel query={search}>Profile Sync</MatchLabel></h2>
               <p className="text-xs text-muted-foreground mb-4">
@@ -933,7 +935,7 @@ export default function Settings() {
             <section
               ref={(el) => { sectionRefs.current.clipboard = el; }}
               data-section="clipboard"
-              className={`scroll-mt-2 transition-opacity ${search && !searchHits.matchedSections.has("clipboard") ? "opacity-40" : ""}`}
+              className={`bg-card border border-border rounded-xl p-5 sm:p-7 scroll-mt-24 transition-opacity ${search && !searchHits.matchedSections.has("clipboard") ? "opacity-40" : ""}`}
             >
               <h2 className="text-base font-semibold text-foreground mb-1"><MatchLabel query={search}>Clipboard</MatchLabel></h2>
               <p className="text-xs text-muted-foreground mb-4">
@@ -977,80 +979,108 @@ export default function Settings() {
                 <p className="text-xs text-muted-foreground mt-1 mb-3 leading-relaxed">
                   What gets written to the clipboard when the extension copies a JD.
                 </p>
-                <select
-                  value={clipboardFormat}
+                <ActionDropdown
+                  align="left"
+                  menuWidth="w-full"
                   disabled={clipboardSaving}
-                  onChange={async (e) => {
-                    const next = e.target.value as "raw" | "metadata" | "prompt";
-                    const prev = clipboardFormat;
-                    if (!requireRealAccount("Clipboard")) {
-                      e.target.value = prev;
-                      return;
-                    }
-                    setClipboardFormat(next);
-                    try {
-                      await saveClipboard({ clipboardFormat: next });
-                      toast.success("Clipboard format updated");
-                    } catch {
-                      setClipboardFormat(prev);
-                    }
-                  }}
-                  className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
-                >
-                  <option value="metadata">With job details (title, company, link) — recommended</option>
-                  <option value="raw">Raw job description only</option>
-                  <option value="prompt">Ready-to-send Claude prompt + description</option>
-                </select>
+                  trigger={
+                    <button
+                      type="button"
+                      disabled={clipboardSaving}
+                      className="w-full flex items-center justify-between gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground hover:border-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+                    >
+                      <span>{CLIPBOARD_FORMAT_OPTIONS.find((o) => o.value === clipboardFormat)?.label}</span>
+                      <ChevronDown width={16} height={16} className="text-muted-foreground shrink-0" />
+                    </button>
+                  }
+                  items={CLIPBOARD_FORMAT_OPTIONS.map((opt) => ({
+                    label: opt.label,
+                    icon: <Check width={14} height={14} className={clipboardFormat === opt.value ? "text-primary" : "opacity-0"} />,
+                    onClick: async () => {
+                      if (opt.value === clipboardFormat) return;
+                      if (!requireRealAccount("Clipboard")) return;
+                      const prev = clipboardFormat;
+                      setClipboardFormat(opt.value);
+                      try {
+                        await saveClipboard({ clipboardFormat: opt.value });
+                        toast.success("Clipboard format updated");
+                      } catch {
+                        setClipboardFormat(prev);
+                      }
+                    },
+                  }))}
+                />
+                <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
+                  {CLIPBOARD_FORMAT_OPTIONS.find((o) => o.value === clipboardFormat)?.hint}
+                </p>
+
+                {clipboardFormat === "prompt" && (
+                  <div className="mt-3">
+                    <label className="block text-xs font-semibold text-foreground mb-1.5">Your prompt</label>
+                    <textarea
+                      value={clipboardPromptTemplate}
+                      disabled={clipboardSaving}
+                      rows={3}
+                      maxLength={2000}
+                      placeholder={DEFAULT_CLIPBOARD_PROMPT}
+                      onChange={(e) => setClipboardPromptTemplate(e.target.value)}
+                      onBlur={async () => {
+                        if (clipboardPromptTemplate === promptBaselineRef.current) return;
+                        if (!requireRealAccount("Clipboard")) {
+                          setClipboardPromptTemplate(promptBaselineRef.current);
+                          return;
+                        }
+                        try {
+                          await saveClipboard({ clipboardPromptTemplate });
+                          promptBaselineRef.current = clipboardPromptTemplate;
+                          toast.success("Prompt saved");
+                        } catch {
+                          setClipboardPromptTemplate(promptBaselineRef.current);
+                        }
+                      }}
+                      className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 resize-y leading-relaxed"
+                    />
+                    <p className="text-[11px] text-muted-foreground mt-1.5 leading-relaxed">
+                      This text is copied before the job description. Use <code className="px-1 py-0.5 rounded bg-muted text-[10px]">{"{jd}"}</code> to control exactly where the description goes (prepend or append).
+                    </p>
+                  </div>
+                )}
               </div>
             </section>
-          </div>
+
+        {/* Integrations status */}
+        <div className="bg-card border border-border rounded-xl p-5 sm:p-7">
+          <h3 className="text-base font-semibold text-foreground mb-1">Integrations</h3>
+          <p className="text-xs text-muted-foreground mb-4">A quick read on your connected mailboxes and AI providers.</p>
+          <ul className="space-y-2 text-sm max-w-md">
+            <IntegrationRow
+              label="Gmail"
+              connected={mailbox.gmail.connected}
+              explicit={mailbox.gmail.connected && mailbox.gmail.lastSyncAt
+                ? `last sync ${new Date(mailbox.gmail.lastSyncAt).toLocaleDateString()}`
+                : undefined}
+            />
+            <IntegrationRow
+              label="Outlook"
+              connected={outlookEnabled ? mailbox.outlook.connected : false}
+              muted={!outlookEnabled || !mailbox.outlook.configured}
+              mutedLabel={outlookEnabled ? "Not configured" : "Coming soon"}
+            />
+            <IntegrationRow
+              label="AI providers"
+              connected={aiProviderCount > 0}
+              explicit={aiProviderCount > 0 ? `${aiProviderCount} key${aiProviderCount === 1 ? "" : "s"}` : undefined}
+            />
+          </ul>
         </div>
 
-        {/* ===== Right sidebar ===== */}
-        <aside className="space-y-4">
-          <div className="bg-card border border-border rounded-xl p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-base font-semibold shadow-sm">
-                {initials}
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-foreground truncate">{user?.name}</p>
-                <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-card border border-border rounded-xl p-4">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Integrations</h3>
-            <ul className="space-y-2 text-sm">
-              <IntegrationRow
-                label="Gmail"
-                connected={mailbox.gmail.connected}
-                explicit={mailbox.gmail.connected && mailbox.gmail.lastSyncAt
-                  ? `last sync ${new Date(mailbox.gmail.lastSyncAt).toLocaleDateString()}`
-                  : undefined}
-              />
-              <IntegrationRow
-                label="Outlook"
-                connected={outlookEnabled ? mailbox.outlook.connected : false}
-                muted={!outlookEnabled || !mailbox.outlook.configured}
-                mutedLabel={outlookEnabled ? "Not configured" : "Coming soon"}
-              />
-              <IntegrationRow
-                label="AI providers"
-                connected={aiProviderCount > 0}
-                explicit={aiProviderCount > 0 ? `${aiProviderCount} key${aiProviderCount === 1 ? "" : "s"}` : undefined}
-              />
-            </ul>
-          </div>
-
-          <div className="bg-card border border-border rounded-xl p-4">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">About</h3>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              HireTrail v4.0 · Your data is encrypted at rest. Keys are AES-GCM. Sessions are HttpOnly cookies.
-            </p>
-          </div>
-        </aside>
+        {/* About */}
+        <div className="bg-card border border-border rounded-xl p-5 sm:p-7">
+          <h3 className="text-base font-semibold text-foreground mb-1">About</h3>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            HireTrail v4.0 · Your data is encrypted at rest. Keys are AES-GCM. Sessions are HttpOnly cookies.
+          </p>
+        </div>
       </div>
 
       {rejectionModal && <ReportRejectionModal onClose={() => setRejectionModal(false)} />}

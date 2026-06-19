@@ -1,12 +1,13 @@
 /** Resume versions with optional PDF to Cloudinary; usage counts come from the list API. */
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import {
-  ChevronDown, ChevronRight, Eye, FileText, LayoutGrid, List, Pencil, Plus,
-  RefreshCw, Search, Star, StarOff, Trash2, X,
+  ChevronRight, Eye, FileText, Pencil, Plus, RefreshCw, Search, Sparkles,
+  Star, StarOff, Trash2, Upload, UserRound, X,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { resumesAPI, authAPI, masterProfileAPI, pollMasterProfileParse } from "../../utils/api.ts";
-import { SkeletonCard } from "../../components/Skeleton/Skeleton.tsx";
+import { Skeleton } from "../../components/Skeleton/Skeleton.tsx";
 import EmptyState from "../../components/EmptyState/EmptyState.tsx";
 import ActionDropdown from "../../components/ActionDropdown/ActionDropdown.tsx";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal.tsx";
@@ -20,13 +21,17 @@ import type { Resume, ResumeVersion, ResumeMetrics } from "../../types";
 const fmt = (d: string) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 const fmtShort = (d: string) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
+/** Newest version timestamp = "last edited"; falls back to upload date for
+ *  resumes that pre-date the versions[] feature. */
+function lastEditedAt(r: Resume): string {
+  const vs = r.versions ?? [];
+  if (vs.length === 0) return r.uploadDate;
+  return vs.reduce((latest, v) => (new Date(v.timestamp) > new Date(latest) ? v.timestamp : latest), vs[0].timestamp);
+}
+
 /** Performance metrics strip — single row of percentage chips driven by the
  *  backend's per-resume aggregate (response / OA / interview / offer rates).
- *  Renders nothing when the resume has no submitted apps. Each chip's tone
- *  matches the stage palette so the Resumes page reads the same as the
- *  Applications / Kanban funnel. Click → navigate to filtered Applications
- *  view scoped to this resume (small ergonomic win — "show me the apps that
- *  drove this rate"). */
+ *  Renders nothing when the resume has no submitted apps. */
 const PCT = (frac: number) => `${Math.round(frac * 100)}%`;
 
 function MetricChip({ label, value, total, tone }: { label: string; value: number; total: number; tone: "blue" | "amber" | "purple" | "emerald" }) {
@@ -60,10 +65,8 @@ function MetricsStrip({ metrics }: { metrics: ResumeMetrics | null | undefined }
   );
 }
 
-/** Collapsed-by-default edit timeline. Footer-style strip on a resume card —
- *  shows the most recent entry inline, click-to-reveal expands the rest.
- *  Renders nothing when the resume has no version entries (legacy + never-
- *  mutated resumes alike). */
+/** Collapsed-by-default edit timeline. Shows the most recent entry inline,
+ *  click-to-reveal expands the rest. Renders nothing when there are no entries. */
 function VersionHistoryStrip({ versions }: { versions: ResumeVersion[] | undefined }) {
   const [open, setOpen] = useState(false);
   const list = versions ?? [];
@@ -72,22 +75,17 @@ function VersionHistoryStrip({ versions }: { versions: ResumeVersion[] | undefin
   const newest = sorted[0];
   const rest = sorted.slice(1);
   return (
-    <div className="mt-2 pt-2 border-t border-border/60 text-[11px] text-muted-foreground">
+    <div className="mt-1.5 text-[11px] text-muted-foreground">
       <button
         type="button"
         onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
-        className="w-full flex items-center gap-1.5 text-left hover:text-foreground"
+        className="flex items-center gap-1.5 text-left hover:text-foreground"
         aria-expanded={open}
         aria-label={`Toggle version history (${sorted.length} entr${sorted.length === 1 ? "y" : "ies"})`}
       >
         <ChevronRight size={11} strokeWidth={2} className={`transition-transform shrink-0 ${open ? "rotate-90" : ""}`} />
         <span className="font-semibold uppercase tracking-wider text-[10px]">History</span>
         <span className="tabular-nums">· {sorted.length}</span>
-        {!open && (
-          <span className="ml-2 truncate flex-1 min-w-0 italic">
-            {fmtShort(newest.timestamp)} — {newest.summary || "Updated"}
-          </span>
-        )}
       </button>
       {open && (
         <ul className="mt-1.5 space-y-1 pl-4">
@@ -133,14 +131,11 @@ function buildTagColorMap(tags: string[]): Record<string, TagColor> {
 
   tags.forEach((tag) => {
     const seed = hashTag(tag);
-
-    // Deterministically find an unused color slot so no two tags share a chip color.
     for (let step = 0; step < 360 * bgLightness.length; step += 1) {
       const hue = (seed + (step * 37)) % 360;
       const toneIdx = Math.floor(step / 360);
       const slotKey = `${hue}-${toneIdx}`;
       if (usedSlots.has(slotKey)) continue;
-
       usedSlots.add(slotKey);
       colorMap[tag] = {
         bg: `hsl(${hue} 85% ${bgLightness[toneIdx]}%)`,
@@ -149,7 +144,6 @@ function buildTagColorMap(tags: string[]): Record<string, TagColor> {
       };
       break;
     }
-
     if (!colorMap[tag]) colorMap[tag] = DEFAULT_TAG_COLOR;
   });
 
@@ -160,87 +154,102 @@ function getTagColor(tag: string, tagColorMap: Record<string, TagColor>) {
   return tagColorMap[tag] ?? DEFAULT_TAG_COLOR;
 }
 
-function ResumeCard({ r, isPrimary, tagColorMap, setAsPrimary, setEditing, setModal, handleDelete, setPreviewResume, parseWithAI, parsingId }: {
+function TagChips({ tags, tagColorMap }: { tags: string[] | undefined; tagColorMap: Record<string, TagColor> }) {
+  if (!tags || tags.length === 0) return null;
+  return (
+    <div className="flex flex-wrap gap-1 mt-1.5">
+      {tags.map((t, i) => {
+        const c = getTagColor(t, tagColorMap);
+        return (
+          <span key={i} className="inline-block text-[10px] font-medium px-1.5 py-0.5 rounded border" style={{ backgroundColor: c.bg, color: c.text, borderColor: c.border }}>
+            {t}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Status pills: Primary / Locked / Uploaded vs Generated. */
+function StatusBadges({ r, isPrimary }: { r: Resume; isPrimary: boolean }) {
+  return (
+    <div className="inline-flex items-center gap-1.5 flex-wrap">
+      {r.fileUrl
+        ? <span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300 bg-emerald-500/15 px-1.5 py-0.5 rounded">Uploaded</span>
+        : <span className="text-[10px] font-semibold uppercase tracking-wide text-sky-700 dark:text-sky-300 bg-sky-500/15 px-1.5 py-0.5 rounded">Generated</span>}
+      {isPrimary && <span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300 bg-emerald-500/15 px-1.5 py-0.5 rounded inline-flex items-center gap-1"><Star size={9} fill="currentColor" strokeWidth={0} />Primary</span>}
+      {r.isProtected && <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300 bg-amber-500/15 px-1.5 py-0.5 rounded">Locked</span>}
+    </div>
+  );
+}
+
+/* ---------- Document table row ---------- */
+
+function ResumeTableRow({ r, isPrimary, tagColorMap, selected, onToggleSelect, setAsPrimary, setEditing, setModal, handleDelete, setPreviewResume, parseWithAI, parsingId }: {
   r: Resume; isPrimary: boolean; tagColorMap: Record<string, TagColor>;
+  selected: boolean; onToggleSelect: (id: string) => void;
   setAsPrimary: (id: string | null) => void; setEditing: (r: Resume) => void; setModal: (v: boolean) => void;
   handleDelete: (id: string) => void; setPreviewResume: (r: Resume) => void;
-  parseWithAI: (id: string) => void; parsingId: string | null;
+  parseWithAI: (id: string, name?: string) => void; parsingId: string | null;
 }) {
   const isParsing = parsingId === r._id;
+  const menuItems = [
+    ...(r.fileUrl ? [{ label: "Preview PDF", icon: <Eye size={14} strokeWidth={1.6} />, onClick: () => setPreviewResume(r) }] : []),
+    isPrimary
+      ? { label: "Remove as primary", icon: <StarOff size={14} strokeWidth={1.6} />, onClick: () => setAsPrimary(null) }
+      : { label: "Set as primary", icon: <Star size={14} strokeWidth={1.6} />, onClick: () => setAsPrimary(r._id) },
+    ...(r.fileUrl ? [{ label: isParsing ? "Syncing…" : "Sync to profile", icon: <RefreshCw size={14} strokeWidth={1.6} className={isParsing ? "animate-pulse" : ""} />, onClick: () => !isParsing && parseWithAI(r._id, r.name), disabled: isParsing }] : []),
+    ...(!r.isProtected ? [{ label: "Delete", icon: <Trash2 size={14} strokeWidth={1.6} />, onClick: () => handleDelete(r._id), className: "text-danger", divider: true }] : []),
+  ];
   return (
-    <div className={`card-premium p-5 flex flex-col group ${isPrimary ? "ring-2 ring-emerald-500/50 border-emerald-500" : ""}`}>
-      <div className="flex items-start justify-between mb-3">
-        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${r.fileUrl ? "bg-red-100 dark:bg-red-900/30" : "bg-primary/10"}`}>
-          <FileText size={20} strokeWidth={1.5} className={r.fileUrl ? "text-red-500" : "text-primary"} />
+    <tr className={`group transition-colors ${selected ? "bg-primary/5" : "hover:bg-muted/40"}`}>
+      <td className="w-10 pl-4 pr-1 align-top py-4">
+        <input
+          type="checkbox"
+          checked={selected}
+          disabled={r.isProtected}
+          onChange={() => onToggleSelect(r._id)}
+          aria-label={`Select ${r.name}`}
+          className="mt-0.5 h-4 w-4 rounded border-border text-primary focus:ring-ring disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+          title={r.isProtected ? "Protected resume can't be deleted" : undefined}
+        />
+      </td>
+      <td className="py-4 pr-4 align-top min-w-0">
+        <div className="flex items-start gap-3 min-w-0">
+          <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${r.fileUrl ? "bg-red-100 dark:bg-red-900/30" : "bg-primary/10"}`}>
+            <FileText size={17} strokeWidth={1.5} className={r.fileUrl ? "text-red-500" : "text-primary"} />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-semibold text-foreground">{r.name}</span>
+              <StatusBadges r={r} isPrimary={isPrimary} />
+            </div>
+            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+              {r.targetRole && <span className="text-[11px] font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">{r.targetRole}</span>}
+              {r.fileName && <span className="text-xs text-muted-foreground truncate">{r.fileName}</span>}
+              <span className="text-xs text-muted-foreground">· {r.applicationCount || 0} app{r.applicationCount === 1 ? "" : "s"}</span>
+            </div>
+            <TagChips tags={r.tags} tagColorMap={tagColorMap} />
+            <MetricsStrip metrics={r.metrics} />
+            <VersionHistoryStrip versions={r.versions} />
+          </div>
         </div>
-        <div className="flex gap-1 opacity-100">
+      </td>
+      <td className="py-4 px-3 align-top text-xs text-muted-foreground whitespace-nowrap hidden md:table-cell">{fmt(r.uploadDate)}</td>
+      <td className="py-4 px-3 align-top text-xs text-muted-foreground whitespace-nowrap hidden lg:table-cell">{fmt(lastEditedAt(r))}</td>
+      <td className="py-4 pr-4 pl-3 align-top text-right whitespace-nowrap">
+        <div className="inline-flex items-center gap-1">
           <button
-            onClick={() => r.fileUrl && setPreviewResume(r)}
-            title={r.fileUrl ? "Preview PDF" : "No file to preview"}
-            className={`w-8 h-8 flex items-center justify-center rounded-lg border border-border ${
-              r.fileUrl ? "text-muted-foreground hover:text-primary hover:border-primary" : "text-muted-foreground/50 cursor-not-allowed opacity-60"
-            }`}
-            disabled={!r.fileUrl}
+            onClick={() => { setEditing(r); setModal(true); }}
+            className="inline-flex items-center gap-1 px-2 py-1 text-[13px] font-medium text-primary hover:bg-primary/10 rounded-md"
           >
-            <Eye size={14} strokeWidth={1.6} />
+            <Pencil size={13} strokeWidth={1.8} />Edit
           </button>
-          <button
-            onClick={() => r.fileUrl && !isParsing && parseWithAI(r._id)}
-            title={r.fileUrl ? "Update master profile from this resume" : "Upload a PDF first"}
-            disabled={!r.fileUrl || isParsing}
-            className={`w-8 h-8 flex items-center justify-center rounded-lg border border-border ${
-              r.fileUrl ? "text-muted-foreground hover:text-primary hover:border-primary" : "text-muted-foreground/50 cursor-not-allowed opacity-60"
-            } ${isParsing ? "animate-pulse" : ""}`}
-          >
-            <RefreshCw size={14} strokeWidth={1.6} />
-          </button>
-          {isPrimary ? (
-            <button onClick={() => setAsPrimary(null)} title="Remove as primary" className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-emerald-500 hover:text-red-500 hover:border-red-400">
-              <StarOff size={14} strokeWidth={1.8} fill="currentColor" />
-            </button>
-          ) : (
-            <button onClick={() => setAsPrimary(r._id)} title="Set as primary for extension" className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-emerald-500 hover:border-emerald-400">
-              <Star size={14} strokeWidth={1.5} />
-            </button>
-          )}
-          <button onClick={() => { setEditing(r); setModal(true); }} title="Edit" className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary"><Pencil size={14} strokeWidth={1.5} /></button>
-          {!r.isProtected && (
-            <button onClick={() => handleDelete(r._id)} title="Delete" className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-danger hover:border-danger"><Trash2 size={14} strokeWidth={1.5} /></button>
-          )}
+          <span className="text-border" aria-hidden>|</span>
+          <ActionDropdown align="right" menuWidth="w-52" triggerLabel="More" triggerClassName="px-2 py-1 text-[13px] font-medium text-primary hover:bg-primary/10 rounded-md" items={menuItems} />
         </div>
-      </div>
-      <div className="flex items-center gap-2 flex-wrap mb-1">
-        <h3 className="text-[15px] font-semibold text-foreground">{r.name}</h3>
-        {isPrimary && <span className="text-[11px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded">Primary</span>}
-        {r.isProtected && <span className="text-[11px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300 bg-amber-500/15 px-2 py-0.5 rounded">Locked</span>}
-      </div>
-      {r.targetRole && <span className="inline-block text-xs font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full mb-1 w-fit">{r.targetRole}</span>}
-      {r.tags && r.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1 mb-1">
-          {r.tags.map((t, i) => {
-            const c = getTagColor(t, tagColorMap);
-            return (
-              <span
-                key={i}
-                className="inline-block text-[10px] font-medium px-1.5 py-0.5 rounded border"
-                style={{ backgroundColor: c.bg, color: c.text, borderColor: c.border }}
-              >
-                {t}
-              </span>
-            );
-          })}
-        </div>
-      )}
-      {r.fileName && <span className="text-xs text-muted-foreground mb-1">{r.fileName}</span>}
-      <MetricsStrip metrics={r.metrics} />
-      <div className="mt-auto pt-3 border-t border-border">
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span>Added {fmt(r.uploadDate)}</span>
-          <span className="font-medium text-muted-foreground">{r.applicationCount || 0} apps</span>
-        </div>
-        <VersionHistoryStrip versions={r.versions} />
-      </div>
-    </div>
+      </td>
+    </tr>
   );
 }
 
@@ -267,18 +276,7 @@ function ResumeListRow({ r, isPrimary, tagColorMap, setAsPrimary, setEditing, se
           <span>•</span>
           <span>Added {fmt(r.uploadDate)}</span>
         </div>
-        {r.tags && r.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-1.5">
-            {r.tags.map((t, i) => {
-              const c = getTagColor(t, tagColorMap);
-              return (
-                <span key={i} className="inline-block text-[10px] font-medium px-1.5 py-0.5 rounded border" style={{ backgroundColor: c.bg, color: c.text, borderColor: c.border }}>
-                  {t}
-                </span>
-              );
-            })}
-          </div>
-        )}
+        <TagChips tags={r.tags} tagColorMap={tagColorMap} />
         <MetricsStrip metrics={r.metrics} />
         <VersionHistoryStrip versions={r.versions} />
       </div>
@@ -311,7 +309,27 @@ function ResumeListRow({ r, isPrimary, tagColorMap, setAsPrimary, setEditing, se
   );
 }
 
+/* ---------- Quick-action launcher card ---------- */
+
+function ActionCard({ icon, title, subtitle, tone, onClick }: { icon: React.ReactNode; title: string; subtitle: string; tone: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group flex items-center gap-3 text-left bg-card border border-border rounded-xl p-4 hover:border-primary/50 hover:shadow-sm transition-all"
+    >
+      <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${tone}`}>{icon}</div>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold text-foreground">{title}</p>
+        <p className="text-xs text-muted-foreground leading-snug mt-0.5">{subtitle}</p>
+      </div>
+      <Plus size={16} strokeWidth={2} className="text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
+    </button>
+  );
+}
+
 export default function Resumes() {
+  const navigate = useNavigate();
   const [resumes, setResumes] = useState<Resume[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
@@ -320,8 +338,8 @@ export default function Resumes() {
   const [primaryResumeId, setPrimaryResumeId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [selectedTag, setSelectedTag] = useState("All");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [sortBy, setSortBy] = useState<"recent" | "name" | "usage">("recent");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const { confirm: confirmDelete, confirmState, handleConfirm: onConfirm, handleCancel: onCancel } = useConfirm();
   const { startTask, tasks } = useBackgroundTasks();
   const { requireRealAccount } = useDemoGate();
@@ -341,7 +359,6 @@ export default function Resumes() {
       sublabel: resumeName,
       run: async ({ setRecovery }) => {
         await masterProfileAPI.parseFromResume(resumeId);
-        // Backend flipped parseStatus to "processing"; survives refresh from here.
         setRecovery({ resourceId: "master" });
         return pollMasterProfileParse();
       },
@@ -399,6 +416,7 @@ export default function Resumes() {
     if (!ok) return;
     await resumesAPI.delete(id);
     if (primaryResumeId === id) setPrimaryResumeId(null);
+    setSelected((prev) => { const next = new Set(prev); next.delete(id); return next; });
     toast.success("Deleted");
     await fetchResumes();
   };
@@ -423,12 +441,10 @@ export default function Resumes() {
     });
   }, [resumes, primaryResumeId]);
 
-  /** A resume that was generated by the AI Tailor is tagged "tailored". We surface
-   *  these in their own collapsible section so the main resume list stays clean. */
+  /** A resume generated by the AI Tailor is tagged "tailored". Surfaced in its
+   *  own collapsible section so the main table stays clean. */
   const isTailored = (r: Resume) => (r.tags || []).includes("tailored");
 
-  // Filter by search query (name, targetRole, or tags), then sort for faster scanning.
-  // Tailored variants are excluded from the main list and surfaced separately below.
   const filteredResumes = useMemo(() => {
     const nonTailored = sortedResumes.filter((r) => !isTailored(r));
     const byTag = selectedTag === "All"
@@ -459,16 +475,20 @@ export default function Resumes() {
     return [...searched].sort((a, b) => new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime());
   }, [resumes, search]);
 
-  // Collect all unique tags across resumes for autocomplete — exclude "tailored"
-  // since it's a system tag, not something users assign by hand.
+  // Unique tags for the filter — exclude the system "tailored" tag.
   const allExistingTags = useMemo(() => {
     const s = new Set<string>();
     resumes.forEach((r) => r.tags?.forEach((t) => { if (t !== "tailored") s.add(t); }));
     return Array.from(s).sort();
   }, [resumes]);
   const tagColorMap = useMemo(() => buildTagColorMap(allExistingTags), [allExistingTags]);
+
+  // Primary first, then the rest in the chosen sort order.
   const primaryResume = useMemo(() => filteredResumes.find((r) => r._id === primaryResumeId) ?? null, [filteredResumes, primaryResumeId]);
-  const nonPrimaryResumes = useMemo(() => filteredResumes.filter((r) => r._id !== primaryResumeId), [filteredResumes, primaryResumeId]);
+  const orderedRows = useMemo(() => {
+    if (!primaryResume) return filteredResumes;
+    return [primaryResume, ...filteredResumes.filter((r) => r._id !== primaryResumeId)];
+  }, [filteredResumes, primaryResume, primaryResumeId]);
 
   useEffect(() => {
     if (selectedTag !== "All" && !allExistingTags.includes(selectedTag)) {
@@ -476,163 +496,210 @@ export default function Resumes() {
     }
   }, [selectedTag, allExistingTags]);
 
-  if (loading) return <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">{[1, 2, 3].map((i) => <SkeletonCard key={i} />)}</div>;
+  // Selection — only non-protected resumes are selectable (protected can't be deleted).
+  const selectableIds = useMemo(() => orderedRows.filter((r) => !r.isProtected).map((r) => r._id), [orderedRows]);
+  const allSelected = selectableIds.length > 0 && selectableIds.every((id) => selected.has(id));
+  const toggleSelect = useCallback((id: string) => {
+    setSelected((prev) => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
+  }, []);
+  const toggleSelectAll = useCallback(() => {
+    setSelected((prev) => (selectableIds.every((id) => prev.has(id)) ? new Set() : new Set(selectableIds)));
+  }, [selectableIds]);
+
+  const bulkDelete = async () => {
+    const ids = [...selected];
+    if (ids.length === 0) return;
+    const ok = await confirmDelete(
+      `${ids.length} resume${ids.length === 1 ? "" : "s"} will be permanently deleted. This can't be undone.`,
+      { title: `Delete ${ids.length} resume${ids.length === 1 ? "" : "s"}?`, confirmLabel: "Delete", danger: true },
+    );
+    if (!ok) return;
+    try {
+      await Promise.all(ids.map((id) => resumesAPI.delete(id)));
+      if (primaryResumeId && ids.includes(primaryResumeId)) setPrimaryResumeId(null);
+      toast.success(`Deleted ${ids.length} resume${ids.length === 1 ? "" : "s"}`);
+    } catch {
+      toast.error("Couldn't delete some resumes — try again.");
+    } finally {
+      setSelected(new Set());
+      await fetchResumes();
+    }
+  };
+
+  const tagFilterLabel = selectedTag === "All" ? "All tags" : selectedTag;
+  const sortLabel = sortBy === "recent" ? "Most recent" : sortBy === "name" ? "Name A–Z" : "Most used";
 
   return (
-    <div className="fade-up">
-      <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">Resumes</h1>
-          <p className="text-sm text-muted-foreground mt-1">Set a primary resume so the browser extension attaches it when you track a job.</p>
-        </div>
-        <button onClick={() => { setEditing(null); setModal(true); }} className="btn-accent">
-          <Plus size={16} strokeWidth={2} />Add resume
-        </button>
+    <div className="fade-up max-w-6xl">
+      <div className="mb-5">
+        <h1 className="text-2xl font-bold text-foreground tracking-tight">My Documents</h1>
+        <p className="text-sm text-muted-foreground mt-1">Manage, tailor, and track every resume in your job search.</p>
       </div>
 
-      {resumes.length > 0 && (
-        <div className="sticky top-3 z-10 mb-6 px-1 py-1">
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center gap-3">
-              <div className="relative">
-              <Search size={16} strokeWidth={2} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-              <input
-                className="input-premium !pl-9 w-[280px]"
-                placeholder="Search by name, role, or tag..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-              {search && (
-                <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                  <X size={14} strokeWidth={2} />
-                </button>
-              )}
+      {/* Quick actions */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
+        <ActionCard
+          icon={<FileText size={20} strokeWidth={1.6} className="text-primary" />}
+          title="New Resume"
+          subtitle="Upload a PDF or add a version to track"
+          tone="bg-primary/10"
+          onClick={() => { setEditing(null); setModal(true); }}
+        />
+        <ActionCard
+          icon={<Sparkles size={20} strokeWidth={1.6} className="text-violet-500" />}
+          title="Tailor with AI"
+          subtitle="Optimize a resume against a job description"
+          tone="bg-violet-500/10"
+          onClick={() => navigate("/tailor")}
+        />
+        <ActionCard
+          icon={<UserRound size={20} strokeWidth={1.6} className="text-sky-500" />}
+          title="Master Profile"
+          subtitle="Edit the career history AI tailoring draws from"
+          tone="bg-sky-500/10"
+          onClick={() => navigate("/profile")}
+        />
+      </div>
+
+      {loading ? (
+        <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="flex items-center gap-3">
+              <Skeleton className="h-9 w-9 !rounded-lg" />
+              <div className="flex-1 space-y-1.5"><Skeleton className="h-4 w-48" /><Skeleton className="h-3 w-32" /></div>
+            </div>
+          ))}
+        </div>
+      ) : resumes.length === 0 ? (
+        <EmptyState
+          intent="welcome"
+          title="Add your first resume"
+          description="Upload your résumés, tag them by role focus, and HireTrail will track which version actually gets responses. Mark one as Primary to power AI tailoring."
+          actions={[{ label: "Upload resume", variant: "primary", onClick: () => { setEditing(null); setModal(true); } }]}
+        />
+      ) : (
+        <>
+          {/* ===== Resumes table card ===== */}
+          <div className="bg-card border border-border rounded-xl overflow-hidden">
+            {/* Toolbar */}
+            <div className="flex items-center gap-3 flex-wrap px-4 py-3 border-b border-border">
+              <div className="flex items-center gap-3 min-w-0">
+                {selected.size > 0 ? (
+                  <>
+                    <span className="text-sm font-medium text-foreground tabular-nums">{selected.size} selected</span>
+                    <span className="text-border" aria-hidden>|</span>
+                    <button onClick={bulkDelete} className="inline-flex items-center gap-1.5 px-2.5 py-1 text-sm font-medium text-danger hover:bg-danger/10 rounded-md">
+                      <Trash2 size={14} strokeWidth={1.8} />Delete
+                    </button>
+                  </>
+                ) : (
+                  <span className="text-sm font-medium text-muted-foreground tabular-nums">{orderedRows.length} resume{orderedRows.length === 1 ? "" : "s"}</span>
+                )}
               </div>
 
-              <div className="ml-auto flex items-center gap-2">
-                <div className="inline-flex items-center rounded-lg border border-border overflow-hidden">
-                  <button
-                    onClick={() => setViewMode("grid")}
-                    className={`w-10 h-10 flex items-center justify-center ${viewMode === "grid" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"}`}
-                    title="Grid view"
-                    aria-label="Grid view"
-                  >
-                    <LayoutGrid size={16} strokeWidth={2} />
-                  </button>
-                  <button
-                    onClick={() => setViewMode("list")}
-                    className={`w-10 h-10 flex items-center justify-center border-l border-border ${viewMode === "list" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"}`}
-                    title="List view"
-                    aria-label="List view"
-                  >
-                    <List size={16} strokeWidth={2} />
-                  </button>
-                </div>
+              <div className="ml-auto flex items-center gap-2 flex-wrap">
+                <button onClick={() => { setEditing(null); setModal(true); }} className="inline-flex items-center gap-1.5 h-9 px-3 text-sm font-medium border border-border rounded-lg text-foreground hover:border-primary hover:text-primary transition-colors">
+                  <Upload size={15} strokeWidth={1.8} />Upload
+                </button>
+                {allExistingTags.length > 0 && (
+                  <ActionDropdown
+                    align="right"
+                    menuWidth="w-52"
+                    searchable={allExistingTags.length > 6}
+                    searchPlaceholder="Filter tags…"
+                    trigger={
+                      <button className="inline-flex items-center justify-between gap-2 h-9 px-3 text-sm border border-border rounded-lg text-foreground hover:border-muted-foreground/40 min-w-[120px]">
+                        <span className="truncate">{tagFilterLabel}</span>
+                        <ChevronRight size={14} strokeWidth={1.8} className="rotate-90 text-muted-foreground shrink-0" />
+                      </button>
+                    }
+                    items={[
+                      { label: "All tags", onClick: () => setSelectedTag("All"), className: selectedTag === "All" ? "text-primary font-medium" : undefined },
+                      ...allExistingTags.map((t) => ({ label: t, onClick: () => setSelectedTag(t), className: selectedTag === t ? "text-primary font-medium" : undefined })),
+                    ]}
+                  />
+                )}
                 <ActionDropdown
                   align="right"
-                  menuWidth="w-[180px]"
+                  menuWidth="w-44"
                   trigger={
-                    <button className="input-premium h-10 text-[13px] w-[180px] flex items-center justify-between text-left">
-                      <span>
-                        {sortBy === "recent" ? "Most recent" : sortBy === "name" ? "Name A-Z" : "Most used"}
-                      </span>
-                      <ChevronDown size={14} strokeWidth={1.5} />
+                    <button className="inline-flex items-center justify-between gap-2 h-9 px-3 text-sm border border-border rounded-lg text-foreground hover:border-muted-foreground/40 min-w-[130px]">
+                      <span className="truncate">{sortLabel}</span>
+                      <ChevronRight size={14} strokeWidth={1.8} className="rotate-90 text-muted-foreground shrink-0" />
                     </button>
                   }
                   items={[
                     { label: "Most recent", onClick: () => setSortBy("recent"), className: sortBy === "recent" ? "text-primary font-medium" : undefined },
-                    { label: "Name A-Z", onClick: () => setSortBy("name"), className: sortBy === "name" ? "text-primary font-medium" : undefined },
+                    { label: "Name A–Z", onClick: () => setSortBy("name"), className: sortBy === "name" ? "text-primary font-medium" : undefined },
                     { label: "Most used", onClick: () => setSortBy("usage"), className: sortBy === "usage" ? "text-primary font-medium" : undefined },
                   ]}
                 />
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-1.5">
-              {["All", ...allExistingTags].map((tag) => (
-                <button
-                  key={tag}
-                  onClick={() => setSelectedTag(tag)}
-                  className={`inline-flex items-center gap-1 px-3 py-1 text-[13px] font-medium rounded-full border ${
-                    selectedTag === tag
-                      ? "bg-primary/10 border-primary text-primary"
-                      : "bg-card border-border text-muted-foreground hover:border-primary hover:text-primary"
-                  }`}
-                >
-                  {tag}
-                  {tag !== "All" && (
-                    <span className="text-[11px] bg-muted px-1.5 rounded-full">
-                      {resumes.filter((r) => r.tags?.includes(tag)).length}
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {filteredResumes.length === 0 ? (
-        resumes.length === 0 ? (
-          <EmptyState
-            intent="welcome"
-            title="Add your first resume"
-            description="Upload your résumés, tag them by role focus, and HireTrail will track which version actually gets responses. Mark one as Primary to power AI tailoring."
-            actions={[
-              { label: "Upload resume", variant: "primary", onClick: () => { setEditing(null); setModal(true); } },
-            ]}
-          />
-        ) : (
-          <EmptyState
-            intent="filtered"
-            title="No resumes match these filters"
-            description="Try clearing your search or tag filter."
-          />
-        )
-      ) : (
-        <div className="space-y-4">
-          {primaryResume && (
-            <div className="rounded-xl border border-emerald-300 dark:border-emerald-700 bg-emerald-500/[0.03] p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300">
-                    <Star size={12} fill="currentColor" strokeWidth={0} />
-                    Primary Resume
-                  </div>
-                  <h3 className="mt-2 text-sm font-semibold text-foreground truncate">{primaryResume.name}</h3>
-                  <p className="text-xs text-muted-foreground truncate">{primaryResume.targetRole || "General purpose"} • {primaryResume.applicationCount || 0} apps</p>
-                  <MetricsStrip metrics={primaryResume.metrics} />
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {primaryResume.fileUrl && (
-                    <button onClick={() => setPreviewResume(primaryResume)} className="btn-secondary !h-9 !px-3 text-xs">Preview</button>
-                  )}
-                  {primaryResume.fileUrl && (
-                    <button
-                      onClick={() => parseWithAI(primaryResume._id, primaryResume.name)}
-                      disabled={parsingId === primaryResume._id}
-                      className="btn-secondary !h-9 !px-3 text-xs disabled:opacity-60"
-                      title="Update master profile from this resume"
-                    >
-                      {parsingId === primaryResume._id ? "Parsing…" : "Sync to Profile"}
+                <div className="relative">
+                  <Search size={15} strokeWidth={2} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                  <input
+                    className="h-9 w-full sm:w-56 pl-9 pr-8 text-sm bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30"
+                    placeholder="Search resumes…"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                  {search && (
+                    <button onClick={() => setSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" aria-label="Clear search">
+                      <X size={14} strokeWidth={2} />
                     </button>
                   )}
-                  <button onClick={() => { setEditing(primaryResume); setModal(true); }} className="btn-secondary !h-9 !px-3 text-xs">Edit</button>
-                  <button onClick={() => setAsPrimary(null)} className="btn-secondary !h-9 !px-3 text-xs text-emerald-700 dark:text-emerald-300">Unset</button>
                 </div>
               </div>
             </div>
-          )}
 
-          {viewMode === "grid" ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {nonPrimaryResumes.map((r) => <ResumeCard key={r._id} r={r} isPrimary={false} tagColorMap={tagColorMap} setAsPrimary={setAsPrimary} setEditing={setEditing} setModal={setModal} handleDelete={handleDelete} setPreviewResume={setPreviewResume} parseWithAI={parseWithAI} parsingId={parsingId} />)}
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {nonPrimaryResumes.map((r) => <ResumeListRow key={r._id} r={r} isPrimary={false} tagColorMap={tagColorMap} setAsPrimary={setAsPrimary} setEditing={setEditing} setModal={setModal} handleDelete={handleDelete} setPreviewResume={setPreviewResume} />)}
-            </div>
-          )}
+            {/* Table */}
+            {orderedRows.length === 0 ? (
+              <div className="px-6 py-12">
+                <EmptyState intent="filtered" title="No resumes match these filters" description="Try clearing your search or tag filter." />
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="border-b border-border bg-muted/30 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      <th className="w-10 pl-4 pr-1 py-2.5">
+                        <input
+                          type="checkbox"
+                          checked={allSelected}
+                          onChange={toggleSelectAll}
+                          aria-label="Select all resumes"
+                          disabled={selectableIds.length === 0}
+                          className="h-4 w-4 rounded border-border text-primary focus:ring-ring disabled:opacity-40 cursor-pointer"
+                        />
+                      </th>
+                      <th className="py-2.5 pr-4">Resume name</th>
+                      <th className="py-2.5 px-3 hidden md:table-cell">Created</th>
+                      <th className="py-2.5 px-3 hidden lg:table-cell">Last edited</th>
+                      <th className="py-2.5 pr-4 pl-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {orderedRows.map((r) => (
+                      <ResumeTableRow
+                        key={r._id}
+                        r={r}
+                        isPrimary={r._id === primaryResumeId}
+                        tagColorMap={tagColorMap}
+                        selected={selected.has(r._id)}
+                        onToggleSelect={toggleSelect}
+                        setAsPrimary={setAsPrimary}
+                        setEditing={setEditing}
+                        setModal={setModal}
+                        handleDelete={handleDelete}
+                        setPreviewResume={setPreviewResume}
+                        parseWithAI={parseWithAI}
+                        parsingId={parsingId}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
 
           {tailoredResumes.length > 0 && (
             <TailoredResumesSection
@@ -645,7 +712,7 @@ export default function Resumes() {
               setPreviewResume={setPreviewResume}
             />
           )}
-        </div>
+        </>
       )}
 
       {previewResume && (
@@ -681,8 +748,6 @@ export default function Resumes() {
 
 interface TailoredGroup {
   base: Resume | null;
-  /** Display label for the group header. Mirrors `base.name` when present,
-   *  falls back to "Untraced tailored resumes" otherwise. */
   label: string;
   children: Resume[];
 }
@@ -702,8 +767,6 @@ function groupTailoredByBase(tailored: Resume[], allResumes: Resume[]): Tailored
     }
     groups.get(baseId)!.children.push(r);
   }
-  // Sort children newest first within each group; group order: known bases
-  // by name asc, untraced last.
   for (const g of groups.values()) {
     g.children.sort((a, b) => new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime());
   }
@@ -718,8 +781,6 @@ function TailoredResumesSection({
   resumes, allResumes, tagColorMap, setEditing, setModal, handleDelete, setPreviewResume,
 }: {
   resumes: Resume[];
-  /** Full set of all resumes (incl. non-tailored) — needed to look up the
-   *  base resume by id when building the tree. */
   allResumes: Resume[];
   tagColorMap: Record<string, TagColor>;
   setEditing: (r: Resume | null) => void;
@@ -730,7 +791,7 @@ function TailoredResumesSection({
   const [open, setOpen] = useState(false);
   const groups = useMemo(() => groupTailoredByBase(resumes, allResumes), [resumes, allResumes]);
   return (
-    <section className="mt-10 border-t border-border pt-6">
+    <section className="mt-8 border-t border-border pt-6">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -756,9 +817,6 @@ function TailoredResumesSection({
                   {g.children.length} variant{g.children.length === 1 ? "" : "s"}
                 </span>
               </div>
-              {/* Child list with the left-rail tree connector — a 2px primary
-               *  bar runs down the gutter so the visual hierarchy reads even
-               *  when bases are scrolled out of view. */}
               <div className="border-l-2 border-primary/30 pl-4 space-y-2">
                 {g.children.map((r) => (
                   <ResumeListRow
