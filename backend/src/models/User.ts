@@ -2,6 +2,11 @@
 import mongoose, { Schema, Document } from "mongoose";
 import bcrypt from "bcrypt";
 
+/** Default instruction for the "prompt" clipboard format. Kept in sync with the
+ *  extension's fallback so a user who never customizes it still gets a useful prompt. */
+export const DEFAULT_CLIPBOARD_PROMPT =
+  "Here's a job description. Based on my resume, what should I emphasize for this role, and what gaps should I prepare to address?";
+
 export interface IUser extends Document {
   _id: mongoose.Types.ObjectId;
   name: string;
@@ -38,6 +43,9 @@ export interface IUser extends Document {
   clipboardCopyOnTrack: boolean;
   /** Shape of the text the extension's "Copy JD" / auto-copy writes to the clipboard. */
   clipboardFormat: "raw" | "metadata" | "prompt";
+  /** Custom instruction used by the "prompt" clipboard format. The JD block is
+   *  appended after this text, or substituted in place of a `{jd}` token. */
+  clipboardPromptTemplate: string;
   /** Set once the one-time "configure clipboard copy" discovery notification has been created for this user. */
   clipboardNudgeSeeded: boolean;
   createdAt: Date;
@@ -111,6 +119,11 @@ const userSchema = new Schema<IUser>(
       type: String,
       enum: ["raw", "metadata", "prompt"],
       default: "metadata",
+    },
+    clipboardPromptTemplate: {
+      type: String,
+      default: DEFAULT_CLIPBOARD_PROMPT,
+      maxlength: [2000, "Prompt cannot exceed 2000 characters"],
     },
     clipboardNudgeSeeded: { type: Boolean, default: false },
   },

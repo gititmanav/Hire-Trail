@@ -84,6 +84,7 @@ async function refreshClipboardPrefs() {
       clipboardFormat: ["raw", "metadata", "prompt"].includes(me.clipboardFormat)
         ? me.clipboardFormat
         : "metadata",
+      clipboardPromptTemplate: typeof me.clipboardPromptTemplate === "string" ? me.clipboardPromptTemplate : "",
     };
     await chrome.storage.local.set(prefs);
     return { ok: true, ...prefs };

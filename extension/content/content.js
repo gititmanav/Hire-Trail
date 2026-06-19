@@ -12,13 +12,19 @@
   // synchronously at click-time. A network fetch here would lose the clipboard
   // user-gesture, so prefs are hydrated from chrome.storage (synced by the
   // background script from /auth/me) and kept live via storage change events.
-  const clipboardPrefs = { copyOnTrack: false, format: "metadata" };
+  const DEFAULT_CLIPBOARD_PROMPT =
+    "Here's a job description. Based on my resume, what should I emphasize for this role, and what gaps should I prepare to address?";
+  const clipboardPrefs = { copyOnTrack: false, format: "metadata", promptTemplate: "" };
+  /** Merge a prefs object (from storage or a REFRESH_PREFS response) into the cache. */
+  function applyClipboardPrefs(p) {
+    if (!p) return;
+    if (typeof p.clipboardCopyOnTrack === "boolean") clipboardPrefs.copyOnTrack = p.clipboardCopyOnTrack;
+    if (typeof p.clipboardFormat === "string") clipboardPrefs.format = p.clipboardFormat;
+    if (typeof p.clipboardPromptTemplate === "string") clipboardPrefs.promptTemplate = p.clipboardPromptTemplate;
+  }
   chrome.storage.local
-    .get(["clipboardCopyOnTrack", "clipboardFormat"])
-    .then((r) => {
-      if (typeof r.clipboardCopyOnTrack === "boolean") clipboardPrefs.copyOnTrack = r.clipboardCopyOnTrack;
-      if (typeof r.clipboardFormat === "string") clipboardPrefs.format = r.clipboardFormat;
-    })
+    .get(["clipboardCopyOnTrack", "clipboardFormat", "clipboardPromptTemplate"])
+    .then(applyClipboardPrefs)
     .catch(() => {});
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== "local") return;
@@ -27,6 +33,9 @@
     }
     if (changes.clipboardFormat && typeof changes.clipboardFormat.newValue === "string") {
       clipboardPrefs.format = changes.clipboardFormat.newValue;
+    }
+    if (changes.clipboardPromptTemplate && typeof changes.clipboardPromptTemplate.newValue === "string") {
+      clipboardPrefs.promptTemplate = changes.clipboardPromptTemplate.newValue;
     }
   });
   // Ask the background to refresh prefs from the server for next time.
@@ -79,16 +88,16 @@
     const jobLine = clipboardJobLine(data);
     const url = (data.url || "").trim();
     const header = (jobLine ? jobLine + "\n" : "") + (url ? "Source: " + url + "\n" : "");
+    const jdBlock = header + "\n--- Job Description ---\n" + jd;
     if (format === "prompt") {
-      return (
-        "I'm considering applying for this job. Based on the description below, what should I emphasize from my background, and what gaps should I prepare for?\n\n" +
-        header +
-        "\n--- Job Description ---\n" +
-        jd
-      );
+      const tmpl = (clipboardPrefs.promptTemplate || "").trim() || DEFAULT_CLIPBOARD_PROMPT;
+      // `{jd}` lets the user place the description anywhere (prepend or append);
+      // without it, the description block is appended after their prompt.
+      if (tmpl.includes("{jd}")) return tmpl.replace(/\{jd\}/g, jdBlock);
+      return tmpl + "\n\n" + jdBlock;
     }
     // "metadata" (default)
-    return header + "\n--- Job Description ---\n" + jd;
+    return jdBlock;
   }
 
   const scrapers = {
@@ -780,6 +789,14 @@
           showStatus("Log in via extension popup first", "error");
           return;
         }
+        // Pull the freshest clipboard prefs before opening the menu so a just-
+        // changed Settings toggle takes effect without a page reload. This await
+        // is on the open path, not the copy path, so it can't drop the gesture
+        // for the subsequent Track/Copy click.
+        try {
+          const prefsRes = await chrome.runtime.sendMessage({ type: "REFRESH_PREFS" });
+          if (prefsRes && prefsRes.ok) applyClipboardPrefs(prefsRes);
+        } catch { /* keep cached prefs */ }
         openHireTrailPopover(btn, {
           onTrack: performTrack,
           onTailor: performTailor,

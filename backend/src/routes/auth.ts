@@ -2,7 +2,7 @@
 import { Router, Request, Response, NextFunction } from "express";
 import passport from "passport";
 import jwt from "jsonwebtoken";
-import { User } from "../models/User.js";
+import { User, DEFAULT_CLIPBOARD_PROMPT } from "../models/User.js";
 import { validate } from "../middleware/validate.js";
 import { registerSchema, loginSchema } from "../validators/auth.js";
 import { authLimiter } from "../middleware/rateLimiter.js";
@@ -168,6 +168,7 @@ router.get("/me", ensureAuth, async (req: Request, res: Response, next: NextFunc
       mergeResumesEnabled: doc.mergeResumesEnabled !== false,
       clipboardCopyOnTrack: doc.clipboardCopyOnTrack === true,
       clipboardFormat: doc.clipboardFormat ?? "metadata",
+      clipboardPromptTemplate: doc.clipboardPromptTemplate ?? DEFAULT_CLIPBOARD_PROMPT,
     });
   } catch (err) {
     next(err);
@@ -418,7 +419,7 @@ router.post(
 // PUT update profile (session or Bearer)
 router.put("/profile", ensureAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { name, email, primaryResumeId, mergeResumesEnabled, clipboardCopyOnTrack, clipboardFormat } = req.body;
+    const { name, email, primaryResumeId, mergeResumesEnabled, clipboardCopyOnTrack, clipboardFormat, clipboardPromptTemplate } = req.body;
     const user = getUser(req);
 
     if (email && email !== user.email) {
@@ -456,6 +457,11 @@ router.put("/profile", ensureAuth, async (req: Request, res: Response, next: Nex
       $set.clipboardFormat = String(clipboardFormat);
     }
 
+    if (clipboardPromptTemplate !== undefined) {
+      const tmpl = String(clipboardPromptTemplate).slice(0, 2000);
+      $set.clipboardPromptTemplate = tmpl;
+    }
+
     const updated = await User.findByIdAndUpdate(user._id, { $set }, { new: true, runValidators: true }).lean();
     if (!updated) throw new AppError("Not found", 404);
 
@@ -469,6 +475,7 @@ router.put("/profile", ensureAuth, async (req: Request, res: Response, next: Nex
       mergeResumesEnabled: updated.mergeResumesEnabled !== false,
       clipboardCopyOnTrack: updated.clipboardCopyOnTrack === true,
       clipboardFormat: updated.clipboardFormat ?? "metadata",
+      clipboardPromptTemplate: updated.clipboardPromptTemplate ?? DEFAULT_CLIPBOARD_PROMPT,
     });
   } catch (err) {
     next(err);

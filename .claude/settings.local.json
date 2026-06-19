@@ -108,7 +108,17 @@
       "Bash(sed -n '/export interface User/,/^}/p' src/types/index.ts)",
       "Bash(sed -n '/Notification/,/^}/p' src/types/index.ts)",
       "Bash(grep -n 'data-section=\"profileSync\"\\\\|requireRealAccount\\\\b\\\\|</section>\\\\|</div>\\\\s*$\\\\|<select\\\\|peer-checked:bg-primary' src/pages/Settings/Settings.tsx)",
-      "Bash(unzip -p frontend/public/extension.zip background/background.js)"
+      "Bash(unzip -p frontend/public/extension.zip background/background.js)",
+      "Bash(curl -s -o /dev/null --max-time 2 http://localhost:5050/api/settings/maintenance-status)",
+      "Bash(curl -s -o /dev/null -w \"maintenance-status: %{http_code}\\\\n\" --max-time 3 http://localhost:5050/api/settings/maintenance-status)",
+      "Bash(xargs kill)",
+      "Bash(node _cleanup_clipboard.mjs)",
+      "Bash(grep -n 'transition-opacity ${search' Settings.tsx)",
+      "Bash(MONGO_URI=\"mongodb://localhost:27017/hiretrail_dev\" node -e \"require\\('dotenv'\\).config\\(\\); const u=process.env.MONGO_URI; console.log\\('effective MONGO_URI host:', u.includes\\('localhost'\\)?'LOCALHOST ✓ safe':'⚠️ '+u.slice\\(0,30\\)\\)\")",
+      "Bash(MONGO_URI=\"mongodb://localhost:27017/hiretrail_dev\" CLIENT_URL=\"http://localhost:5175\" npm run seed)",
+      "Bash(MONGO_URI=\"mongodb://localhost:27017/hiretrail_dev\" CLIENT_URL=\"http://localhost:5175\" PORT=5050 npm run dev)",
+      "Bash(curl -s -o /dev/null -w \"maintenance-status: %{http_code}\\\\n\" http://localhost:5050/api/settings/maintenance-status)",
+      "Bash(lsof -ti tcp:5050 | xargs kill 2>/dev/null; echo \"backend \\(5050\\) stopped\" *)"
     ]
   }
 }
