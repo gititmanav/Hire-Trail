@@ -8,6 +8,8 @@ export const NOTIFICATION_TYPES = [
   "info",
   /** First-scan backfill found candidate applications ready for review. */
   "scan_ready",
+  /** One-time prompt nudging the user to configure the extension clipboard copy in Settings. */
+  "clipboard_config",
 ] as const;
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];

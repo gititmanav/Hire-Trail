@@ -11,6 +11,10 @@ export interface User {
   gmailLastSyncAt?: string | null;
   /** When false, re-parsing a resume overwrites the master profile instead of AI-merging. Default true. */
   mergeResumesEnabled?: boolean;
+  /** When true, the extension also copies the JD to the clipboard each time the user tracks a job. Default false. */
+  clipboardCopyOnTrack?: boolean;
+  /** Shape of the text the extension's clipboard copy writes. Default "metadata". */
+  clipboardFormat?: "raw" | "metadata" | "prompt";
 }
 export type NotificationType =
   | "rejection_detected"
@@ -18,6 +22,7 @@ export type NotificationType =
   | "offer_detected"
   | "follow_up_detected"
   | "scan_ready"
+  | "clipboard_config"
   | "info";
 
 export interface Notification {

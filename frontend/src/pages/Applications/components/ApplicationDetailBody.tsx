@@ -13,7 +13,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  ChevronDown, FileText, Pencil, X, MapPin, Plus
+  ChevronDown, FileText, Pencil, X, MapPin, Plus, Copy, Check
 } from "lucide-react";
 import toast from "react-hot-toast";
 import ActionDropdown from "../../../components/ActionDropdown/ActionDropdown.tsx";
@@ -58,6 +58,7 @@ export default function ApplicationDetailBody({
   onClose, onEditingChange,
 }: Props) {
   const [jdExpanded, setJdExpanded] = useState(false);
+  const [jdCopied, setJdCopied] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [savingInline, setSavingInline] = useState(false);
   const [form, setForm] = useState<SidebarEditForm>(() => ({
@@ -275,7 +276,29 @@ export default function ApplicationDetailBody({
 
         {/* JD */}
         <div className="px-4 py-4 border-b border-border/40">
-          <FieldLabel icon="jd">Job Description</FieldLabel>
+          <div className="flex items-center justify-between gap-2">
+            <FieldLabel icon="jd">Job Description</FieldLabel>
+            {!isEditing && app.jobDescription?.trim() && (
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(app.jobDescription || "");
+                    setJdCopied(true);
+                    toast.success("Job description copied");
+                    setTimeout(() => setJdCopied(false), 1500);
+                  } catch {
+                    toast.error("Couldn't copy to clipboard");
+                  }
+                }}
+                title="Copy job description"
+                aria-label="Copy job description"
+                className="-mt-1 shrink-0 p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              >
+                {jdCopied ? <Check width={14} height={14} className="text-success" /> : <Copy width={14} height={14} />}
+              </button>
+            )}
+          </div>
           {isEditing ? (
             <textarea className="input-premium min-h-[110px] text-sm" value={form.jobDescription || app.jobDescription || ""} onChange={(e) => updateFormField("jobDescription", e.target.value)} />
           ) : app.jobDescription ? (

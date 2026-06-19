@@ -25,13 +25,14 @@ const DEFAULT_EMAIL_STATUS: EmailStatusResponse = {
   outlook: { connected: false, email: null, lastSyncAt: null, configured: false },
 };
 
-type SectionKey = "account" | "password" | "email" | "ai" | "profileSync";
+type SectionKey = "account" | "password" | "email" | "ai" | "profileSync" | "clipboard";
 const SECTIONS: { key: SectionKey; label: string }[] = [
   { key: "account", label: "Account" },
   { key: "password", label: "Password" },
   { key: "email", label: "Email" },
   { key: "ai", label: "AI Providers" },
   { key: "profileSync", label: "Profile Sync" },
+  { key: "clipboard", label: "Clipboard" },
 ];
 
 /** Searchable index of every labeled field on this page. Aliases let the
@@ -51,6 +52,8 @@ const SEARCH_INDEX: { key: string; section: SectionKey; aliases?: string[] }[] =
   { key: "Report a rejection", section: "email", aliases: ["rejected"] },
   { key: "AI Providers", section: "ai", aliases: ["openai", "anthropic", "api key", "gpt", "claude", "model"] },
   { key: "AI-assisted merge", section: "profileSync", aliases: ["merge", "resume sync"] },
+  { key: "Copy JD to clipboard", section: "clipboard", aliases: ["clipboard", "extension", "copy job description", "claude", "auto copy"] },
+  { key: "Clipboard format", section: "clipboard", aliases: ["copy format", "prompt template", "raw", "metadata"] },
 ];
 
 function matchesEntry(entry: { key: string; aliases?: string[] }, query: string): boolean {
@@ -344,9 +347,13 @@ export default function Settings() {
   const [mergeEnabled, setMergeEnabled] = useState(true);
   const [mergeSaving, setMergeSaving] = useState(false);
 
+  const [clipboardCopyOnTrack, setClipboardCopyOnTrack] = useState(false);
+  const [clipboardFormat, setClipboardFormat] = useState<"raw" | "metadata" | "prompt">("metadata");
+  const [clipboardSaving, setClipboardSaving] = useState(false);
+
   const scrollerRef = useRef<HTMLDivElement>(null);
   const sectionRefs = useRef<Record<SectionKey, HTMLElement | null>>({
-    account: null, password: null, email: null, ai: null, profileSync: null,
+    account: null, password: null, email: null, ai: null, profileSync: null, clipboard: null,
   });
 
   useEffect(() => {
@@ -356,6 +363,8 @@ export default function Settings() {
         setName(r.data.name);
         setEmail(r.data.email);
         setMergeEnabled(r.data.mergeResumesEnabled !== false);
+        setClipboardCopyOnTrack(r.data.clipboardCopyOnTrack === true);
+        setClipboardFormat(r.data.clipboardFormat ?? "metadata");
       }),
       emailAPI.status().then(setMailbox).catch(() => {}),
       emailAPI.getLatestScanJob().then((r) => setScanJob(r.job)).catch(() => {}),
@@ -450,6 +459,32 @@ export default function Settings() {
     if (target) scrollTo(target);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, loading]);
+
+  /** Deep-link support: /settings#clipboard (e.g. from the clipboard discovery
+   *  notification) scrolls that section into view once the page has loaded.
+   *  Deferred a frame so the section refs are attached after the post-load render. */
+  useEffect(() => {
+    if (loading) return;
+    const hash = window.location.hash.replace(/^#/, "");
+    if (!hash || !SECTIONS.some((s) => s.key === hash)) return;
+    const id = window.setTimeout(() => scrollTo(hash as SectionKey), 60);
+    return () => window.clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
+
+  /** Persist a clipboard preference. Optimistic with rollback on failure;
+   *  blocked for the demo account like the other write-backed settings. */
+  const saveClipboard = async (patch: Partial<Pick<User, "clipboardCopyOnTrack" | "clipboardFormat">>) => {
+    setClipboardSaving(true);
+    try {
+      await api.put<User>("/auth/profile", patch);
+    } catch {
+      toast.error("Could not update setting");
+      throw new Error("save-failed");
+    } finally {
+      setClipboardSaving(false);
+    }
+  };
 
   const handleProfile = async (e: FormEvent) => {
     e.preventDefault();
@@ -891,6 +926,81 @@ export default function Settings() {
                   />
                   <span className="w-11 h-6 bg-muted border border-border rounded-full peer-checked:bg-primary peer-disabled:opacity-50 transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:shadow-sm after:transition-transform peer-checked:after:translate-x-5"></span>
                 </label>
+              </div>
+            </section>
+
+            {/* ===== Clipboard ===== */}
+            <section
+              ref={(el) => { sectionRefs.current.clipboard = el; }}
+              data-section="clipboard"
+              className={`scroll-mt-2 transition-opacity ${search && !searchHits.matchedSections.has("clipboard") ? "opacity-40" : ""}`}
+            >
+              <h2 className="text-base font-semibold text-foreground mb-1"><MatchLabel query={search}>Clipboard</MatchLabel></h2>
+              <p className="text-xs text-muted-foreground mb-4">
+                Control whether the browser extension copies a job's description to your clipboard — handy for pasting into Claude.
+              </p>
+
+              <div className="rounded-lg border border-border bg-background p-4 flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground"><MatchLabel query={search}>Copy JD to clipboard</MatchLabel> when I track a job</p>
+                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                    When enabled, the extension copies the job description to your clipboard every time you track a job. The extension's <strong>Copy JD</strong> action always works regardless of this setting.
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
+                  <input
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={clipboardCopyOnTrack}
+                    disabled={clipboardSaving}
+                    onChange={async (e) => {
+                      const next = e.target.checked;
+                      if (!requireRealAccount("Clipboard")) {
+                        e.target.checked = !next;
+                        return;
+                      }
+                      setClipboardCopyOnTrack(next);
+                      try {
+                        await saveClipboard({ clipboardCopyOnTrack: next });
+                        toast.success(next ? "Auto-copy enabled" : "Auto-copy disabled");
+                      } catch {
+                        setClipboardCopyOnTrack(!next);
+                      }
+                    }}
+                  />
+                  <span className="w-11 h-6 bg-muted border border-border rounded-full peer-checked:bg-primary peer-disabled:opacity-50 transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:shadow-sm after:transition-transform peer-checked:after:translate-x-5"></span>
+                </label>
+              </div>
+
+              <div className="rounded-lg border border-border bg-background p-4 mt-3">
+                <p className="text-sm font-semibold text-foreground"><MatchLabel query={search}>Clipboard format</MatchLabel></p>
+                <p className="text-xs text-muted-foreground mt-1 mb-3 leading-relaxed">
+                  What gets written to the clipboard when the extension copies a JD.
+                </p>
+                <select
+                  value={clipboardFormat}
+                  disabled={clipboardSaving}
+                  onChange={async (e) => {
+                    const next = e.target.value as "raw" | "metadata" | "prompt";
+                    const prev = clipboardFormat;
+                    if (!requireRealAccount("Clipboard")) {
+                      e.target.value = prev;
+                      return;
+                    }
+                    setClipboardFormat(next);
+                    try {
+                      await saveClipboard({ clipboardFormat: next });
+                      toast.success("Clipboard format updated");
+                    } catch {
+                      setClipboardFormat(prev);
+                    }
+                  }}
+                  className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+                >
+                  <option value="metadata">With job details (title, company, link) — recommended</option>
+                  <option value="raw">Raw job description only</option>
+                  <option value="prompt">Ready-to-send Claude prompt + description</option>
+                </select>
               </div>
             </section>
           </div>

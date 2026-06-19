@@ -32,6 +32,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     });
     return true;
   }
+  if (msg.type === "REFRESH_PREFS") {
+    refreshClipboardPrefs().then(sendResponse);
+    return true;
+  }
   if (msg.type === "GOOGLE_LOGIN") {
     handleGoogleLogin().then(sendResponse);
     return true;
@@ -61,6 +65,32 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
 });
+
+/** Pull the user's clipboard preferences from the web app and cache them in
+ *  chrome.storage.local so the content script can read them synchronously at
+ *  click-time (a network fetch there would drop the clipboard user-gesture).
+ *  Falls back to safe defaults; never throws. */
+async function refreshClipboardPrefs() {
+  const { token } = await chrome.storage.local.get(["token"]);
+  if (!token) return { ok: false };
+  try {
+    const res = await fetchWithTimeout(`${API_BASE}/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return { ok: false };
+    const me = await res.json();
+    const prefs = {
+      clipboardCopyOnTrack: me.clipboardCopyOnTrack === true,
+      clipboardFormat: ["raw", "metadata", "prompt"].includes(me.clipboardFormat)
+        ? me.clipboardFormat
+        : "metadata",
+    };
+    await chrome.storage.local.set(prefs);
+    return { ok: true, ...prefs };
+  } catch {
+    return { ok: false };
+  }
+}
 
 /** Track a LinkedIn-profile contact. Find-or-creates the Company server-side
  *  (the /contacts POST handler does that when companyId is empty), and writes
