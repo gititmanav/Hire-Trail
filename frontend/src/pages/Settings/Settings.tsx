@@ -410,10 +410,13 @@ export default function Settings() {
     if (loading) return;
     if (scanModalDismissed) return;
     if (!mailbox.gmail.connected) return;
-    if (mailbox.gmail.firstScanCompleted) return;
+    // Only auto-prompt the one-time picker for users who have never set it up.
+    // Once consent is recorded (even if that first scan later failed), they're a
+    // returning user — "Scan now" handles re-runs, no picker.
+    if (mailbox.gmail.firstScanCompleted || mailbox.gmail.hasConsent) return;
     setScanModal(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, mailbox.gmail.connected, mailbox.gmail.firstScanCompleted]);
+  }, [loading, mailbox.gmail.connected, mailbox.gmail.firstScanCompleted, mailbox.gmail.hasConsent]);
 
   // Scroll-spy — observes the viewport (the whole page scrolls) and lights up
   // the quick-nav pill for whichever section is near the top.
@@ -811,7 +814,7 @@ export default function Settings() {
                    *  primary button routes to the 5/10/15 picker (the only way
                    *  to import historical apps). After that, "Scan now" runs
                    *  the lightweight incremental scan from gmailLastSyncAt. */
-                  !mailbox.gmail.firstScanCompleted && mailbox.gmail.connected ? (
+                  !mailbox.gmail.firstScanCompleted && !mailbox.gmail.hasConsent && mailbox.gmail.connected ? (
                     <button
                       onClick={() => {
                         if (!requireRealAccount("Email inbox scan")) return;

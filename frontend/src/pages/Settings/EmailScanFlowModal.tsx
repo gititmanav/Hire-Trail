@@ -19,7 +19,7 @@
  * cleaned up server-side (imported/merged ones stay — they're real Apps).
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { X, Mail, Filter, Search } from "lucide-react";
+import { X, Mail, Filter, Search, AlertTriangle, RotateCw, Link2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { emailAPI, type ScanCandidate, type ScanJob, type ScanJobStatus } from "../../utils/api.ts";
 import AiStepper from "../../components/AiIndicator/AiStepper.tsx";
@@ -47,7 +47,7 @@ const STAGE_TONE: Record<Stage, string> = {
 const inputCls =
   "w-full px-3 py-2 text-sm bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring transition-shadow";
 
-type Step = "picker" | "scanning" | "review" | "done";
+type Step = "picker" | "scanning" | "review" | "done" | "failed";
 
 const NON_TERMINAL_JOB_STATUSES: ScanJobStatus[] = ["pending", "scanning", "filtering", "classifying"];
 
@@ -55,8 +55,18 @@ function stepForJob(job: ScanJob | null): Step {
   if (!job) return "picker";
   if (NON_TERMINAL_JOB_STATUSES.includes(job.status)) return "scanning";
   if (job.status === "ready_for_review") return "review";
-  if (job.status === "failed") return "picker"; // let user retry from the top
+  // A failed scan shows a dedicated error step — NOT the first-run day-picker.
+  // Re-running here re-uses the existing consent/window, so a returning user
+  // (or a manual "Scan now" that failed) is never forced back through setup.
+  if (job.status === "failed") return "failed";
   return "done";
+}
+
+/** Heuristic: does this scan error mean the Gmail OAuth grant is dead (revoked,
+ *  expired, password changed)? If so, retrying is futile — the user must
+ *  reconnect Gmail to mint a fresh refresh token. */
+function isReauthError(message: string | null | undefined): boolean {
+  return /invalid_grant|reconnect|token|expired|unauthor|401|revoked/i.test(message || "");
 }
 
 export interface EmailScanFlowModalProps {
@@ -149,6 +159,54 @@ export default function EmailScanFlowModal({ initialJob, onClose, onFinished }: 
     }
   };
 
+  /** Re-run a failed scan without the picker. Re-uses the same kind/window:
+   *  a manual scan re-runs as manual; a backfill re-runs the same day window.
+   *  Consent was already recorded on the first attempt, so there's nothing to
+   *  re-prompt. */
+  const handleRetry = async () => {
+    try {
+      if (job?.kind === "manual") {
+        const oneAm = new Date();
+        oneAm.setHours(1, 0, 0, 0);
+        let afterMs = oneAm.getTime();
+        if (afterMs >= Date.now()) afterMs -= 24 * 60 * 60 * 1000;
+        const { scanJobId } = await emailAPI.startManualScan(Math.floor(afterMs / 1000));
+        setJob({
+          _id: scanJobId, status: "pending", kind: "manual", windowDays: 1,
+          progress: { fetched: 0, candidates: 0, threadGroups: 0, classified: 0 },
+          counts: { totalCandidates: 0, imported: 0, skipped: 0, merged: 0, failed: 0 },
+          error: null, startedAt: new Date().toISOString(), finishedAt: null,
+        });
+      } else {
+        const days = ([5, 10, 15] as const).includes(job?.windowDays as 5 | 10 | 15)
+          ? (job!.windowDays as 5 | 10 | 15)
+          : 10;
+        const { scanJobId } = await emailAPI.startFirstScan(days);
+        setJob({
+          _id: scanJobId, status: "pending", kind: "backfill", windowDays: days,
+          progress: { fetched: 0, candidates: 0, threadGroups: 0, classified: 0 },
+          counts: { totalCandidates: 0, imported: 0, skipped: 0, merged: 0, failed: 0 },
+          error: null, startedAt: new Date().toISOString(), finishedAt: null,
+        });
+      }
+      setStep("scanning");
+      window.setTimeout(() => { void refreshJob(); }, 500);
+    } catch (err) {
+      const e = err as { response?: { data?: { error?: string } } };
+      toast.error(e.response?.data?.error || "Could not start the scan.");
+    }
+  };
+
+  /** Reconnect Gmail (fresh OAuth) — the only fix for an expired/revoked grant. */
+  const handleReconnect = async () => {
+    try {
+      const { url } = await emailAPI.connectGmail();
+      window.location.href = url;
+    } catch {
+      toast.error("Couldn't start Gmail reconnect. Try the Connect button in Settings.");
+    }
+  };
+
   const handleAbandon = async () => {
     if (!job) { onClose(); return; }
     try { await emailAPI.abandonScan(job._id); } catch {/* swallow — UX still wants to close */}
@@ -192,6 +250,9 @@ export default function EmailScanFlowModal({ initialJob, onClose, onFinished }: 
         {step === "done" && job && (
           <DoneStep job={job} onClose={() => { onClose(); onFinished?.(); }} />
         )}
+        {step === "failed" && job && (
+          <FailedStep job={job} onRetry={handleRetry} onReconnect={handleReconnect} onClose={onClose} />
+        )}
       </div>
 
       {/* Lose-results sub-confirm */}
@@ -230,6 +291,69 @@ export default function EmailScanFlowModal({ initialJob, onClose, onFinished }: 
         </div>
       )}
     </div>
+  );
+}
+
+/* ───────────────────────── Failed step ───────────────────────── */
+
+function FailedStep({ job, onRetry, onReconnect, onClose }: {
+  job: ScanJob;
+  onRetry: () => void;
+  onReconnect: () => void;
+  onClose: () => void;
+}) {
+  const reauth = isReauthError(job.error);
+  return (
+    <>
+      <div className="px-6 pt-6 pb-4 border-b border-border flex items-start justify-between gap-3">
+        <div>
+          <h2 id="scan-flow-title" className="text-lg font-semibold text-foreground">Scan didn&rsquo;t finish</h2>
+          <p className="text-xs text-muted-foreground mt-1">
+            {reauth ? "Your Gmail connection needs to be refreshed." : "Something interrupted the scan."}
+          </p>
+        </div>
+        <CloseButton onClick={onClose} />
+      </div>
+      <div className="px-6 py-7">
+        <div className="flex items-start gap-3 rounded-lg border border-red-200 dark:border-red-900/60 bg-red-50/60 dark:bg-red-950/20 px-4 py-3">
+          <AlertTriangle size={18} strokeWidth={1.8} className="text-red-500 shrink-0 mt-0.5" />
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-red-800 dark:text-red-200">{job.error || "The scan failed."}</p>
+            {reauth && (
+              <p className="text-xs text-red-700/80 dark:text-red-300/80 mt-1 leading-relaxed">
+                Google revoked or expired the access HireTrail had. Reconnect your Gmail to mint a fresh, read-only token — then run the scan again.
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+      <div className="px-6 py-4 border-t border-border flex items-center justify-end gap-2">
+        <button
+          type="button"
+          onClick={onClose}
+          className="px-4 py-2 text-sm font-medium border border-border rounded-lg text-foreground hover:bg-muted"
+        >
+          Close
+        </button>
+        {reauth ? (
+          <button
+            type="button"
+            onClick={onReconnect}
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg"
+          >
+            <Link2 size={15} strokeWidth={2} />Reconnect Gmail
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg"
+          >
+            <RotateCw size={15} strokeWidth={2} />Try again
+          </button>
+        )}
+      </div>
+    </>
   );
 }
 
