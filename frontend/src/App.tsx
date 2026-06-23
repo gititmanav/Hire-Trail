@@ -77,6 +77,7 @@ const AuditLogs           = lazy(() => import("./pages/Admin/AuditLogs.tsx"));
 const ContentModeration   = lazy(() => import("./pages/Admin/ContentModeration.tsx"));
 const StorageManagement   = lazy(() => import("./pages/Admin/StorageManagement.tsx"));
 const SystemConfig        = lazy(() => import("./pages/Admin/SystemConfig.tsx"));
+const AISystemConfig      = lazy(() => import("./pages/Admin/AISystemConfig.tsx"));
 const Announcements       = lazy(() => import("./pages/Admin/Announcements.tsx"));
 const EmailTemplates      = lazy(() => import("./pages/Admin/EmailTemplates.tsx"));
 const InviteSystem        = lazy(() => import("./pages/Admin/InviteSystem.tsx"));
@@ -175,6 +176,7 @@ function App() {
             <Route path="/admin/content" element={<ContentModeration />} />
             <Route path="/admin/storage" element={<StorageManagement />} />
             <Route path="/admin/settings" element={<SystemConfig />} />
+            <Route path="/admin/ai" element={<AISystemConfig />} />
             <Route path="/admin/announcements" element={<Announcements />} />
             <Route path="/admin/audit-logs" element={<AuditLogs />} />
             <Route path="/admin/email-templates" element={<EmailTemplates />} />

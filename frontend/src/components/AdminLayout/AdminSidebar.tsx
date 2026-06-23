@@ -2,7 +2,7 @@ import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard, Shield, FileEdit, Calendar, Mail, Bell, MessageSquare, Bug,
   HardDrive, Settings, Megaphone, FileText, Send, UserPlus, Database,
-  PanelLeftClose, PanelLeftOpen, Archive,
+  PanelLeftClose, PanelLeftOpen, Archive, Sparkles,
   type LucideIcon,
 } from "lucide-react";
 
@@ -26,6 +26,7 @@ const adminNav: AdminNavItem[] = [
   { to: "/admin/bugs",             label: "Bug Reports",     Icon: Bug },
   { to: "/admin/storage",          label: "Storage",         Icon: HardDrive },
   { to: "/admin/settings",         label: "Settings",        Icon: Settings },
+  { to: "/admin/ai",               label: "AI Providers",    Icon: Sparkles },
   { to: "/admin/announcements",    label: "Announcements",   Icon: Megaphone },
   { to: "/admin/audit-logs",       label: "Audit Logs",      Icon: FileText },
   { to: "/admin/email-templates",  label: "Email Templates", Icon: Mail },

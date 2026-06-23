@@ -414,6 +414,26 @@ export const aiAPI = {
   },
 };
 
+/* ---------- Admin AI control (role: admin) ---------- */
+export interface AdminAiConfig {
+  enabled: boolean;
+  defaultProvider: string;
+  defaultModel: string;
+  usesGatewayCredits: boolean;
+  monthlyTokenLimit: number;
+  hasDefaultKey: boolean;
+  defaultKeyLast4: string;
+}
+export const adminAiAPI = {
+  getConfig: () => api.get<{ config: AdminAiConfig; gatewayConfigured: boolean }>("/admin/ai").then((r) => r.data),
+  updateConfig: (patch: Partial<Pick<AdminAiConfig, "enabled" | "defaultProvider" | "defaultModel" | "usesGatewayCredits" | "monthlyTokenLimit">>) =>
+    api.put<{ config: AdminAiConfig }>("/admin/ai", patch).then((r) => r.data.config),
+  setKey: (provider: string, key: string, skipValidation = false) =>
+    api.put<{ config: AdminAiConfig }>("/admin/ai/key", { provider, key, skipValidation }).then((r) => r.data.config),
+  deleteKey: () => api.delete<{ config: AdminAiConfig }>("/admin/ai/key").then((r) => r.data.config),
+  getUsage: (period?: string) => api.get(`/admin/ai/usage${period ? `?period=${period}` : ""}`).then((r) => r.data),
+};
+
 /* ---------- Tailor (JD analysis + accept/reject suggestions) ---------- */
 
 export type TailorSection = "summary" | "experience" | "project" | "skills";

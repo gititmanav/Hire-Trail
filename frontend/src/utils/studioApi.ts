@@ -38,9 +38,12 @@ function toDottedChangedPaths(doc: ResumeDocument, ids: string[]): string[] {
   return out;
 }
 
-const envFlag = (import.meta.env.VITE_STUDIO_USE_MOCKS ?? "1") as string;
-/** Master switch. Mocks ON by default while the backend is in flight. */
-export const STUDIO_USE_MOCKS = envFlag !== "0" && envFlag !== "false";
+const envFlag = (import.meta.env.VITE_STUDIO_USE_MOCKS ?? "0") as string;
+/** Master switch. Real endpoints by default now the backend is integrated; set
+ *  VITE_STUDIO_USE_MOCKS=1 to force the mock layer (offline/dev). Even with this
+ *  off, a missing endpoint still auto-falls-back so a partial backend never
+ *  hard-breaks the UI. */
+export const STUDIO_USE_MOCKS = envFlag === "1" || envFlag === "true";
 
 const latency = () => new Promise((r) => setTimeout(r, 300 + Math.random() * 500));
 
