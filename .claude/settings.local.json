@@ -128,7 +128,29 @@
       "Bash(echo \"=== frontend tsc exit: $? ===\")",
       "Bash(git push *)",
       "Bash(echo \"\\(exit $?\\)\")",
-      "Bash(git stash *)"
+      "Bash(git stash *)",
+      "Bash(node -e \"console.log\\(JSON.stringify\\(require\\('./backend/package.json'\\).scripts,null,1\\)\\)\")",
+      "Bash(mkdir -p /tmp/ht-test-db)",
+      "Bash(docker rm *)",
+      "Bash(docker run *)",
+      "Bash(open -a Docker)",
+      "Bash(mongod --dbpath /tmp/ht-test-db --port 27017 --quiet)",
+      "Bash(mongosh --quiet --eval \"db.runCommand\\({ping:1}\\).ok\" mongodb://localhost:27017)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" --max-time 2 http://localhost:5050/api/settings/maintenance-status)",
+      "Bash(mongosh --quiet mongodb://localhost:27017 --eval 'db.adminCommand\\(\"listDatabases\"\\).databases.forEach\\(d=>print\\(d.name\\)\\)')",
+      "Bash(mongosh --quiet \"mongodb://localhost:27017/HireTrail_test\" --eval 'print\\(\"collections:\", db.getCollectionNames\\(\\).join\\(\", \"\\)\\); print\\(\"systemsettings docs:\", db.systemsettings.countDocuments\\(\\)\\)')",
+      "Bash(curl -s -b /tmp/ht-cookies.txt -X PUT http://localhost:5050/api/admin/ai -H 'Content-Type: application/json' -d '{\"enabled\":true}' -w ' [%{http_code}]\\\\n')",
+      "Bash(curl -s -b /tmp/ht-cookies.txt -X POST http://localhost:5050/api/resumes/render-pdf -H 'Content-Type: application/json' --max-time 60 -d '{\"html\":\"<div class=\\\\\"resume-doc\\\\\"><h1 class=\\\\\"rd-name\\\\\">Manav Kaneria</h1><p>Full-stack engineer — Node, React, MongoDB.</p><ul><li>Built a multi-tenant SaaS at 1M req/wk</li></ul></div>\",\"css\":\".resume-doc{font-family:Helvetica,Arial,sans-serif;padding:24px} .rd-name{font-size:22px;font-weight:700;color:#111}\",\"filename\":\"smoke-test.pdf\"}' -o /tmp/smoke.pdf -w '[%{http_code}] type=%{content_type} size=%{size_download}\\\\n')",
+      "Bash(xxd)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" --max-time 2 http://localhost:3000/health)",
+      "Bash(curl -s -b /tmp/ht-cookies.txt -X POST http://localhost:5050/api/resumes/render-pdf -H 'Content-Type: application/json' --max-time 60 -d '{\"html\":\"<div class=\\\\\"resume-doc\\\\\"><h1 class=\\\\\"rd-name\\\\\">Manav Kaneria</h1><p>Full-stack engineer.</p><ul><li>Built a multi-tenant SaaS at 1M req/wk</li></ul></div>\",\"css\":\".resume-doc{font-family:Helvetica,Arial,sans-serif;padding:24px}.rd-name{font-size:22px;font-weight:700;color:#111}\",\"filename\":\"smoke.pdf\"}' -o /tmp/smoke.pdf -w '[%{http_code}] type=%{content_type} size=%{size_download}\\\\n')",
+      "Bash(curl -s -b /tmp/ht-cookies.txt http://localhost:5050/api/tailor/sessions/6a3a263f2640a92119d0a2f2)",
+      "Bash(python3 -c \"import sys,json; x=json.load\\(sys.stdin\\); print\\('status:',x.get\\('status'\\)\\); print\\('error:',x.get\\('errorMessage'\\)\\); print\\('has document:', 'document' in x\\)\")",
+      "Bash(curl -s --max-time 70 -o /dev/null -w \"HTTP %{http_code}  in %{time_total}s\\\\n\" https://gotenberg-15875098947.us-central1.run.app/health)",
+      "Bash(printf '<h1>HireTrail PDF OK</h1><p>Gotenberg is wired.</p>')",
+      "Bash(curl -s --max-time 70 -F \"files=@/tmp/htrail_index.html\" https://gotenberg-15875098947.us-central1.run.app/forms/chromium/convert/html -o /tmp/htrail_out.pdf -w \"render HTTP %{http_code}  in %{time_total}s\\\\n\")",
+      "Bash(curl -s --max-time 70 -F 'files=@/tmp/htrail_index.html;filename=index.html' https://gotenberg-15875098947.us-central1.run.app/forms/chromium/convert/html -o /tmp/htrail_out.pdf -w 'render HTTP %{http_code}  in %{time_total}s\\\\n')",
+      "Bash(awk '{print $5}')"
     ]
   }
 }
