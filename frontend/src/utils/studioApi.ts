@@ -12,12 +12,17 @@ import { api, aiAPI } from "./api.ts";
 import type { AIStatusResponse, AIUsageResponse } from "./api.ts";
 import {
   mockStatus, mockUsage, mockDocument, mockGap, mockRewrite,
-  type AIStatus, type AIUsage, type ProviderInfo,
+  type AIStatus, type AIUsage, type ProviderInfo, type UsageOp,
 } from "./studioMocks.ts";
 import {
-  bulletPath,
-  type ResumeDocument, type AIRewriteRequest, type AIRewriteResult, type GapAnalysis,
+  bulletPath, summaryTextPath,
+  type ResumeDocument, type AIRewriteRequest, type AIRewriteResult, type GapAnalysis, type SectionFlag, type FitSummary, type AISuggestion,
 } from "./resumeDocument.ts";
+
+/** The gap response also carries the JD-aware deterministic score + suggestion
+ *  chips so the Review gauge/chips refresh after Step 1 (they were computed at
+ *  load time, before any JD existed). */
+export type GapResult = GapAnalysis & { score?: number; suggestions?: AISuggestion[] };
 
 /** The backend's ai-rewrite returns changedPaths as bare element ids (e.g. "s2e1b1");
  *  the preview highlights by dotted path. Translate ids → dotted bullet paths by
@@ -28,6 +33,11 @@ function toDottedChangedPaths(doc: ResumeDocument, ids: string[]): string[] {
   const out: string[] = [];
   for (const section of doc.sections ?? []) {
     for (const entry of section.entries ?? []) {
+      // Summary rewrites change `extra.text`; the backend reports them by the
+      // bare ENTRY id (summary has no bullets) → map to the summary path.
+      if (section.type === "summary" && want.has(entry.id)) {
+        out.push(summaryTextPath(section.id, entry.id));
+      }
       for (const b of entry.bullets ?? []) {
         if (want.has(b.id)) out.push(bulletPath(section.id, entry.id, b.id));
       }
@@ -53,7 +63,8 @@ function notImplemented(err: unknown): boolean {
   const s = e?.response?.status;
   return s === 404 || s === 501 || e?.code === "ERR_NETWORK" || s === undefined;
 }
-/** Try the real endpoint; fall back to the mock on "not implemented yet". */
+/** Try the real endpoint; fall back to the mock on "not implemented yet".
+ *  Used ONLY for non-critical display data (AI status/usage). */
 async function withFallback<T>(label: string, real: () => Promise<T>, mock: () => T | Promise<T>): Promise<T> {
   if (STUDIO_USE_MOCKS) { await latency(); return mock(); }
   try {
@@ -70,6 +81,16 @@ async function withFallback<T>(label: string, real: () => Promise<T>, mock: () =
     }
     throw err;
   }
+}
+
+/** CRITICAL studio paths (load/save/rewrite/analyze/render). These must NEVER
+ *  silently fake success on a real failure — a user could otherwise edit/"save"
+ *  a mock document and lose work. Mock data is served ONLY when the explicit
+ *  VITE_STUDIO_USE_MOCKS flag is set; otherwise real errors propagate so the UI
+ *  can fail in place (show a reason + Retry / Add-a-key). */
+async function realOrMock<T>(real: () => Promise<T>, mock: () => T | Promise<T>): Promise<T> {
+  if (STUDIO_USE_MOCKS) { await latency(); return mock(); }
+  return real();
 }
 
 /* ---------- provider metadata (free-tier note + get-key link) ---------- */
@@ -117,22 +138,28 @@ export const resumeStudioAPI = {
    *  rewrite-suggestions endpoint; we map it to the studio's GapAnalysis shape.
    *  (jobDescription is accepted for API symmetry; the gap is derived from the
    *  document the resume was tailored against.) */
-  analyzeGap: (resumeId: string, jobDescription: string): Promise<GapAnalysis> =>
-    withFallback(
-      "POST /resumes/:id/analyze-gap",
+  analyzeGap: (resumeId: string, jobDescription: string): Promise<GapResult> =>
+    realOrMock(
       async () => {
-        // Derive the gap against the SPECIFIC pasted JD (backend extracts +
-        // persists its keywords, so the score/chips target this posting too).
-        const { data } = await api.post<{ gap?: { matched: string[]; missing: string[]; coverageCount: number; total: number } }>(
-          `/resumes/${resumeId}/analyze-gap`,
-          { jobDescription },
-        );
+        // AI-driven Step 1: the backend runs the LLM brain to extract the role's
+        // real requirements (noise stripped) + a per-section read, persists the
+        // cleaned keyword set, and returns the DETERMINISTIC coverage against the
+        // actual document (so the ring never lies) plus AI section flags. It also
+        // returns the JD-aware score + chips so Review refreshes after Step 1.
+        const { data } = await api.post<{
+          gap?: { matched: string[]; missing: string[]; coverageCount: number; total: number };
+          sectionFlags?: SectionFlag[];
+          score?: number;
+          suggestions?: AISuggestion[];
+        }>(`/resumes/${resumeId}/analyze-gap`, { jobDescription });
         const g = data.gap ?? { matched: [], missing: [], coverageCount: 0, total: 0 };
         return {
           coverage: g.total > 0 ? Math.round((g.coverageCount / g.total) * 100) : 0,
           matched: g.matched ?? [],
           missing: g.missing ?? [],
-          sectionFlags: [],
+          sectionFlags: data.sectionFlags ?? [],
+          score: data.score,
+          suggestions: data.suggestions,
         };
       },
       () => mockGap(),
@@ -140,24 +167,21 @@ export const resumeStudioAPI = {
 
   /** Load the editable ResumeDocument (incl. score + suggestions). */
   getDocument: (resumeId: string): Promise<ResumeDocument> =>
-    withFallback(
-      "GET /resumes/:id/document",
+    realOrMock(
       () => api.get<ResumeDocument>(`/resumes/${resumeId}/document`).then((r) => r.data),
       () => mockDocument(),
     ),
 
   /** Debounced autosave target. */
   saveDocument: (resumeId: string, document: ResumeDocument): Promise<{ version: number }> =>
-    withFallback(
-      "PUT /resumes/:id/document",
+    realOrMock(
       () => api.put<{ version: number }>(`/resumes/${resumeId}/document`, document).then((r) => r.data),
       () => ({ version: (document.version ?? 1) }),
     ),
 
   /** The AI rewrite — scope + instruction/preset → {document, changes, changedPaths, score}. */
   aiRewrite: (resumeId: string, req: AIRewriteRequest, baseDoc: ResumeDocument): Promise<AIRewriteResult> =>
-    withFallback(
-      "POST /resumes/:id/ai-rewrite",
+    realOrMock(
       async () => {
         const { data } = await api.post<AIRewriteResult>(`/resumes/${resumeId}/ai-rewrite`, req);
         // Backend reports changedPaths as bare element ids → translate to the
@@ -167,20 +191,23 @@ export const resumeStudioAPI = {
       () => mockRewrite(baseDoc, req),
     ),
 
+  /** Bind the resume's document to an application's analysis (copies the
+   *  session's cleaned JD keywords onto the doc). Powers the drawer's skip-to-2. */
+  bindSession: (resumeId: string, tailorSessionId: string): Promise<{ document: ResumeDocument; gap: { matched: string[]; missing: string[]; coverageCount: number; total: number }; sectionFlags: SectionFlag[]; fit: FitSummary | null }> =>
+    api.post(`/resumes/${resumeId}/document/bind-session`, { tailorSessionId }).then((r) => r.data),
+
   /** Revert to a prior version. Returns the restored document. */
   revert: (resumeId: string, toVersion: number, priorDoc: ResumeDocument): Promise<ResumeDocument> =>
-    withFallback(
-      "POST /resumes/:id/revert",
+    realOrMock(
       () => api.post<ResumeDocument>(`/resumes/${resumeId}/revert`, { toVersion }).then((r) => r.data),
       () => priorDoc,
     ),
 
-  /** Serialize the preview's HTML+CSS to a PDF. Returns the response Blob — at
-   *  integration it's application/pdf; the mock returns a print-ready text/html
-   *  document so Download still produces a faithful, openable file. */
+  /** Serialize the preview's HTML+CSS to a PDF. Returns the response Blob —
+   *  application/pdf from Gotenberg. (Mock mode returns a print-ready text/html
+   *  document so Download still produces a faithful, openable file.) */
   renderPdf: (payload: { html: string; css: string; filename?: string }): Promise<Blob> =>
-    withFallback(
-      "POST /resumes/render-pdf",
+    realOrMock(
       () => api.post(`/resumes/render-pdf`, payload, { responseType: "blob" }).then((r) => r.data as Blob),
       () => {
         const doc = `<!doctype html><html><head><meta charset="utf-8"><title>${payload.filename || "resume"}</title><style>${payload.css}</style></head><body>${payload.html}</body></html>`;
@@ -189,4 +216,4 @@ export const resumeStudioAPI = {
     ),
 };
 
-export type { AIStatus, AIUsage, ProviderInfo };
+export type { AIStatus, AIUsage, ProviderInfo, UsageOp };

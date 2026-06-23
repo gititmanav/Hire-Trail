@@ -13,7 +13,7 @@
 import { forwardRef } from "react";
 import { Sparkles } from "lucide-react";
 import {
-  bulletPath, entryFieldPath, sectionTitlePath, formatResumeDate,
+  bulletPath, entryFieldPath, sectionTitlePath, summaryTextPath, formatResumeDate,
   type ResumeDocument, type ResumeSection, type ResumeEntry, type RewriteScope,
 } from "../../../utils/resumeDocument.ts";
 import { buildResumeCss, resumeRootClass, resumeRootStyle } from "./resumeCss.ts";
@@ -67,15 +67,23 @@ function ContactLine({ doc }: { doc: ResumeDocument }) {
   );
 }
 
+/** Skills render per GROUP (one entry = one category): `Category: a, b, c`.
+ *  Items live in `entry.extra.items` (the backend has no skills bullets). */
 function SkillsSection({ section, doc }: { section: ResumeSection; doc: ResumeDocument }) {
   const layout = doc.style.skillsLayout;
-  const lines = section.entries.flatMap((e) => e.bullets);
   const cls = layout === "grouped" ? "rd-skills-grouped" : layout === "columns" ? "rd-skills-columns" : "rd-skills-inline";
   return (
     <div className={cls}>
-      {lines.map((b) => (
-        <span key={b.id} className="rd-skill-line">{b.text}</span>
-      ))}
+      {section.entries.map((e) => {
+        const items = (e.extra?.items ?? []).filter(Boolean);
+        if (!items.length && !e.title.trim()) return null;
+        return (
+          <span key={e.id} className="rd-skill-line">
+            {e.title.trim() && <span className="rd-skill-cat">{e.title}: </span>}
+            {items.join(", ")}
+          </span>
+        );
+      })}
     </div>
   );
 }
@@ -116,8 +124,8 @@ const ResumeDocumentPreview = forwardRef<HTMLDivElement, Props>(function ResumeD
 
               {section.type === "summary" ? (
                 <div className="rd-summary-block">
-                  {entries.flatMap((e) => e.bullets).map((b) => (
-                    <p key={b.id} className={`rd-summary ${changed(changedPaths, summaryBulletPath(section, b.id))}`}>{b.text}</p>
+                  {entries.map((e) => (
+                    <p key={e.id} className={`rd-summary ${changed(changedPaths, summaryTextPath(section.id, e.id))}`}>{e.extra?.text ?? ""}</p>
                   ))}
                 </div>
               ) : section.type === "skills" ? (
@@ -144,12 +152,6 @@ const ResumeDocumentPreview = forwardRef<HTMLDivElement, Props>(function ResumeD
   );
 });
 
-/** Find the bullet's path within a summary section (its single entry). */
-function summaryBulletPath(section: ResumeSection, bulletId: string): string {
-  const entry = section.entries.find((e) => e.bullets.some((b) => b.id === bulletId));
-  return entry ? bulletPath(section.id, entry.id, bulletId) : "";
-}
-
 /** Wrapper that applies education order (degree vs institution leading). */
 function EntryBlockWithEduOrder({
   section, entry, eduOrder, changedPaths, interactive, activeTargetKey, onSelectTarget,
@@ -171,6 +173,13 @@ function EntryBlockWithEduOrder({
   const label = entry.title || entry.org || "entry";
   const targeted = activeTargetKey === key;
 
+  // Typed per-type extras (projects: tech/description; education: gpa). `extra`
+  // is an OBJECT — never render it directly (that was the React #31 source).
+  const extra = entry.extra;
+  const gpa = extra?.gpa ? `GPA ${extra.gpa}` : "";
+  const tech = extra?.technologies?.length ? extra.technologies.join(", ") : "";
+  const metaExtra = [gpa, tech].filter(Boolean).join(" · ");
+
   return (
     <div className={`rd-entry rd-section-wrap${targeted ? " rd-targeted" : ""}`}>
       {interactive && onSelectTarget && (
@@ -185,7 +194,8 @@ function EntryBlockWithEduOrder({
           <div className="rd-entry-meta">{[entry.location, dates].filter(Boolean).join(" · ")}</div>
         )}
       </div>
-      {entry.extra && <div className={`rd-entry-extra ${changed(changedPaths, entryFieldPath(section.id, entry.id, "extra"))}`}>{entry.extra}</div>}
+      {metaExtra && <div className="rd-entry-extra">{metaExtra}</div>}
+      {extra?.description && <div className="rd-entry-extra">{extra.description}</div>}
       {entry.bullets.length > 0 && (
         <ul className="rd-bullets">
           {entry.bullets.map((b) => (

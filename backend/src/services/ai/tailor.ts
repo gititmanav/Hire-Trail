@@ -36,16 +36,34 @@ const suggestionSchema = z.object({
 
 export type Suggestion = z.infer<typeof suggestionSchema>;
 
+/** Per-section qualitative read of how well the candidate's resume serves THIS
+ *  role. Keyed by section TYPE (the brain doesn't know a specific document's
+ *  ids); the caller maps `section` → the live document's section id + title. */
+const sectionFlagSchema = z.object({
+  section: z.enum(["summary", "experience", "projects", "skills", "education"]),
+  severity: z.enum(["good", "warn", "gap"]),
+  /** ≤ 18 words. */
+  note: z.string(),
+});
+
+export type AnalysisSectionFlag = z.infer<typeof sectionFlagSchema>;
+
 const analysisSchema = z.object({
   /** Integer 1..5; we display as A–F too. */
   fitScore: z.number().int().min(1).max(5),
   fitGrade: z.enum(["A", "B", "C", "D", "F"]),
   /** ≤ 3 sentences. */
   summary: z.string(),
+  /** The role's REAL requirements as cleaned, deduped, lowercase keywords —
+   *  candidate-independent. This is the JD keyword set the deterministic
+   *  coverage/score (keywords.ts/score.ts) is computed against. Noise excluded. */
+  jdKeywords: z.array(z.string()).default([]),
   /** Skills from the user's profile that the JD explicitly asks for. */
   matchedSkills: z.array(z.string()).default([]),
   /** Skills the JD asks for that the user does NOT yet have. */
   missingSkills: z.array(z.string()).default([]),
+  /** Per-section read for the "See the gap" step. */
+  sectionFlags: z.array(sectionFlagSchema).max(6).default([]),
   /** ≤ 6 ordered suggestions, most impactful first. */
   suggestions: z.array(suggestionSchema).max(8).default([]),
 });
@@ -63,6 +81,15 @@ Scoring (fitScore, fitGrade):
 - 3 / C — mixed match; meaningful skill gaps.
 - 2 / D — weak match; major reskilling required.
 - 1 / F — wrong track entirely.
+
+jdKeywords (the role's real requirements):
+- Extract 8–20 cleaned, deduped, lowercase keywords: the concrete skills, tools, technologies, methodologies, and domain terms the role actually requires.
+- IGNORE posting noise: applicant counts ("100+ applicants"), "Easy Apply", salary/benefits, company boilerplate/mission, EEO/legal statements, application instructions, seniority filler, and location/remote tags.
+- These are candidate-independent (what the JOB wants), not "skills the candidate has".
+
+sectionFlags (one per major section the candidate actually has — summary, experience, projects, skills, education):
+- severity: "good" (serves the role well), "warn" (relevant but underplays the role's needs), or "gap" (missing what the role wants).
+- note: ≤ 18 words, specific to THIS role.
 
 Suggestions:
 - Be specific. Reference the candidate's actual companies, projects, and bullets.

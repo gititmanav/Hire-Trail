@@ -17,10 +17,11 @@ import { z } from "zod";
 
 import { ensureAuth, getUser } from "../middleware/auth.js";
 import { blockDemoUser } from "../middleware/blockDemoUser.js";
-import { AIProviderConfig, AI_PROVIDERS, type IAIProviderConfig } from "../models/AIProviderConfig.js";
+import { AIProviderConfig, type IAIProviderConfig } from "../models/AIProviderConfig.js";
 import { encrypt } from "../utils/encryption.js";
-import { getAiStatus } from "../services/ai/index.js";
+import { getAiStatus, gatewayEnabled } from "../services/ai/index.js";
 import { getCatalog } from "../services/ai/catalog.js";
+import { ensureGatewayModels } from "../services/ai/gatewayModels.js";
 import { validateProviderKey } from "../services/ai/validateKey.js";
 import { usageSummary } from "../services/ai/usage.js";
 import { getAdminAiConfig } from "../services/ai/adminConfig.js";
@@ -55,9 +56,11 @@ async function deactivateOthers(userId: unknown, exceptId?: unknown): Promise<vo
 
 /* -------------------- catalog + status + usage -------------------- */
 
-router.get("/providers", (_req: Request, res: Response, next: NextFunction) => {
+router.get("/providers", async (_req: Request, res: Response, next: NextFunction) => {
   try {
+    await ensureGatewayModels(); // so the catalog includes live/dynamic providers
     res.json({
+      gatewayConfigured: gatewayEnabled(),
       providers: getCatalog().map((p) => ({
         id: p.id,
         label: p.label,
@@ -65,6 +68,23 @@ router.get("/providers", (_req: Request, res: Response, next: NextFunction) => {
         freeTier: p.freeTier,
         getKeyUrl: p.getKeyUrl,
         keyKind: p.keyKind,
+        gatewayOnly: p.gatewayOnly ?? false,
+        credentialFormat: p.credentialFormat ?? "apiKey",
+        credentialFields: p.credentialFields ?? null,
+      })),
+    });
+  } catch (err) { next(err); }
+});
+
+/** Live gateway model catalog (cached). Powers the searchable model picker. */
+router.get("/models", async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const models = await ensureGatewayModels();
+    res.json({
+      gatewayConfigured: gatewayEnabled(),
+      models: models.map((m) => ({
+        id: m.id, provider: m.provider, label: m.label,
+        contextWindow: m.contextWindow ?? null, pricing: m.pricing ?? null,
       })),
     });
   } catch (err) { next(err); }
@@ -88,8 +108,10 @@ router.get("/usage", async (req: Request, res: Response, next: NextFunction) => 
 
 /* -------------------- validate (no persistence) -------------------- */
 
+// Provider is a free string now (the gateway routes to 40+ providers); the
+// catalog derives metadata for any id and validateKey/use-time surfaces errors.
 const validateKeySchema = z.object({
-  provider: z.enum(AI_PROVIDERS),
+  provider: z.string().trim().min(1).max(60),
   key: z.string().min(4),
 });
 
@@ -109,7 +131,7 @@ router.post("/keys/validate", byokValidateLimiter, async (req: Request, res: Res
 /* -------------------- keys CRUD -------------------- */
 
 const createKeySchema = z.object({
-  provider: z.enum(AI_PROVIDERS),
+  provider: z.string().trim().min(1).max(60),
   key: z.string().min(8, "API key looks too short"),
   label: z.string().max(80).optional().default(""),
   modelOverride: z.string().max(160).optional().nullable(),

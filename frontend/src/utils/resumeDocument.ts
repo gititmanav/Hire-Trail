@@ -41,6 +41,25 @@ export interface ResumeBullet {
   order: number;
 }
 
+/**
+ * Per-type structured extras — mirrors the backend's `DocEntry.extra`
+ * (services/resume/types.ts). The shape is keyed by section type:
+ *   - summary  → { text }
+ *   - skills   → { items[] }     (one entry per group; `title` is the category)
+ *   - projects → { url, technologies[], description }
+ *   - education→ { gpa }
+ *   - custom   → { url }         (e.g. certifications)
+ * It is an OBJECT, never a string — rendering it directly would throw React #31.
+ */
+export interface ResumeEntryExtra {
+  text?: string;
+  items?: string[];
+  url?: string;
+  technologies?: string[];
+  description?: string;
+  gpa?: string;
+}
+
 export interface ResumeEntry {
   id: string;
   org: string;
@@ -51,8 +70,8 @@ export interface ResumeEntry {
   current: boolean;
   order: number;
   bullets: ResumeBullet[];
-  /** Free-form extra line (e.g. a skills group label, a tech stack, GPA). */
-  extra?: string;
+  /** Structured per-type extras (see ResumeEntryExtra). */
+  extra?: ResumeEntryExtra;
 }
 
 export interface ResumeSection {
@@ -148,6 +167,17 @@ export interface GapAnalysis {
   sectionFlags: SectionFlag[];
 }
 
+/** The AI brain's per-application "fit" read (1–5 score + matched/missing
+ *  skills). Surfaced on the Applications fit panel and the tailoring drawer's
+ *  Step 1 header. Separate from the deterministic 0–10 match score. */
+export interface FitSummary {
+  fitScore: number;
+  fitGrade: "A" | "B" | "C" | "D" | "F" | "";
+  summary: string;
+  matchedSkills: string[];
+  missingSkills: string[];
+}
+
 /* ---------- defaults ---------- */
 
 export const DEFAULT_STYLE: ResumeStyle = {
@@ -179,6 +209,11 @@ export const entryFieldPath = (sid: string, eid: string, field: string) =>
   `sections.${sid}.entries.${eid}.${field}`;
 export const bulletPath = (sid: string, eid: string, bid: string) =>
   `sections.${sid}.entries.${eid}.bullets.${bid}.text`;
+/** Path of a summary section's prose (lives in `entry.extra.text`, not a bullet).
+ *  The backend rewrite reports a summary change by the bare ENTRY id, so the
+ *  preview highlights it via this path (see studioApi.toDottedChangedPaths). */
+export const summaryTextPath = (sid: string, eid: string) =>
+  `sections.${sid}.entries.${eid}.extra.text`;
 export const metaPath = (field: string) => `meta.${field}`;
 
 /** Deep clone via structuredClone with a JSON fallback for older runtimes. */

@@ -56,7 +56,6 @@ const groups: NavGroup[] = [
     items: [
       { to: "/resumes", label: "Resumes", Icon: FileText },
       { to: "/resume-studio", label: "Resume Studio", badge: "New", Icon: Wand2 },
-      { to: "/tailor", label: "AI Tailor", badge: "Beta", Icon: Sparkles },
       { to: "/jobs", label: "Job Search", Icon: Search, featureKey: "feature_job_search" },
       { to: "/import-export", label: "Import / Export", Icon: ArrowLeftRight, featureKey: "feature_csv_import_export" },
     ],

@@ -15,7 +15,6 @@ import { Router, Request, Response, NextFunction } from "express";
 import { z } from "zod";
 
 import { getUser } from "../../middleware/auth.js";
-import { AI_PROVIDERS } from "../../models/AIProviderConfig.js";
 import { AiUsage, currentPeriod } from "../../models/AiUsage.js";
 import {
   publicAdminAiConfig,
@@ -35,7 +34,7 @@ router.get("/", async (_req: Request, res: Response, next: NextFunction) => {
 
 const updateSchema = z.object({
   enabled: z.boolean().optional(),
-  defaultProvider: z.enum(["", ...AI_PROVIDERS]).optional(),
+  defaultProvider: z.string().trim().max(60).optional(), // "" clears; any gateway provider id
   defaultModel: z.string().max(160).optional(),
   usesGatewayCredits: z.boolean().optional(),
   monthlyTokenLimit: z.number().int().min(0).optional(),
@@ -54,7 +53,7 @@ router.put("/", async (req: Request, res: Response, next: NextFunction) => {
 });
 
 const keySchema = z.object({
-  provider: z.enum(AI_PROVIDERS),
+  provider: z.string().trim().min(1).max(60),
   key: z.string().min(4),
   /** Skip the live provider check (e.g. when the gateway isn't reachable). */
   skipValidation: z.boolean().optional(),

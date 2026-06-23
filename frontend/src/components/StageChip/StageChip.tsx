@@ -1,8 +1,9 @@
 /** Stage badge used on Applications + Kanban + anywhere else we render an app's stage.
  *
  *  Special-cases the "Drafting" stage: if the application has a linked tailor session,
- *  the chip becomes clickable and navigates to /tailor?session=<id>. For every other
- *  stage it's a plain span. */
+ *  the chip becomes clickable and opens the tailoring drawer over the linked
+ *  application (/applications?tailorSession=<id>). For every other stage it's a
+ *  plain span. */
 import { useNavigate } from "react-router-dom";
 import type { Stage } from "../../types";
 import { STAGE_BADGE_CLASS } from "../../utils/stageStyles.ts";
@@ -28,10 +29,10 @@ export default function StageChip({ stage, tailorSessionId, className = "", size
         type="button"
         onClick={(e) => {
           e.stopPropagation();
-          navigate(`/tailor?session=${tailorSessionId}`);
+          navigate(`/applications?tailorSession=${tailorSessionId}`);
         }}
         className={`${baseClass} cursor-pointer hover:ring-2 hover:ring-primary/30 transition-shadow`}
-        title="Open in AI Tailor"
+        title="Tailor resume for this role"
       >
         {stage}
       </button>

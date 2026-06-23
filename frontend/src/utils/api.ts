@@ -77,6 +77,10 @@ export const applicationsAPI = {
    *  processing session id. */
   reanalyze: (id: string) =>
     api.post<{ sessionId: string; status: "processing" }>(`/applications/${id}/reanalyze`).then((r) => r.data),
+  /** Ensure a per-application tailored variant resume exists; returns its id.
+   *  Each application tailors its own document (never clobbers the primary). */
+  tailorResume: (id: string) =>
+    api.post<{ resumeId: string }>(`/applications/${id}/tailor-resume`).then((r) => r.data),
   archive: (id: string, reason?: string) => api.put<Application>(`/applications/${id}/archive`, { reason }).then((r) => r.data),
   unarchive: (id: string) => api.put<Application>(`/applications/${id}/unarchive`).then((r) => r.data),
 };
@@ -316,7 +320,25 @@ export const proxyAPI = {
   fetchTweakcn: (url: string) => api.post<{ html: string }>("/proxy/tweakcn", { url }).then((r) => r.data),
 };
 
-export type AIProvider = "anthropic" | "openai" | "google" | "openrouter";
+/** A gateway provider id — curated or dynamic (the gateway routes to 40+). */
+export type AIProvider = string;
+
+/** Credential collection shape for a provider (from GET /api/ai/providers). */
+export type CredentialFormat = "apiKey" | "fields" | "json";
+export interface CredentialField { key: string; label: string; type: "text" | "password"; optional?: boolean; }
+export interface AICatalogModel { id: string; label: string; capability: "fast" | "smart" }
+export interface AICatalogProvider {
+  id: string;
+  label: string;
+  models: AICatalogModel[];
+  freeTier: boolean;
+  getKeyUrl: string;
+  keyKind: "single" | "aws";
+  gatewayOnly: boolean;
+  credentialFormat: CredentialFormat;
+  credentialFields: CredentialField[] | null;
+}
+export interface AIModel { id: string; provider: string; label: string; contextWindow: number | null; pricing: { input?: number; output?: number } | null }
 
 export interface AIKey {
   _id: string;
@@ -341,6 +363,7 @@ export interface AIStatusResponse {
 
 /** AI usage (GET /api/ai/usage). BYOK accounts report tokens + est $; default
  *  (shared) accounts report a used/limit meter with a reset date. */
+export interface UsageOpBreakdown { opType: string; tokens: number; estCostUsd: number; calls: number }
 export interface AIUsageResponse {
   mode: "byok" | "default";
   tokens?: { input: number; output: number; total: number };
@@ -349,17 +372,18 @@ export interface AIUsageResponse {
   limit?: number;
   resetsAt?: string | null;
   period?: string;
+  totalTokens?: number;
+  byOp?: UsageOpBreakdown[];
 }
 
 /** Backend key view (AI_RESUME_CONTRACT.md). The full key is never returned. */
 type RawAIKey = { id: string; provider: string; label: string; last4: string; isActive: boolean; createdAt: string };
-const KNOWN_PROVIDERS: AIProvider[] = ["google", "openai", "anthropic", "openrouter"];
 
 /** Map the backend's key view → the frontend's internal AIKey shape. */
 function mapAIKey(k: RawAIKey): AIKey {
   return {
     _id: k.id,
-    provider: k.provider as AIProvider,
+    provider: k.provider,
     name: k.label ?? "",
     isActive: k.isActive,
     modelOverride: null,
@@ -373,19 +397,16 @@ function mapAIKey(k: RawAIKey): AIKey {
  * the UI was built around {apiKey,name,_id,…}. These wrappers translate at the boundary so
  * the components stay unchanged. */
 export const aiAPI = {
-  listProviders: async () => {
-    const { data } = await api.get<{ providers: { id: string; models: { id: string; capability: "fast" | "smart" }[] }[] }>("/ai/providers");
-    const byId = new Map(data.providers.map((p) => [p.id, p]));
-    const available = KNOWN_PROVIDERS.filter((p) => byId.has(p)).map((provider) => ({ provider, byok: true }));
-    const defaults = KNOWN_PROVIDERS.reduce((acc, p) => {
-      const models = byId.get(p)?.models ?? [];
-      acc[p] = {
-        fast: models.find((m) => m.capability === "fast")?.id ?? "",
-        smart: models.find((m) => m.capability === "smart")?.id ?? "",
-      };
-      return acc;
-    }, {} as Record<AIProvider, { fast: string; smart: string }>);
-    return { available, defaults };
+  /** Full provider catalog (curated + every dynamic gateway provider), plus
+   *  whether the platform AI Gateway is configured (gateway-only providers need it). */
+  getCatalog: async (): Promise<{ providers: AICatalogProvider[]; gatewayConfigured: boolean }> => {
+    const { data } = await api.get<{ gatewayConfigured?: boolean; providers: AICatalogProvider[] }>("/ai/providers");
+    return { providers: data.providers ?? [], gatewayConfigured: Boolean(data.gatewayConfigured) };
+  },
+  /** Live gateway model list (cached server-side). Powers the searchable model picker. */
+  listModels: async (): Promise<{ models: AIModel[]; gatewayConfigured: boolean }> => {
+    const { data } = await api.get<{ gatewayConfigured?: boolean; models: AIModel[] }>("/ai/models");
+    return { models: data.models ?? [], gatewayConfigured: Boolean(data.gatewayConfigured) };
   },
   listKeys: async () => (await api.get<RawAIKey[]>("/ai/keys")).data.map(mapAIKey),
   createKey: async (data: { provider: AIProvider; apiKey: string; name?: string; modelOverride?: string | null }) =>
@@ -410,12 +431,14 @@ export const aiAPI = {
   },
   getUsage: async (): Promise<AIUsageResponse> => {
     const { data } = await api.get<Record<string, unknown>>("/ai/usage");
+    const byOp = Array.isArray(data.byOp) ? (data.byOp as UsageOpBreakdown[]) : [];
+    const totalTokens = Number(data.totalTokens ?? 0);
     if (data.mode === "byok") {
       const input = Number(data.tokensIn ?? 0);
       const output = Number(data.tokensOut ?? 0);
-      return { mode: "byok", tokens: { input, output, total: input + output }, estimatedCostUsd: Number(data.estCostUsd ?? 0), period: String(data.period ?? "") };
+      return { mode: "byok", tokens: { input, output, total: input + output }, estimatedCostUsd: Number(data.estCostUsd ?? 0), period: String(data.period ?? ""), totalTokens, byOp };
     }
-    return { mode: "default", used: Number(data.used ?? 0), limit: Number(data.limit ?? 0), resetsAt: (data.resetsAt as string) ?? null, period: String(data.period ?? "") };
+    return { mode: "default", used: Number(data.used ?? 0), limit: Number(data.limit ?? 0), resetsAt: (data.resetsAt as string) ?? null, period: String(data.period ?? ""), totalTokens, byOp };
   },
 };
 
@@ -502,21 +525,6 @@ export const tailorAPI = {
     api.patch<TailorSession>(`/tailor/sessions/${sessionId}/suggestions/${index}`, { decision }).then((r) => r.data),
   linkApplication: (sessionId: string, applicationId: string) =>
     api.post<TailorSession>(`/tailor/sessions/${sessionId}/link/${applicationId}`).then((r) => r.data),
-  /** Transition the linked Drafting application → Applied, with the user's resume choice.
-   *  If "tailored", the rendered PDF is also saved as a tag-tailored Resume row. */
-  markApplied: (sessionId: string, resumeChoice: "primary" | "tailored") =>
-    api.put<{ application: Application; tailoredResumeId: string | null }>(
-      `/tailor/sessions/${sessionId}/mark-applied`,
-      { resumeChoice }
-    ).then((r) => r.data),
-  /** Returns the PDF as a Blob along with metadata from response headers. */
-  generatePdf: async (sessionId: string): Promise<{ blob: Blob; pages: number; warnings: string[] }> => {
-    const res = await api.get(`/tailor/sessions/${sessionId}/pdf`, { responseType: "blob" });
-    const pages = parseInt(res.headers["x-resume-pages"] || "1", 10);
-    const rawWarn = res.headers["x-resume-warnings"];
-    const warnings = rawWarn ? decodeURIComponent(rawWarn).split(" | ").filter(Boolean) : [];
-    return { blob: res.data as Blob, pages, warnings };
-  },
 };
 
 /** Master profile — one canonical career history per user. */

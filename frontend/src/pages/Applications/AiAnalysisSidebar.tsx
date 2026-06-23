@@ -1,14 +1,10 @@
 /**
- * Read-only slide-in sidebar showing the full AI Tailor analysis for one
- * application. Fetches the full TailorSession by id, shows grade, summary,
- * matched/missing skills, and the suggestion list. CTA at the bottom links
- * to /tailor?session=... for the full accept/reject flow.
- *
- * Why read-only here: the Tailor page already has the canonical edit surface,
- * and v1 of the AI panel only needs to surface "here's what we found."
+ * Read-only slide-in sidebar showing the AI fit analysis for one application —
+ * grade, summary, matched/missing skills, suggestions. It's the lightweight
+ * INSIGHT; the CTA ("Generate tailored resume") hands off to the broad tailoring
+ * drawer (the Resume Studio flow), which is where edits actually happen.
  */
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { X, Sparkle, ArrowRight } from "lucide-react";
 import AiPulse from "../../components/AiIndicator/AiPulse.tsx";
 import { tailorAPI } from "../../utils/api.ts";
@@ -25,9 +21,11 @@ const GRADE_TONE: Record<string, { bg: string; ring: string; label: string }> = 
 interface Props {
   sessionId: string;
   onClose: () => void;
+  /** Open the broad tailoring drawer for this session's application. */
+  onTailor?: (applicationId: string) => void;
 }
 
-export default function AiAnalysisSidebar({ sessionId, onClose }: Props) {
+export default function AiAnalysisSidebar({ sessionId, onClose, onTailor }: Props) {
   const [session, setSession] = useState<TailorSession | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -184,15 +182,15 @@ export default function AiAnalysisSidebar({ sessionId, onClose }: Props) {
           )}
         </div>
 
-        {session && session.status === "succeeded" && (
+        {session && session.status === "succeeded" && session.applicationId && onTailor && (
           <div className="sticky bottom-0 bg-card border-t border-border px-4 py-3 flex items-center justify-end gap-2">
-            <Link
-              to={`/tailor?session=${session._id}`}
+            <button
+              onClick={() => onTailor(session.applicationId!)}
               className="btn-accent inline-flex items-center gap-1.5"
             >
-              Open full Tailor
+              Generate tailored resume
               <ArrowRight size={13} strokeWidth={2} aria-hidden />
-            </Link>
+            </button>
           </div>
         )}
       </div>

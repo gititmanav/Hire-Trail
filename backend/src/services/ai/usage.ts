@@ -86,6 +86,27 @@ export async function monthlyTotals(
   };
 }
 
+export interface OpBreakdown { opType: AiOpType; tokens: number; estCostUsd: number; calls: number; }
+
+/** Per-operation token/cost rollup for the period (parsing, fit analysis,
+ *  rewrite, …) so the user can see exactly what consumed their usage. */
+export async function monthlyByOp(
+  userId: string | mongoose.Types.ObjectId,
+  period: string = currentPeriod(),
+): Promise<OpBreakdown[]> {
+  const rows = await AiUsage.aggregate<{ _id: AiOpType; tokensIn: number; tokensOut: number; estCostUsd: number; calls: number }>([
+    { $match: { userId: new mongoose.Types.ObjectId(userId.toString()), period } },
+    { $group: { _id: "$opType", tokensIn: { $sum: "$tokensIn" }, tokensOut: { $sum: "$tokensOut" }, estCostUsd: { $sum: "$estCostUsd" }, calls: { $sum: 1 } } },
+    { $sort: { estCostUsd: -1 } },
+  ]);
+  return rows.map((r) => ({
+    opType: r._id ?? "other",
+    tokens: (r.tokensIn ?? 0) + (r.tokensOut ?? 0),
+    estCostUsd: Math.round((r.estCostUsd ?? 0) * 1e6) / 1e6,
+    calls: r.calls ?? 0,
+  }));
+}
+
 /** Throw 429 if a default-key user has hit their monthly token cap. No-op when
  *  the limit is 0 (unlimited) or the user is on their own key. */
 export async function assertWithinQuota(
@@ -105,6 +126,10 @@ export async function assertWithinQuota(
 export interface UsageSummary {
   mode: "byok" | "default";
   period: string;
+  /** Total tokens spent this period (both views). */
+  totalTokens: number;
+  /** Per-operation breakdown (parsing / fit / rewrite / …). */
+  byOp: OpBreakdown[];
   // BYOK view:
   tokensIn?: number;
   tokensOut?: number;
@@ -122,11 +147,13 @@ export async function usageSummary(
   opts: { byok: boolean; monthlyTokenLimit: number },
 ): Promise<UsageSummary> {
   const period = currentPeriod();
-  const totals = await monthlyTotals(userId, period);
+  const [totals, byOp] = await Promise.all([monthlyTotals(userId, period), monthlyByOp(userId, period)]);
   if (opts.byok) {
     return {
       mode: "byok",
       period,
+      totalTokens: totals.totalTokens,
+      byOp,
       tokensIn: totals.tokensIn,
       tokensOut: totals.tokensOut,
       estCostUsd: totals.estCostUsd,
@@ -138,6 +165,8 @@ export async function usageSummary(
   return {
     mode: "default",
     period,
+    totalTokens: totals.totalTokens,
+    byOp,
     used,
     limit,
     usedPct,

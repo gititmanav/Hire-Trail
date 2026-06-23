@@ -117,6 +117,7 @@ export function buildResumeCss(style: ResumeStyle, density = 1): string {
 .resume-doc.rd-justify .rd-summary { text-align: justify; }
 
 /* Skills layouts */
+.resume-doc .rd-skill-cat { font-weight: 600; color: #111; }
 .resume-doc .rd-skills-inline { display: flex; flex-wrap: wrap; gap: 2px 6px; }
 .resume-doc .rd-skills-inline .rd-skill-line:not(:last-child)::after { content: " · "; color: #bbb; }
 .resume-doc .rd-skills-grouped .rd-skill-line { display: block; margin-bottom: 2px; }

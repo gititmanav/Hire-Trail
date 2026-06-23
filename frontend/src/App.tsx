@@ -38,7 +38,6 @@ const loadProfile   = () => import("./pages/Profile/Profile.tsx");
 const loadSettings  = () => import("./pages/Settings/Settings.tsx");
 const loadAISettings = () => import("./pages/AISettings/AISettings.tsx");
 const loadResumeStudio = () => import("./pages/ResumeStudio/ResumeStudio.tsx");
-const loadTailor    = () => import("./pages/Tailor/Tailor.tsx");
 const loadEmailScanReview = () => import("./pages/EmailScanReview/EmailScanReview.tsx");
 const loadNotifications = () => import("./pages/Notifications/Notifications.tsx");
 
@@ -54,7 +53,6 @@ const Profile      = lazy(loadProfile);
 const Settings     = lazy(loadSettings);
 const AISettings   = lazy(loadAISettings);
 const ResumeStudio = lazy(loadResumeStudio);
-const Tailor       = lazy(loadTailor);
 const EmailScanReview = lazy(loadEmailScanReview);
 const NotificationsPage = lazy(loadNotifications);
 
@@ -212,7 +210,6 @@ function App() {
             <Route path="/settings/ai" element={<AISettings />} />
             <Route path="/settings/email-review" element={<EmailScanReview />} />
             <Route path="/notifications" element={<NotificationsPage />} />
-            <Route path="/tailor" element={<Tailor />} />
             <Route path="/resume-studio" element={<ResumeStudio />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

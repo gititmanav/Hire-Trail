@@ -2,8 +2,10 @@
  *  per-section flags, all from the tailor gap analysis. A collapsible JD lets
  *  the user re-analyze against a different posting. */
 import { useState } from "react";
-import { AlertTriangle, CheckCircle2, ChevronDown, Circle } from "lucide-react";
+import { Link } from "react-router-dom";
+import { AlertTriangle, CheckCircle2, ChevronDown, Circle, KeyRound, RotateCcw } from "lucide-react";
 import AiPulse from "../../../components/AiIndicator/AiPulse.tsx";
+import { useDemoGate } from "../../../hooks/useDemoGate.tsx";
 import type { StudioController } from "../useStudioDocument.ts";
 import type { SectionFlag } from "../../../utils/resumeDocument.ts";
 
@@ -32,10 +34,16 @@ const FLAG_META: Record<SectionFlag["severity"], { icon: typeof CheckCircle2; cl
 };
 
 export default function GapStep({ studio }: { studio: StudioController }) {
-  const { gap, gapLoading, jd, setJd, reanalyzeGap } = studio;
+  const { gap, gapLoading, gapError, jd, setJd, reanalyzeGap } = studio;
+  const { requireRealAccount } = useDemoGate();
   // Open the JD by default until a gap exists, so the user sees where to paste
   // and the "Analyze gap" trigger without hunting for it.
   const [jdOpen, setJdOpen] = useState(!gap);
+
+  const runAnalyze = () => {
+    if (!requireRealAccount("AI gap analysis")) return;
+    reanalyzeGap();
+  };
 
   return (
     <div className="space-y-5">
@@ -43,6 +51,34 @@ export default function GapStep({ studio }: { studio: StudioController }) {
         <h2 className="text-xl font-semibold text-foreground">See the gap</h2>
         <p className="text-sm text-muted-foreground mt-1">How well your resume matches the role today — before you tailor it.</p>
       </div>
+
+      {/* Fail-in-place: an AI failure shows a reason + Retry (+ Add a key) here,
+          never a silent no-op or a perpetual spinner. */}
+      {gapError && (
+        <div className="bg-card border border-red-300/60 dark:border-red-900/50 rounded-xl p-4">
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle size={16} strokeWidth={2} className="text-red-500 mt-0.5 shrink-0" />
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-foreground">Couldn't analyze the gap</p>
+              <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{gapError.message}</p>
+              <div className="flex items-center gap-2 mt-3">
+                <button
+                  onClick={runAnalyze}
+                  disabled={gapLoading || jd.trim().length < 20}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-border rounded-lg text-foreground hover:bg-muted disabled:opacity-50"
+                >
+                  <RotateCcw size={13} strokeWidth={2} /> {gapLoading ? "Retrying…" : "Retry"}
+                </button>
+                {gapError.isKeyIssue && (
+                  <Link to="/settings/ai" className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-primary hover:bg-primary/90 rounded-lg">
+                    <KeyRound size={13} strokeWidth={2} /> Add a key
+                  </Link>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {gapLoading && !gap ? (
         <div className="bg-card border border-border rounded-xl p-10 flex items-center justify-center">
@@ -97,11 +133,11 @@ export default function GapStep({ studio }: { studio: StudioController }) {
             </ul>
           </div>
         </>
-      ) : (
+      ) : !gapError ? (
         <div className="bg-card border border-border rounded-xl p-8 text-center text-sm text-muted-foreground">
           Paste the target job description below and press <span className="font-medium text-foreground">Analyze gap</span> to see how your resume matches.
         </div>
-      )}
+      ) : null}
 
       {/* JD (collapsible) */}
       <div className="bg-card border border-border rounded-xl">
@@ -120,7 +156,7 @@ export default function GapStep({ studio }: { studio: StudioController }) {
             />
             <div className="flex justify-end mt-2">
               <button
-                onClick={() => reanalyzeGap()}
+                onClick={runAnalyze}
                 disabled={gapLoading || jd.trim().length < 20}
                 title={jd.trim().length < 20 ? "Paste a job description (20+ chars) to analyze" : undefined}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"

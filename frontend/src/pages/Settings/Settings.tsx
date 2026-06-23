@@ -4,7 +4,7 @@ import toast from "react-hot-toast";
 import { api, applicationsAPI, emailAPI, aiAPI, authAPI } from "../../utils/api.ts";
 import type { EmailStatusResponse, ScanJob } from "../../utils/api.ts";
 import { Link } from "react-router-dom";
-import { ArrowRight, Calendar, Check, ChevronDown, Mail, Search, Sparkles, X } from "lucide-react";
+import { ArrowRight, Calendar, Check, ChevronDown, ClipboardList, Lock, Mail, RefreshCw, Search, Sparkles, User as UserIcon, X } from "lucide-react";
 import type { User } from "../../types";
 import ActionDropdown from "../../components/ActionDropdown/ActionDropdown.tsx";
 import EmailScanFlowModal from "./EmailScanFlowModal.tsx";
@@ -37,13 +37,13 @@ const DEFAULT_EMAIL_STATUS: EmailStatusResponse = {
 };
 
 type SectionKey = "account" | "password" | "email" | "ai" | "profileSync" | "clipboard";
-const SECTIONS: { key: SectionKey; label: string }[] = [
-  { key: "account", label: "Account" },
-  { key: "password", label: "Password" },
-  { key: "email", label: "Email" },
-  { key: "ai", label: "AI Providers" },
-  { key: "profileSync", label: "Profile Sync" },
-  { key: "clipboard", label: "Clipboard" },
+const SECTIONS: { key: SectionKey; label: string; Icon: typeof Mail; accent?: boolean }[] = [
+  { key: "account", label: "Account", Icon: UserIcon },
+  { key: "password", label: "Password", Icon: Lock },
+  { key: "email", label: "Email", Icon: Mail },
+  { key: "ai", label: "AI & Models", Icon: Sparkles, accent: true },
+  { key: "profileSync", label: "Profile Sync", Icon: RefreshCw },
+  { key: "clipboard", label: "Clipboard", Icon: ClipboardList },
 ];
 
 /** Searchable index of every labeled field on this page. Aliases let the
@@ -567,7 +567,7 @@ export default function Settings() {
   }
 
   return (
-    <div className="settings-page max-w-4xl mx-auto">
+    <div className="settings-page max-w-5xl mx-auto">
       <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Settings</h1>
@@ -594,37 +594,51 @@ export default function Settings() {
         </div>
       </div>
 
-      {/* Sticky quick-nav. The whole page scrolls; these pills jump to a section
-       *  and the scroll-spy above highlights the active one. */}
-      <div className="sticky top-0 z-20 -mx-1 mb-5 bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70 border-b border-border/60">
-        <nav className="flex gap-1.5 px-1 py-2.5 overflow-x-auto" role="tablist" aria-label="Settings sections">
-          {SECTIONS.map((s) => {
-            const isHit = !!search.trim() && searchHits.matchedSections.has(s.key);
-            return (
-              <button
-                key={s.key}
-                type="button"
-                role="tab"
-                aria-selected={active === s.key}
-                onClick={() => scrollTo(s.key)}
-                className={`relative shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors whitespace-nowrap border ${
-                  active === s.key
-                    ? "bg-primary/10 border-primary/40 text-primary"
-                    : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/60"
-                }`}
-              >
-                <MatchLabel query={search}>{s.label}</MatchLabel>
-                {isHit && active !== s.key && (
-                  <span className="ml-1 inline-block w-1.5 h-1.5 rounded-full bg-yellow-400" aria-hidden />
-                )}
-              </button>
-            );
-          })}
-        </nav>
-      </div>
+      {/* Two-pane: a sticky category rail (left) + scrollable content (right).
+       *  The rail jumps to a section; the scroll-spy highlights the active one.
+       *  On mobile the rail collapses to a horizontal scroll strip above. */}
+      <div className="grid grid-cols-1 lg:grid-cols-[15rem_minmax(0,1fr)] gap-6 items-start">
+        <aside className="lg:sticky lg:top-4 z-20 -mx-1 lg:mx-0">
+          <nav
+            className="flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible px-1 pb-2 lg:pb-0 bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70 lg:bg-transparent"
+            role="tablist"
+            aria-label="Settings sections"
+          >
+            {SECTIONS.map((s) => {
+              const isActive = active === s.key;
+              const isHit = !!search.trim() && searchHits.matchedSections.has(s.key);
+              const Icon = s.Icon;
+              return (
+                <button
+                  key={s.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  onClick={() => scrollTo(s.key)}
+                  className={`group relative shrink-0 lg:w-full inline-flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-left whitespace-nowrap border transition-colors ${
+                    isActive
+                      ? s.accent
+                        ? "border-primary/40 bg-gradient-to-r from-violet-500/15 to-primary/10 text-primary"
+                        : "border-primary/40 bg-primary/10 text-primary"
+                      : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                  }`}
+                >
+                  <Icon size={16} strokeWidth={1.9} className={s.accent ? "text-primary shrink-0" : "shrink-0"} />
+                  <MatchLabel query={search}>{s.label}</MatchLabel>
+                  {s.accent && (
+                    <span className="ml-auto hidden lg:inline text-[9px] font-bold uppercase tracking-wide text-primary/90 bg-primary/10 px-1.5 py-0.5 rounded">AI</span>
+                  )}
+                  {isHit && !isActive && (
+                    <span className="ml-1 inline-block w-1.5 h-1.5 rounded-full bg-yellow-400" aria-hidden />
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+        </aside>
 
-      {/* Each section is its own card; the page itself scrolls. */}
-      <div className="space-y-5">
+        {/* Right content pane */}
+        <div className="space-y-5 min-w-0">
         {/* Account summary */}
         <div className="bg-card border border-border rounded-xl p-5 sm:p-7 flex items-center gap-4">
           <div className="w-12 h-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-base font-semibold shadow-sm shrink-0">
@@ -878,28 +892,34 @@ export default function Settings() {
               data-section="ai"
               className={`bg-card border border-border rounded-xl p-5 sm:p-7 scroll-mt-24 transition-opacity ${search && !searchHits.matchedSections.has("ai") ? "opacity-40" : ""}`}
             >
-              <h2 className="text-base font-semibold text-foreground mb-1"><MatchLabel query={search}>AI Providers</MatchLabel></h2>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="inline-flex w-7 h-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-primary text-white shadow-sm">
+                  <Sparkles size={15} strokeWidth={2} />
+                </span>
+                <h2 className="text-base font-semibold text-foreground"><MatchLabel query={search}>AI &amp; Models</MatchLabel></h2>
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-primary bg-primary/10 px-1.5 py-0.5 rounded">BYOK</span>
+              </div>
               <p className="text-xs text-muted-foreground mb-4">
-                Bring your own keys to use specific models for resume parsing, classification, and tailoring. Without keys, HireTrail falls back to the default provider.
+                Bring your own key for any of 40+ providers (OpenAI, Anthropic, Google, Amazon Bedrock, Mistral, Groq…) and pick any model. Without a key, HireTrail uses the shared default provider.
               </p>
               <Link
                 to="/settings/ai"
-                className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background p-4 hover:border-primary/50 hover:shadow-sm transition-all max-w-xl"
+                className="group flex items-center justify-between gap-3 rounded-xl border border-primary/30 bg-gradient-to-r from-violet-500/10 to-primary/5 p-4 hover:shadow-sm hover:border-primary/50 transition-all max-w-xl"
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  <span className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                  <span className="w-10 h-10 rounded-lg bg-primary/15 flex items-center justify-center shrink-0">
                     <Sparkles size={18} strokeWidth={1.7} className="text-primary" />
                   </span>
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-foreground">Manage AI providers</p>
+                    <p className="text-sm font-semibold text-foreground">Manage AI &amp; Models</p>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {aiProviderCount > 0
-                        ? `${aiProviderCount} active provider${aiProviderCount === 1 ? "" : "s"} · keys, usage & status`
-                        : "Add a key (a free Gemini key takes ~30s) · keys, usage & status"}
+                        ? `${aiProviderCount} active provider${aiProviderCount === 1 ? "" : "s"} · keys, models, usage & status`
+                        : "Add a key (a free Gemini key takes ~30s) · all providers & models"}
                     </p>
                   </div>
                 </div>
-                <ArrowRight size={16} strokeWidth={2} className="text-muted-foreground shrink-0" />
+                <ArrowRight size={16} strokeWidth={2} className="text-primary shrink-0 group-hover:translate-x-0.5 transition-transform" />
               </Link>
             </section>
 
@@ -1100,6 +1120,7 @@ export default function Settings() {
           <p className="text-xs text-muted-foreground leading-relaxed">
             HireTrail v4.0 · Your data is encrypted at rest. Keys are AES-GCM. Sessions are HttpOnly cookies.
           </p>
+        </div>
         </div>
       </div>
 

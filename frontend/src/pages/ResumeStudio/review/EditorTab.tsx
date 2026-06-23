@@ -2,9 +2,13 @@
  * Editor tab — direct editing over the shared ResumeDocument. Every keystroke
  * mutates the same state the live preview renders, so edits show instantly.
  *
- *   • section: rename, show/hide, reorder (↑/↓), add, delete (ConfirmModal)
- *   • entry:   edit org/title/location/dates/current/extra; add; delete
- *   • bullet:  edit text; add; delete; reorder by drag
+ * Mirrors the backend document shape (services/resume/types.ts): per-type
+ * `extra` is a structured OBJECT, and summary/skills carry NO bullets —
+ *   • summary  → one entry, prose in `extra.text` (a textarea)
+ *   • skills   → one entry per group: `title` = category, `extra.items[]`
+ *   • projects → bullets + `extra.{technologies[], description, url}`
+ *   • education→ bullets (highlights) + `extra.gpa`
+ *   • custom   → bullets + `extra.url`
  */
 import { useState } from "react";
 import {
@@ -12,12 +16,13 @@ import {
 } from "lucide-react";
 import ActionDropdown from "../../../components/ActionDropdown/ActionDropdown.tsx";
 import ConfirmModal from "../../../components/ConfirmModal/ConfirmModal.tsx";
-import { newId, type ResumeSection, type ResumeEntry, type ResumeSectionType } from "../../../utils/resumeDocument.ts";
+import {
+  newId,
+  type ResumeSection, type ResumeEntry, type ResumeEntryExtra, type ResumeSectionType,
+} from "../../../utils/resumeDocument.ts";
 import type { StudioController } from "../useStudioDocument.ts";
 
 const fieldCls = "w-full px-2.5 py-1.5 text-sm bg-background border border-border rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring";
-const ENTRY_TYPES: ResumeSectionType[] = ["experience", "education", "projects", "custom"];
-const HAS_ENTRIES = (t: ResumeSectionType) => t === "experience" || t === "education" || t === "projects" || t === "custom";
 
 const ADD_SECTION_TYPES: { type: ResumeSectionType; label: string }[] = [
   { type: "experience", label: "Experience" },
@@ -28,6 +33,20 @@ const ADD_SECTION_TYPES: { type: ResumeSectionType; label: string }[] = [
   { type: "custom", label: "Custom section" },
 ];
 
+/* Splits a comma-separated input into trimmed items WITHOUT dropping a trailing
+ * empty mid-typing (so the user can type "a, " and keep the comma). Empties are
+ * filtered downstream at render/score time. */
+const splitCsv = (v: string): string[] => v.split(",").map((s) => s.trim());
+
+const blankEntry = (order: number): ResumeEntry => ({
+  id: newId("e"), org: "", title: "", location: "", startDate: "", endDate: "",
+  current: false, order, bullets: [{ id: newId("b"), text: "", order: 0 }],
+});
+const blankEntryNoBullets = (order: number): ResumeEntry => ({
+  id: newId("e"), org: "", title: "", location: "", startDate: "", endDate: "",
+  current: false, order, bullets: [],
+});
+
 export default function EditorTab({ studio }: { studio: StudioController }) {
   const { doc, applyEdit } = studio;
   const [pendingDelete, setPendingDelete] = useState<{ sid: string; title: string } | null>(null);
@@ -36,7 +55,7 @@ export default function EditorTab({ studio }: { studio: StudioController }) {
   if (!doc) return null;
   const sections = doc.sections.slice().sort((a, b) => a.order - b.order);
 
-  /* ---- mutators ---- */
+  /* ---- section mutators ---- */
   const setSectionTitle = (sid: string, title: string) =>
     applyEdit((d) => { const s = d.sections.find((x) => x.id === sid); if (s) s.title = title; });
   const toggleHidden = (sid: string) =>
@@ -52,27 +71,45 @@ export default function EditorTab({ studio }: { studio: StudioController }) {
     applyEdit((d) => { d.sections = d.sections.filter((x) => x.id !== sid); });
   const addSection = (type: ResumeSectionType, label: string) =>
     applyEdit((d) => {
-      d.sections.push({
-        id: newId("sec"), type, title: label, order: d.sections.length,
-        entries: HAS_ENTRIES(type)
-          ? [{ id: newId("e"), org: "", title: "", location: "", startDate: "", endDate: "", current: false, order: 0, bullets: [{ id: newId("b"), text: "", order: 0 }] }]
-          : [{ id: newId("e"), org: "", title: "", location: "", startDate: "", endDate: "", current: false, order: 0, bullets: [{ id: newId("b"), text: "", order: 0 }] }],
-      });
+      const order = d.sections.length;
+      const entries: ResumeEntry[] =
+        type === "summary" ? [{ ...blankEntryNoBullets(0), extra: { text: "" } }]
+        : type === "skills" ? [{ ...blankEntryNoBullets(0), title: "Skills", extra: { items: [] } }]
+        : [blankEntry(0)];
+      d.sections.push({ id: newId("sec"), type, title: label, order, entries });
     });
 
+  /* ---- entry mutators ---- */
   const setEntryField = (sid: string, eid: string, field: keyof ResumeEntry, value: string | boolean) =>
     applyEdit((d) => {
       const e = d.sections.find((x) => x.id === sid)?.entries.find((y) => y.id === eid);
       if (e) (e as unknown as Record<string, unknown>)[field] = value;
     });
+  const setEntryExtra = (sid: string, eid: string, patch: Partial<ResumeEntryExtra>) =>
+    applyEdit((d) => {
+      const e = d.sections.find((x) => x.id === sid)?.entries.find((y) => y.id === eid);
+      if (e) e.extra = { ...(e.extra ?? {}), ...patch };
+    });
   const addEntry = (sid: string) =>
     applyEdit((d) => {
       const s = d.sections.find((x) => x.id === sid);
-      if (s) s.entries.push({ id: newId("e"), org: "", title: "", location: "", startDate: "", endDate: "", current: false, order: s.entries.length, bullets: [{ id: newId("b"), text: "", order: 0 }] });
+      if (!s) return;
+      const order = s.entries.length;
+      s.entries.push(s.type === "skills" ? { ...blankEntryNoBullets(order), extra: { items: [] } } : blankEntry(order));
     });
   const deleteEntry = (sid: string, eid: string) =>
     applyEdit((d) => { const s = d.sections.find((x) => x.id === sid); if (s) s.entries = s.entries.filter((y) => y.id !== eid); });
 
+  /* ---- summary (prose lives in the single entry's extra.text) ---- */
+  const setSummaryText = (sid: string, text: string) =>
+    applyEdit((d) => {
+      const s = d.sections.find((x) => x.id === sid);
+      if (!s) return;
+      if (!s.entries.length) s.entries.push({ ...blankEntryNoBullets(0), extra: { text } });
+      else s.entries[0].extra = { ...(s.entries[0].extra ?? {}), text };
+    });
+
+  /* ---- bullets ---- */
   const setBulletText = (sid: string, eid: string, bid: string, text: string) =>
     applyEdit((d) => {
       const e = d.sections.find((x) => x.id === sid)?.entries.find((y) => y.id === eid);
@@ -112,6 +149,8 @@ export default function EditorTab({ studio }: { studio: StudioController }) {
           onAddEntry={() => addEntry(section.id)}
           onDeleteEntry={(eid) => deleteEntry(section.id, eid)}
           onEntryField={(eid, f, v) => setEntryField(section.id, eid, f, v)}
+          onEntryExtra={(eid, patch) => setEntryExtra(section.id, eid, patch)}
+          onSummaryText={(t) => setSummaryText(section.id, t)}
           onBulletText={(eid, bid, t) => setBulletText(section.id, eid, bid, t)}
           onAddBullet={(eid) => addBullet(section.id, eid)}
           onDeleteBullet={(eid, bid) => deleteBullet(section.id, eid, bid)}
@@ -147,26 +186,24 @@ export default function EditorTab({ studio }: { studio: StudioController }) {
 
 /* ---------- section card ---------- */
 
-function SectionCard({
-  section, isFirst, isLast,
-  onTitle, onToggleHidden, onMove, onDelete,
-  onAddEntry, onDeleteEntry, onEntryField,
-  onBulletText, onAddBullet, onDeleteBullet,
-  drag, setDrag, onReorderBullet,
-}: {
+interface SectionCardProps {
   section: ResumeSection; isFirst: boolean; isLast: boolean;
   onTitle: (t: string) => void; onToggleHidden: () => void; onMove: (dir: -1 | 1) => void; onDelete: () => void;
   onAddEntry: () => void; onDeleteEntry: (eid: string) => void;
   onEntryField: (eid: string, f: keyof ResumeEntry, v: string | boolean) => void;
+  onEntryExtra: (eid: string, patch: Partial<ResumeEntryExtra>) => void;
+  onSummaryText: (t: string) => void;
   onBulletText: (eid: string, bid: string, t: string) => void;
   onAddBullet: (eid: string) => void; onDeleteBullet: (eid: string, bid: string) => void;
   drag: { sid: string; eid: string; index: number } | null;
   setDrag: (d: { sid: string; eid: string; index: number } | null) => void;
   onReorderBullet: (eid: string, from: number, to: number) => void;
-}) {
+}
+
+function SectionCard(props: SectionCardProps) {
+  const { section, isFirst, isLast, onTitle, onToggleHidden, onMove, onDelete } = props;
   const [open, setOpen] = useState(true);
   const entries = section.entries.slice().sort((a, b) => a.order - b.order);
-  const showEntryFields = section.type !== "summary" && section.type !== "skills";
 
   return (
     <div className={`bg-card border border-border rounded-xl ${section.hidden ? "opacity-60" : ""}`}>
@@ -193,82 +230,167 @@ function SectionCard({
 
       {open && (
         <div className="p-3 space-y-3">
-          {entries.map((entry) => (
-            <div key={entry.id} className="rounded-lg border border-border/70 bg-background/40 p-3">
-              {showEntryFields && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
-                  <input className={fieldCls} placeholder={section.type === "education" ? "Degree" : "Title / Role"} value={entry.title} onChange={(e) => onEntryField(entry.id, "title", e.target.value)} />
-                  <input className={fieldCls} placeholder={section.type === "education" ? "Institution" : "Organization"} value={entry.org} onChange={(e) => onEntryField(entry.id, "org", e.target.value)} />
-                  <input className={fieldCls} placeholder="Location" value={entry.location} onChange={(e) => onEntryField(entry.id, "location", e.target.value)} />
-                  <div className="flex items-center gap-2">
-                    <input className={`${fieldCls} flex-1`} placeholder="Start (e.g. 2022-08)" value={entry.startDate} onChange={(e) => onEntryField(entry.id, "startDate", e.target.value)} />
-                    <input className={`${fieldCls} flex-1 disabled:opacity-50`} placeholder="End" value={entry.endDate} disabled={entry.current} onChange={(e) => onEntryField(entry.id, "endDate", e.target.value)} />
-                  </div>
-                  <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <input type="checkbox" checked={entry.current} onChange={(e) => onEntryField(entry.id, "current", e.target.checked)} className="h-3.5 w-3.5 rounded border-border text-primary focus:ring-ring" />
-                    Current
-                  </label>
-                  <input className={fieldCls} placeholder="Extra (GPA, tech stack…)" value={entry.extra ?? ""} onChange={(e) => onEntryField(entry.id, "extra", e.target.value)} />
-                </div>
-              )}
-
-              {/* bullets */}
-              <ul className="space-y-1.5">
-                {entry.bullets.map((b, bi) => (
-                  <li
-                    key={b.id}
-                    draggable
-                    onDragStart={() => setDrag({ sid: section.id, eid: entry.id, index: bi })}
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={() => {
-                      if (drag && drag.sid === section.id && drag.eid === entry.id) onReorderBullet(entry.id, drag.index, bi);
-                      setDrag(null);
-                    }}
-                    onDragEnd={() => setDrag(null)}
-                    className={`flex items-start gap-1.5 group ${drag && drag.eid === entry.id && drag.index === bi ? "opacity-40" : ""}`}
-                  >
-                    <span className="mt-2 text-muted-foreground/50 cursor-grab active:cursor-grabbing shrink-0" title="Drag to reorder">
-                      <GripVertical size={13} strokeWidth={1.8} />
-                    </span>
-                    <textarea
-                      value={b.text}
-                      onChange={(e) => onBulletText(entry.id, b.id, e.target.value)}
-                      rows={1}
-                      placeholder={section.type === "skills" ? "e.g. Languages: TypeScript, Python" : "Describe an accomplishment…"}
-                      className="flex-1 px-2.5 py-1.5 text-sm bg-background border border-border rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring resize-y leading-relaxed"
-                    />
-                    <button
-                      onClick={() => onDeleteBullet(entry.id, b.id)}
-                      className="mt-1 w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-red-500 hover:bg-red-500/10 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                      title="Delete bullet"
-                    >
-                      <Trash2 size={13} strokeWidth={1.8} />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-
-              <div className="flex items-center justify-between mt-2">
-                <button onClick={() => onAddBullet(entry.id)} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
-                  <Plus size={12} strokeWidth={2.5} /> Add bullet
-                </button>
-                {showEntryFields && (
-                  <button onClick={() => onDeleteEntry(entry.id)} className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-red-500">
-                    <Trash2 size={12} strokeWidth={1.8} /> Remove entry
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-
-          {showEntryFields && (
-            <button onClick={onAddEntry} className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium border border-dashed border-border rounded-lg text-muted-foreground hover:border-primary/50 hover:text-primary transition-colors">
-              <Plus size={13} strokeWidth={2} /> Add entry
-            </button>
+          {section.type === "summary" ? (
+            <SummaryEditor entry={entries[0]} onText={props.onSummaryText} />
+          ) : section.type === "skills" ? (
+            <SkillsEditor entries={entries} {...props} />
+          ) : (
+            <EntriesEditor entries={entries} {...props} />
           )}
         </div>
       )}
     </div>
+  );
+}
+
+/* ---------- summary ---------- */
+
+function SummaryEditor({ entry, onText }: { entry: ResumeEntry | undefined; onText: (t: string) => void }) {
+  return (
+    <textarea
+      value={entry?.extra?.text ?? ""}
+      onChange={(e) => onText(e.target.value)}
+      rows={5}
+      placeholder="A 2–3 sentence professional summary tailored to the target role…"
+      className="w-full px-2.5 py-1.5 text-sm bg-background border border-border rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring resize-y leading-relaxed"
+    />
+  );
+}
+
+/* ---------- skills (one entry per group: category + items) ---------- */
+
+function SkillsEditor({
+  entries, onEntryField, onEntryExtra, onAddEntry, onDeleteEntry,
+}: SectionCardProps & { entries: ResumeEntry[] }) {
+  return (
+    <div className="space-y-2">
+      {entries.map((group) => (
+        <div key={group.id} className="rounded-lg border border-border/70 bg-background/40 p-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <input
+              className={`${fieldCls} sm:max-w-[40%]`}
+              placeholder="Category (e.g. Languages)"
+              value={group.title}
+              onChange={(e) => onEntryField(group.id, "title", e.target.value)}
+            />
+            <button
+              onClick={() => onDeleteEntry(group.id)}
+              className="ml-auto w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-red-500 hover:bg-red-500/10 shrink-0"
+              title="Remove group"
+            >
+              <Trash2 size={13} strokeWidth={1.8} />
+            </button>
+          </div>
+          <textarea
+            className="w-full px-2.5 py-1.5 text-sm bg-background border border-border rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring resize-y leading-relaxed"
+            placeholder="Comma-separated skills (e.g. TypeScript, Python, Go)"
+            rows={2}
+            value={(group.extra?.items ?? []).join(", ")}
+            onChange={(e) => onEntryExtra(group.id, { items: splitCsv(e.target.value) })}
+          />
+        </div>
+      ))}
+      <button onClick={onAddEntry} className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium border border-dashed border-border rounded-lg text-muted-foreground hover:border-primary/50 hover:text-primary transition-colors">
+        <Plus size={13} strokeWidth={2} /> Add skill group
+      </button>
+    </div>
+  );
+}
+
+/* ---------- experience / projects / education / custom ---------- */
+
+function EntriesEditor({
+  section, entries, onEntryField, onEntryExtra, onAddEntry, onDeleteEntry,
+  onBulletText, onAddBullet, onDeleteBullet, drag, setDrag, onReorderBullet,
+}: SectionCardProps & { entries: ResumeEntry[] }) {
+  const isEducation = section.type === "education";
+  const isProjects = section.type === "projects";
+  const isCustom = section.type === "custom";
+
+  return (
+    <>
+      {entries.map((entry) => (
+        <div key={entry.id} className="rounded-lg border border-border/70 bg-background/40 p-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
+            <input className={fieldCls} placeholder={isEducation ? "Degree" : "Title / Role"} value={entry.title} onChange={(e) => onEntryField(entry.id, "title", e.target.value)} />
+            <input className={fieldCls} placeholder={isEducation ? "Institution" : isProjects ? "Project / Org (optional)" : "Organization"} value={entry.org} onChange={(e) => onEntryField(entry.id, "org", e.target.value)} />
+            <input className={fieldCls} placeholder="Location" value={entry.location} onChange={(e) => onEntryField(entry.id, "location", e.target.value)} />
+            <div className="flex items-center gap-2">
+              <input className={`${fieldCls} flex-1`} placeholder="Start (e.g. 2022-08)" value={entry.startDate} onChange={(e) => onEntryField(entry.id, "startDate", e.target.value)} />
+              <input className={`${fieldCls} flex-1 disabled:opacity-50`} placeholder="End" value={entry.endDate} disabled={entry.current} onChange={(e) => onEntryField(entry.id, "endDate", e.target.value)} />
+            </div>
+            <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+              <input type="checkbox" checked={entry.current} onChange={(e) => onEntryField(entry.id, "current", e.target.checked)} className="h-3.5 w-3.5 rounded border-border text-primary focus:ring-ring" />
+              Current
+            </label>
+
+            {/* Type-specific structured extras */}
+            {isEducation && (
+              <input className={fieldCls} placeholder="GPA (optional)" value={entry.extra?.gpa ?? ""} onChange={(e) => onEntryExtra(entry.id, { gpa: e.target.value })} />
+            )}
+            {isProjects && (
+              <>
+                <input className={fieldCls} placeholder="Technologies (comma-separated)" value={(entry.extra?.technologies ?? []).join(", ")} onChange={(e) => onEntryExtra(entry.id, { technologies: splitCsv(e.target.value) })} />
+                <input className={fieldCls} placeholder="Link (optional)" value={entry.extra?.url ?? ""} onChange={(e) => onEntryExtra(entry.id, { url: e.target.value })} />
+                <input className={`${fieldCls} sm:col-span-2`} placeholder="One-line description (optional)" value={entry.extra?.description ?? ""} onChange={(e) => onEntryExtra(entry.id, { description: e.target.value })} />
+              </>
+            )}
+            {isCustom && (
+              <input className={fieldCls} placeholder="Link (optional)" value={entry.extra?.url ?? ""} onChange={(e) => onEntryExtra(entry.id, { url: e.target.value })} />
+            )}
+          </div>
+
+          {/* bullets */}
+          <ul className="space-y-1.5">
+            {entry.bullets.map((b, bi) => (
+              <li
+                key={b.id}
+                draggable
+                onDragStart={() => setDrag({ sid: section.id, eid: entry.id, index: bi })}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={() => {
+                  if (drag && drag.sid === section.id && drag.eid === entry.id) onReorderBullet(entry.id, drag.index, bi);
+                  setDrag(null);
+                }}
+                onDragEnd={() => setDrag(null)}
+                className={`flex items-start gap-1.5 group ${drag && drag.eid === entry.id && drag.index === bi ? "opacity-40" : ""}`}
+              >
+                <span className="mt-2 text-muted-foreground/50 cursor-grab active:cursor-grabbing shrink-0" title="Drag to reorder">
+                  <GripVertical size={13} strokeWidth={1.8} />
+                </span>
+                <textarea
+                  value={b.text}
+                  onChange={(e) => onBulletText(entry.id, b.id, e.target.value)}
+                  rows={1}
+                  placeholder="Describe an accomplishment…"
+                  className="flex-1 px-2.5 py-1.5 text-sm bg-background border border-border rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring resize-y leading-relaxed"
+                />
+                <button
+                  onClick={() => onDeleteBullet(entry.id, b.id)}
+                  className="mt-1 w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-red-500 hover:bg-red-500/10 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                  title="Delete bullet"
+                >
+                  <Trash2 size={13} strokeWidth={1.8} />
+                </button>
+              </li>
+            ))}
+          </ul>
+
+          <div className="flex items-center justify-between mt-2">
+            <button onClick={() => onAddBullet(entry.id)} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+              <Plus size={12} strokeWidth={2.5} /> Add bullet
+            </button>
+            <button onClick={() => onDeleteEntry(entry.id)} className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-red-500">
+              <Trash2 size={12} strokeWidth={1.8} /> Remove entry
+            </button>
+          </div>
+        </div>
+      ))}
+
+      <button onClick={onAddEntry} className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium border border-dashed border-border rounded-lg text-muted-foreground hover:border-primary/50 hover:text-primary transition-colors">
+        <Plus size={13} strokeWidth={2} /> Add entry
+      </button>
+    </>
   );
 }
 

@@ -13,7 +13,7 @@ import {
   ChevronDown, Download, Plus, Upload, X
 } from "lucide-react";
 import toast from "react-hot-toast";
-import { applicationsAPI, resumesAPI, contactsAPI, deadlinesAPI, companiesAPI, masterProfileAPI } from "../../utils/api.ts";
+import { applicationsAPI, resumesAPI, contactsAPI, deadlinesAPI, companiesAPI, masterProfileAPI, tailorAPI } from "../../utils/api.ts";
 import { useRefetchOnFocus } from "../../hooks/useRefetchOnFocus.ts";
 import { useApplicationsListState } from "../../hooks/useApplicationsListState.ts";
 import { exportToCSV } from "../../utils/csv.ts";
@@ -35,6 +35,7 @@ import CompanyGroupHeader from "./components/CompanyGroupHeader.tsx";
 import EmptyState from "./components/EmptyState.tsx";
 import ApplicationDetailSidebar from "./ApplicationDetailSidebar.tsx";
 import AiAnalysisSidebar from "./AiAnalysisSidebar.tsx";
+import ApplicationTailorDrawer from "./ApplicationTailorDrawer.tsx";
 import type {
   Application, Resume, Contact, Deadline, Stage,
   ApplicationFormData, Pagination, Company,
@@ -201,6 +202,9 @@ export default function Applications() {
   const [sidebarApp, setSidebarApp] = useState<Application | null>(null);
   const [sidebarResume, setSidebarResume] = useState<Resume | null>(null);
   const [aiSidebarSessionId, setAiSidebarSessionId] = useState<string | null>(null);
+  // The broad tailoring drawer (Jobright-style) over an application — the single
+  // app-driven entry into the Resume Studio flow.
+  const [tailorAppId, setTailorAppId] = useState<string | null>(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [focusedIndex, setFocusedIndex] = useState(0);
@@ -307,6 +311,38 @@ export default function Applications() {
       next.delete("new");
       setSearchParams(next, { replace: true });
     }
+  }, [searchParams, setSearchParams]);
+
+  /* ─── Tailor deep-link: ?tailor=<appId> opens the broad tailoring drawer over
+   *  that application (the extension's "Tailor with AI" and Drafting-stage chips
+   *  land here). Stripped after open so a reload doesn't reopen it. */
+  const handledTailorRef = useRef(false);
+  useEffect(() => {
+    const appId = searchParams.get("tailor");
+    if (!appId) { handledTailorRef.current = false; return; }
+    if (handledTailorRef.current) return;
+    handledTailorRef.current = true;
+    setTailorAppId(appId);
+    const next = new URLSearchParams(searchParams);
+    next.delete("tailor");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  /* ─── Tailor-by-session deep-link: ?tailorSession=<id> resolves the owning
+   *  application (links that only carry a session id — Drafting chips, the
+   *  extension's apply banner) and opens the drawer over it. */
+  const handledTailorSessionRef = useRef(false);
+  useEffect(() => {
+    const sid = searchParams.get("tailorSession");
+    if (!sid) { handledTailorSessionRef.current = false; return; }
+    if (handledTailorSessionRef.current) return;
+    handledTailorSessionRef.current = true;
+    const next = new URLSearchParams(searchParams);
+    next.delete("tailorSession");
+    setSearchParams(next, { replace: true });
+    tailorAPI.get(sid)
+      .then((s) => { if (s?.applicationId) setTailorAppId(s.applicationId); })
+      .catch(() => { /* stale link — silently ignore */ });
   }, [searchParams, setSearchParams]);
 
   /* ─── Funnel deep-link: ?stage=Interview pre-selects the stage filter chip
@@ -784,7 +820,14 @@ export default function Applications() {
         <ResumePreview fileUrl={sidebarResume.fileUrl} name={sidebarResume.name} fileName={sidebarResume.fileName} onClose={() => setSidebarResume(null)} />
       )}
       {aiSidebarSessionId && (
-        <AiAnalysisSidebar sessionId={aiSidebarSessionId} onClose={() => setAiSidebarSessionId(null)} />
+        <AiAnalysisSidebar
+          sessionId={aiSidebarSessionId}
+          onClose={() => setAiSidebarSessionId(null)}
+          onTailor={(appId) => { setAiSidebarSessionId(null); setTailorAppId(appId); }}
+        />
+      )}
+      {tailorAppId && (
+        <ApplicationTailorDrawer applicationId={tailorAppId} onClose={() => setTailorAppId(null)} />
       )}
 
       {modal && (

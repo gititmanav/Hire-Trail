@@ -19,6 +19,12 @@ export interface ITailorSuggestion {
   decision: "accepted" | "rejected" | null;
 }
 
+export interface ITailorSectionFlag {
+  section: "summary" | "experience" | "projects" | "skills" | "education";
+  severity: "good" | "warn" | "gap";
+  note: string;
+}
+
 export type TailorStatus = "processing" | "succeeded" | "failed" | "deferred";
 
 export interface ITailorSession extends Document {
@@ -39,8 +45,14 @@ export interface ITailorSession extends Document {
   /** Empty string while status === "processing"; A–F after the worker fills it in. */
   fitGrade: "A" | "B" | "C" | "D" | "F" | "";
   summary: string;
+  /** Cleaned, candidate-independent JD requirement keywords (noise-stripped).
+   *  The deterministic coverage/score is computed against this set. Empty on
+   *  pre-existing sessions (back-compat) → callers fall back to extractJdKeywords. */
+  jdKeywords: string[];
   matchedSkills: string[];
   missingSkills: string[];
+  /** Per-section qualitative read for the "See the gap" step. */
+  sectionFlags: ITailorSectionFlag[];
   suggestions: ITailorSuggestion[];
   provider: string;
   modelId: string;
@@ -74,8 +86,17 @@ const tailorSessionSchema = new Schema<ITailorSession>(
     fitScore: { type: Number, default: 0 },
     fitGrade: { type: String, enum: ["A", "B", "C", "D", "F", ""], default: "" },
     summary: { type: String, default: "" },
+    jdKeywords: { type: [String], default: [] },
     matchedSkills: { type: [String], default: [] },
     missingSkills: { type: [String], default: [] },
+    sectionFlags: {
+      type: [new Schema<ITailorSectionFlag>({
+        section: { type: String, enum: ["summary", "experience", "projects", "skills", "education"], required: true },
+        severity: { type: String, enum: ["good", "warn", "gap"], required: true },
+        note: { type: String, default: "" },
+      }, { _id: false })],
+      default: [],
+    },
     suggestions: { type: [suggestionSchema], default: [] },
     provider: { type: String, default: "" },
     modelId: { type: String, default: "" },

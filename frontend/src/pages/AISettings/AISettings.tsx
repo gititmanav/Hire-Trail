@@ -18,8 +18,25 @@ import ConfirmModal from "../../components/ConfirmModal/ConfirmModal.tsx";
 import AiPulse from "../../components/AiIndicator/AiPulse.tsx";
 import { Skeleton } from "../../components/Skeleton/Skeleton.tsx";
 import { aiAPI } from "../../utils/api.ts";
-import type { AIKey, AIProvider } from "../../utils/api.ts";
-import { aiInsightsAPI, PROVIDER_CATALOG, type AIStatus, type AIUsage } from "../../utils/studioApi.ts";
+import type { AIKey, AICatalogProvider, AIModel } from "../../utils/api.ts";
+import { aiInsightsAPI, type AIStatus, type AIUsage, type UsageOp } from "../../utils/studioApi.ts";
+
+/** Friendly labels for each metered operation. */
+const OP_LABELS: Record<string, string> = {
+  resume_parse: "Resume parsing",
+  profile_merge: "Profile merge",
+  jd_analysis: "Fit analysis",
+  field_extract: "Field extraction",
+  jd_clean: "JD cleanup",
+  thread_classify: "Email classification",
+  resume_rewrite: "Resume rewrite",
+  other: "Other",
+};
+
+/** Human label for a provider id (catalog → title-cased fallback for unknowns). */
+function labelFor(catalog: AICatalogProvider[], id: string): string {
+  return catalog.find((p) => p.id === id)?.label ?? id.replace(/[-_]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
 import { useAIKeyStatus } from "../../hooks/useAIKeyStatus.tsx";
 import AddKeyForm from "./AddKeyForm.tsx";
 
@@ -99,18 +116,51 @@ function UsageCard({ usage, loading }: { usage: AIUsage | null; loading: boolean
       ) : !usage ? (
         <p className="text-sm text-muted-foreground">Usage unavailable.</p>
       ) : usage.mode === "byok" ? (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-2xl">
-          <Stat label="Input tokens" value={fmtNum(usage.tokens?.input ?? 0)} />
-          <Stat label="Output tokens" value={fmtNum(usage.tokens?.output ?? 0)} />
-          <Stat label="Est. cost" value={`$${(usage.estimatedCostUsd ?? 0).toFixed(2)}`} accent />
-          <p className="sm:col-span-3 text-[11px] text-muted-foreground">
-            {fmtNum(usage.tokens?.total ?? 0)} total tokens {usage.period ? `· ${usage.period}` : ""}. Estimated — your provider's dashboard is the source of truth.
-          </p>
-        </div>
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-2xl">
+            <Stat label="Input tokens" value={fmtNum(usage.tokens?.input ?? 0)} />
+            <Stat label="Output tokens" value={fmtNum(usage.tokens?.output ?? 0)} />
+            <Stat label="Est. cost" value={`$${(usage.estimatedCostUsd ?? 0).toFixed(2)}`} accent />
+            <p className="sm:col-span-3 text-[11px] text-muted-foreground">
+              {fmtNum(usage.tokens?.total ?? 0)} total tokens {usage.period ? `· ${usage.period}` : ""}. Estimated — your provider's dashboard is the source of truth.
+            </p>
+          </div>
+          <UsageBreakdown byOp={usage.byOp} />
+        </>
       ) : (
-        <DefaultMeter usage={usage} />
+        <>
+          <DefaultMeter usage={usage} />
+          <UsageBreakdown byOp={usage.byOp} />
+        </>
       )}
     </section>
+  );
+}
+
+/** Per-operation token breakdown so the user sees exactly what consumed usage
+ *  (parsing, fit analysis, rewrites, …) — updates as new LLM calls are metered. */
+function UsageBreakdown({ byOp }: { byOp?: UsageOp[] }) {
+  if (!byOp || byOp.length === 0) return null;
+  const max = Math.max(...byOp.map((o) => o.tokens), 1);
+  return (
+    <div className="mt-5 max-w-2xl">
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">By operation · this month</p>
+      <ul className="space-y-2.5">
+        {byOp.map((o) => (
+          <li key={o.opType}>
+            <div className="flex items-center justify-between text-xs mb-1">
+              <span className="text-foreground font-medium">{OP_LABELS[o.opType] ?? o.opType}</span>
+              <span className="text-muted-foreground tabular-nums">
+                {fmtNum(o.tokens)} tok · {o.calls} call{o.calls === 1 ? "" : "s"}{o.estCostUsd > 0 ? ` · $${o.estCostUsd.toFixed(4)}` : ""}
+              </span>
+            </div>
+            <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+              <div className="h-full rounded-full bg-primary/60" style={{ width: `${Math.round((o.tokens / max) * 100)}%` }} />
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -132,7 +182,7 @@ function DefaultMeter({ usage }: { usage: AIUsage }) {
   return (
     <div className="max-w-md">
       <div className="flex items-baseline justify-between mb-1.5">
-        <span className="text-sm font-medium text-foreground tabular-nums">{used} / {limit} requests</span>
+        <span className="text-sm font-medium text-foreground tabular-nums">{fmtNum(used)} / {fmtNum(limit)} tokens</span>
         <span className="text-xs text-muted-foreground tabular-nums">{pct}%</span>
       </div>
       <div className="h-2.5 w-full rounded-full bg-muted overflow-hidden">
@@ -149,18 +199,17 @@ function DefaultMeter({ usage }: { usage: AIUsage }) {
 /* ---------- Key row ---------- */
 
 function KeyRow({
-  k, busy, onActivate, onDeactivate, onDelete,
+  k, label, busy, onActivate, onDeactivate, onDelete,
 }: {
-  k: AIKey; busy: boolean;
+  k: AIKey; label: string; busy: boolean;
   onActivate: () => void; onDeactivate: () => void; onDelete: () => void;
 }) {
-  const meta = PROVIDER_CATALOG[k.provider];
   return (
     <div className="flex items-center justify-between gap-3 px-3 py-2.5 border border-border rounded-lg">
       <div className="min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <span className={`w-2 h-2 rounded-full shrink-0 ${k.isActive ? "bg-emerald-500" : "bg-muted-foreground/40"}`} />
-          <span className="text-sm font-medium text-foreground">{meta.label}</span>
+          <span className="text-sm font-medium text-foreground">{label}</span>
           {k.name && <span className="text-xs text-muted-foreground">· {k.name}</span>}
           {k.isActive && <span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300 bg-emerald-500/15 px-1.5 py-0.5 rounded">Active</span>}
         </div>
@@ -190,8 +239,9 @@ function KeyRow({
 
 export default function AISettings() {
   const { keys, hasActiveKey, refresh } = useAIKeyStatus();
-  const [providersAvailable, setProvidersAvailable] = useState<AIProvider[]>([]);
-  const [defaults, setDefaults] = useState<Record<AIProvider, { fast: string; smart: string }> | null>(null);
+  const [catalog, setCatalog] = useState<AICatalogProvider[]>([]);
+  const [models, setModels] = useState<AIModel[]>([]);
+  const [gatewayConfigured, setGatewayConfigured] = useState(false);
   const [status, setStatus] = useState<(AIStatus & { mode: string }) | null>(null);
   const [usage, setUsage] = useState<AIUsage | null>(null);
   const [loading, setLoading] = useState(true);
@@ -199,16 +249,18 @@ export default function AISettings() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<AIKey | null>(null);
 
-  // Providers + defaults (real endpoint, already live).
+  // Full provider catalog + live model list (every gateway provider/model).
   useEffect(() => {
-    aiAPI.listProviders()
-      .then((res) => {
-        setProvidersAvailable(res.available.filter((a) => a.byok).map((a) => a.provider));
-        setDefaults(res.defaults);
+    Promise.all([aiAPI.getCatalog(), aiAPI.listModels().catch(() => ({ models: [], gatewayConfigured: false }))])
+      .then(([cat, mods]) => {
+        setCatalog(cat.providers);
+        setGatewayConfigured(cat.gatewayConfigured);
+        setModels(mods.models);
       })
-      .catch(() => { /* fall back to the client catalog in AddKeyForm */ })
+      .catch(() => { /* AddKeyForm shows an empty provider list if this fails */ })
       .finally(() => setLoading(false));
   }, []);
+  const labelOf = useCallback((id: string) => labelFor(catalog, id), [catalog]);
 
   // Status + usage depend on whether a key is active (the mock fallback needs it).
   const loadInsights = useCallback(async () => {
@@ -228,7 +280,14 @@ export default function AISettings() {
   }, [hasActiveKey]);
   useEffect(() => { void loadInsights(); }, [loadInsights]);
 
-  const defaultModel = useCallback((p: AIProvider) => defaults?.[p]?.smart, [defaults]);
+  // Live-refresh usage when the tab regains focus, so usage reflects AI work
+  // done elsewhere (parsing, fit analysis, rewrites) without a manual reload.
+  useEffect(() => {
+    const onFocus = () => { if (document.visibilityState !== "hidden") void loadInsights(); };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => { window.removeEventListener("focus", onFocus); document.removeEventListener("visibilitychange", onFocus); };
+  }, [loadInsights]);
 
   const activate = async (k: AIKey) => {
     setBusyId(k._id);
@@ -242,7 +301,7 @@ export default function AISettings() {
         await Promise.all(keys.filter((x) => x.isActive && x._id !== k._id).map((x) => aiAPI.updateKey(x._id, { isActive: false })));
         await aiAPI.updateKey(k._id, { isActive: true });
       }
-      toast.success(`${PROVIDER_CATALOG[k.provider].short} key activated`);
+      toast.success(`${labelOf(k.provider)} key activated`);
       await refresh();
     } catch {
       toast.error("Failed to activate key");
@@ -330,6 +389,7 @@ export default function AISettings() {
                 <KeyRow
                   key={k._id}
                   k={k}
+                  label={labelOf(k.provider)}
                   busy={busyId === k._id}
                   onActivate={() => activate(k)}
                   onDeactivate={() => deactivate(k)}
@@ -345,8 +405,9 @@ export default function AISettings() {
           <h2 className="text-base font-semibold text-foreground mb-1">Add a key</h2>
           <p className="text-xs text-muted-foreground mb-4">Pick a provider, paste the key — we validate it before saving.</p>
           <AddKeyForm
-            availableProviders={providersAvailable}
-            defaultModel={defaultModel}
+            catalog={catalog}
+            models={models}
+            gatewayConfigured={gatewayConfigured}
             onAdded={async () => { await refresh(); await loadInsights(); }}
           />
         </section>
@@ -355,7 +416,7 @@ export default function AISettings() {
       {pendingDelete && (
         <ConfirmModal
           title="Delete this API key?"
-          message={`Remove the ${PROVIDER_CATALOG[pendingDelete.provider].label} key${pendingDelete.name ? ` (${pendingDelete.name})` : ""}? This can't be undone.`}
+          message={`Remove the ${labelOf(pendingDelete.provider)} key${pendingDelete.name ? ` (${pendingDelete.name})` : ""}? This can't be undone.`}
           confirmLabel="Delete key"
           requireType="DELETE"
           onConfirm={confirmDelete}

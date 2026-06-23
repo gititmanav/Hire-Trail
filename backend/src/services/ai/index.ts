@@ -37,7 +37,7 @@ import { decrypt } from "../../utils/encryption.js";
 import { env } from "../../config/env.js";
 import { AppError } from "../../errors/AppError.js";
 import type { Capability } from "./capability.js";
-import { defaultModelId, getProvider } from "./catalog.js";
+import { defaultModelId } from "./catalog.js";
 import { getAdminAiConfig } from "./adminConfig.js";
 
 export type { Capability } from "./capability.js";
@@ -49,7 +49,7 @@ export interface ResolvedAi {
   model: LanguageModel;
   /** Passed as generate*({ providerOptions }). Undefined for the direct SDK. */
   providerOptions?: ProviderOptions;
-  provider: AIProvider;
+  provider: string;
   /** Gateway-form id ("provider/model") — also the pricing/usage key. */
   modelId: string;
   /** True when billed to the user's own key. */
@@ -77,7 +77,7 @@ function getGateway() {
   return _gateway;
 }
 
-function envKeyFor(provider: AIProvider): string {
+function envKeyFor(provider: string): string {
   switch (provider) {
     case "anthropic": return env.ANTHROPIC_API_KEY;
     case "openai": return env.OPENAI_API_KEY;
@@ -87,12 +87,14 @@ function envKeyFor(provider: AIProvider): string {
   }
 }
 
-/** Build the gateway byok credential object for a stored secret. */
-function byokCredential(provider: AIProvider, rawSecret: string): Record<string, unknown> {
-  if (getProvider(provider).keyKind === "aws") {
-    // Bedrock: secret is a JSON blob {accessKeyId, secretAccessKey, region, ...}.
+/** Build the gateway byok credential object for a stored secret. Provider-agnostic:
+ *  a JSON object secret (Bedrock/Azure/Vertex multi-field) is forwarded as-is;
+ *  anything else is wrapped as { apiKey }. Works for ANY gateway provider. */
+function byokCredential(rawSecret: string): Record<string, unknown> {
+  const trimmed = rawSecret.trim();
+  if (trimmed.startsWith("{")) {
     try {
-      const parsed = JSON.parse(rawSecret);
+      const parsed = JSON.parse(trimmed);
       if (parsed && typeof parsed === "object") return parsed as Record<string, unknown>;
     } catch {
       /* fall through to apiKey form */
@@ -108,7 +110,7 @@ function bareModelId(gatewayId: string): string {
 }
 
 /** Instantiate a model via the per-provider SDK (no gateway). */
-function directModel(provider: AIProvider, apiKey: string, gatewayModelId: string): LanguageModel {
+function directModel(provider: string, apiKey: string, gatewayModelId: string): LanguageModel {
   const modelId = bareModelId(gatewayModelId);
   switch (provider) {
     case "anthropic": return createAnthropic({ apiKey })(modelId);
@@ -124,7 +126,7 @@ function directModel(provider: AIProvider, apiKey: string, gatewayModelId: strin
 }
 
 interface BuildOpts {
-  provider: AIProvider;
+  provider: string;
   capability: Capability;
   modelOverride?: string | null;
   /** Raw provider secret to forward as byok; omit for gateway system credits. */
@@ -142,7 +144,7 @@ function build(opts: BuildOpts): ResolvedAi {
   if (gatewayEnabled()) {
     const gw: Record<string, unknown> = { user: opts.userId };
     if (opts.secret) {
-      gw.byok = { [opts.provider]: [byokCredential(opts.provider, opts.secret)] };
+      gw.byok = { [opts.provider]: [byokCredential(opts.secret)] };
     }
     return {
       model: getGateway()(modelId),

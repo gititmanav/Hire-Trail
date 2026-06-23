@@ -1,5 +1,12 @@
 import { z } from "zod";
-import "dotenv/config";
+import dotenv from "dotenv";
+
+// Load `.env.local` FIRST (gitignored, machine-local overrides — e.g. a local
+// MONGO_URI for dev), then `.env`. dotenv never overrides an already-set var, so
+// `.env.local` wins locally; on Vercel neither file exists and the platform's
+// env vars are used as-is. This keeps local dev off production Atlas.
+dotenv.config({ path: ".env.local" });
+dotenv.config();
 
 const localhostLike = /localhost|127\.0\.0\.1/i;
 

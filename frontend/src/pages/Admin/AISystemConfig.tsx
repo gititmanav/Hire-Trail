@@ -4,15 +4,18 @@
 import { useCallback, useEffect, useState } from "react";
 import { Sparkles, Check, ChevronDown, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
-import { adminAiAPI, type AdminAiConfig } from "../../utils/api";
+import { adminAiAPI, aiAPI, type AdminAiConfig, type AICatalogProvider, type AIModel } from "../../utils/api";
 import ActionDropdown from "../../components/ActionDropdown/ActionDropdown.tsx";
 
-const PROVIDERS = ["google", "openai", "anthropic", "openrouter", "bedrock", "mistral", "xai", "groq", "deepseek", "perplexity", "cohere"];
+/** Fallback provider list when the live catalog can't be fetched. */
+const FALLBACK_PROVIDERS = ["google", "openai", "anthropic", "openrouter", "bedrock", "mistral", "xai", "groq", "deepseek", "perplexity", "cohere"];
 const inputCls = "w-full px-3 py-2 text-sm bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring";
 
 export default function AISystemConfig() {
   const [config, setConfig] = useState<AdminAiConfig | null>(null);
   const [gatewayConfigured, setGatewayConfigured] = useState(false);
+  const [catalog, setCatalog] = useState<AICatalogProvider[]>([]);
+  const [models, setModels] = useState<AIModel[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
@@ -25,14 +28,24 @@ export default function AISystemConfig() {
 
   const load = useCallback(async () => {
     try {
-      const { config: c, gatewayConfigured: gw } = await adminAiAPI.getConfig();
+      const [{ config: c, gatewayConfigured: gw }, cat, mods] = await Promise.all([
+        adminAiAPI.getConfig(),
+        aiAPI.getCatalog().catch(() => ({ providers: [] as AICatalogProvider[], gatewayConfigured: false })),
+        aiAPI.listModels().catch(() => ({ models: [] as AIModel[], gatewayConfigured: false })),
+      ]);
       setConfig(c); setGatewayConfigured(gw);
+      setCatalog(cat.providers); setModels(mods.models);
       setDefaultModel(c.defaultModel || "");
       setMonthlyLimit(c.monthlyTokenLimit);
       if (c.defaultProvider) setKeyProvider(c.defaultProvider);
     } catch { toast.error("Could not load AI config"); }
     finally { setLoading(false); }
   }, []);
+
+  const providerOptions = catalog.length
+    ? catalog.map((p) => ({ id: p.id, label: p.label }))
+    : FALLBACK_PROVIDERS.map((id) => ({ id, label: id }));
+  const providerModels = models.filter((m) => m.provider === keyProvider);
   useEffect(() => { void load(); }, [load]);
 
   const patch = async (p: Partial<AdminAiConfig>) => {
@@ -103,8 +116,8 @@ export default function AISystemConfig() {
         <div className="grid grid-cols-1 sm:grid-cols-[180px_1fr] gap-3">
           <ActionDropdown
             align="left" menuWidth="w-full"
-            trigger={<button type="button" className="w-full flex items-center justify-between gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground hover:border-muted-foreground/40"><span className="capitalize">{keyProvider}</span><ChevronDown size={16} className="text-muted-foreground" /></button>}
-            items={PROVIDERS.map((p) => ({ label: p, icon: <Check size={14} className={keyProvider === p ? "text-primary" : "opacity-0"} />, onClick: () => setKeyProvider(p) }))}
+            trigger={<button type="button" className="w-full flex items-center justify-between gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground hover:border-muted-foreground/40"><span>{providerOptions.find((p) => p.id === keyProvider)?.label ?? keyProvider}</span><ChevronDown size={16} className="text-muted-foreground" /></button>}
+            items={providerOptions.map((p) => ({ label: p.label, icon: <Check size={14} className={keyProvider === p.id ? "text-primary" : "opacity-0"} />, onClick: () => setKeyProvider(p.id) }))}
           />
           <div className="flex gap-2">
             <input type="password" className={inputCls} placeholder={config.hasDefaultKey ? "Enter a new key to replace" : "Paste the default key"} value={keyValue} onChange={(e) => setKeyValue(e.target.value)} autoComplete="off" />
@@ -119,9 +132,13 @@ export default function AISystemConfig() {
         <div>
           <label className="block text-xs font-medium text-foreground mb-1.5">Default model override (optional)</label>
           <div className="flex gap-2">
-            <input className={inputCls} placeholder="e.g. google/gemini-2.5-flash" value={defaultModel} onChange={(e) => setDefaultModel(e.target.value)} />
+            <input className={inputCls} list="admin-model-options" placeholder="e.g. google/gemini-2.5-flash" value={defaultModel} onChange={(e) => setDefaultModel(e.target.value)} />
+            <datalist id="admin-model-options">
+              {(providerModels.length ? providerModels : models).map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+            </datalist>
             <button onClick={() => patch({ defaultModel })} disabled={busy} className="px-4 py-2 text-sm font-medium border border-border rounded-lg hover:bg-muted shrink-0">Save</button>
           </div>
+          <p className="text-[11px] text-muted-foreground mt-1">{models.length} models available via the gateway. Leave blank for the provider default.</p>
         </div>
         <div>
           <label className="block text-xs font-medium text-foreground mb-1.5">Per-user monthly token quota (default-key users)</label>

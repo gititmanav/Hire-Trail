@@ -4,10 +4,12 @@
  * vendor price change never rewrites historical AiUsage rows — we snapshot the
  * estimate at write time.
  *
- * Keyed by gateway model id ("provider/model"). Lookups fall back to a
- * per-provider default, then a global default, so an unknown/new model still
- * gets a sane (non-zero) estimate rather than silently reading as free.
+ * Keyed by gateway model id ("provider/model"). Lookup order: the LIVE gateway
+ * price (from /v1/models, accurate for any of the 300+ models) → this static
+ * table → a per-provider default → a global default, so an unknown/new model
+ * still gets a sane (non-zero) estimate rather than silently reading as free.
  */
+import { getCachedModels } from "./gatewayModels.js";
 
 interface Price {
   /** USD per 1,000,000 input tokens. */
@@ -65,6 +67,13 @@ const PROVIDER_DEFAULT: Record<string, Price> = {
 const GLOBAL_DEFAULT: Price = { inputPerM: 2.0, outputPerM: 8.0 };
 
 function priceFor(model: string): Price {
+  // 1. Live gateway pricing (per-token strings → per-million USD). Authoritative
+  //    + covers every dynamic model the gateway serves.
+  const live = getCachedModels().find((m) => m.id === model);
+  if (live?.pricing && ((live.pricing.input ?? 0) > 0 || (live.pricing.output ?? 0) > 0)) {
+    return { inputPerM: (live.pricing.input ?? 0) * 1_000_000, outputPerM: (live.pricing.output ?? 0) * 1_000_000 };
+  }
+  // 2. Static table → 3. provider default → 4. global default.
   if (MODEL_PRICES[model]) return MODEL_PRICES[model];
   const provider = model.includes("/") ? model.split("/")[0] : model;
   return PROVIDER_DEFAULT[provider] ?? GLOBAL_DEFAULT;

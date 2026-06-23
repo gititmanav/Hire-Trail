@@ -23,26 +23,22 @@ import { blockDemoUser } from "../middleware/blockDemoUser.js";
 import { TailorSession, type ITailorSession } from "../models/TailorSession.js";
 import { Application } from "../models/Application.js";
 import { MasterProfile } from "../models/MasterProfile.js";
-import { Resume } from "../models/Resume.js";
-import { User } from "../models/User.js";
-import { analyzeJD } from "../services/ai/tailor.js";
 import { runAnalyzeWorker } from "../services/ai/autoAnalyze.js";
-import { applyAcceptedSuggestions } from "../services/pdf/applySuggestions.js";
-import { renderResumePdf } from "../services/pdf/renderer.js";
 import { buildResumeDocument } from "../services/resume/document.js";
 import { computeScore } from "../services/resume/score.js";
 import { buildSuggestionChips } from "../services/resume/suggestions.js";
 import { keywordCoverage, extractDocText } from "../services/resume/keywords.js";
 import type { IMasterProfile } from "../models/MasterProfile.js";
 import { NotFoundError } from "../errors/AppError.js";
-import { env } from "../config/env.js";
 
 /** Build the editor payload attached to a succeeded analysis: a ResumeDocument
  *  (master + accepted suggestions), the deterministic match score + chips, and
  *  the keyword-gap (matched/missing keywords + coverage count) computed against
  *  the document. */
 function buildTailorEditorPayload(session: ITailorSession, master: IMasterProfile) {
-  const jdKeywords = [...session.matchedSkills, ...session.missingSkills];
+  const jdKeywords = session.jdKeywords?.length
+    ? [...session.jdKeywords]
+    : [...session.matchedSkills, ...session.missingSkills];
   const doc = buildResumeDocument(master, { suggestions: session.suggestions, jdKeywords });
   const keywordGap = keywordCoverage(jdKeywords, extractDocText(doc));
   const score = computeScore(doc, jdKeywords);
@@ -272,173 +268,11 @@ router.patch("/sessions/:id/suggestions/:sIdx", async (req: Request, res: Respon
   } catch (err) { next(err); }
 });
 
-router.get("/sessions/:id/pdf", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const user = getUser(req);
-    const session = await TailorSession.findOne({ _id: req.params.id, userId: user._id });
-    if (!session) throw new NotFoundError("Tailor session");
-    if (session.status === "processing") {
-      res.status(409).json({ error: "Analysis is still running. Wait for it to finish before generating a PDF." });
-      return;
-    }
-    if (session.status === "failed") {
-      res.status(409).json({ error: session.errorMessage || "Analysis failed." });
-      return;
-    }
-
-    const masterDoc = await MasterProfile.findOne({ userId: user._id });
-    if (!masterDoc) {
-      res.status(400).json({ error: "No master profile to render. Upload a resume on the Profile page first." });
-      return;
-    }
-
-    const tailoredProfile = applyAcceptedSuggestions(masterDoc, session.suggestions);
-    const { pdf, pages, warnings } = renderResumePdf(tailoredProfile);
-
-    const baseName = [session.company || "resume", session.jobTitle || ""].filter(Boolean).join("-")
-      .replace(/[^a-zA-Z0-9-]+/g, "_").slice(0, 60) || "resume";
-    const filename = `hiretrail-${baseName}.pdf`;
-
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-    res.setHeader("X-Resume-Pages", String(pages));
-    if (warnings.length) res.setHeader("X-Resume-Warnings", encodeURIComponent(warnings.join(" | ")));
-    res.end(pdf);
-  } catch (err) {
-    if (err instanceof Error && err.message.startsWith("Typst compile failed")) {
-      res.status(500).json({ error: err.message });
-      return;
-    }
-    next(err);
-  }
-});
-
-/* -------------------- /mark-applied: Drafting → Applied with resume choice -------------------- */
-
-const markAppliedSchema = z.object({
-  resumeChoice: z.enum(["primary", "tailored"]),
-});
-
-const cloudinaryEnabled = () =>
-  !!(env.CLOUDINARY_CLOUD_NAME && env.CLOUDINARY_API_KEY && env.CLOUDINARY_API_SECRET);
-
-async function uploadPdfToCloudinary(buffer: Buffer, baseName: string, userId: string): Promise<{ url: string; publicId: string }> {
-  const { cloudinary } = await import("../config/cloudinary.js");
-  return new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      {
-        folder: `hiretrail/${userId}/resumes`,
-        resource_type: "image", // PDFs go through Cloudinary's image pipeline (same as resume uploads)
-        access_mode: "public",
-        public_id: `${Date.now()}-${baseName.replace(/[^a-zA-Z0-9._-]/g, "_")}`,
-      },
-      (error, result) => {
-        if (error || !result) return reject(error || new Error("Upload failed"));
-        resolve({ url: result.secure_url, publicId: result.public_id });
-      }
-    );
-    stream.end(buffer);
-  });
-}
-
-router.put("/sessions/:id/mark-applied", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const user = getUser(req);
-    const parsed = markAppliedSchema.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({ error: parsed.error.flatten().fieldErrors });
-      return;
-    }
-
-    const session = await TailorSession.findOne({ _id: req.params.id, userId: user._id });
-    if (!session) throw new NotFoundError("Tailor session");
-    if (!session.applicationId) {
-      res.status(400).json({ error: "This session isn't linked to an application yet." });
-      return;
-    }
-
-    const application = await Application.findOne({ _id: session.applicationId, userId: user._id });
-    if (!application) throw new NotFoundError("Linked application");
-    if (application.stage !== "Drafting") {
-      res.status(400).json({ error: `Application is already in stage "${application.stage}".` });
-      return;
-    }
-
-    let resumeIdForApp: mongoose.Types.ObjectId | null = null;
-    let createdTailoredResumeId: mongoose.Types.ObjectId | null = null;
-
-    if (parsed.data.resumeChoice === "tailored") {
-      // 1. Render the tailored PDF.
-      if (session.status !== "succeeded") {
-        res.status(409).json({ error: "Tailored resume isn't ready yet (analysis still running or failed)." });
-        return;
-      }
-      const masterDoc = await MasterProfile.findOne({ userId: user._id });
-      if (!masterDoc) {
-        res.status(400).json({ error: "No master profile to render. Upload a resume on the Profile page first." });
-        return;
-      }
-      const tailoredProfile = applyAcceptedSuggestions(masterDoc, session.suggestions);
-      const { pdf } = renderResumePdf(tailoredProfile);
-
-      // 2. Upload + create a Resume row tagged "tailored".
-      const baseName = [session.company || "resume", session.jobTitle || ""].filter(Boolean).join("-")
-        .replace(/[^a-zA-Z0-9-]+/g, "_").slice(0, 60) || "resume";
-
-      let fileUrl = "";
-      let filePublicId = "";
-      if (cloudinaryEnabled()) {
-        try {
-          const result = await uploadPdfToCloudinary(pdf, baseName, user._id.toString());
-          fileUrl = result.url;
-          filePublicId = result.publicId;
-        } catch (err) {
-          console.error("[tailor] Cloudinary upload failed:", err);
-          // Non-fatal: Resume row still created without a file URL.
-        }
-      }
-
-      const resumeName = `Tailored — ${session.company || "Unknown"}${session.jobTitle ? ` / ${session.jobTitle}` : ""}`.slice(0, 200);
-      // Capture the user's primary at THIS moment as the lineage root for
-      // the tailored variant. Lets the Resumes page render the tree:
-      //   <primary> → <tailored A for company X> / <tailored B for company Y>
-      const dbUserForBase = await User.findById(user._id).select("primaryResumeId");
-      const baseResumeId = (dbUserForBase?.primaryResumeId as mongoose.Types.ObjectId | null) ?? null;
-      const tailoredResume = await Resume.create({
-        userId: user._id,
-        name: resumeName,
-        targetRole: session.jobTitle || "",
-        tags: ["tailored"],
-        fileName: `hiretrail-${baseName}.pdf`,
-        fileUrl,
-        filePublicId,
-        baseResumeId,
-        tailorSessionId: session._id,
-        versions: [{ timestamp: new Date(), summary: `Generated from ${session.company || "tailor session"}` }],
-      });
-      resumeIdForApp = tailoredResume._id as mongoose.Types.ObjectId;
-      createdTailoredResumeId = resumeIdForApp;
-    } else {
-      // primary choice — fall back to user's current primary, if any.
-      const dbUser = await User.findById(user._id).select("primaryResumeId");
-      resumeIdForApp = (dbUser?.primaryResumeId as mongoose.Types.ObjectId | null) ?? null;
-    }
-
-    // Transition stage.
-    application.stage = "Applied";
-    application.stageHistory.push({ stage: "Applied", date: new Date() });
-    if (resumeIdForApp) application.resumeId = resumeIdForApp;
-    await application.save();
-
-    res.json({ application, tailoredResumeId: createdTailoredResumeId });
-  } catch (err) {
-    if (err instanceof Error && err.message.startsWith("Typst compile failed")) {
-      res.status(500).json({ error: err.message });
-      return;
-    }
-    next(err);
-  }
-});
+/* Mark-applied + tailored-PDF generation moved off the deleted /tailor page and
+ * the Typst engine. Tailored variants are now created per-application by the
+ * Applications tailoring drawer (POST /applications/:id/tailor-resume) and
+ * exported via Gotenberg (POST /resumes/render-pdf); Drafting → Applied is a
+ * standard stage update (PUT /applications/:id). */
 
 router.post("/sessions/:id/link/:applicationId", async (req: Request, res: Response, next: NextFunction) => {
   try {
