@@ -21,6 +21,7 @@ import { AIProviderConfig, type IAIProviderConfig } from "../models/AIProviderCo
 import { encrypt } from "../utils/encryption.js";
 import { getAiStatus, gatewayEnabled } from "../services/ai/index.js";
 import { getCatalog } from "../services/ai/catalog.js";
+import { getProviderLogos } from "../services/ai/providerLogos.js";
 import { ensureGatewayModels } from "../services/ai/gatewayModels.js";
 import { validateProviderKey } from "../services/ai/validateKey.js";
 import { usageSummary } from "../services/ai/usage.js";
@@ -87,6 +88,14 @@ router.get("/models", async (_req: Request, res: Response, next: NextFunction) =
         contextWindow: m.contextWindow ?? null, pricing: m.pricing ?? null,
       })),
     });
+  } catch (err) { next(err); }
+});
+
+/** Provider brand logos (Cloudinary-cached). { provider: logoUrl } — only
+ *  providers we could resolve; the UI falls back to a monogram for the rest. */
+router.get("/provider-logos", async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    res.json({ logos: await getProviderLogos() });
   } catch (err) { next(err); }
 });
 
