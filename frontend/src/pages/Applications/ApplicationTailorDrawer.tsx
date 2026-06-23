@@ -27,6 +27,16 @@ type Phase = "loading" | "no-jd" | "analyzing" | "deferred" | "failed" | "ready"
 const POLL_MS = 2500;
 const POLL_MAX = 38; // ~95s — mirrors the server's stale-processing reaper.
 
+// The drawer is wide by default (the resume preview needs room) and drag-resizable
+// within bounds; the chosen width is remembered.
+const DRAWER_MIN_W = 600;
+const DRAWER_MAX_W = 1700;
+const DRAWER_STORAGE_KEY = "ht-tailor-drawer-w";
+function defaultDrawerWidth(): number {
+  const vw = typeof window !== "undefined" ? window.innerWidth : 1200;
+  return Math.round(Math.min(DRAWER_MAX_W, Math.max(DRAWER_MIN_W, vw * 0.78)));
+}
+
 function isKeyIssue(msg: string): boolean {
   return /add (a )?key|no active key|api key|quota|credit|billing|exhausted/i.test(msg);
 }
@@ -44,6 +54,25 @@ export default function ApplicationTailorDrawer({ applicationId, onClose }: { ap
   const [jd, setJd] = useState("");
   const [initialGap, setInitialGap] = useState<GapAnalysis | null>(null);
   const pollRef = useRef<number | null>(null);
+
+  // Drag-resizable width (default ~78vw), persisted across opens.
+  const [width, setWidth] = useState<number>(() => {
+    try { const s = Number(localStorage.getItem(DRAWER_STORAGE_KEY)); if (s >= DRAWER_MIN_W) return Math.min(s, DRAWER_MAX_W); } catch { /* ignore */ }
+    return defaultDrawerWidth();
+  });
+  useEffect(() => { try { localStorage.setItem(DRAWER_STORAGE_KEY, String(width)); } catch { /* ignore */ } }, [width]);
+  const startResize = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    const onMove = (ev: MouseEvent) => setWidth(Math.min(DRAWER_MAX_W, Math.max(DRAWER_MIN_W, window.innerWidth - ev.clientX)));
+    const onUp = () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      document.body.style.userSelect = "";
+    };
+    document.body.style.userSelect = "none";
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }, []);
 
   useEffect(() => { requestAnimationFrame(() => setOpen(true)); }, []);
   const finishClose = useCallback(() => { setOpen(false); setTimeout(onClose, 200); }, [onClose]);
@@ -136,11 +165,21 @@ export default function ApplicationTailorDrawer({ applicationId, onClose }: { ap
     <div className="fixed inset-0 z-40 flex justify-end" onClick={finishClose}>
       <div className={`absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-200 motion-reduce:transition-none ${open ? "opacity-100" : "opacity-0"}`} />
       <div
-        className={`relative h-full w-[920px] max-w-[100vw] bg-background shadow-2xl flex flex-col border-l border-border transition-transform duration-200 motion-reduce:transition-none ${open ? "translate-x-0" : "translate-x-full"}`}
+        className={`relative h-full max-w-[100vw] bg-background shadow-2xl flex flex-col border-l border-border transition-transform duration-200 motion-reduce:transition-none ${open ? "translate-x-0" : "translate-x-full"}`}
+        style={{ width }}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-label="Tailor resume"
       >
+        {/* Drag the left edge to resize. */}
+        <div
+          onMouseDown={startResize}
+          className="absolute left-0 top-0 z-20 h-full w-1.5 -ml-0.5 cursor-col-resize hover:bg-primary/30 transition-colors"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize panel"
+          title="Drag to resize"
+        />
         <div className="sticky top-0 z-10 bg-card border-b border-border px-5 py-3.5 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
             <span className="inline-flex w-7 h-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-primary text-white">
