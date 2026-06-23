@@ -233,7 +233,9 @@ export default function ResumeStudio() {
           </button>
           <button
             onClick={goNext}
-            className="inline-flex items-center gap-1.5 px-5 py-2 text-sm font-semibold text-white bg-primary hover:bg-primary/90 rounded-lg shadow-sm"
+            disabled={step === "gap" && (!studio.gap || studio.gapLoading)}
+            title={step === "gap" && !studio.gap ? "Analyze the gap first" : undefined}
+            className="inline-flex items-center gap-1.5 px-5 py-2 text-sm font-semibold text-white bg-primary hover:bg-primary/90 rounded-lg shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {step === "gap" ? "Choose what to tailor" : "Review & edit"}
             <ArrowRight size={15} strokeWidth={2} />
