@@ -44,6 +44,7 @@ import { startEmailScanJob } from "./services/emailScanJob.js";
 import { reapStalledScanJobs } from "./services/email/firstScan.js";
 import { backfillResumeVersions } from "./services/migrations/backfillResumeVersions.js";
 import { seedClipboardNudgeForAll } from "./services/migrations/seedClipboardNudge.js";
+import { seedAiSettings, migrateAiProviderConfigs } from "./services/migrations/aiPlatform.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -200,6 +201,19 @@ async function start(): Promise<void> {
       if (created > 0) console.log(`[migrate] seeded clipboard nudge for ${created} user(s)`);
     })
     .catch((err) => console.error("[migrate] clipboard nudge seed failed:", err));
+
+  // AI platform: seed the new ai_* settings + collapse to one active key/user.
+  seedAiSettings()
+    .then(({ created }) => {
+      if (created > 0) console.log(`[migrate] seeded ${created} AI setting(s)`);
+    })
+    .catch((err) => console.error("[migrate] AI settings seed failed:", err));
+  migrateAiProviderConfigs()
+    .then(({ last4Filled, deactivated }) => {
+      if (last4Filled > 0 || deactivated > 0)
+        console.log(`[migrate] AI keys: filled ${last4Filled} last4, deactivated ${deactivated} duplicate-active`);
+    })
+    .catch((err) => console.error("[migrate] AI provider config migration failed:", err));
 
   app.listen(env.PORT, () => {
     console.log(`HireTrail server running on port ${env.PORT} [${env.NODE_ENV}]`);

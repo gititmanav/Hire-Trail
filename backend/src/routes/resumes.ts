@@ -1,11 +1,23 @@
 import { Router, Request, Response, NextFunction } from "express";
+import { z } from "zod";
+
 import { Resume } from "../models/Resume.js";
 import { User } from "../models/User.js";
 import { Application } from "../models/Application.js";
 import { ensureAuth, getUser } from "../middleware/auth.js";
+import { blockDemoUser } from "../middleware/blockDemoUser.js";
 import { upload } from "../middleware/upload.js";
-import { ForbiddenError, NotFoundError } from "../errors/AppError.js";
+import { AppError, ForbiddenError, NotFoundError } from "../errors/AppError.js";
 import { env } from "../config/env.js";
+import { loadOrBuildDocument, withDerived, snapshot } from "../services/resume/store.js";
+import { resumeDocumentSchema } from "../validators/resumeDocument.js";
+import { composeHtml } from "../services/resume/html.js";
+import { renderHtmlToPdf } from "../services/pdf/renderHtml.js";
+import { rewriteDocument } from "../services/ai/rewrite.js";
+import { computeScore } from "../services/resume/score.js";
+import { buildSuggestionChips } from "../services/resume/suggestions.js";
+import { keywordCoverage, extractDocText } from "../services/resume/keywords.js";
+import type { RewriteScope } from "../services/resume/types.js";
 
 const router = Router();
 router.use(ensureAuth);
@@ -103,6 +115,151 @@ router.get("/", async (req: Request, res: Response, next: NextFunction) => {
     });
 
     res.json(result);
+  } catch (err) { next(err); }
+});
+
+/* ===================== Resume engine (HTML→PDF) + structured document ===================== */
+
+/** POST /render-pdf — render arbitrary {html, css} to a PDF via Gotenberg.
+ *  The HTML is locked to a sanitized subset (no scripts / external resources)
+ *  and Gotenberg is network-denied (see DEPLOY_GOTENBERG.md). Not tied to a
+ *  resume id — the editor posts its current markup. */
+const renderPdfSchema = z.object({
+  html: z.string().min(1, "html is required").max(500_000),
+  css: z.string().max(200_000).optional().default(""),
+  filename: z.string().max(120).optional(),
+});
+router.post("/render-pdf", blockDemoUser, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const parsed = renderPdfSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.flatten().fieldErrors });
+      return;
+    }
+    const fullHtml = composeHtml(parsed.data.html, parsed.data.css);
+    const { pdf, filename } = await renderHtmlToPdf({ html: fullHtml, filename: parsed.data.filename });
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.end(pdf);
+  } catch (err) { next(err); }
+});
+
+/** GET /:id/document — the structured ResumeDocument (with current score +
+ *  suggestion chips). Builds + persists one from the master profile on first access. */
+router.get("/:id/document", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = getUser(req);
+    const resume = await Resume.findOne({ _id: req.params.id, userId: user._id });
+    if (!resume) throw new NotFoundError("Resume");
+    const docModel = await loadOrBuildDocument(user._id.toString(), resume);
+    res.json(withDerived(docModel));
+  } catch (err) { next(err); }
+});
+
+/** PUT /:id/document — replace the document wholesale (editor save). Snapshots
+ *  the prior version for undo, then bumps version. */
+router.put("/:id/document", blockDemoUser, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = getUser(req);
+    const parsed = resumeDocumentSchema.safeParse(req.body?.document ?? req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.flatten().fieldErrors });
+      return;
+    }
+    const resume = await Resume.findOne({ _id: req.params.id, userId: user._id });
+    if (!resume) throw new NotFoundError("Resume");
+    const docModel = await loadOrBuildDocument(user._id.toString(), resume);
+
+    snapshot(docModel, "Manual edit");
+    docModel.document = { meta: parsed.data.meta, sections: parsed.data.sections, style: parsed.data.style };
+    docModel.version += 1;
+    await docModel.save();
+    res.json(withDerived(docModel));
+  } catch (err) { next(err); }
+});
+
+/** GET /:id/rewrite-suggestions — contextual chips derived from the gap analysis. */
+router.get("/:id/rewrite-suggestions", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = getUser(req);
+    const resume = await Resume.findOne({ _id: req.params.id, userId: user._id });
+    if (!resume) throw new NotFoundError("Resume");
+    const docModel = await loadOrBuildDocument(user._id.toString(), resume);
+    const gap = keywordCoverage(docModel.jdKeywords, extractDocText(docModel.document));
+    res.json({ suggestions: buildSuggestionChips(docModel.document, gap), gap });
+  } catch (err) { next(err); }
+});
+
+/** POST /:id/ai-rewrite — section-scoped rewrite (strict no-fabrication).
+ *  Returns the new document + a field-level diff + {before,after} score. */
+const aiRewriteSchema = z.object({
+  scope: z.union([
+    z.literal("all"),
+    z.object({ sectionId: z.string().optional(), entryId: z.string().optional() }),
+  ]).default("all"),
+  instruction: z.string().max(500).optional(),
+  preset: z.string().max(40).optional(),
+});
+router.post("/:id/ai-rewrite", blockDemoUser, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = getUser(req);
+    const parsed = aiRewriteSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.flatten().fieldErrors });
+      return;
+    }
+    const resume = await Resume.findOne({ _id: req.params.id, userId: user._id });
+    if (!resume) throw new NotFoundError("Resume");
+    const docModel = await loadOrBuildDocument(user._id.toString(), resume);
+
+    const before = computeScore(docModel.document, docModel.jdKeywords);
+    const result = await rewriteDocument({
+      userId: user._id,
+      document: docModel.document,
+      scope: parsed.data.scope as RewriteScope | "all",
+      instruction: parsed.data.instruction,
+      preset: parsed.data.preset,
+      jdKeywords: docModel.jdKeywords,
+      targetRole: resume.targetRole || "",
+    });
+
+    if (result.changedPaths.length > 0) {
+      // Snapshot the pre-rewrite doc so the UI can undo this rewrite.
+      snapshot(docModel, `Before AI rewrite${typeof parsed.data.scope === "object" ? "" : " (all)"}`);
+      docModel.document = result.document;
+      docModel.version += 1;
+      await docModel.save();
+    }
+    const after = computeScore(docModel.document, docModel.jdKeywords);
+
+    res.json({
+      document: withDerived(docModel),
+      changes: result.changes,
+      changedPaths: result.changedPaths,
+      score: { before, after },
+    });
+  } catch (err) { next(err); }
+});
+
+/** POST /:id/revert {toVersion} — restore a prior snapshot from history. */
+router.post("/:id/revert", blockDemoUser, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = getUser(req);
+    const toVersion = Number(req.body?.toVersion);
+    if (!Number.isInteger(toVersion)) throw new AppError("toVersion (integer) is required.", 400);
+    const resume = await Resume.findOne({ _id: req.params.id, userId: user._id });
+    if (!resume) throw new NotFoundError("Resume");
+    const docModel = await loadOrBuildDocument(user._id.toString(), resume);
+
+    const snap = docModel.history.find((h) => h.version === toVersion);
+    if (!snap) throw new AppError(`No snapshot for version ${toVersion}.`, 404);
+
+    // Snapshot the current state first so the revert itself is undoable.
+    snapshot(docModel, `Before revert to v${toVersion}`);
+    docModel.document = JSON.parse(JSON.stringify(snap.document));
+    docModel.version += 1;
+    await docModel.save();
+    res.json(withDerived(docModel));
   } catch (err) { next(err); }
 });
 

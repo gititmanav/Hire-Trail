@@ -14,15 +14,17 @@
  * Gemini 2.5 Flash's million-token context, twenty threads fit
  * comfortably. The model returns an array of results in the same order.
  */
-import { generateObject } from "ai";
 import { z } from "zod";
 import mongoose from "mongoose";
 
-import { getModelForUser } from "../ai/index.js";
-import { withAiRetry } from "../ai/withAiRetry.js";
+import { runGenerateObject } from "../ai/run.js";
 import { STAGES, type Stage } from "../../models/Application.js";
 
 const BATCH_SIZE = 15;
+/** How many classification batches run concurrently per scan. Bounded so a big
+ *  inbox doesn't fan out hundreds of simultaneous model calls (provider rate
+ *  limits + our own per-user quota). 4 keeps wall-clock low while staying polite. */
+const BATCH_CONCURRENCY = 4;
 /** Body slice per message — keeps token usage predictable. */
 const BODY_PER_MSG_CHARS = 600;
 
@@ -127,23 +129,29 @@ export async function classifyThreadsInBatches(
 ): Promise<BatchClassification[]> {
   if (threads.length === 0) return [];
 
-  const { model, provider, byok } = await getModelForUser(userId, "fast");
-  const out: BatchClassification[] = [];
-
+  // Split into fixed-size batches and remember each batch's position so parallel
+  // completion still yields output aligned 1:1 with the input order.
+  const batches: { offset: number; threads: BatchThread[] }[] = [];
   for (let i = 0; i < threads.length; i += BATCH_SIZE) {
-    const batch = threads.slice(i, i + BATCH_SIZE);
-    const prompt = batch.map(serialiseThread).join("\n\n========\n\n");
+    batches.push({ offset: i, threads: threads.slice(i, i + BATCH_SIZE) });
+  }
 
+  const out: BatchClassification[] = new Array(threads.length);
+  let classified = 0;
+
+  async function processBatch(batch: BatchThread[], offset: number): Promise<void> {
+    const prompt = batch.map(serialiseThread).join("\n\n========\n\n");
     let results: z.infer<typeof classificationItemSchema>[] = [];
     try {
-      const { object } = await withAiRetry({ provider, byok }, () =>
-        generateObject({
-          model,
-          schema: classificationBatchSchema,
-          system: SYSTEM_PROMPT,
-          prompt,
-        }),
-      );
+      const { object } = await runGenerateObject({
+        userId,
+        capability: "fast",
+        opType: "thread_classify",
+        schema: classificationBatchSchema,
+        system: SYSTEM_PROMPT,
+        prompt,
+        cacheInput: prompt,
+      });
       results = object.results;
     } catch (err) {
       // Even after retry the batch failed — surface as not-a-job-app per thread
@@ -163,10 +171,9 @@ export async function classifyThreadsInBatches(
     // Re-align results to the input order by threadId. Defensive: the model
     // might reorder or drop entries even though we asked it not to.
     const byId = new Map(results.map((r) => [r.threadId, r]));
-    for (const t of batch) {
-      const r = byId.get(t.threadId);
-      out.push(
-        r ?? {
+    batch.forEach((t, j) => {
+      out[offset + j] =
+        byId.get(t.threadId) ?? {
           threadId: t.threadId,
           isJobApplication: false,
           company: "",
@@ -174,18 +181,31 @@ export async function classifyThreadsInBatches(
           stage: "Applied",
           confidence: "low",
           reasoning: "Model did not return a result for this thread.",
-        },
-      );
-    }
+        };
+    });
 
+    classified += batch.length;
     if (onBatchClassified) {
       try {
-        await onBatchClassified(out.length);
+        await onBatchClassified(classified);
       } catch {
         // progress callback failures shouldn't abort the scan
       }
     }
   }
+
+  // Bounded-concurrency worker pool over the batch queue.
+  let cursor = 0;
+  async function worker(): Promise<void> {
+    while (cursor < batches.length) {
+      const idx = cursor++;
+      const b = batches[idx];
+      await processBatch(b.threads, b.offset);
+    }
+  }
+  await Promise.all(
+    Array.from({ length: Math.min(BATCH_CONCURRENCY, batches.length) }, () => worker()),
+  );
 
   return out;
 }

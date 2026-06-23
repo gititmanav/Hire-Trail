@@ -29,8 +29,26 @@ import { analyzeJD } from "../services/ai/tailor.js";
 import { runAnalyzeWorker } from "../services/ai/autoAnalyze.js";
 import { applyAcceptedSuggestions } from "../services/pdf/applySuggestions.js";
 import { renderResumePdf } from "../services/pdf/renderer.js";
+import { buildResumeDocument } from "../services/resume/document.js";
+import { computeScore } from "../services/resume/score.js";
+import { buildSuggestionChips } from "../services/resume/suggestions.js";
+import { keywordCoverage, extractDocText } from "../services/resume/keywords.js";
+import type { IMasterProfile } from "../models/MasterProfile.js";
 import { NotFoundError } from "../errors/AppError.js";
 import { env } from "../config/env.js";
+
+/** Build the editor payload attached to a succeeded analysis: a ResumeDocument
+ *  (master + accepted suggestions), the deterministic match score + chips, and
+ *  the keyword-gap (matched/missing keywords + coverage count) computed against
+ *  the document. */
+function buildTailorEditorPayload(session: ITailorSession, master: IMasterProfile) {
+  const jdKeywords = [...session.matchedSkills, ...session.missingSkills];
+  const doc = buildResumeDocument(master, { suggestions: session.suggestions, jdKeywords });
+  const keywordGap = keywordCoverage(jdKeywords, extractDocText(doc));
+  const score = computeScore(doc, jdKeywords);
+  const suggestions = buildSuggestionChips(doc, keywordGap);
+  return { document: { ...doc, score, suggestions }, keywordGap, score };
+}
 
 const router = Router();
 router.use(ensureAuth);
@@ -221,7 +239,15 @@ router.get("/sessions/:id", async (req: Request, res: Response, next: NextFuncti
     const doc = await TailorSession.findOne({ _id: req.params.id, userId: user._id });
     if (!doc) throw new NotFoundError("Tailor session");
     const session = await reapStaleProcessing(doc);
-    res.json(session.toObject());
+    const out = session.toObject() as Record<string, unknown>;
+
+    // Attach the editor payload (ResumeDocument + keyword-gap + score) once the
+    // analysis has succeeded and the user has a master profile to derive from.
+    if (session.status === "succeeded") {
+      const master = await MasterProfile.findOne({ userId: user._id });
+      if (master) Object.assign(out, buildTailorEditorPayload(session, master));
+    }
+    res.json(out);
   } catch (err) { next(err); }
 });
 

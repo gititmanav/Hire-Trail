@@ -13,6 +13,15 @@ export type { IMasterProfile, IBullet, IExperience, IProject, IEducation, ISkill
 export { AIProviderConfig, AI_PROVIDERS } from "./AIProviderConfig.js";
 export type { IAIProviderConfig, AIProvider } from "./AIProviderConfig.js";
 
+export { AiUsage, AI_OP_TYPES, currentPeriod, periodResetsAt } from "./AiUsage.js";
+export type { IAiUsage, AiOpType } from "./AiUsage.js";
+
+export { AiCache } from "./AiCache.js";
+export type { IAiCache } from "./AiCache.js";
+
+export { ResumeDocument, MAX_DOC_HISTORY } from "./ResumeDocument.js";
+export type { IResumeDocument, IResumeDocVersion } from "./ResumeDocument.js";
+
 export { TailorSession } from "./TailorSession.js";
 export type { ITailorSession, ITailorSuggestion } from "./TailorSession.js";
 

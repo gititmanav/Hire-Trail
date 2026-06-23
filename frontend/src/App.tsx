@@ -12,6 +12,8 @@ import About from "./pages/Legal/About.tsx";
 import LandingPage from "./pages/Landing/LandingPage.tsx";
 import { BackgroundTasksProvider } from "./hooks/useBackgroundTasks.tsx";
 import { DemoGateProvider } from "./hooks/useDemoGate.tsx";
+import { AIKeyStatusProvider } from "./hooks/useAIKeyStatus.tsx";
+import AIKeyNudges from "./components/AIKeyNudges/AIKeyNudges.tsx";
 import BackgroundTaskCenter from "./components/BackgroundTaskCenter/BackgroundTaskCenter.tsx";
 import GlobalShortcuts from "./components/GlobalShortcuts/GlobalShortcuts.tsx";
 import IdleWarningModal from "./components/IdleWarningModal/IdleWarningModal.tsx";
@@ -34,6 +36,8 @@ const loadCalendar  = () => import("./pages/Calendar/Calendar.tsx");
 const loadImport    = () => import("./pages/ImportExport/ImportExport.tsx");
 const loadProfile   = () => import("./pages/Profile/Profile.tsx");
 const loadSettings  = () => import("./pages/Settings/Settings.tsx");
+const loadAISettings = () => import("./pages/AISettings/AISettings.tsx");
+const loadResumeStudio = () => import("./pages/ResumeStudio/ResumeStudio.tsx");
 const loadTailor    = () => import("./pages/Tailor/Tailor.tsx");
 const loadEmailScanReview = () => import("./pages/EmailScanReview/EmailScanReview.tsx");
 const loadNotifications = () => import("./pages/Notifications/Notifications.tsx");
@@ -48,6 +52,8 @@ const CalendarPage = lazy(loadCalendar);
 const ImportExport = lazy(loadImport);
 const Profile      = lazy(loadProfile);
 const Settings     = lazy(loadSettings);
+const AISettings   = lazy(loadAISettings);
+const ResumeStudio = lazy(loadResumeStudio);
 const Tailor       = lazy(loadTailor);
 const EmailScanReview = lazy(loadEmailScanReview);
 const NotificationsPage = lazy(loadNotifications);
@@ -71,6 +77,7 @@ const AuditLogs           = lazy(() => import("./pages/Admin/AuditLogs.tsx"));
 const ContentModeration   = lazy(() => import("./pages/Admin/ContentModeration.tsx"));
 const StorageManagement   = lazy(() => import("./pages/Admin/StorageManagement.tsx"));
 const SystemConfig        = lazy(() => import("./pages/Admin/SystemConfig.tsx"));
+const AISystemConfig      = lazy(() => import("./pages/Admin/AISystemConfig.tsx"));
 const Announcements       = lazy(() => import("./pages/Admin/Announcements.tsx"));
 const EmailTemplates      = lazy(() => import("./pages/Admin/EmailTemplates.tsx"));
 const InviteSystem        = lazy(() => import("./pages/Admin/InviteSystem.tsx"));
@@ -140,6 +147,7 @@ function App() {
       <FeatureFlagsProvider authenticated={!!user}>
       <JobSearchContext.Provider value={{ state: jobSearchState, setState: setJobSearchState }}>
       <BackgroundTasksProvider>
+      <AIKeyStatusProvider>
 
         <Suspense fallback={<div className="spinner" style={{ minHeight: "60vh" }} aria-label="Loading page" />}>
         <Routes>
@@ -168,6 +176,7 @@ function App() {
             <Route path="/admin/content" element={<ContentModeration />} />
             <Route path="/admin/storage" element={<StorageManagement />} />
             <Route path="/admin/settings" element={<SystemConfig />} />
+            <Route path="/admin/ai" element={<AISystemConfig />} />
             <Route path="/admin/announcements" element={<Announcements />} />
             <Route path="/admin/audit-logs" element={<AuditLogs />} />
             <Route path="/admin/email-templates" element={<EmailTemplates />} />
@@ -200,9 +209,11 @@ function App() {
             <Route path="/import-export" element={<FeatureRoute flag="feature_csv_import_export"><ImportExport /></FeatureRoute>} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/settings/ai" element={<AISettings />} />
             <Route path="/settings/email-review" element={<EmailScanReview />} />
             <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="/tailor" element={<Tailor />} />
+            <Route path="/resume-studio" element={<ResumeStudio />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
@@ -221,6 +232,9 @@ function App() {
         {user && <GlobalShortcuts />}
         {/* Idle warning fires after 60 minutes of no input — soft, non-blocking. */}
         {user && <IdleWarningModal />}
+        {/* BYOK onboarding modal + one-time no-key warning (header badge lives in Header). */}
+        {user && <AIKeyNudges />}
+      </AIKeyStatusProvider>
       </BackgroundTasksProvider>
       </JobSearchContext.Provider>
       </FeatureFlagsProvider>

@@ -4,10 +4,9 @@ import toast from "react-hot-toast";
 import { api, applicationsAPI, emailAPI, aiAPI, authAPI } from "../../utils/api.ts";
 import type { EmailStatusResponse, ScanJob } from "../../utils/api.ts";
 import { Link } from "react-router-dom";
-import { ArrowRight, Calendar, Check, ChevronDown, Mail, Search, X } from "lucide-react";
+import { ArrowRight, Calendar, Check, ChevronDown, Mail, Search, Sparkles, X } from "lucide-react";
 import type { User } from "../../types";
 import ActionDropdown from "../../components/ActionDropdown/ActionDropdown.tsx";
-import { AISettingsCard } from "./AISettingsCard.tsx";
 import EmailScanFlowModal from "./EmailScanFlowModal.tsx";
 import { useFeatureFlags } from "../../hooks/useFeatureFlags.tsx";
 import { useDemoGate } from "../../hooks/useDemoGate.tsx";
@@ -883,7 +882,25 @@ export default function Settings() {
               <p className="text-xs text-muted-foreground mb-4">
                 Bring your own keys to use specific models for resume parsing, classification, and tailoring. Without keys, HireTrail falls back to the default provider.
               </p>
-              <AISettingsCard />
+              <Link
+                to="/settings/ai"
+                className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background p-4 hover:border-primary/50 hover:shadow-sm transition-all max-w-xl"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                    <Sparkles size={18} strokeWidth={1.7} className="text-primary" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-foreground">Manage AI providers</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {aiProviderCount > 0
+                        ? `${aiProviderCount} active provider${aiProviderCount === 1 ? "" : "s"} · keys, usage & status`
+                        : "Add a key (a free Gemini key takes ~30s) · keys, usage & status"}
+                    </p>
+                  </div>
+                </div>
+                <ArrowRight size={16} strokeWidth={2} className="text-muted-foreground shrink-0" />
+              </Link>
             </section>
 
             {/* Profile Sync */}

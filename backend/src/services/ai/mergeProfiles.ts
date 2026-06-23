@@ -13,11 +13,9 @@
  * The output is validated against the same Zod schema the parser uses, so the merged result
  * drops cleanly into MasterProfile via $set.
  */
-import { generateObject } from "ai";
 import mongoose from "mongoose";
 
-import { getModelForUser } from "./index.js";
-import { withAiRetry } from "./withAiRetry.js";
+import { runGenerateObject } from "./run.js";
 import { resumeProfileSchema, type ParsedResumeProfile } from "./resumeParser.js";
 import type { IMasterProfile } from "../../models/MasterProfile.js";
 
@@ -42,8 +40,6 @@ export async function mergeProfilesAI(
   master: IMasterProfile,
   incoming: ParsedResumeProfile,
 ): Promise<{ merged: ParsedResumeProfile; provider: string; modelId: string }> {
-  const { model, provider, modelId, byok } = await getModelForUser(userId, "smart");
-
   const masterJson = JSON.stringify(
     {
       contact: master.contact,
@@ -59,22 +55,22 @@ export async function mergeProfilesAI(
   );
   const incomingJson = JSON.stringify(incoming, null, 2);
 
-  const { object } = await withAiRetry({ provider, byok }, () =>
-    generateObject({
-      model,
-      schema: resumeProfileSchema,
-      system: SYSTEM_PROMPT,
-      prompt: [
-        "=== MASTER PROFILE (source of truth) ===",
-        masterJson,
-        "",
-        "=== INCOMING PROFILE (newly parsed resume) ===",
-        incomingJson,
-        "",
-        "Return the merged profile as JSON.",
-      ].join("\n"),
-    }),
-  );
+  const { object, provider, modelId } = await runGenerateObject({
+    userId,
+    capability: "smart",
+    opType: "profile_merge",
+    schema: resumeProfileSchema,
+    system: SYSTEM_PROMPT,
+    prompt: [
+      "=== MASTER PROFILE (source of truth) ===",
+      masterJson,
+      "",
+      "=== INCOMING PROFILE (newly parsed resume) ===",
+      incomingJson,
+      "",
+      "Return the merged profile as JSON.",
+    ].join("\n"),
+  });
 
   return { merged: object, provider, modelId };
 }

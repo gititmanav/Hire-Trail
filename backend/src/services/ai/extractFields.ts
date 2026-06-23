@@ -14,16 +14,14 @@
  *   3. returns a cleaned job description with site chrome stripped, so the
  *      downstream fit analysis scores against real posting text, not junk.
  *
- * Model selection is dynamic per user via `getModelForUser(userId, "fast")`:
- * the user's BYOK key when set, the env-default key otherwise. No hardcoded
- * provider.
+ * Runs through the central runner (`runGenerateObject`, capability "fast"), so
+ * model selection, caching, retry, metering, and the active-key/admin-default
+ * resolution are all handled uniformly. No hardcoded provider.
  */
-import { generateObject } from "ai";
 import { z } from "zod";
 import mongoose from "mongoose";
 
-import { getModelForUser } from "./index.js";
-import { withAiRetry } from "./withAiRetry.js";
+import { runGenerateObject } from "./run.js";
 
 const extractionSchema = z.object({
   /** Gate: false for login walls, error pages, search-result lists, or any
@@ -67,7 +65,6 @@ export async function extractApplicationFields(
   // Generous cap — page dumps are larger than clean JDs, and we want the model
   // to see enough to locate the real posting inside the noise.
   const trimmed = input.jobDescription.slice(0, 14_000);
-  const { model, provider, modelId, byok } = await getModelForUser(userId, "fast");
 
   const meta = [
     input.url ? `URL: ${input.url}` : "",
@@ -75,14 +72,16 @@ export async function extractApplicationFields(
     input.knownTitle?.trim() ? `User-entered title (may be wrong/empty): ${input.knownTitle.trim()}` : "",
   ].filter(Boolean).join("\n");
 
-  const { object } = await withAiRetry({ provider, byok }, () =>
-    generateObject({
-      model,
-      schema: extractionSchema,
-      system: SYSTEM_PROMPT,
-      prompt: ["=== CAPTURED PAGE ===", meta, "", trimmed].join("\n"),
-    }),
-  );
+  const prompt = ["=== CAPTURED PAGE ===", meta, "", trimmed].join("\n");
+  const { object, provider, modelId } = await runGenerateObject({
+    userId,
+    capability: "fast",
+    opType: "field_extract",
+    schema: extractionSchema,
+    system: SYSTEM_PROMPT,
+    prompt,
+    cacheInput: prompt,
+  });
 
   return { fields: object, provider, modelId };
 }
