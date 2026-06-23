@@ -113,6 +113,9 @@ router.get("/usage", async (req: Request, res: Response, next: NextFunction) => 
 const validateKeySchema = z.object({
   provider: z.string().trim().min(1).max(60),
   key: z.string().min(4),
+  /** The model the user picked — validated directly so we test what they'll run,
+   *  not a per-provider default that may not exist in their account. */
+  model: z.string().trim().max(160).optional(),
 });
 
 // SECURITY: the body carries a raw provider key. We never log request bodies in
@@ -124,7 +127,7 @@ router.post("/keys/validate", byokValidateLimiter, async (req: Request, res: Res
     res.json({ ok: false, reason: "Missing provider or API key." });
     return;
   }
-  const result = await validateProviderKey(parsed.data.provider, parsed.data.key);
+  const result = await validateProviderKey(parsed.data.provider, parsed.data.key, parsed.data.model);
   res.json(result);
 });
 

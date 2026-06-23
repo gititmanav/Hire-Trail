@@ -410,11 +410,12 @@ export const aiAPI = {
   },
   listKeys: async () => (await api.get<RawAIKey[]>("/ai/keys")).data.map(mapAIKey),
   createKey: async (data: { provider: AIProvider; apiKey: string; name?: string; modelOverride?: string | null }) =>
-    mapAIKey((await api.post<RawAIKey>("/ai/keys", { provider: data.provider, key: data.apiKey, label: data.name })).data),
-  /** Best-effort: ping the provider with the candidate key and report whether
-   *  it works, WITHOUT persisting anything. Optional AbortSignal cancels in-flight. */
-  validateKey: (data: { provider: AIProvider; apiKey: string }, signal?: AbortSignal) =>
-    api.post<{ ok: boolean; reason?: string; modelTested?: string }>("/ai/keys/validate", { provider: data.provider, key: data.apiKey }, { signal }).then((r) => r.data),
+    mapAIKey((await api.post<RawAIKey>("/ai/keys", { provider: data.provider, key: data.apiKey, label: data.name, modelOverride: data.modelOverride ?? null })).data),
+  /** Best-effort: ping the provider with the candidate key (and the chosen model,
+   *  so we test what they'll actually run) and report whether it works, WITHOUT
+   *  persisting anything. Optional AbortSignal cancels in-flight. */
+  validateKey: (data: { provider: AIProvider; apiKey: string; model?: string }, signal?: AbortSignal) =>
+    api.post<{ ok: boolean; reason?: string; modelTested?: string }>("/ai/keys/validate", { provider: data.provider, key: data.apiKey, model: data.model }, { signal }).then((r) => r.data),
   updateKey: async (id: string, data: { name?: string; modelOverride?: string | null; isActive?: boolean }) =>
     mapAIKey((await api.put<RawAIKey>(`/ai/keys/${id}`, { label: data.name, modelOverride: data.modelOverride, isActive: data.isActive })).data),
   /** Exactly-one-active activation (POST /api/ai/keys/:id/activate). Server deactivates the others. */
