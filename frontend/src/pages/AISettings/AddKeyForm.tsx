@@ -46,8 +46,17 @@ const BRAND: Record<string, { bg: string; fg: string }> = {
 function brandFor(id: string): { bg: string; fg: string } {
   return BRAND[id.toLowerCase()] ?? { bg: "#64748b", fg: "#ffffff" };
 }
-function BrandChip({ id, size = 22 }: { id: string; size?: number }) {
+function BrandChip({ id, logoUrl, size = 22 }: { id: string; logoUrl?: string; size?: number }) {
   const b = brandFor(id);
+  const [failed, setFailed] = useState(false);
+  // Real brand logo (Cloudinary-cached) when we have it; brand-colored monogram otherwise.
+  if (logoUrl && !failed) {
+    return (
+      <span className="inline-flex items-center justify-center rounded-md overflow-hidden bg-white shrink-0" style={{ width: size, height: size }} aria-hidden>
+        <img src={logoUrl} alt="" className="w-full h-full object-contain p-0.5" loading="lazy" referrerPolicy="no-referrer" draggable={false} onError={() => setFailed(true)} />
+      </span>
+    );
+  }
   return (
     <span
       className="inline-flex items-center justify-center rounded-md font-bold shrink-0"
@@ -91,7 +100,15 @@ export default function AddKeyForm({
   const [modelOverride, setModelOverride] = useState(""); // "" = provider default
   const [saving, setSaving] = useState(false);
   const [validation, setValidation] = useState<ValidationState>({ state: "idle" });
+  const [logos, setLogos] = useState<Record<string, string>>({});
   const validationSeq = useRef(0);
+
+  // Cached brand logos for the provider chips (Cloudinary; monogram fallback).
+  useEffect(() => {
+    let alive = true;
+    aiAPI.getProviderLogos().then((l) => { if (alive) setLogos(l); }).catch(() => { /* monograms */ });
+    return () => { alive = false; };
+  }, []);
 
   const sel = useMemo(() => catalog.find((p) => p.id === providerId), [catalog, providerId]);
   const format = sel?.credentialFormat ?? "apiKey";
@@ -220,7 +237,7 @@ export default function AddKeyForm({
                   onClick={() => setProviderId(p.id)}
                   className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-colors ${active ? "bg-primary/10 ring-1 ring-primary/30" : "hover:bg-muted"}`}
                 >
-                  <BrandChip id={p.id} />
+                  <BrandChip id={p.id} logoUrl={logos[p.id]} />
                   <span className="flex-1 min-w-0">
                     <span className="block text-sm font-medium text-foreground truncate">{p.label}</span>
                     {p.freeTier && <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">Free tier</span>}

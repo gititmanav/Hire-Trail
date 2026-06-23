@@ -408,6 +408,11 @@ export const aiAPI = {
     const { data } = await api.get<{ gatewayConfigured?: boolean; models: AIModel[] }>("/ai/models");
     return { models: data.models ?? [], gatewayConfigured: Boolean(data.gatewayConfigured) };
   },
+  /** Cached brand logos { providerId: cloudinaryUrl }. Missing → UI monogram. */
+  getProviderLogos: async (): Promise<Record<string, string>> => {
+    const { data } = await api.get<{ logos?: Record<string, string> }>("/ai/provider-logos");
+    return data.logos ?? {};
+  },
   listKeys: async () => (await api.get<RawAIKey[]>("/ai/keys")).data.map(mapAIKey),
   createKey: async (data: { provider: AIProvider; apiKey: string; name?: string; modelOverride?: string | null }) =>
     mapAIKey((await api.post<RawAIKey>("/ai/keys", { provider: data.provider, key: data.apiKey, label: data.name, modelOverride: data.modelOverride ?? null })).data),
