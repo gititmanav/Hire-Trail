@@ -14,9 +14,29 @@ import {
   mockStatus, mockUsage, mockDocument, mockGap, mockRewrite,
   type AIStatus, type AIUsage, type ProviderInfo,
 } from "./studioMocks.ts";
-import type {
-  ResumeDocument, AIRewriteRequest, AIRewriteResult, GapAnalysis,
+import {
+  bulletPath,
+  type ResumeDocument, type AIRewriteRequest, type AIRewriteResult, type GapAnalysis,
 } from "./resumeDocument.ts";
+
+/** The backend's ai-rewrite returns changedPaths as bare element ids (e.g. "s2e1b1");
+ *  the preview highlights by dotted path. Translate ids → dotted bullet paths by
+ *  locating each id in the returned document. Unmatched ids are dropped (the
+ *  preview ignores paths it can't render, so this is safe). */
+function toDottedChangedPaths(doc: ResumeDocument, ids: string[]): string[] {
+  const want = new Set(ids);
+  const out: string[] = [];
+  for (const section of doc.sections ?? []) {
+    for (const entry of section.entries ?? []) {
+      for (const b of entry.bullets ?? []) {
+        if (want.has(b.id)) out.push(bulletPath(section.id, entry.id, b.id));
+      }
+    }
+  }
+  // keep any ids that already look like dotted paths (forward-compatible)
+  for (const id of ids) if (id.includes(".")) out.push(id);
+  return out;
+}
 
 const envFlag = (import.meta.env.VITE_STUDIO_USE_MOCKS ?? "1") as string;
 /** Master switch. Mocks ON by default while the backend is in flight. */
@@ -89,11 +109,25 @@ export const aiInsightsAPI = {
 /* ---------- Resume Studio document + AI rewrite ---------- */
 
 export const resumeStudioAPI = {
-  /** Gap analysis for Step 1 ("See the gap"). Tailor returns the keyword-gap. */
+  /** Gap analysis for Step 1 ("See the gap"). The backend computes the keyword
+   *  gap against the document's stored JD keywords and exposes it on the
+   *  rewrite-suggestions endpoint; we map it to the studio's GapAnalysis shape.
+   *  (jobDescription is accepted for API symmetry; the gap is derived from the
+   *  document the resume was tailored against.) */
   analyzeGap: (resumeId: string, jobDescription: string): Promise<GapAnalysis> =>
     withFallback(
-      "POST /tailor/gap",
-      () => api.post<GapAnalysis>(`/tailor/gap`, { resumeId, jobDescription }).then((r) => r.data),
+      "GET /resumes/:id/rewrite-suggestions",
+      async () => {
+        void jobDescription;
+        const { data } = await api.get<{ gap?: { matched: string[]; missing: string[]; coverageCount: number; total: number } }>(`/resumes/${resumeId}/rewrite-suggestions`);
+        const g = data.gap ?? { matched: [], missing: [], coverageCount: 0, total: 0 };
+        return {
+          coverage: g.total > 0 ? Math.round((g.coverageCount / g.total) * 100) : 0,
+          matched: g.matched ?? [],
+          missing: g.missing ?? [],
+          sectionFlags: [],
+        };
+      },
       () => mockGap(),
     ),
 
@@ -117,7 +151,12 @@ export const resumeStudioAPI = {
   aiRewrite: (resumeId: string, req: AIRewriteRequest, baseDoc: ResumeDocument): Promise<AIRewriteResult> =>
     withFallback(
       "POST /resumes/:id/ai-rewrite",
-      () => api.post<AIRewriteResult>(`/resumes/${resumeId}/ai-rewrite`, req).then((r) => r.data),
+      async () => {
+        const { data } = await api.post<AIRewriteResult>(`/resumes/${resumeId}/ai-rewrite`, req);
+        // Backend reports changedPaths as bare element ids → translate to the
+        // dotted paths the preview highlights against.
+        return { ...data, changedPaths: toDottedChangedPaths(data.document, data.changedPaths ?? []) };
+      },
       () => mockRewrite(baseDoc, req),
     ),
 
