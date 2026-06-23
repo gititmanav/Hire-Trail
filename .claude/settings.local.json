@@ -150,7 +150,8 @@
       "Bash(printf '<h1>HireTrail PDF OK</h1><p>Gotenberg is wired.</p>')",
       "Bash(curl -s --max-time 70 -F \"files=@/tmp/htrail_index.html\" https://gotenberg-15875098947.us-central1.run.app/forms/chromium/convert/html -o /tmp/htrail_out.pdf -w \"render HTTP %{http_code}  in %{time_total}s\\\\n\")",
       "Bash(curl -s --max-time 70 -F 'files=@/tmp/htrail_index.html;filename=index.html' https://gotenberg-15875098947.us-central1.run.app/forms/chromium/convert/html -o /tmp/htrail_out.pdf -w 'render HTTP %{http_code}  in %{time_total}s\\\\n')",
-      "Bash(awk '{print $5}')"
+      "Bash(awk '{print $5}')",
+      "Bash(npx tsx -e ' *)"
     ]
   }
 }

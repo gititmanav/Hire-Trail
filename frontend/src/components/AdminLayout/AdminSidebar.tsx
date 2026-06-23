@@ -15,25 +15,65 @@ interface AdminNavItem {
   end?: boolean;
 }
 
-const adminNav: AdminNavItem[] = [
-  { to: "/admin",                  label: "Dashboard",       Icon: LayoutDashboard, end: true },
-  { to: "/admin/users",            label: "Users & Roles",   Icon: Shield },
-  { to: "/admin/content",          label: "Content",         Icon: FileEdit },
-  { to: "/admin/calendar",         label: "Calendar",        Icon: Calendar },
-  { to: "/admin/mailbox",          label: "Mailboxes",       Icon: Mail },
-  { to: "/admin/notifications",    label: "Notifications",   Icon: Bell },
-  { to: "/admin/feedback",         label: "Feedback",        Icon: MessageSquare },
-  { to: "/admin/bugs",             label: "Bug Reports",     Icon: Bug },
-  { to: "/admin/storage",          label: "Storage",         Icon: HardDrive },
-  { to: "/admin/settings",         label: "Settings",        Icon: Settings },
-  { to: "/admin/ai",               label: "AI Providers",    Icon: Sparkles },
-  { to: "/admin/announcements",    label: "Announcements",   Icon: Megaphone },
-  { to: "/admin/audit-logs",       label: "Audit Logs",      Icon: FileText },
-  { to: "/admin/email-templates",  label: "Email Templates", Icon: Mail },
-  { to: "/admin/broadcasts",       label: "Broadcasts",      Icon: Send },
-  { to: "/admin/invites",          label: "Invites",         Icon: UserPlus },
-  { to: "/admin/backup",           label: "Backup",          Icon: Archive },
-  { to: "/admin/seed",             label: "Seed Data",       Icon: Database },
+interface AdminNavGroup {
+  label: string;
+  items: AdminNavItem[];
+}
+
+const groups: AdminNavGroup[] = [
+  {
+    label: "Overview",
+    items: [
+      { to: "/admin",          label: "Dashboard", Icon: LayoutDashboard, end: true },
+      { to: "/admin/calendar", label: "Calendar",  Icon: Calendar },
+    ],
+  },
+  {
+    label: "People",
+    items: [
+      { to: "/admin/users",   label: "Users & Roles", Icon: Shield },
+      { to: "/admin/invites", label: "Invites",       Icon: UserPlus },
+    ],
+  },
+  {
+    label: "Content",
+    items: [
+      { to: "/admin/content",         label: "Content",         Icon: FileEdit },
+      { to: "/admin/announcements",   label: "Announcements",   Icon: Megaphone },
+      { to: "/admin/email-templates", label: "Email Templates", Icon: Mail },
+      { to: "/admin/broadcasts",      label: "Broadcasts",      Icon: Send },
+    ],
+  },
+  {
+    label: "Inbox",
+    items: [
+      { to: "/admin/mailbox",       label: "Mailboxes",     Icon: Mail },
+      { to: "/admin/notifications", label: "Notifications", Icon: Bell },
+    ],
+  },
+  {
+    label: "Support",
+    items: [
+      { to: "/admin/feedback", label: "Feedback",    Icon: MessageSquare },
+      { to: "/admin/bugs",     label: "Bug Reports", Icon: Bug },
+    ],
+  },
+  {
+    label: "AI",
+    items: [
+      { to: "/admin/ai", label: "AI Providers", Icon: Sparkles },
+    ],
+  },
+  {
+    label: "System",
+    items: [
+      { to: "/admin/settings",   label: "Settings",   Icon: Settings },
+      { to: "/admin/storage",    label: "Storage",    Icon: HardDrive },
+      { to: "/admin/audit-logs", label: "Audit Logs", Icon: FileText },
+      { to: "/admin/backup",     label: "Backup",     Icon: Archive },
+      { to: "/admin/seed",       label: "Seed Data",  Icon: Database },
+    ],
+  },
 ];
 
 export default function AdminSidebar({ collapsed, onToggle }: Props) {
@@ -52,17 +92,28 @@ export default function AdminSidebar({ collapsed, onToggle }: Props) {
           {collapsed ? <PanelLeftOpen size={18} strokeWidth={1.5} /> : <PanelLeftClose size={18} strokeWidth={1.5} />}
         </button>
       </div>
-      <nav className={`flex-1 flex flex-col gap-0.5 overflow-y-auto ${collapsed ? "px-1 items-center" : "px-2"}`}>
-        {adminNav.map((item) => {
-          const Icon = item.Icon;
-          return (
-            <NavLink key={item.to} to={item.to} end={item.end || false} title={collapsed ? item.label : undefined}
-              className={({ isActive }) => `flex items-center gap-2.5 rounded-lg text-sm font-medium whitespace-nowrap ${collapsed ? "justify-center w-11 h-11 p-0" : "px-3 py-2"} ${isActive ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"}`}>
-              <Icon size={18} strokeWidth={1.6} />
-              {!collapsed && <span>{item.label}</span>}
-            </NavLink>
-          );
-        })}
+      <nav className={`flex-1 flex flex-col overflow-y-auto py-2 ${collapsed ? "px-1 items-center" : "px-2"}`}>
+        {groups.map((group, gIdx) => (
+          <div key={group.label} className={`flex flex-col ${collapsed ? "items-center w-full" : ""} ${gIdx === 0 ? "" : collapsed ? "mt-2 pt-2 border-t border-sidebar-border/40 w-full" : "mt-4"}`}>
+            {!collapsed && (
+              <div className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/40 select-none">
+                {group.label}
+              </div>
+            )}
+            <div className={`flex flex-col gap-0.5 ${collapsed ? "items-center w-full" : ""}`}>
+              {group.items.map((item) => {
+                const Icon = item.Icon;
+                return (
+                  <NavLink key={item.to} to={item.to} end={item.end || false} title={collapsed ? item.label : undefined}
+                    className={({ isActive }) => `flex items-center gap-2.5 rounded-lg text-sm font-medium whitespace-nowrap ${collapsed ? "justify-center w-11 h-11 p-0" : "px-3 py-2"} ${isActive ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"}`}>
+                    <Icon size={18} strokeWidth={1.6} />
+                    {!collapsed && <span>{item.label}</span>}
+                  </NavLink>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
       <div className="px-4 py-3 border-t border-sidebar-border">
         <p className={`text-[11px] text-sidebar-foreground/50 ${collapsed ? "text-center" : ""}`}>{collapsed ? "Admin" : "Admin Panel"}</p>
