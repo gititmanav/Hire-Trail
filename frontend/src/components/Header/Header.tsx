@@ -3,11 +3,12 @@ import { useState, useRef, useEffect, useContext, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Menu, Puzzle, Download, Info, ChevronDown, Sun, Moon, User as UserIcon,
-  Settings as SettingsIcon, LogOut, Calendar, Wrench,
+  Settings as SettingsIcon, LogOut, Calendar, Wrench, Megaphone,
 } from "lucide-react";
 import { ThemeContext } from "../../App.tsx";
 import NotificationBell from "./NotificationBell.tsx";
 import GlobalSearch from "./GlobalSearch.tsx";
+import { useAnnouncements } from "../Announcements/AnnouncementsProvider.tsx";
 import { useAIKeyStatus } from "../../hooks/useAIKeyStatus.tsx";
 import type { User } from "../../types";
 
@@ -29,6 +30,7 @@ export default function Header({ user, onLogout, onMobileMenuToggle }: Props) {
   const menuRef = useRef<HTMLDivElement>(null);
   const { dark, toggle } = useContext(ThemeContext);
   const { hasActiveKey, ready } = useAIKeyStatus();
+  const { hasAnnouncements, reopenAll } = useAnnouncements();
   const navigate = useNavigate();
   const location = useLocation();
   const initials = user.name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
@@ -151,6 +153,18 @@ export default function Header({ user, onLogout, onMobileMenuToggle }: Props) {
             >
               <Wrench size={18} strokeWidth={1.8} />
               <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500 ring-2 ring-background" aria-hidden />
+            </button>
+          )}
+          {/* Announcements: only present when there's an active announcement.
+           *  This is where a dismissed banner "lives" — click to re-open it. */}
+          {hasAnnouncements && (
+            <button
+              onClick={reopenAll}
+              className="w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-secondary-foreground"
+              title="Show announcements"
+              aria-label="Show announcements"
+            >
+              <Megaphone size={18} strokeWidth={1.7} />
             </button>
           )}
           <NotificationBell />

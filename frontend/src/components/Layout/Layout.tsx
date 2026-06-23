@@ -3,6 +3,8 @@ import { useState, useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import Sidebar from "../Sidebar/Sidebar.tsx";
 import Header from "../Header/Header.tsx";
+import { AnnouncementsProvider } from "../Announcements/AnnouncementsProvider.tsx";
+import AnnouncementBanner from "../Announcements/AnnouncementBanner.tsx";
 import type { User } from "../../types";
 
 interface Props { user: User; onLogout: () => Promise<void>; }
@@ -25,6 +27,7 @@ export default function Layout({ user, onLogout }: Props) {
   }, [collapsed]);
 
   return (
+    <AnnouncementsProvider>
     <div className="flex min-h-screen bg-background">
       {/* Mobile backdrop */}
       {mobileOpen && (
@@ -52,6 +55,7 @@ export default function Layout({ user, onLogout }: Props) {
         className={`shell-overlap-panel flex-1 flex flex-col transition-[margin-left] duration-200 ease-out md:${collapsed ? "ml-16" : "ml-60"} ${collapsed ? "md:ml-16" : "md:ml-60"}`}
       >
         <Header user={user} onLogout={onLogout} onMobileMenuToggle={() => setMobileOpen(!mobileOpen)} />
+        <AnnouncementBanner />
         {/* `overflow-x-clip` lets pages use `-mx-4` negative-margin "breakout"
          *  patterns (full-bleed sticky filter bars on Applications, Deadlines,
          *  Companies, etc.) without spilling past the viewport on mobile.
@@ -64,5 +68,6 @@ export default function Layout({ user, onLogout }: Props) {
         </main>
       </div>
     </div>
+    </AnnouncementsProvider>
   );
 }

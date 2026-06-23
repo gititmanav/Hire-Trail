@@ -307,6 +307,11 @@ export const settingsAPI = {
   getFeatureFlags: () => api.get<{ flags: Record<string, boolean> }>("/settings/features").then((r) => r.data),
 };
 
+export const announcementsAPI = {
+  // User-facing active announcements (drives the app banner + header megaphone).
+  getActive: () => api.get<Announcement[]>("/announcements/active").then((r) => r.data),
+};
+
 export const proxyAPI = {
   fetchTweakcn: (url: string) => api.post<{ html: string }>("/proxy/tweakcn", { url }).then((r) => r.data),
 };

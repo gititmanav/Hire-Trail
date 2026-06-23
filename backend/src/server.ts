@@ -40,6 +40,7 @@ import adminRoutes from "./routes/admin.js";
 import emailRoutes from "./routes/email.js";
 import notificationRoutes from "./routes/notifications.js";
 import bugRoutes from "./routes/bugs.js";
+import announcementRoutes from "./routes/announcements.js";
 import { startEmailScanJob } from "./services/emailScanJob.js";
 import { reapStalledScanJobs } from "./services/email/firstScan.js";
 import { backfillResumeVersions } from "./services/migrations/backfillResumeVersions.js";
@@ -142,6 +143,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/email", emailRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/bugs", bugRoutes);
+app.use("/api/announcements", announcementRoutes);
 
 // Monorepo deploy: Vite build at ../frontend/dist (dev UX uses Vite on :5173 with proxy to this API).
 const clientBuildPath = join(__dirname, "..", "..", "frontend", "dist");
