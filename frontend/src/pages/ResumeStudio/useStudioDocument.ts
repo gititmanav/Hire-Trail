@@ -68,6 +68,7 @@ export function useStudioDocument(resumeId: string, initialJd: string) {
 
   /* ---------- initial load ---------- */
   useEffect(() => {
+    if (!resumeId) { setLoading(false); return; }
     let cancelled = false;
     setLoading(true);
     resumeStudioAPI.getDocument(resumeId)
@@ -78,6 +79,7 @@ export function useStudioDocument(resumeId: string, initialJd: string) {
   }, [resumeId]);
 
   const reanalyzeGap = useCallback((nextJd?: string) => {
+    if (!resumeId) return;
     const useJd = nextJd ?? jd;
     setGapLoading(true);
     resumeStudioAPI.analyzeGap(resumeId, useJd)
@@ -91,7 +93,7 @@ export function useStudioDocument(resumeId: string, initialJd: string) {
 
   /* ---------- debounced autosave ---------- */
   useEffect(() => {
-    if (!doc) return;
+    if (!doc || !resumeId) return;
     if (skipNextSave.current) { skipNextSave.current = false; return; }
     setSaveState("saving");
     if (saveTimer.current) window.clearTimeout(saveTimer.current);
