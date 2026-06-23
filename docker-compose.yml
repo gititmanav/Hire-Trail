@@ -1,0 +1,68 @@
+# HireTrail — local containers.
+#
+# Default (just the DB, for host-based dev with hot reload):
+#   docker compose up -d              # MongoDB only (hiretrail-dev-db on :27017)
+#   docker compose down
+#   docker compose down -v           # also wipe the data volume
+#
+# Full stack (one command, no Node needed — for evaluation / onboarding):
+#   docker compose --profile full up --build
+#   # then seed + open:
+#   npm run db:seed                  # host → seeds the shared DB
+#   # app at http://localhost:8080  (login dev@hiretrail.local / devpass123)
+#
+# Pass optional AI/integration secrets via your shell or a root `.env`, e.g.:
+#   AI_GATEWAY_API_KEY=...  docker compose --profile full up --build
+services:
+  mongo:
+    image: mongo:7
+    container_name: hiretrail-dev-db
+    ports:
+      - "27017:27017"
+    volumes:
+      - hiretrail_dev_db_data:/data/db
+    restart: unless-stopped
+
+  # --- Full-stack services (opt-in via `--profile full`) ---
+  backend:
+    profiles: ["full"]
+    build: ./backend
+    depends_on:
+      - mongo
+    ports:
+      - "5050:5050"
+    environment:
+      NODE_ENV: production
+      PORT: "5050"
+      MONGO_URI: mongodb://mongo:27017/hiretrail_dev
+      CLIENT_URL: http://localhost:8080
+      SESSION_SECRET: ${SESSION_SECRET:-dev-only-change-me}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-0000000000000000000000000000000000000000000000000000000000000000}
+      GOTENBERG_URL: http://gotenberg:3000
+      # Optional — inherited from your shell / root .env (AI disabled if unset).
+      AI_GATEWAY_API_KEY: ${AI_GATEWAY_API_KEY:-}
+      GOOGLE_GENERATIVE_AI_API_KEY: ${GOOGLE_GENERATIVE_AI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+    restart: unless-stopped
+
+  frontend:
+    profiles: ["full"]
+    build: ./frontend
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+
+  gotenberg:
+    profiles: ["full"]
+    image: gotenberg/gotenberg:8
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+volumes:
+  hiretrail_dev_db_data:

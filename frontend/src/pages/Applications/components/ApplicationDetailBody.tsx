@@ -462,7 +462,9 @@ function TailorSessionsSection({
     return () => { cancelled = true; };
   }, [applicationId]);
 
-  const tailorUrl = `/tailor?company=${encodeURIComponent(company)}&role=${encodeURIComponent(role)}&applicationId=${applicationId}`;
+  // Opens the broad tailoring drawer over this application (the one app-driven
+  // entry into the Resume Studio flow). The drawer reuses the app's analysis.
+  const tailorUrl = `/applications?tailor=${applicationId}`;
 
   return (
     <div className="px-4 py-4">
@@ -511,7 +513,7 @@ function TailorSessionsSection({
             return (
               <li key={s._id}>
                 <Link
-                  to={`/tailor?session=${s._id}`}
+                  to={`/applications?tailorSession=${s._id}`}
                   className="block rounded-lg border border-border bg-background hover:bg-muted/40 transition-colors px-3 py-2"
                 >
                   <div className="flex items-center justify-between gap-2">

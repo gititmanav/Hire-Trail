@@ -107,7 +107,7 @@ function PipelinePulseImpl({ app, health, action, onOpen }: Props) {
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (action.kind === "tailor" && app.tailorSessionId) {
-      navigate(`/tailor?session=${app.tailorSessionId}`);
+      navigate(`/applications?tailor=${app._id}`);
       return;
     }
     onOpen();

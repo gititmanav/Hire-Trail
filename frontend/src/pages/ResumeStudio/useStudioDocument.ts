@@ -41,15 +41,37 @@ function targetKey(scope: RewriteScope): string | null {
   return null;
 }
 
-export function useStudioDocument(resumeId: string, initialJd: string) {
+export interface GapError {
+  message: string;
+  /** True when the failure is a credentials/credit issue → show "Add a key". */
+  isKeyIssue: boolean;
+}
+
+/** Classify an analyze-gap failure for fail-in-place UX (message + whether to
+ *  surface an "Add a key" CTA). */
+function parseGapError(err: unknown): GapError {
+  const e = err as { response?: { status?: number; data?: { error?: unknown } }; message?: string };
+  const status = e?.response?.status;
+  const dataErr = e?.response?.data?.error;
+  const message = typeof dataErr === "string" ? dataErr : (e?.message || "Couldn't analyze the job description. Please try again.");
+  const isKeyIssue = status === 402 || /add (a )?key|no active key|api key|quota|credit|billing|exhausted/i.test(message);
+  return { message, isKeyIssue };
+}
+
+export function useStudioDocument(resumeId: string, initialJd: string, initialGap: GapAnalysis | null = null) {
   const [doc, setDoc] = useState<ResumeDocument | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const [gap, setGap] = useState<GapAnalysis | null>(null);
+  // `initialGap` lets the Applications drawer seed Step 1 from an already-
+  // succeeded analysis (skip the LLM round-trip) — see ApplicationTailorDrawer.
+  const [gap, setGap] = useState<GapAnalysis | null>(initialGap);
   // Starts false: the gap analysis is user-triggered (press "Analyze"), not an
   // auto-run. (The old auto-run fired on mount while resumeId was still "" — it
   // early-returned and left this stuck true, so "Analyzing the gap…" never ended.)
   const [gapLoading, setGapLoading] = useState(false);
+  // Surfaces an AI failure in place (no key / quota / provider down) instead of
+  // silently swallowing it — the empty/error state offers Retry + Add-a-key.
+  const [gapError, setGapError] = useState<GapError | null>(null);
   const [jd, setJd] = useState(initialJd);
 
   const [saveState, setSaveState] = useState<SaveState>("idle");
@@ -85,13 +107,39 @@ export function useStudioDocument(resumeId: string, initialJd: string) {
     if (!resumeId) return;
     const useJd = nextJd ?? jd;
     setGapLoading(true);
+    setGapError(null);
     resumeStudioAPI.analyzeGap(resumeId, useJd)
-      .then((g) => setGap(g))
-      .catch(() => { /* non-blocking — the empty state lets the user retry */ })
+      .then((g) => {
+        setGap({ coverage: g.coverage, matched: g.matched, missing: g.missing, sectionFlags: g.sectionFlags });
+        setGapError(null);
+        // Refresh the JD-aware deterministic score + suggestion chips so the
+        // Review gauge/chips reflect the posting just analyzed (they were derived
+        // at load time, before a JD existed). Display-only — don't trigger a save.
+        if (g.score !== undefined || g.suggestions) {
+          setDoc((prev) => {
+            if (!prev) return prev;
+            skipNextSave.current = true;
+            return {
+              ...prev,
+              ...(g.score !== undefined ? { score: g.score } : {}),
+              ...(g.suggestions ? { suggestions: g.suggestions } : {}),
+            };
+          });
+        }
+      })
+      .catch((err) => setGapError(parseGapError(err)))
       .finally(() => setGapLoading(false));
   }, [resumeId, jd]);
   // No auto-run: the user presses "Analyze" in step 1. This avoids both the
   // perpetual-spinner bug and analyzing a placeholder JD the user didn't choose.
+
+  /** Seed the gap from an already-succeeded analysis (the drawer's skip-Step-1)
+   *  without an LLM round-trip. */
+  const hydrateGap = useCallback((g: GapAnalysis) => {
+    setGap(g);
+    setGapError(null);
+    setGapLoading(false);
+  }, []);
 
   /* ---------- debounced autosave ---------- */
   useEffect(() => {
@@ -191,7 +239,7 @@ export function useStudioDocument(resumeId: string, initialJd: string) {
   return {
     resumeId,
     doc, loading,
-    gap, gapLoading, jd, setJd, reanalyzeGap,
+    gap, gapLoading, gapError, jd, setJd, reanalyzeGap, hydrateGap,
     saveState, lastSavedAt,
     applyEdit, patchStyle,
     rewriting, runRewrite,

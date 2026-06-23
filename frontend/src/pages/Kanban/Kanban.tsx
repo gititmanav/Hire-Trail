@@ -137,10 +137,10 @@ const KanbanCard = memo(function KanbanCard({ app, resumeName, isDragging, densi
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
-              navigate(`/tailor?session=${app.tailorSessionId}`);
+              navigate(`/applications?tailor=${app._id}`);
             }}
             className="text-[10px] font-medium text-primary hover:underline shrink-0"
-            title="Open this tailor session"
+            title="Tailor resume for this role"
           >
             Open in Tailor →
           </button>

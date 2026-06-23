@@ -7,14 +7,18 @@
     "dev": "cross-env NODE_NO_WARNINGS=1 tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "seed": "tsx src/seed.ts"
+    "seed": "tsx src/seed.ts",
+    "db:up": "docker compose -f ../docker-compose.yml up -d",
+    "db:down": "docker compose -f ../docker-compose.yml down",
+    "db:up:local": "mkdir -p .localdb/mongo && mongod --dbpath .localdb/mongo --port 27017 --fork --logpath .localdb/mongod.log",
+    "db:stop:local": "mongosh --port 27017 --quiet --eval \"db.getSiblingDB('admin').shutdownServer()\" || true",
+    "db:seed": "tsx scripts/devSeed.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.77",
     "@ai-sdk/google": "^3.0.73",
     "@ai-sdk/openai": "^3.0.63",
     "@azure/msal-node": "^5.2.1",
-    "@myriaddreamin/typst-ts-node-compiler": "^0.7.0-rc2",
     "@openrouter/ai-sdk-provider": "^2.9.0",
     "@sentry/node": "^9.47.1",
     "ai": "^6.0.182",

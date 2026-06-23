@@ -199,12 +199,16 @@ async function tailorInit(data) {
     const result = await res.json();
     const sessionId = result?.session?._id;
     if (!sessionId) return { success: false, error: "No session id returned.", code: ERROR_CODES.API_ERROR };
-    // Open the HireTrail Tailor page in a new tab so the user can review suggestions
-    // + click "Mark as Applied" when they're done.
+    const applicationId = result?.application?._id;
+    // Open the broad tailoring drawer over the application in the HireTrail web app
+    // (the JD is already on the session, so it's not passed in the URL).
     try {
-      await chrome.tabs.create({ url: `${WEB_BASE}/tailor?session=${sessionId}` });
+      const url = applicationId
+        ? `${WEB_BASE}/applications?tailor=${applicationId}`
+        : `${WEB_BASE}/applications?tailorSession=${sessionId}`;
+      await chrome.tabs.create({ url });
     } catch { /* user can navigate manually if popup blocked */ }
-    return { success: true, sessionId, applicationId: result?.application?._id };
+    return { success: true, sessionId, applicationId };
   } catch (err) {
     if (err?.name === "AbortError") return { success: false, error: "Timed out.", code: ERROR_CODES.NETWORK_TIMEOUT };
     return { success: false, error: err?.message || "Network error", code: ERROR_CODES.NETWORK_ERROR };

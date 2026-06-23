@@ -38,7 +38,11 @@ export async function loadOrBuildDocument(
     const session = await TailorSession.findOne({ _id: tailorSessionId, userId });
     if (session) {
       suggestions = session.suggestions;
-      jdKeywords = [...session.matchedSkills, ...session.missingSkills];
+      // Prefer the cleaned, candidate-independent JD keyword set; fall back to
+      // matched+missing skills for pre-existing sessions that predate it.
+      jdKeywords = session.jdKeywords?.length
+        ? [...session.jdKeywords]
+        : [...session.matchedSkills, ...session.missingSkills];
     }
   }
 

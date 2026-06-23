@@ -17,7 +17,7 @@ export default function Layout({ user, onLogout }: Props) {
   });
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
-  const fullWidth = ["/", "/kanban", "/calendar", "/profile", "/tailor", "/resume-studio"].includes(location.pathname);
+  const fullWidth = ["/", "/kanban", "/calendar", "/profile", "/resume-studio"].includes(location.pathname);
 
   // Close mobile sidebar on route change
   useEffect(() => { setMobileOpen(false); }, [location.pathname]);

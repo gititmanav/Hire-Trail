@@ -24,7 +24,7 @@ export interface ValidateResult {
   modelTested?: string;
 }
 
-async function restValidate(provider: AIProvider, key: string): Promise<ValidateResult> {
+async function restValidate(provider: string, key: string): Promise<ValidateResult> {
   let url = "";
   const headers: Record<string, string> = {};
   if (provider === "anthropic") {
@@ -62,16 +62,18 @@ async function restValidate(provider: AIProvider, key: string): Promise<Validate
   }
 }
 
-async function gatewayValidate(provider: AIProvider, key: string): Promise<ValidateResult> {
+async function gatewayValidate(provider: string, key: string): Promise<ValidateResult> {
   const cat = getProvider(provider);
   const modelId = cat.defaultFast;
-  // Bedrock keys are JSON {accessKeyId, secretAccessKey, region}; others a string.
+  // Multi-field providers (Bedrock/Azure/Vertex) send a JSON credential object;
+  // everyone else a single apiKey. Provider-agnostic: parse JSON if it looks like it.
   let credential: Record<string, unknown>;
-  if (cat.keyKind === "aws") {
+  const trimmed = key.trim();
+  if (trimmed.startsWith("{")) {
     try {
-      credential = JSON.parse(key);
+      credential = JSON.parse(trimmed) as Record<string, unknown>;
     } catch {
-      return { ok: false, reason: "Bedrock credentials must be JSON: {accessKeyId, secretAccessKey, region}." };
+      return { ok: false, reason: "Multi-field credentials must be valid JSON." };
     }
   } else {
     credential = { apiKey: key };
@@ -101,9 +103,8 @@ async function gatewayValidate(provider: AIProvider, key: string): Promise<Valid
   }
 }
 
-export async function validateProviderKey(provider: AIProvider, key: string): Promise<ValidateResult> {
-  const cat = getProvider(provider);
-  if (!cat) return { ok: false, reason: "Unknown provider." };
+export async function validateProviderKey(provider: string, key: string): Promise<ValidateResult> {
+  const cat = getProvider(provider); // never undefined (derives for unknowns)
 
   if (env.AI_GATEWAY_API_KEY) {
     // The gateway is how every call actually runs, so validate the way we'll use it.

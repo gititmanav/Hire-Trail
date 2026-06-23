@@ -4,6 +4,7 @@ import { z } from "zod";
 import { Resume } from "../models/Resume.js";
 import { User } from "../models/User.js";
 import { Application } from "../models/Application.js";
+import { TailorSession } from "../models/TailorSession.js";
 import { ensureAuth, getUser } from "../middleware/auth.js";
 import { blockDemoUser } from "../middleware/blockDemoUser.js";
 import { upload } from "../middleware/upload.js";
@@ -14,13 +15,25 @@ import { resumeDocumentSchema } from "../validators/resumeDocument.js";
 import { composeHtml } from "../services/resume/html.js";
 import { renderHtmlToPdf } from "../services/pdf/renderHtml.js";
 import { rewriteDocument } from "../services/ai/rewrite.js";
+import { analyzeJD, type AnalysisSectionFlag } from "../services/ai/tailor.js";
 import { computeScore } from "../services/resume/score.js";
 import { buildSuggestionChips } from "../services/resume/suggestions.js";
 import { keywordCoverage, extractDocText, extractJdKeywords } from "../services/resume/keywords.js";
-import type { RewriteScope } from "../services/resume/types.js";
+import type { RewriteScope, ResumeDocument as ResumeDocShape } from "../services/resume/types.js";
 
 const router = Router();
 router.use(ensureAuth);
+
+/** Map the brain's section-type-keyed flags onto the live document's section
+ *  ids + titles for the Studio "See the gap" step. */
+function mapSectionFlags(doc: ResumeDocShape, flags: AnalysisSectionFlag[]) {
+  const out: { sectionId: string; title: string; severity: AnalysisSectionFlag["severity"]; note: string }[] = [];
+  for (const f of flags) {
+    const sec = doc.sections.find((s) => s.type === f.section);
+    if (sec) out.push({ sectionId: sec.id, title: sec.title, severity: f.severity, note: f.note });
+  }
+  return out;
+}
 
 const cloudinaryEnabled = () => !!(env.CLOUDINARY_CLOUD_NAME && env.CLOUDINARY_API_KEY && env.CLOUDINARY_API_SECRET);
 
@@ -190,13 +203,16 @@ router.get("/:id/rewrite-suggestions", async (req: Request, res: Response, next:
   } catch (err) { next(err); }
 });
 
-/** POST /:id/analyze-gap {jobDescription} — gap of the resume vs a SPECIFIC JD.
- *  When a JD is supplied we derive its keywords deterministically and persist
- *  them on the document so the score + suggestion chips are computed against the
- *  posting the user is actually targeting (Resume Studio "See the gap"). With no
- *  JD it falls back to the document's stored keywords. No LLM — pure + fast. */
+/** POST /:id/analyze-gap {jobDescription} — Step 1 "See the gap", AI-driven.
+ *  The LLM brain (analyzeJD) extracts the role's REAL requirements (noise
+ *  stripped), a per-section read, and the fit; we persist the cleaned keyword
+ *  set on the document AND on the doc's TailorSession (one per doc, updated in
+ *  place so re-analysis doesn't spam sessions). The COVERAGE ring + match score
+ *  stay deterministic — computed against the actual document with those keywords
+ *  — so the number never lies. With no/short JD we fall back to the document's
+ *  stored keywords (no LLM). AI failure surfaces as an error (fail-in-place). */
 const analyzeGapSchema = z.object({ jobDescription: z.string().max(40_000).optional().default("") });
-router.post("/:id/analyze-gap", async (req: Request, res: Response, next: NextFunction) => {
+router.post("/:id/analyze-gap", blockDemoUser, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = getUser(req);
     const parsed = analyzeGapSchema.safeParse(req.body);
@@ -205,18 +221,96 @@ router.post("/:id/analyze-gap", async (req: Request, res: Response, next: NextFu
     if (!resume) throw new NotFoundError("Resume");
     const docModel = await loadOrBuildDocument(user._id.toString(), resume);
 
+    let flags: AnalysisSectionFlag[] = [];
+    let fit: { fitScore: number; fitGrade: string; summary: string; matchedSkills: string[]; missingSkills: string[] } | null = null;
+
     if (jd.length >= 20) {
-      const kws = extractJdKeywords(jd);
-      if (kws.length) {
-        docModel.jdKeywords = kws;
-        await docModel.save();
+      const { analysis } = await analyzeJD(user._id, { jobDescription: jd, jobTitle: resume.targetRole || "" });
+      const kws = analysis.jdKeywords.length ? analysis.jdKeywords : extractJdKeywords(jd);
+
+      const fields = {
+        userId: user._id,
+        jobTitle: resume.targetRole || "",
+        jobDescription: jd.slice(0, 30_000),
+        status: "succeeded" as const,
+        fitScore: analysis.fitScore,
+        fitGrade: analysis.fitGrade,
+        summary: analysis.summary,
+        jdKeywords: kws,
+        matchedSkills: analysis.matchedSkills,
+        missingSkills: analysis.missingSkills,
+        sectionFlags: analysis.sectionFlags,
+        suggestions: analysis.suggestions.map((s) => ({ ...s, decision: null })),
+      };
+
+      const existing = docModel.tailorSessionId
+        ? await TailorSession.findOne({ _id: docModel.tailorSessionId, userId: user._id })
+        : null;
+      if (existing) {
+        Object.assign(existing, fields);
+        await existing.save();
+      } else {
+        const created = await TailorSession.create({ ...fields, applicationId: null });
+        docModel.tailorSessionId = created._id;
       }
+
+      docModel.jdKeywords = kws;
+      await docModel.save();
+      flags = analysis.sectionFlags;
+      fit = {
+        fitScore: analysis.fitScore, fitGrade: analysis.fitGrade, summary: analysis.summary,
+        matchedSkills: analysis.matchedSkills, missingSkills: analysis.missingSkills,
+      };
     }
+
     const gap = keywordCoverage(docModel.jdKeywords, extractDocText(docModel.document));
     res.json({
       gap,
+      sectionFlags: mapSectionFlags(docModel.document, flags),
       suggestions: buildSuggestionChips(docModel.document, gap),
       score: computeScore(docModel.document, docModel.jdKeywords),
+      fit,
+    });
+  } catch (err) { next(err); }
+});
+
+/** POST /:id/document/bind-session {tailorSessionId} — bind a resume's document
+ *  to an application's analysis: copy the session's cleaned JD keywords onto the
+ *  document so the deterministic coverage/score target the APPLICATION's posting,
+ *  not whatever the resume was last tailored against. Lets the Applications
+ *  tailoring drawer reuse a succeeded analysis (skip Step 1) honestly. */
+const bindSessionSchema = z.object({ tailorSessionId: z.string().min(1) });
+router.post("/:id/document/bind-session", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = getUser(req);
+    const parsed = bindSessionSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.flatten().fieldErrors });
+      return;
+    }
+    const resume = await Resume.findOne({ _id: req.params.id, userId: user._id });
+    if (!resume) throw new NotFoundError("Resume");
+    const session = await TailorSession.findOne({ _id: parsed.data.tailorSessionId, userId: user._id });
+    if (!session) throw new NotFoundError("Tailor session");
+    const docModel = await loadOrBuildDocument(user._id.toString(), resume);
+
+    const kws = session.jdKeywords?.length
+      ? [...session.jdKeywords]
+      : [...session.matchedSkills, ...session.missingSkills];
+    docModel.jdKeywords = kws;
+    docModel.tailorSessionId = session._id;
+    await docModel.save();
+
+    const gap = keywordCoverage(docModel.jdKeywords, extractDocText(docModel.document));
+    res.json({
+      document: withDerived(docModel),
+      gap,
+      sectionFlags: mapSectionFlags(docModel.document, session.sectionFlags),
+      score: computeScore(docModel.document, docModel.jdKeywords),
+      fit: {
+        fitScore: session.fitScore, fitGrade: session.fitGrade, summary: session.summary,
+        matchedSkills: session.matchedSkills, missingSkills: session.missingSkills,
+      },
     });
   } catch (err) { next(err); }
 });

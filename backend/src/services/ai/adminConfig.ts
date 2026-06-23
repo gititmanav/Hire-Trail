@@ -11,12 +11,11 @@
  */
 import { SystemSettings, DEFAULT_SETTINGS } from "../../models/SystemSettings.js";
 import { encrypt, decrypt } from "../../utils/encryption.js";
-import type { AIProvider } from "../../models/AIProviderConfig.js";
-import { AI_PROVIDERS } from "../../models/AIProviderConfig.js";
 
 export interface AdminAiConfig {
   enabled: boolean;
-  defaultProvider: AIProvider | "";
+  /** Curated or dynamic gateway provider id, or "" when unset. */
+  defaultProvider: string;
   defaultModel: string;
   usesGatewayCredits: boolean;
   monthlyTokenLimit: number;
@@ -64,10 +63,8 @@ export async function getAdminAiConfig(): Promise<AdminAiConfig> {
     }
   }
 
-  const providerRaw = asStr(get("ai_default_provider")).trim();
-  const defaultProvider = (AI_PROVIDERS as readonly string[]).includes(providerRaw)
-    ? (providerRaw as AIProvider)
-    : "";
+  // Any gateway provider id is allowed (curated or dynamic); "" = unset.
+  const defaultProvider = asStr(get("ai_default_provider")).trim();
 
   const value: AdminAiConfig = {
     enabled: asBool(get("ai_enabled"), true),
@@ -85,7 +82,7 @@ export async function getAdminAiConfig(): Promise<AdminAiConfig> {
 /** Non-secret view for admin/status routes. */
 export async function publicAdminAiConfig(): Promise<{
   enabled: boolean;
-  defaultProvider: AIProvider | "";
+  defaultProvider: string;
   defaultModel: string;
   usesGatewayCredits: boolean;
   monthlyTokenLimit: number;

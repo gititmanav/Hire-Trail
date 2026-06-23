@@ -950,7 +950,7 @@
     if (openBtn) {
       openBtn.addEventListener("click", () => {
         chrome.runtime.sendMessage({ type: "OPEN_TAILOR", sessionId: payload.session._id });
-        const url = `https://hiretrail.manavkaneria.me/tailor?session=${encodeURIComponent(payload.session._id)}`;
+        const url = `https://hiretrail.manavkaneria.me/applications?tailorSession=${encodeURIComponent(payload.session._id)}`;
         window.open(url, "_blank", "noopener,noreferrer");
       });
     }
@@ -1363,7 +1363,7 @@
   function showApplyDetectedBanner(sessionId, companyLabel) {
     const existing = document.getElementById("hiretrail-apply-banner");
     if (existing) existing.remove();
-    const url = `https://hiretrail.manavkaneria.me/tailor?session=${sessionId}`;
+    const url = `https://hiretrail.manavkaneria.me/applications?tailorSession=${sessionId}`;
     const banner = document.createElement("div");
     banner.id = "hiretrail-apply-banner";
     banner.style.cssText = `

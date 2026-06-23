@@ -12,6 +12,7 @@ import { blockDemoUser } from "../middleware/blockDemoUser.js";
 import { User } from "../models/User.js";
 import { MasterProfile } from "../models/MasterProfile.js";
 import { TailorSession } from "../models/TailorSession.js";
+import { Resume } from "../models/Resume.js";
 
 /** Thin summary of a TailorSession for inlining into Application list/get responses. */
 export interface AppFitSummary {
@@ -250,6 +251,47 @@ router.post("/:id/reanalyze", blockDemoUser, async (req: Request, res: Response,
       url: app.jobUrl || "",
       jobDescription: jd,
     });
+  } catch (err) { next(err); }
+});
+
+/** Ensure a per-application TAILORED VARIANT resume exists and return its id.
+ *  Each application tailors its OWN resume document so tailoring one role never
+ *  clobbers another (or the master/primary). Lineage: baseResumeId = the user's
+ *  current primary; tailorSessionId = the app's analysis. Idempotent — reuses the
+ *  app's existing tailored variant. The variant's editable document is derived
+ *  lazily from the master profile on first GET /resumes/:id/document. */
+router.post("/:id/tailor-resume", blockDemoUser, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = getUser(req);
+    const app = await Application.findOne({ _id: req.params.id, userId: user._id });
+    if (!app) throw new NotFoundError("Application");
+
+    if (app.resumeId) {
+      const existing = await Resume.findOne({ _id: app.resumeId, userId: user._id });
+      if (existing && (existing.tags || []).includes("tailored")) {
+        res.json({ resumeId: existing._id.toString() });
+        return;
+      }
+    }
+
+    const hasProfile = await MasterProfile.exists({ userId: user._id });
+    if (!hasProfile) throw new ValidationError("Set up your master profile first to tailor a resume.");
+
+    const dbUser = await User.findById(user._id).select("primaryResumeId");
+    const baseResumeId = (dbUser?.primaryResumeId as typeof app.resumeId) ?? null;
+    const name = `Tailored — ${app.company || "Role"}${app.role ? ` / ${app.role}` : ""}`.slice(0, 200);
+
+    const variant = await Resume.create({
+      userId: user._id,
+      name,
+      targetRole: app.role || "",
+      tags: ["tailored"],
+      fileName: "",
+      baseResumeId,
+      tailorSessionId: app.tailorSessionId ?? null,
+    });
+    await Application.updateOne({ _id: app._id }, { $set: { resumeId: variant._id } });
+    res.json({ resumeId: variant._id.toString() });
   } catch (err) { next(err); }
 });
 

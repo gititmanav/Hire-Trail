@@ -25,6 +25,7 @@ export interface AIStatus {
   message: string;
 }
 
+export interface UsageOp { opType: string; tokens: number; estCostUsd: number; calls: number }
 export interface AIUsage {
   mode: "byok" | "default";
   /** BYOK accounting. */
@@ -37,6 +38,10 @@ export interface AIUsage {
   resetsAt?: string | null;
   /** Window label, e.g. "this month". */
   period?: string;
+  /** Total tokens spent this period (both modes). */
+  totalTokens?: number;
+  /** Per-operation breakdown (parsing / fit / rewrite / …). */
+  byOp?: UsageOp[];
 }
 
 export interface ProviderInfo {
@@ -93,7 +98,8 @@ export function mockDocument(): ResumeDocument {
         id: "sec_summary", type: "summary", title: "Summary", order: 0,
         entries: [{
           id: "sum_e", org: "", title: "", location: "", startDate: "", endDate: "", current: false, order: 0,
-          bullets: [{ id: "sum_b1", order: 0, text: "Backend-leaning full-stack engineer with 4 years building reliable, well-tested services. Comfortable owning a feature end to end, from API design to dashboards." }],
+          bullets: [],
+          extra: { text: "Backend-leaning full-stack engineer with 4 years building reliable, well-tested services. Comfortable owning a feature end to end, from API design to dashboards." },
         }],
       },
       {
@@ -120,7 +126,7 @@ export function mockDocument(): ResumeDocument {
         id: "sec_proj", type: "projects", title: "Projects", order: 2,
         entries: [{
           id: proj, org: "", title: "OpenSchedule", location: "", startDate: "2023", endDate: "", current: false, order: 0,
-          extra: "React, Node, Postgres",
+          extra: { technologies: ["React", "Node", "Postgres"] },
           bullets: [
             { id: "p1", order: 0, text: "Open-source scheduling tool with 600+ GitHub stars; designed the conflict-resolution algorithm." },
           ],
@@ -130,20 +136,17 @@ export function mockDocument(): ResumeDocument {
         id: "sec_edu", type: "education", title: "Education", order: 3,
         entries: [{
           id: edu, org: "University of Massachusetts", title: "B.S. Computer Science", location: "Amherst, MA",
-          startDate: "2016", endDate: "2020", current: false, order: 0, extra: "GPA 3.7",
+          startDate: "2016", endDate: "2020", current: false, order: 0, extra: { gpa: "3.7" },
           bullets: [],
         }],
       },
       {
         id: "sec_skills", type: "skills", title: "Skills", order: 4,
-        entries: [{
-          id: "skills_e", org: "", title: "", location: "", startDate: "", endDate: "", current: false, order: 0,
-          bullets: [
-            { id: "sk1", order: 0, text: "Languages: TypeScript, Python, Go, SQL" },
-            { id: "sk2", order: 1, text: "Infra: Docker, AWS, Postgres, Redis" },
-            { id: "sk3", order: 2, text: "Practices: TDD, CI/CD, code review" },
-          ],
-        }],
+        entries: [
+          { id: "sk_lang", org: "", title: "Languages", location: "", startDate: "", endDate: "", current: false, order: 0, bullets: [], extra: { items: ["TypeScript", "Python", "Go", "SQL"] } },
+          { id: "sk_infra", org: "", title: "Infra", location: "", startDate: "", endDate: "", current: false, order: 1, bullets: [], extra: { items: ["Docker", "AWS", "Postgres", "Redis"] } },
+          { id: "sk_practices", org: "", title: "Practices", location: "", startDate: "", endDate: "", current: false, order: 2, bullets: [], extra: { items: ["TDD", "CI/CD", "code review"] } },
+        ],
       },
     ],
     style: { ...DEFAULT_STYLE },
