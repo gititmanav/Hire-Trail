@@ -16,7 +16,7 @@ import { renderHtmlToPdf } from "../services/pdf/renderHtml.js";
 import { rewriteDocument } from "../services/ai/rewrite.js";
 import { computeScore } from "../services/resume/score.js";
 import { buildSuggestionChips } from "../services/resume/suggestions.js";
-import { keywordCoverage, extractDocText } from "../services/resume/keywords.js";
+import { keywordCoverage, extractDocText, extractJdKeywords } from "../services/resume/keywords.js";
 import type { RewriteScope } from "../services/resume/types.js";
 
 const router = Router();
@@ -187,6 +187,37 @@ router.get("/:id/rewrite-suggestions", async (req: Request, res: Response, next:
     const docModel = await loadOrBuildDocument(user._id.toString(), resume);
     const gap = keywordCoverage(docModel.jdKeywords, extractDocText(docModel.document));
     res.json({ suggestions: buildSuggestionChips(docModel.document, gap), gap });
+  } catch (err) { next(err); }
+});
+
+/** POST /:id/analyze-gap {jobDescription} — gap of the resume vs a SPECIFIC JD.
+ *  When a JD is supplied we derive its keywords deterministically and persist
+ *  them on the document so the score + suggestion chips are computed against the
+ *  posting the user is actually targeting (Resume Studio "See the gap"). With no
+ *  JD it falls back to the document's stored keywords. No LLM — pure + fast. */
+const analyzeGapSchema = z.object({ jobDescription: z.string().max(40_000).optional().default("") });
+router.post("/:id/analyze-gap", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = getUser(req);
+    const parsed = analyzeGapSchema.safeParse(req.body);
+    const jd = (parsed.success ? parsed.data.jobDescription : "").trim();
+    const resume = await Resume.findOne({ _id: req.params.id, userId: user._id });
+    if (!resume) throw new NotFoundError("Resume");
+    const docModel = await loadOrBuildDocument(user._id.toString(), resume);
+
+    if (jd.length >= 20) {
+      const kws = extractJdKeywords(jd);
+      if (kws.length) {
+        docModel.jdKeywords = kws;
+        await docModel.save();
+      }
+    }
+    const gap = keywordCoverage(docModel.jdKeywords, extractDocText(docModel.document));
+    res.json({
+      gap,
+      suggestions: buildSuggestionChips(docModel.document, gap),
+      score: computeScore(docModel.document, docModel.jdKeywords),
+    });
   } catch (err) { next(err); }
 });
 

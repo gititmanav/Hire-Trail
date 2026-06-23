@@ -46,7 +46,10 @@ export function useStudioDocument(resumeId: string, initialJd: string) {
   const [loading, setLoading] = useState(true);
 
   const [gap, setGap] = useState<GapAnalysis | null>(null);
-  const [gapLoading, setGapLoading] = useState(true);
+  // Starts false: the gap analysis is user-triggered (press "Analyze"), not an
+  // auto-run. (The old auto-run fired on mount while resumeId was still "" — it
+  // early-returned and left this stuck true, so "Analyzing the gap…" never ended.)
+  const [gapLoading, setGapLoading] = useState(false);
   const [jd, setJd] = useState(initialJd);
 
   const [saveState, setSaveState] = useState<SaveState>("idle");
@@ -84,12 +87,11 @@ export function useStudioDocument(resumeId: string, initialJd: string) {
     setGapLoading(true);
     resumeStudioAPI.analyzeGap(resumeId, useJd)
       .then((g) => setGap(g))
-      .catch(() => { /* non-blocking */ })
+      .catch(() => { /* non-blocking — the empty state lets the user retry */ })
       .finally(() => setGapLoading(false));
   }, [resumeId, jd]);
-
-  useEffect(() => { reanalyzeGap(initialJd); /* once */ // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // No auto-run: the user presses "Analyze" in step 1. This avoids both the
+  // perpetual-spinner bug and analyzing a placeholder JD the user didn't choose.
 
   /* ---------- debounced autosave ---------- */
   useEffect(() => {

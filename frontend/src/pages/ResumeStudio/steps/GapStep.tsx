@@ -33,7 +33,9 @@ const FLAG_META: Record<SectionFlag["severity"], { icon: typeof CheckCircle2; cl
 
 export default function GapStep({ studio }: { studio: StudioController }) {
   const { gap, gapLoading, jd, setJd, reanalyzeGap } = studio;
-  const [jdOpen, setJdOpen] = useState(false);
+  // Open the JD by default until a gap exists, so the user sees where to paste
+  // and the "Analyze gap" trigger without hunting for it.
+  const [jdOpen, setJdOpen] = useState(!gap);
 
   return (
     <div className="space-y-5">
@@ -97,7 +99,7 @@ export default function GapStep({ studio }: { studio: StudioController }) {
         </>
       ) : (
         <div className="bg-card border border-border rounded-xl p-8 text-center text-sm text-muted-foreground">
-          Gap analysis unavailable. Paste a job description below and re-analyze.
+          Paste the target job description below and press <span className="font-medium text-foreground">Analyze gap</span> to see how your resume matches.
         </div>
       )}
 
@@ -120,9 +122,10 @@ export default function GapStep({ studio }: { studio: StudioController }) {
               <button
                 onClick={() => reanalyzeGap()}
                 disabled={gapLoading || jd.trim().length < 20}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50"
+                title={jd.trim().length < 20 ? "Paste a job description (20+ chars) to analyze" : undefined}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {gapLoading ? "Analyzing…" : "Re-analyze"}
+                {gapLoading ? "Analyzing…" : gap ? "Re-analyze" : "Analyze gap"}
               </button>
             </div>
           </div>

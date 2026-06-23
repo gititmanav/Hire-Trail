@@ -119,10 +119,14 @@ export const resumeStudioAPI = {
    *  document the resume was tailored against.) */
   analyzeGap: (resumeId: string, jobDescription: string): Promise<GapAnalysis> =>
     withFallback(
-      "GET /resumes/:id/rewrite-suggestions",
+      "POST /resumes/:id/analyze-gap",
       async () => {
-        void jobDescription;
-        const { data } = await api.get<{ gap?: { matched: string[]; missing: string[]; coverageCount: number; total: number } }>(`/resumes/${resumeId}/rewrite-suggestions`);
+        // Derive the gap against the SPECIFIC pasted JD (backend extracts +
+        // persists its keywords, so the score/chips target this posting too).
+        const { data } = await api.post<{ gap?: { matched: string[]; missing: string[]; coverageCount: number; total: number } }>(
+          `/resumes/${resumeId}/analyze-gap`,
+          { jobDescription },
+        );
         const g = data.gap ?? { matched: [], missing: [], coverageCount: 0, total: 0 };
         return {
           coverage: g.total > 0 ? Math.round((g.coverageCount / g.total) * 100) : 0,
