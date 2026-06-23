@@ -323,6 +323,27 @@ export interface AIKey {
   updatedAt: string;
 }
 
+/** AI status (GET /api/ai/status) — which provider the user's AI requests resolve to. */
+export interface AIStatusResponse {
+  mode: "byok" | "default" | "none";
+  provider: string | null;
+  model: string | null;
+  ok: boolean;
+  message: string;
+}
+
+/** AI usage (GET /api/ai/usage). BYOK accounts report tokens + est $; default
+ *  (shared) accounts report a used/limit meter with a reset date. */
+export interface AIUsageResponse {
+  mode: "byok" | "default";
+  tokens?: { input: number; output: number; total: number };
+  estimatedCostUsd?: number;
+  used?: number;
+  limit?: number;
+  resetsAt?: string | null;
+  period?: string;
+}
+
 export const aiAPI = {
   listProviders: () => api.get<{ available: { provider: AIProvider; byok: boolean }[]; defaults: Record<AIProvider, { fast: string; smart: string }> }>("/ai/providers").then((r) => r.data),
   listKeys: () => api.get<AIKey[]>("/ai/keys").then((r) => r.data),
@@ -334,7 +355,12 @@ export const aiAPI = {
   validateKey: (data: { provider: AIProvider; apiKey: string }, signal?: AbortSignal) =>
     api.post<{ ok: boolean; reason?: string }>("/ai/keys/validate", data, { signal }).then((r) => r.data),
   updateKey: (id: string, data: { name?: string; modelOverride?: string | null; isActive?: boolean }) => api.put<AIKey>(`/ai/keys/${id}`, data).then((r) => r.data),
+  /** Exactly-one-active activation (POST /api/ai/keys/:id/activate). The server
+   *  deactivates the other keys atomically. */
+  activateKey: (id: string) => api.post<AIKey>(`/ai/keys/${id}/activate`).then((r) => r.data),
   deleteKey: (id: string) => api.delete(`/ai/keys/${id}`).then((r) => r.data),
+  getStatus: () => api.get<AIStatusResponse>("/ai/status").then((r) => r.data),
+  getUsage: () => api.get<AIUsageResponse>("/ai/usage").then((r) => r.data),
 };
 
 /* ---------- Tailor (JD analysis + accept/reject suggestions) ---------- */

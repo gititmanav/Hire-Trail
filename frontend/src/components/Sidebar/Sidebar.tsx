@@ -4,7 +4,7 @@ import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard, ClipboardList, Columns3, Calendar, Clock,
   Users, Building2, FileText, Sparkles, Search, ArrowLeftRight,
-  Shield, MessageSquare, PanelLeftClose, PanelLeftOpen,
+  Shield, MessageSquare, PanelLeftClose, PanelLeftOpen, Wand2,
   type LucideIcon,
 } from "lucide-react";
 import { useFeatureFlags } from "../../hooks/useFeatureFlags.tsx";
@@ -55,6 +55,7 @@ const groups: NavGroup[] = [
     label: "Tools",
     items: [
       { to: "/resumes", label: "Resumes", Icon: FileText },
+      { to: "/resume-studio", label: "Resume Studio", badge: "New", Icon: Wand2 },
       { to: "/tailor", label: "AI Tailor", badge: "Beta", Icon: Sparkles },
       { to: "/jobs", label: "Job Search", Icon: Search, featureKey: "feature_job_search" },
       { to: "/import-export", label: "Import / Export", Icon: ArrowLeftRight, featureKey: "feature_csv_import_export" },
