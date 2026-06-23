@@ -23,6 +23,7 @@ import AlignStep, { defaultAlignConfig, buildAlignInstruction, type AlignConfig 
 import ReviewStep from "./steps/ReviewStep.tsx";
 import { buildResumeCss } from "./preview/resumeCss.ts";
 import { resumeStudioAPI } from "../../utils/studioApi.ts";
+import { authAPI } from "../../utils/api.ts";
 import { useDemoGate } from "../../hooks/useDemoGate.tsx";
 import type { ResumeDocument } from "../../utils/resumeDocument.ts";
 
@@ -49,11 +50,23 @@ function AutosaveIndicator({ state, at }: { state: ReturnType<typeof useStudioDo
 
 export default function ResumeStudio() {
   const [params] = useSearchParams();
-  const resumeId = params.get("resume") || "studio-demo";
+  const queryResume = params.get("resume");
   const initialJd = params.get("jd") || DEFAULT_JD;
   const { isDemo } = useDemoGate();
 
-  const studio = useStudioDocument(resumeId, initialJd);
+  // Resolve a REAL resume id: ?resume= → the user's primary resume → none.
+  // (undefined = still resolving, null = the user has no resume to tailor yet.)
+  const [resolvedId, setResolvedId] = useState<string | null | undefined>(queryResume || undefined);
+  useEffect(() => {
+    if (queryResume) { setResolvedId(queryResume); return; }
+    let cancelled = false;
+    authAPI.getMe()
+      .then((me) => { if (!cancelled) setResolvedId(me.primaryResumeId || null); })
+      .catch(() => { if (!cancelled) setResolvedId(null); });
+    return () => { cancelled = true; };
+  }, [queryResume]);
+
+  const studio = useStudioDocument(typeof resolvedId === "string" ? resolvedId : "", initialJd);
   const [step, setStep] = useState<Step>("gap");
   const [alignConfig, setAlignConfig] = useState<AlignConfig | null>(null);
   const [downloading, setDownloading] = useState(false);
@@ -109,11 +122,26 @@ export default function ResumeStudio() {
     }
   };
 
-  if (studio.loading) {
+  if (resolvedId === undefined || studio.loading) {
     return (
       <div className="max-w-2xl mx-auto pt-20 flex flex-col items-center text-center">
         <Sparkles size={28} strokeWidth={1.6} className="text-primary mb-3" />
         <p className="text-sm text-muted-foreground">Loading Resume Studio…</p>
+      </div>
+    );
+  }
+
+  if (resolvedId === null) {
+    return (
+      <div className="max-w-lg mx-auto pt-20 flex flex-col items-center text-center">
+        <FileText size={28} strokeWidth={1.5} className="text-muted-foreground mb-3" />
+        <h2 className="text-lg font-semibold text-foreground">Pick a resume to tailor</h2>
+        <p className="text-sm text-muted-foreground mt-1.5 max-w-sm">
+          Resume Studio tailors one of your resumes to a job. Open it from a resume in Documents, or set a primary resume there first.
+        </p>
+        <Link to="/resumes" className="mt-5 inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg">
+          Go to Documents <ArrowRight size={15} strokeWidth={2} />
+        </Link>
       </div>
     );
   }
