@@ -319,6 +319,8 @@ export interface AIKey {
   name: string;
   isActive: boolean;
   modelOverride: string | null;
+  /** Last 4 chars of the key, for display (backend never returns the full key). */
+  last4?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -344,23 +346,72 @@ export interface AIUsageResponse {
   period?: string;
 }
 
+/** Backend key view (AI_RESUME_CONTRACT.md). The full key is never returned. */
+type RawAIKey = { id: string; provider: string; label: string; last4: string; isActive: boolean; createdAt: string };
+const KNOWN_PROVIDERS: AIProvider[] = ["google", "openai", "anthropic", "openrouter"];
+
+/** Map the backend's key view → the frontend's internal AIKey shape. */
+function mapAIKey(k: RawAIKey): AIKey {
+  return {
+    _id: k.id,
+    provider: k.provider as AIProvider,
+    name: k.label ?? "",
+    isActive: k.isActive,
+    modelOverride: null,
+    last4: k.last4,
+    createdAt: k.createdAt,
+    updatedAt: k.createdAt,
+  };
+}
+
+/* Adapter layer: the backend (AI_RESUME_CONTRACT.md) uses {key,label,id,hasActiveKey,tokensIn…};
+ * the UI was built around {apiKey,name,_id,…}. These wrappers translate at the boundary so
+ * the components stay unchanged. */
 export const aiAPI = {
-  listProviders: () => api.get<{ available: { provider: AIProvider; byok: boolean }[]; defaults: Record<AIProvider, { fast: string; smart: string }> }>("/ai/providers").then((r) => r.data),
-  listKeys: () => api.get<AIKey[]>("/ai/keys").then((r) => r.data),
-  createKey: (data: { provider: AIProvider; apiKey: string; name?: string; modelOverride?: string | null }) => api.post<AIKey>("/ai/keys", data).then((r) => r.data),
+  listProviders: async () => {
+    const { data } = await api.get<{ providers: { id: string; models: { id: string; capability: "fast" | "smart" }[] }[] }>("/ai/providers");
+    const byId = new Map(data.providers.map((p) => [p.id, p]));
+    const available = KNOWN_PROVIDERS.filter((p) => byId.has(p)).map((provider) => ({ provider, byok: true }));
+    const defaults = KNOWN_PROVIDERS.reduce((acc, p) => {
+      const models = byId.get(p)?.models ?? [];
+      acc[p] = {
+        fast: models.find((m) => m.capability === "fast")?.id ?? "",
+        smart: models.find((m) => m.capability === "smart")?.id ?? "",
+      };
+      return acc;
+    }, {} as Record<AIProvider, { fast: string; smart: string }>);
+    return { available, defaults };
+  },
+  listKeys: async () => (await api.get<RawAIKey[]>("/ai/keys")).data.map(mapAIKey),
+  createKey: async (data: { provider: AIProvider; apiKey: string; name?: string; modelOverride?: string | null }) =>
+    mapAIKey((await api.post<RawAIKey>("/ai/keys", { provider: data.provider, key: data.apiKey, label: data.name })).data),
   /** Best-effort: ping the provider with the candidate key and report whether
-   *  it works, WITHOUT persisting anything. Used for inline validation UX.
-   *  Accepts an optional AbortSignal so the caller can cancel an in-flight
-   *  request when the user keeps typing. */
+   *  it works, WITHOUT persisting anything. Optional AbortSignal cancels in-flight. */
   validateKey: (data: { provider: AIProvider; apiKey: string }, signal?: AbortSignal) =>
-    api.post<{ ok: boolean; reason?: string }>("/ai/keys/validate", data, { signal }).then((r) => r.data),
-  updateKey: (id: string, data: { name?: string; modelOverride?: string | null; isActive?: boolean }) => api.put<AIKey>(`/ai/keys/${id}`, data).then((r) => r.data),
-  /** Exactly-one-active activation (POST /api/ai/keys/:id/activate). The server
-   *  deactivates the other keys atomically. */
-  activateKey: (id: string) => api.post<AIKey>(`/ai/keys/${id}/activate`).then((r) => r.data),
+    api.post<{ ok: boolean; reason?: string; modelTested?: string }>("/ai/keys/validate", { provider: data.provider, key: data.apiKey }, { signal }).then((r) => r.data),
+  updateKey: async (id: string, data: { name?: string; modelOverride?: string | null; isActive?: boolean }) =>
+    mapAIKey((await api.put<RawAIKey>(`/ai/keys/${id}`, { label: data.name, modelOverride: data.modelOverride, isActive: data.isActive })).data),
+  /** Exactly-one-active activation (POST /api/ai/keys/:id/activate). Server deactivates the others. */
+  activateKey: async (id: string) => mapAIKey((await api.post<RawAIKey>(`/ai/keys/${id}/activate`)).data),
   deleteKey: (id: string) => api.delete(`/ai/keys/${id}`).then((r) => r.data),
-  getStatus: () => api.get<AIStatusResponse>("/ai/status").then((r) => r.data),
-  getUsage: () => api.get<AIUsageResponse>("/ai/usage").then((r) => r.data),
+  getStatus: async (): Promise<AIStatusResponse> => {
+    const { data } = await api.get<{ hasActiveKey: boolean; mode: "byok" | "default" | "disabled" }>("/ai/status");
+    const mode: AIStatusResponse["mode"] = data.mode === "disabled" ? "none" : data.mode;
+    const message =
+      mode === "byok" ? "Using your own API key."
+      : mode === "default" ? "Using the shared default key (subject to rate limits)."
+      : "No AI key configured — add your own to enable AI features.";
+    return { mode, provider: null, model: null, ok: data.hasActiveKey || data.mode === "default", message };
+  },
+  getUsage: async (): Promise<AIUsageResponse> => {
+    const { data } = await api.get<Record<string, unknown>>("/ai/usage");
+    if (data.mode === "byok") {
+      const input = Number(data.tokensIn ?? 0);
+      const output = Number(data.tokensOut ?? 0);
+      return { mode: "byok", tokens: { input, output, total: input + output }, estimatedCostUsd: Number(data.estCostUsd ?? 0), period: String(data.period ?? "") };
+    }
+    return { mode: "default", used: Number(data.used ?? 0), limit: Number(data.limit ?? 0), resetsAt: (data.resetsAt as string) ?? null, period: String(data.period ?? "") };
+  },
 };
 
 /* ---------- Tailor (JD analysis + accept/reject suggestions) ---------- */
