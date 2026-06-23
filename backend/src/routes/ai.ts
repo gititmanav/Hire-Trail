@@ -1,130 +1,131 @@
 /**
- * BYOK management + AI capability discovery.
+ * AI platform routes — BYOK management, provider catalog, status, usage.
  *
- * GET  /api/ai/providers      — what providers are available (BYOK or env fallback) + which is active
- * GET  /api/ai/keys           — list user's stored keys (encryptedKey stripped by model toJSON)
- * POST /api/ai/keys           — store a new key for a provider (deactivates previous active key for that provider)
- * PUT  /api/ai/keys/:id       — update name / modelOverride / isActive
- * DELETE /api/ai/keys/:id     — remove a key
+ * Contract:
+ *   GET    /api/ai/providers          → catalog [{id,label,models[],freeTier,getKeyUrl}]
+ *   GET    /api/ai/keys               → [{id,provider,label,last4,isActive,createdAt}]
+ *   POST   /api/ai/keys               {provider,key,label?}
+ *   POST   /api/ai/keys/:id/activate  → activate (deactivates ALL other keys)
+ *   DELETE /api/ai/keys/:id
+ *   POST   /api/ai/keys/validate      {provider,key} → {ok,modelTested?}
+ *   GET    /api/ai/status             → {hasActiveKey,mode}
+ *   GET    /api/ai/usage              → byok {tokensIn,tokensOut,estCostUsd,period}
+ *                                       | default {usedPct,used,limit,resetsAt}
  */
 import { Router, Request, Response, NextFunction } from "express";
 import { z } from "zod";
 
 import { ensureAuth, getUser } from "../middleware/auth.js";
 import { blockDemoUser } from "../middleware/blockDemoUser.js";
-import { AIProviderConfig, AI_PROVIDERS } from "../models/AIProviderConfig.js";
+import { AIProviderConfig, AI_PROVIDERS, type IAIProviderConfig } from "../models/AIProviderConfig.js";
 import { encrypt } from "../utils/encryption.js";
-import { listAvailableProviders, DEFAULT_MODELS } from "../services/ai/index.js";
+import { getAiStatus } from "../services/ai/index.js";
+import { getCatalog } from "../services/ai/catalog.js";
+import { validateProviderKey } from "../services/ai/validateKey.js";
+import { usageSummary } from "../services/ai/usage.js";
+import { getAdminAiConfig } from "../services/ai/adminConfig.js";
 import { NotFoundError } from "../errors/AppError.js";
 import { byokValidateLimiter } from "../middleware/rateLimiter.js";
 
 const router = Router();
 router.use(ensureAuth);
-// Demo user must not be able to add BYOK keys or hit the validation flow that
-// pings third-party providers. Reads (GET routes) stay open so the demo UI
-// can still render the empty state.
+// Demo user can read (to render the empty state) but never writes / pings providers.
 router.post(/.*/, blockDemoUser);
 router.put(/.*/, blockDemoUser);
 router.delete(/.*/, blockDemoUser);
 
-const createKeySchema = z.object({
-  provider: z.enum(AI_PROVIDERS),
-  apiKey: z.string().min(8, "API key looks too short"),
-  name: z.string().max(80).optional().default(""),
-  modelOverride: z.string().max(120).optional().nullable(),
+/** Public shape for a stored key — never includes the ciphertext. */
+function keyView(k: Pick<IAIProviderConfig, "_id" | "provider" | "name" | "last4" | "isActive" | "createdAt">) {
+  return {
+    id: k._id.toString(),
+    provider: k.provider,
+    label: k.name || "",
+    last4: k.last4 || "",
+    isActive: k.isActive,
+    createdAt: k.createdAt,
+  };
+}
+
+/** Deactivate every active key for a user EXCEPT the given id (one-active-per-user). */
+async function deactivateOthers(userId: unknown, exceptId?: unknown): Promise<void> {
+  const filter: Record<string, unknown> = { userId, isActive: true };
+  if (exceptId) filter._id = { $ne: exceptId };
+  await AIProviderConfig.updateMany(filter, { $set: { isActive: false } });
+}
+
+/* -------------------- catalog + status + usage -------------------- */
+
+router.get("/providers", (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    res.json({
+      providers: getCatalog().map((p) => ({
+        id: p.id,
+        label: p.label,
+        models: p.models.map((m) => ({ id: m.id, label: m.label, capability: m.capability })),
+        freeTier: p.freeTier,
+        getKeyUrl: p.getKeyUrl,
+        keyKind: p.keyKind,
+      })),
+    });
+  } catch (err) { next(err); }
 });
 
-const updateKeySchema = z.object({
-  name: z.string().max(80).optional(),
-  modelOverride: z.string().max(120).nullable().optional(),
-  isActive: z.boolean().optional(),
+router.get("/status", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = getUser(req);
+    res.json(await getAiStatus(user._id));
+  } catch (err) { next(err); }
 });
 
-/** POST /api/ai/keys/validate — pings the provider with the supplied key to
- *  verify it's valid BEFORE the user saves it. Tries each provider's cheapest
- *  "is this key real?" endpoint:
- *    - Anthropic:   GET https://api.anthropic.com/v1/models
- *    - OpenAI:      GET https://api.openai.com/v1/models
- *    - Google:      GET https://generativelanguage.googleapis.com/v1beta/models?key={KEY}
- *    - OpenRouter:  GET https://openrouter.ai/api/v1/auth/key
- *  Returns { ok: true } on success, otherwise { ok: false, reason: string }.
- *  Never persists anything. Never throws — failure is communicated via JSON.
- */
+router.get("/usage", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = getUser(req);
+    const hasActiveKey = Boolean(await AIProviderConfig.exists({ userId: user._id, isActive: true }));
+    const admin = await getAdminAiConfig();
+    res.json(await usageSummary(user._id, { byok: hasActiveKey, monthlyTokenLimit: admin.monthlyTokenLimit }));
+  } catch (err) { next(err); }
+});
+
+/* -------------------- validate (no persistence) -------------------- */
+
 const validateKeySchema = z.object({
   provider: z.enum(AI_PROVIDERS),
-  apiKey: z.string().min(4),
+  key: z.string().min(4),
 });
-// SECURITY: the request body for this route contains a raw API key. If any
-// downstream proxy/logger captures request bodies, redact "apiKey" before
-// persisting. We don't run a request-body logger in this app today, so the
-// surface area is the hosting platform's own logs. Treat this as a known
-// constraint; document it in deploy notes.
-// RATE LIMIT: 30 requests / 5 minutes / IP. Prevents this endpoint becoming an
-// oracle for abusers to validate stolen keys against providers.
+
+// SECURITY: the body carries a raw provider key. We never log request bodies in
+// this app; on hosted platforms ensure body capture is disabled for this route.
+// Rate-limited (30 / 5min / IP) so it can't be used to brute-validate stolen keys.
 router.post("/keys/validate", byokValidateLimiter, async (req: Request, res: Response, _next: NextFunction) => {
   const parsed = validateKeySchema.safeParse(req.body);
   if (!parsed.success) {
     res.json({ ok: false, reason: "Missing provider or API key." });
     return;
   }
-  const { provider, apiKey } = parsed.data;
-  try {
-    let url = "";
-    const headers: Record<string, string> = {};
-    if (provider === "anthropic") {
-      url = "https://api.anthropic.com/v1/models";
-      headers["x-api-key"] = apiKey;
-      headers["anthropic-version"] = "2023-06-01";
-    } else if (provider === "openai") {
-      url = "https://api.openai.com/v1/models";
-      headers["Authorization"] = `Bearer ${apiKey}`;
-    } else if (provider === "google") {
-      // Use header auth rather than querystring so the key never appears in
-      // URLs, proxy logs, or referer headers. The Generative Language API
-      // accepts `x-goog-api-key`.
-      url = "https://generativelanguage.googleapis.com/v1beta/models";
-      headers["x-goog-api-key"] = apiKey;
-    } else if (provider === "openrouter") {
-      url = "https://openrouter.ai/api/v1/auth/key";
-      headers["Authorization"] = `Bearer ${apiKey}`;
-    } else {
-      res.json({ ok: false, reason: "Unknown provider." });
-      return;
-    }
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-    try {
-      const r = await fetch(url, { headers, signal: controller.signal });
-      if (r.status === 200) { res.json({ ok: true }); return; }
-      if (r.status === 401 || r.status === 403) { res.json({ ok: false, reason: "Key was rejected by the provider." }); return; }
-      if (r.status === 429) { res.json({ ok: false, reason: "Provider rate limit hit — try again in a moment." }); return; }
-      res.json({ ok: false, reason: `Provider returned ${r.status}.` });
-    } finally {
-      clearTimeout(timeout);
-    }
-  } catch (err) {
-    // Don't echo raw provider error messages — they sometimes include URL
-    // fragments which (in theory) could expose the key for providers that
-    // accept it as a query param. Use a fixed, user-friendly response.
-    const e = err as { name?: string };
-    if (e?.name === "AbortError") { res.json({ ok: false, reason: "Validation timed out." }); return; }
-    res.json({ ok: false, reason: "Could not reach provider." });
-  }
+  const result = await validateProviderKey(parsed.data.provider, parsed.data.key);
+  res.json(result);
 });
 
-router.get("/providers", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const user = getUser(req);
-    const available = await listAvailableProviders(user._id);
-    res.json({ available, defaults: DEFAULT_MODELS });
-  } catch (err) { next(err); }
+/* -------------------- keys CRUD -------------------- */
+
+const createKeySchema = z.object({
+  provider: z.enum(AI_PROVIDERS),
+  key: z.string().min(8, "API key looks too short"),
+  label: z.string().max(80).optional().default(""),
+  modelOverride: z.string().max(160).optional().nullable(),
+});
+
+const updateKeySchema = z.object({
+  label: z.string().max(80).optional(),
+  modelOverride: z.string().max(160).nullable().optional(),
+  isActive: z.boolean().optional(),
 });
 
 router.get("/keys", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = getUser(req);
-    const keys = await AIProviderConfig.find({ userId: user._id }).sort({ createdAt: -1 });
-    res.json(keys);
+    const keys = await AIProviderConfig.find({ userId: user._id }).sort({ createdAt: -1 }).lean();
+    res.json(keys.map(keyView));
   } catch (err) { next(err); }
 });
 
@@ -136,24 +137,33 @@ router.post("/keys", async (req: Request, res: Response, next: NextFunction) => 
       res.status(400).json({ error: parsed.error.flatten().fieldErrors });
       return;
     }
-    const { provider, apiKey, name, modelOverride } = parsed.data;
+    const { provider, key, label, modelOverride } = parsed.data;
 
-    // Deactivate any existing active key for this provider so we have at most one.
-    await AIProviderConfig.updateMany(
-      { userId: user._id, provider, isActive: true },
-      { $set: { isActive: false } }
-    );
-
+    // A newly-added key becomes the single active key for the user.
+    await deactivateOthers(user._id);
     const doc = await AIProviderConfig.create({
       userId: user._id,
       provider,
-      encryptedKey: encrypt(apiKey),
-      name,
+      encryptedKey: encrypt(key),
+      last4: key.slice(-4),
+      name: label,
       isActive: true,
       modelOverride: modelOverride?.trim() || null,
     });
+    res.status(201).json(keyView(doc));
+  } catch (err) { next(err); }
+});
 
-    res.status(201).json(doc);
+router.post("/keys/:id/activate", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = getUser(req);
+    const key = await AIProviderConfig.findOne({ _id: req.params.id, userId: user._id });
+    if (!key) throw new NotFoundError("API key");
+    // Exactly one active key per user — activating this deactivates the rest.
+    await deactivateOthers(user._id, key._id);
+    key.isActive = true;
+    await key.save();
+    res.json(keyView(key));
   } catch (err) { next(err); }
 });
 
@@ -165,26 +175,19 @@ router.put("/keys/:id", async (req: Request, res: Response, next: NextFunction) 
       res.status(400).json({ error: parsed.error.flatten().fieldErrors });
       return;
     }
-
     const key = await AIProviderConfig.findOne({ _id: req.params.id, userId: user._id });
     if (!key) throw new NotFoundError("API key");
 
-    if (parsed.data.name !== undefined) key.name = parsed.data.name;
+    if (parsed.data.label !== undefined) key.name = parsed.data.label;
     if (parsed.data.modelOverride !== undefined) key.modelOverride = parsed.data.modelOverride?.trim() || null;
-
     if (parsed.data.isActive === true) {
-      // Activating this key deactivates the others for the same provider.
-      await AIProviderConfig.updateMany(
-        { userId: user._id, provider: key.provider, isActive: true, _id: { $ne: key._id } },
-        { $set: { isActive: false } }
-      );
+      await deactivateOthers(user._id, key._id);
       key.isActive = true;
     } else if (parsed.data.isActive === false) {
       key.isActive = false;
     }
-
     await key.save();
-    res.json(key);
+    res.json(keyView(key));
   } catch (err) { next(err); }
 });
 

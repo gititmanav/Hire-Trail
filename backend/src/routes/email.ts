@@ -427,7 +427,12 @@ router.post("/scan-candidates/:id", async (req: Request, res: Response, next: Ne
       if (!target) throw new AppError("Target application not found.", 404);
 
       // Optionally adopt the inferred stage if it's later in the pipeline.
-      if (body.updateStage !== false) {
+      // Gate on confidence (task 6): a "low" confidence inference is a guess, so
+      // we only adopt its stage when the user EXPLICITLY opts in (updateStage:true).
+      // Medium/high keep the previous default-on behaviour.
+      const adoptStage =
+        candidate.confidence === "low" ? body.updateStage === true : body.updateStage !== false;
+      if (adoptStage) {
         const order: Stage[] = ["Drafting", "Applied", "OA", "Interview", "Offer", "Rejected"];
         const inferredIdx = order.indexOf(candidate.inferredStage);
         const currentIdx = order.indexOf(target.stage);

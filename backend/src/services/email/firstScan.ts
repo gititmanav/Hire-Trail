@@ -31,7 +31,7 @@ import { Notification } from "../../models/Notification.js";
 import { EmailScanJob, type IEmailScanJob } from "../../models/EmailScanJob.js";
 import { EmailScanCandidate } from "../../models/EmailScanCandidate.js";
 import { buildFirstScanQuery } from "./firstScanQuery.js";
-import { isAtsSender, isLikelyNewsletter } from "./atsDomains.js";
+import { isAtsSender, isLikelyNewsletter, hasNegativeSignal } from "./atsDomains.js";
 import {
   classifyThreadsInBatches,
   type BatchEmailMessage,
@@ -312,10 +312,14 @@ function extractBody(payload: gmail_v1.Schema$MessagePart | undefined): string {
  *  here passed that bar and we mainly want to drop newsletters. */
 function passesPostFetchFilter(m: FetchedMessage): boolean {
   if (isLikelyNewsletter(m.from)) return false;
+  const bodyHead = m.bodyText.slice(0, 1500);
+  // Negative keywords drop job-board ALERTS/marketing even from ATS senders
+  // (LinkedIn/Indeed send both receipts and "12 new jobs for you" digests).
+  if (hasNegativeSignal(m.subject, bodyHead)) return false;
   if (isAtsSender(m.fromDomain)) return true;
   // Subject already passed Gmail's filter; require any of these signals in
   // subject OR first chunk of body to weed out near-misses.
-  const haystack = `${m.subject}\n${m.bodyText.slice(0, 1500)}`;
+  const haystack = `${m.subject}\n${bodyHead}`;
   return /apply|application|interview|recruit|offer|position|opportunity|candidacy|next steps|onboarding|hiring|assessment|coding challenge|thank you for|regret|unfortunately/i.test(
     haystack,
   );

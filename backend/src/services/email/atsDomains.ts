@@ -112,3 +112,41 @@ export function isLikelyNewsletter(fromHeader: string): boolean {
   const f = fromHeader.toLowerCase();
   return NEWSLETTER_PATTERNS.some((re) => re.test(f));
 }
+
+/** Negative subject/body signals — job-board ALERTS and marketing that look
+ *  job-adjacent but are NOT applications the user submitted. Job boards (LinkedIn,
+ *  Indeed…) are on the ATS allowlist because they also send genuine receipts, so
+ *  we filter their alert/digest noise here by content instead of by sender. */
+const NEGATIVE_KEYWORD_RE = new RegExp(
+  [
+    "job alert",
+    "jobs for you",
+    "new jobs",
+    "recommended (for you|jobs)",
+    "jobs you may",
+    "based on your (profile|searches)",
+    "weekly digest",
+    "daily digest",
+    "top picks",
+    "people you may know",
+    "who'?s hiring",
+    "trending",
+    "unsubscribe to stop",
+    "view all jobs",
+    "\\d+\\s+new (jobs|roles|openings)",
+    "% off",
+    "webinar",
+    "promotion",
+    "newsletter",
+    "course",
+    "upgrade to premium",
+    "sponsored",
+  ].join("|"),
+  "i",
+);
+
+/** True when subject/body head reads like a job-board alert or marketing blast
+ *  rather than a personal application thread. */
+export function hasNegativeSignal(subject: string, bodyHead: string): boolean {
+  return NEGATIVE_KEYWORD_RE.test(`${subject}\n${bodyHead}`);
+}

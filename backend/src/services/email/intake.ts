@@ -11,7 +11,6 @@
  *
  * Cost target: ~95% of inbox messages get filtered out before the LLM is called.
  */
-import { generateObject } from "ai";
 import { z } from "zod";
 import mongoose from "mongoose";
 
@@ -20,8 +19,7 @@ import type { IApplication, Stage } from "../../models/Application.js";
 import { Notification } from "../../models/Notification.js";
 import type { NotificationType } from "../../models/Notification.js";
 import type { IUser } from "../../models/User.js";
-import { getModelForUser } from "../ai/index.js";
-import { withAiRetry } from "../ai/withAiRetry.js";
+import { runGenerateObject } from "../ai/run.js";
 
 /* -------------------------- types -------------------------- */
 
@@ -120,24 +118,23 @@ matchedCompany: the actual employer named in the email (not a recruiting agency,
 reasoning: one short sentence (<= 20 words).`;
 
 export async function classifyEmail(userId: string | mongoose.Types.ObjectId, email: NormalizedEmail, trackedCompanies: string[]): Promise<ClassificationResult> {
-  const { model, provider, byok } = await getModelForUser(userId, "fast");
   const body = email.bodyText.slice(0, 2500);
-  const { object } = await withAiRetry({ provider, byok }, () =>
-    generateObject({
-      model,
-      schema: classificationSchema,
-      system: SYSTEM_PROMPT,
-      prompt: [
-        `From: ${email.from}`,
-        `Subject: ${email.subject}`,
-        "",
-        "Body:",
-        body,
-        "",
-        `User is tracking applications at: ${trackedCompanies.join(", ") || "(none)"}`,
-      ].join("\n"),
-    }),
-  );
+  const { object } = await runGenerateObject({
+    userId,
+    capability: "fast",
+    opType: "thread_classify",
+    schema: classificationSchema,
+    system: SYSTEM_PROMPT,
+    prompt: [
+      `From: ${email.from}`,
+      `Subject: ${email.subject}`,
+      "",
+      "Body:",
+      body,
+      "",
+      `User is tracking applications at: ${trackedCompanies.join(", ") || "(none)"}`,
+    ].join("\n"),
+  });
   return object;
 }
 
@@ -250,7 +247,12 @@ export async function processIncomingEmail(user: IUser, email: NormalizedEmail, 
     : newStage === "Rejected" || newStage === "Offer" ? true
     : stageRank(newStage) > stageRank(previousStage);
 
-  if (forwardOk) {
+  // Gate the AUTO stage change on confidence (task 6): a "low" confidence read is
+  // a guess — we still surface the detection as a notification so the user can
+  // act, but we don't silently move the application's stage on a hunch.
+  const doApply = forwardOk && classification.confidence !== "low";
+
+  if (doApply) {
     await Application.findByIdAndUpdate(app._id, {
       stage: newStage,
       $push: { stageHistory: { stage: newStage, date: new Date() } },
@@ -261,16 +263,16 @@ export async function processIncomingEmail(user: IUser, email: NormalizedEmail, 
     userId: user._id,
     type: notifType,
     title: titleFor(classification.signal, app.company),
-    message: forwardOk
+    message: doApply
       ? `Detected ${classification.signal.replace("_", " ")} for "${app.role}" at ${app.company}. Stage updated to ${newStage}.`
-      : `Detected ${classification.signal.replace("_", " ")} for "${app.role}" at ${app.company}.`,
+      : `Detected ${classification.signal.replace("_", " ")} for "${app.role}" at ${app.company} (low confidence — review before changing stage).`,
     applicationId: app._id,
     source: email.source,
     sourceEmailId: email.id,
-    previousStage: forwardOk ? previousStage : null,
+    previousStage: doApply ? previousStage : null,
   });
 
-  return forwardOk
+  return doApply
     ? { applied: true, signal: classification.signal, applicationId: app._id.toString(), previousStage, newStage }
     : { skipped: "no_signal" };
 }

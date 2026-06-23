@@ -20,7 +20,10 @@ import { TailorSession } from "../../models/TailorSession.js";
 import { Application } from "../../models/Application.js";
 import { MasterProfile } from "../../models/MasterProfile.js";
 
-const PER_USER_CONCURRENCY_CAP = 2;
+// Raised from 2 → 5 (task 4): the central runner now enforces a per-user AI
+// rate limit + monthly quota, so a higher analysis concurrency drains a CSV
+// import / batch faster without risking a provider stampede.
+const PER_USER_CONCURRENCY_CAP = 5;
 const PER_USER_DAILY_CAP = 50;
 const DAY_MS = 86_400_000;
 
