@@ -1,0 +1,34 @@
+/* Resume Studio — screen-only affordances layered over the print template.
+ *
+ * IMPORTANT: none of these rules go into the PDF. The PDF receives only
+ * buildResumeCss() + the serialized .resume-doc HTML (with [data-rd-control]
+ * and .rd-changed stripped), so highlights and hover controls never print. */
+
+/* Hover-to-edit controls float at the top-right of each section/entry. */
+.resume-doc .rd-section-wrap { position: relative; }
+.resume-doc .rd-section-wrap:hover > .rd-control,
+.resume-doc .rd-control:focus-visible {
+  opacity: 1;
+}
+
+/* The section/entry currently targeted by the AI gets a soft accent ring. */
+.resume-doc .rd-targeted {
+  outline: 2px solid hsl(var(--primary) / 0.5);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* Transient green highlight on text an AI rewrite just changed. */
+.resume-doc .rd-changed {
+  background: linear-gradient(transparent 60%, hsl(142 71% 45% / 0.28) 0);
+  border-radius: 2px;
+  animation: rd-changed-in 600ms ease;
+}
+@keyframes rd-changed-in {
+  from { background-color: hsl(142 71% 45% / 0.45); }
+  to   { background-color: transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .resume-doc .rd-changed { animation: none; }
+}

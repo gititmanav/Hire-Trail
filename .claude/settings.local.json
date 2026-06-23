@@ -118,7 +118,17 @@
       "Bash(MONGO_URI=\"mongodb://localhost:27017/hiretrail_dev\" CLIENT_URL=\"http://localhost:5175\" npm run seed)",
       "Bash(MONGO_URI=\"mongodb://localhost:27017/hiretrail_dev\" CLIENT_URL=\"http://localhost:5175\" PORT=5050 npm run dev)",
       "Bash(curl -s -o /dev/null -w \"maintenance-status: %{http_code}\\\\n\" http://localhost:5050/api/settings/maintenance-status)",
-      "Bash(lsof -ti tcp:5050 | xargs kill 2>/dev/null; echo \"backend \\(5050\\) stopped\" *)"
+      "Bash(lsof -ti tcp:5050 | xargs kill 2>/dev/null; echo \"backend \\(5050\\) stopped\" *)",
+      "Bash(node -e \"const ai=require\\('ai'\\); console.log\\('gateway' in ai ? 'HAS gateway export' : 'NO gateway export'\\); console.log\\(Object.keys\\(ai\\).filter\\(k=>/gateway/i.test\\(k\\)\\)\\)\")",
+      "Bash(echo \"exit: $?\")",
+      "Bash(grep -v '^$')",
+      "Bash(echo \"TSC_EXIT=$?\")",
+      "Bash(git reset *)",
+      "Bash(git commit *)",
+      "Bash(echo \"=== frontend tsc exit: $? ===\")",
+      "Bash(git push *)",
+      "Bash(echo \"\\(exit $?\\)\")",
+      "Bash(git stash *)"
     ]
   }
 }

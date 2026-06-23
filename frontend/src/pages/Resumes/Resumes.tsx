@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ChevronRight, Eye, FileText, Pencil, Plus, RefreshCw, Search, Sparkles,
-  Star, StarOff, Trash2, Upload, UserRound, X,
+  Star, StarOff, Trash2, Upload, UserRound, Wand2, X,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { resumesAPI, authAPI, masterProfileAPI, pollMasterProfileParse } from "../../utils/api.ts";
@@ -546,11 +546,11 @@ export default function Resumes() {
           onClick={() => { setEditing(null); setModal(true); }}
         />
         <ActionCard
-          icon={<Sparkles size={20} strokeWidth={1.6} className="text-violet-500" />}
-          title="Tailor with AI"
-          subtitle="Optimize a resume against a job description"
+          icon={<Wand2 size={20} strokeWidth={1.6} className="text-violet-500" />}
+          title="Resume Studio"
+          subtitle="See the gap, tailor & edit, then download a pixel-perfect PDF"
           tone="bg-violet-500/10"
-          onClick={() => navigate("/tailor")}
+          onClick={() => navigate("/resume-studio")}
         />
         <ActionCard
           icon={<UserRound size={20} strokeWidth={1.6} className="text-sky-500" />}

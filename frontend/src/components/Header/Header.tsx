@@ -3,11 +3,12 @@ import { useState, useRef, useEffect, useContext, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Menu, Puzzle, Download, Info, ChevronDown, Sun, Moon, User as UserIcon,
-  Settings as SettingsIcon, LogOut, Calendar,
+  Settings as SettingsIcon, LogOut, Calendar, Wrench,
 } from "lucide-react";
 import { ThemeContext } from "../../App.tsx";
 import NotificationBell from "./NotificationBell.tsx";
 import GlobalSearch from "./GlobalSearch.tsx";
+import { useAIKeyStatus } from "../../hooks/useAIKeyStatus.tsx";
 import type { User } from "../../types";
 
 const EXT_DISMISSED_KEY = "hiretrail-ext-banner-dismissed";
@@ -27,6 +28,7 @@ export default function Header({ user, onLogout, onMobileMenuToggle }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const { dark, toggle } = useContext(ThemeContext);
+  const { hasActiveKey, ready } = useAIKeyStatus();
   const navigate = useNavigate();
   const location = useLocation();
   const initials = user.name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
@@ -138,6 +140,19 @@ export default function Header({ user, onLogout, onMobileMenuToggle }: Props) {
         </div>
         <div className="flex items-center gap-2">
           <GlobalSearch />
+          {/* No active AI key → persistent reminder (red wrench). Clears the
+           *  moment a key is activated. Links to AI settings. */}
+          {ready && !hasActiveKey && (
+            <button
+              onClick={() => navigate("/settings/ai")}
+              className="relative w-9 h-9 flex items-center justify-center rounded-lg text-red-500 hover:bg-red-500/10"
+              title="No AI key connected — add one to unlock full AI features"
+              aria-label="No AI key connected — open AI settings"
+            >
+              <Wrench size={18} strokeWidth={1.8} />
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500 ring-2 ring-background" aria-hidden />
+            </button>
+          )}
           <NotificationBell />
           <button
             onClick={() => navigate("/calendar")}
