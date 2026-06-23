@@ -4,16 +4,33 @@
  * buildResumeCss() + the serialized .resume-doc HTML (with [data-rd-control]
  * and .rd-changed stripped), so highlights and hover controls never print. */
 
-/* Hover-to-edit controls float at the top-right of each section/entry. */
+/* Hover-to-edit controls float at the top-right of each section/entry.
+ * Visibility is owned ENTIRELY here (not via a Tailwind opacity utility on the
+ * button) so nothing in the utility layer can override the reveal. */
 .resume-doc .rd-section-wrap { position: relative; }
+.resume-doc .rd-control {
+  opacity: 0;
+  pointer-events: none;            /* hidden control never intercepts clicks */
+  transition: opacity 140ms ease;
+}
 .resume-doc .rd-section-wrap:hover > .rd-control,
 .resume-doc .rd-control:focus-visible {
   opacity: 1;
+  pointer-events: auto;
 }
 
-/* The section/entry currently targeted by the AI gets a soft accent ring. */
-.resume-doc .rd-targeted {
-  outline: 2px solid hsl(var(--primary) / 0.5);
+/* Discoverable hover affordance — a dashed accent border tells the user this
+ * region is targetable for AI (the "blue border on hover" expectation). */
+.resume-doc .rd-section-wrap:hover {
+  outline: 1.5px dashed hsl(var(--primary) / 0.5);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* The section/entry currently targeted by the AI gets a solid accent ring. */
+.resume-doc .rd-targeted,
+.resume-doc .rd-section-wrap.rd-targeted:hover {
+  outline: 2px solid hsl(var(--primary) / 0.7);
   outline-offset: 3px;
   border-radius: 4px;
 }

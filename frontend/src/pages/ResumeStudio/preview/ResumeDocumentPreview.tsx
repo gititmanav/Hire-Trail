@@ -40,7 +40,7 @@ function EditControl({ label, onClick }: { label: string; onClick: () => void })
       type="button"
       data-rd-control
       onClick={(e) => { e.stopPropagation(); onClick(); }}
-      className="rd-control absolute -top-2 right-1 z-10 inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold rounded-md bg-primary text-primary-foreground shadow-md opacity-0 transition-opacity"
+      className="rd-control absolute -top-2 right-1 z-10 inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold rounded-md bg-primary text-primary-foreground shadow-md"
       title={`Edit “${label}” with AI`}
     >
       <Sparkles size={12} strokeWidth={2} /> Edit With AI

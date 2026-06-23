@@ -62,9 +62,11 @@ async function restValidate(provider: string, key: string): Promise<ValidateResu
   }
 }
 
-async function gatewayValidate(provider: string, key: string): Promise<ValidateResult> {
+async function gatewayValidate(provider: string, key: string, model?: string): Promise<ValidateResult> {
   const cat = getProvider(provider);
-  const modelId = cat.defaultFast;
+  // Validate the model the user actually picked — not a per-provider default that
+  // may be unavailable in their account (e.g. a Bedrock acct without Claude 3.5).
+  const modelId = (model && model.trim()) || cat.defaultFast;
   // Multi-field providers (Bedrock/Azure/Vertex) send a JSON credential object;
   // everyone else a single apiKey. Provider-agnostic: parse JSON if it looks like it.
   let credential: Record<string, unknown>;
@@ -103,12 +105,12 @@ async function gatewayValidate(provider: string, key: string): Promise<ValidateR
   }
 }
 
-export async function validateProviderKey(provider: string, key: string): Promise<ValidateResult> {
+export async function validateProviderKey(provider: string, key: string, model?: string): Promise<ValidateResult> {
   const cat = getProvider(provider); // never undefined (derives for unknowns)
 
   if (env.AI_GATEWAY_API_KEY) {
     // The gateway is how every call actually runs, so validate the way we'll use it.
-    return gatewayValidate(provider, key);
+    return gatewayValidate(provider, key, model);
   }
   if (cat.validate === "rest") {
     return restValidate(provider, key);

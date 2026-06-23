@@ -100,13 +100,18 @@ const CATALOG: Record<AIProvider, CatalogProvider> = {
   },
   bedrock: {
     id: "bedrock",
+    // Bedrock hosts many makers (Anthropic, Meta, Amazon, Mistral…) — there is no
+    // single "right" default, and newer Claude needs cross-region inference
+    // profiles. So the fallback defaults are the LEGACY Claude 3 ids (broadly
+    // on-demand-capable, no profile required); users should pick their own model
+    // in the add-key picker, which is then validated + used directly.
     label: "Amazon Bedrock",
     models: [
-      { id: "bedrock/anthropic.claude-3-5-haiku-20241022-v1:0", label: "Claude 3.5 Haiku (Bedrock)", capability: "fast" },
-      { id: "bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0", label: "Claude 3.5 Sonnet (Bedrock)", capability: "smart" },
+      { id: "bedrock/anthropic.claude-3-haiku-20240307-v1:0", label: "Claude 3 Haiku (Bedrock)", capability: "fast" },
+      { id: "bedrock/anthropic.claude-3-sonnet-20240229-v1:0", label: "Claude 3 Sonnet (Bedrock)", capability: "smart" },
     ],
-    defaultFast: "bedrock/anthropic.claude-3-5-haiku-20241022-v1:0",
-    defaultSmart: "bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0",
+    defaultFast: "bedrock/anthropic.claude-3-haiku-20240307-v1:0",
+    defaultSmart: "bedrock/anthropic.claude-3-sonnet-20240229-v1:0",
     freeTier: false,
     getKeyUrl: "https://console.aws.amazon.com/bedrock/",
     keyKind: "aws",

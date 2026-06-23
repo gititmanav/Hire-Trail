@@ -153,7 +153,9 @@
       "Bash(awk '{print $5}')",
       "Bash(npx tsx -e ' *)",
       "Bash(echo \"BACKEND_TSC=$?\")",
-      "Bash(curl -s -o /dev/null -w \"GET /api/announcements/active -> HTTP %{http_code}\\\\n\" --max-time 5 http://localhost:5050/api/announcements/active)"
+      "Bash(curl -s -o /dev/null -w \"GET /api/announcements/active -> HTTP %{http_code}\\\\n\" --max-time 5 http://localhost:5050/api/announcements/active)",
+      "Bash(cd \"/Users/manav/Projects/Hire Trail/backend\" && npx tsc --noEmit 2>&1 | head -15; echo \"BACKEND_TSC=$?\" && echo \"\" && echo \"=== frontend validateKey signature ===\" && grep -n \"validateKey:\" frontend/../frontend/src/utils/api.ts 2>/dev/null || cd \"/Users/manav/Projects/Hire Trail/frontend/src\" && grep -n \"validateKey:\\\\|createKey:\\\\|AICatalogProvider\\\\|AIModel\\\\b\" utils/api.ts | head)",
+      "Bash(curl -s \"http://localhost:5175/src/index.css\")"
     ]
   }
 }
