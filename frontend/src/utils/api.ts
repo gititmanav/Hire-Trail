@@ -27,11 +27,18 @@ export const api = axios.create({
 
 api.interceptors.response.use(
   (r) => r,
-  (error: AxiosError<{ error: string; code?: string }>) => {
+  (error: AxiosError<{ error: string | { code?: string; message?: string }; code?: string }>) => {
     const code = error.response?.data?.code;
     if (code === "MAINTENANCE") return Promise.reject(error);
     const status = error.response?.status;
-    const msg = error.response?.data?.error || error.message || "Something went wrong";
+    // `data.error` is a string from our API, but platform errors (e.g. Vercel
+    // gateway timeouts) send an OBJECT like {code, message}. Rendering that in a
+    // toast crashes React (#31), so coerce to a string no matter the shape.
+    const rawErr = error.response?.data?.error;
+    const msg =
+      typeof rawErr === "string" && rawErr
+        ? rawErr
+        : (typeof rawErr === "object" && rawErr?.message) || error.message || "Something went wrong";
 
     // Silently report 5xx (and AIProviderError's 502 specifically) to the admin
     // panel. Skip recursive reports on /bugs/report itself — otherwise a broken
@@ -46,8 +53,10 @@ api.interceptors.response.use(
     }
 
     if (status === 401 && error.config?.url?.includes("/auth/me")) return Promise.reject(error);
-    if (status === 429) toast.error("Too many requests. Please slow down.");
-    else if (status !== 401) toast.error(msg);
+    // id = message: identical errors collapse into one toast, including when a
+    // local catch handler toasts the same message this interceptor already did.
+    if (status === 429) toast.error("Too many requests. Please slow down.", { id: "rate-limit" });
+    else if (status !== 401) toast.error(msg, { id: msg });
     return Promise.reject(error);
   }
 );

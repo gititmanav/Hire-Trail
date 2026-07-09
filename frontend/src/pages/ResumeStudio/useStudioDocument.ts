@@ -54,7 +54,7 @@ function parseGapError(err: unknown): GapError {
   const status = e?.response?.status;
   const dataErr = e?.response?.data?.error;
   const message = typeof dataErr === "string" ? dataErr : (e?.message || "Couldn't analyze the job description. Please try again.");
-  const isKeyIssue = status === 402 || /add (a )?key|no active key|api key|quota|credit|billing|exhausted/i.test(message);
+  const isKeyIssue = status === 402 || /add (a |your )?(own )?key|no active key|api key|server key|rejected .*key|quota|credit|billing|exhausted|verification/i.test(message);
   return { message, isKeyIssue };
 }
 
@@ -209,7 +209,8 @@ export function useStudioDocument(resumeId: string, initialJd: string, initialGa
       );
     } catch (err) {
       const e = err as { response?: { data?: { error?: string } }; message?: string };
-      toast.error(e?.response?.data?.error || e?.message || "AI rewrite failed.");
+      const msg = e?.response?.data?.error || e?.message || "AI rewrite failed.";
+      toast.error(msg, { id: msg }); // same id as the interceptor's toast → no duplicate
     } finally {
       setRewriting(false);
     }

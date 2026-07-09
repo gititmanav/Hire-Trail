@@ -286,7 +286,25 @@ export default function AddKeyForm({
                 })}
               </div>
             ))}
-            {providerModels.length === 0 && <p className="text-xs text-muted-foreground px-2 py-3">No models match — leave on “Provider default”, or type the exact id below.</p>}
+            {/* Custom-id escape hatch: whatever was typed can be used verbatim —
+                e.g. a Bedrock cross-region inference profile (us.anthropic.…) or a
+                model newer than this list. Validation tests the exact id. */}
+            {(() => {
+              const typed = modelSearch.trim();
+              if (!typed || providerModels.some((m) => m.id === typed)) return null;
+              const customId = typed.includes("/") ? typed : `${providerId}/${typed}`;
+              const active = modelOverride === customId;
+              return (
+                <button type="button" onClick={() => setModelOverride(customId)} className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left border border-dashed ${active ? "bg-primary/10 ring-1 ring-primary/30 border-transparent" : "border-border hover:bg-muted"}`}>
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-sm font-medium text-foreground">Use custom model id</span>
+                    <span className="block text-[10px] text-muted-foreground font-mono truncate">{customId}</span>
+                  </span>
+                  {active && <Check size={14} strokeWidth={2.5} className="text-primary shrink-0" />}
+                </button>
+              );
+            })()}
+            {providerModels.length === 0 && !modelSearch.trim() && <p className="text-xs text-muted-foreground px-2 py-3">No models listed — leave on “Provider default”, or type an exact model id above to use it.</p>}
           </div>
         </div>
       </div>

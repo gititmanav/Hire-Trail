@@ -107,8 +107,18 @@ const CATALOG: Record<AIProvider, CatalogProvider> = {
     // in the add-key picker, which is then validated + used directly.
     label: "Amazon Bedrock",
     models: [
-      { id: "bedrock/anthropic.claude-3-haiku-20240307-v1:0", label: "Claude 3 Haiku (Bedrock)", capability: "fast" },
-      { id: "bedrock/anthropic.claude-3-sonnet-20240229-v1:0", label: "Claude 3 Sonnet (Bedrock)", capability: "smart" },
+      // Cross-region inference profiles (us.*) — how current Claude/Nova models
+      // are invoked on Bedrock. Other regions can paste the eu./apac. variant as
+      // a custom id in the picker.
+      { id: "bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0", label: "Claude Sonnet 4.5 (us profile)", capability: "smart" },
+      { id: "bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0", label: "Claude Haiku 4.5 (us profile)", capability: "fast" },
+      { id: "bedrock/us.anthropic.claude-sonnet-4-20250514-v1:0", label: "Claude Sonnet 4 (us profile)", capability: "smart" },
+      { id: "bedrock/us.anthropic.claude-3-5-haiku-20241022-v1:0", label: "Claude 3.5 Haiku (us profile)", capability: "fast" },
+      { id: "bedrock/us.amazon.nova-pro-v1:0", label: "Amazon Nova Pro (us profile)", capability: "smart" },
+      { id: "bedrock/us.amazon.nova-lite-v1:0", label: "Amazon Nova Lite (us profile)", capability: "fast" },
+      // Legacy on-demand ids (no profile needed) — kept for older accounts.
+      { id: "bedrock/anthropic.claude-3-haiku-20240307-v1:0", label: "Claude 3 Haiku (legacy on-demand)", capability: "fast" },
+      { id: "bedrock/anthropic.claude-3-sonnet-20240229-v1:0", label: "Claude 3 Sonnet (legacy on-demand)", capability: "smart" },
     ],
     defaultFast: "bedrock/anthropic.claude-3-haiku-20240307-v1:0",
     defaultSmart: "bedrock/anthropic.claude-3-sonnet-20240229-v1:0",
