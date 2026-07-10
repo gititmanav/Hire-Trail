@@ -47,6 +47,40 @@ export interface GapError {
   isKeyIssue: boolean;
 }
 
+/* ---------- per-tab session persistence (survives reloads/tab discards) ---------- */
+
+interface StudioSessionState {
+  jd?: string;
+  gap?: GapAnalysis | null;
+  /** Wizard position + align choices — written by StudioWizard. */
+  step?: "gap" | "align" | "review";
+  alignConfig?: { sectionIds: string[]; keywords: string[]; mode: "quick" | "full" } | null;
+}
+
+function studioSessionKey(resumeId: string): string {
+  return `ht-studio:${resumeId}`;
+}
+
+export function readStudioSession(resumeId: string): StudioSessionState | null {
+  if (!resumeId) return null;
+  try {
+    const raw = sessionStorage.getItem(studioSessionKey(resumeId));
+    return raw ? (JSON.parse(raw) as StudioSessionState) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function writeStudioSession(resumeId: string, patch: StudioSessionState): void {
+  if (!resumeId) return;
+  try {
+    const cur = readStudioSession(resumeId) ?? {};
+    sessionStorage.setItem(studioSessionKey(resumeId), JSON.stringify({ ...cur, ...patch }));
+  } catch {
+    /* storage full/blocked — persistence is best-effort */
+  }
+}
+
 /** Classify an analyze-gap failure for fail-in-place UX (message + whether to
  *  surface an "Add a key" CTA). */
 function parseGapError(err: unknown): GapError {
@@ -73,6 +107,27 @@ export function useStudioDocument(resumeId: string, initialJd: string, initialGa
   // silently swallowing it — the empty/error state offers Retry + Add-a-key.
   const [gapError, setGapError] = useState<GapError | null>(null);
   const [jd, setJd] = useState(initialJd);
+
+  // A browser tab discard (Chrome Memory Saver) or reload wipes React state and
+  // silently threw users back to Step 1. Persist the session's progress (jd,
+  // gap — and step/config in StudioWizard) per resume so a reload restores it.
+  // resumeId resolves ASYNC on the /resume-studio page (primary-resume lookup),
+  // so hydrate when it arrives — state initializers would only see "".
+  const hydratedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!resumeId || hydratedFor.current === resumeId) return;
+    hydratedFor.current = resumeId;
+    const saved = readStudioSession(resumeId);
+    if (!saved) return;
+    if (!initialGap && saved.gap) setGap(saved.gap);
+    if (!initialJd && saved.jd) setJd(saved.jd);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resumeId]);
+  useEffect(() => {
+    if (hydratedFor.current !== resumeId) return; // not hydrated yet
+    if (!jd && !gap) return; // nothing meaningful — don't clobber a saved session
+    writeStudioSession(resumeId, { jd, gap });
+  }, [resumeId, jd, gap]);
 
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);

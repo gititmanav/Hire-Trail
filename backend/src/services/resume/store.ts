@@ -47,15 +47,26 @@ export async function loadOrBuildDocument(
   }
 
   const doc = buildResumeDocument(master, { suggestions, jdKeywords });
-  return ResumeDocument.create({
-    resumeId: resume._id,
-    userId,
-    document: doc,
-    version: 1,
-    jdKeywords,
-    tailorSessionId,
-    history: [],
-  });
+  try {
+    return await ResumeDocument.create({
+      resumeId: resume._id,
+      userId,
+      document: doc,
+      version: 1,
+      jdKeywords,
+      tailorSessionId,
+      history: [],
+    });
+  } catch (err) {
+    // Two requests can race this lazy build (the drawer fires document-load and
+    // bind-session together on first open); the unique resumeId index makes the
+    // loser throw E11000 ("resumeId already exists") — reuse the winner's doc.
+    if ((err as { code?: number })?.code === 11000) {
+      const built = await ResumeDocument.findOne({ resumeId: resume._id, userId });
+      if (built) return built;
+    }
+    throw err;
+  }
 }
 
 /** Attach score + suggestion chips (+ editor metadata) for an API response. */
