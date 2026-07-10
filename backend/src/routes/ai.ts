@@ -147,7 +147,26 @@ const createKeySchema = z.object({
   key: z.string().min(8, "API key looks too short"),
   label: z.string().max(80).optional().default(""),
   modelOverride: z.string().max(160).optional().nullable(),
+  /** False when pre-validation failed: the key is stored but NOT routed to,
+   *  so a bad save can't silently break the user's working AI. */
+  activate: z.boolean().optional().default(true),
 });
+
+/** Display tail of a credential. JSON multi-field secrets (Bedrock/Azure) would
+ *  otherwise show `"-1\"}"` — use the longest field value (the actual secret). */
+function credentialLast4(key: string): string {
+  const trimmed = key.trim();
+  if (trimmed.startsWith("{")) {
+    try {
+      const obj = JSON.parse(trimmed) as Record<string, unknown>;
+      const longest = Object.values(obj)
+        .filter((v): v is string => typeof v === "string")
+        .sort((a, b) => b.length - a.length)[0];
+      if (longest) return longest.slice(-4);
+    } catch { /* fall through */ }
+  }
+  return key.slice(-4);
+}
 
 const updateKeySchema = z.object({
   label: z.string().max(80).optional(),
@@ -171,17 +190,18 @@ router.post("/keys", async (req: Request, res: Response, next: NextFunction) => 
       res.status(400).json({ error: parsed.error.flatten().fieldErrors });
       return;
     }
-    const { provider, key, label, modelOverride } = parsed.data;
+    const { provider, key, label, modelOverride, activate } = parsed.data;
 
-    // A newly-added key becomes the single active key for the user.
-    await deactivateOthers(user._id);
+    // A newly-added key becomes the single active key — unless it failed
+    // pre-validation, in which case it's stored inactive for later.
+    if (activate) await deactivateOthers(user._id);
     const doc = await AIProviderConfig.create({
       userId: user._id,
       provider,
       encryptedKey: encrypt(key),
-      last4: key.slice(-4),
+      last4: credentialLast4(key),
       name: label,
-      isActive: true,
+      isActive: activate,
       modelOverride: modelOverride?.trim() || null,
     });
     res.status(201).json(keyView(doc));

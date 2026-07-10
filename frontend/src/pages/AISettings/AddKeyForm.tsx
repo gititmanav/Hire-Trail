@@ -194,14 +194,20 @@ export default function AddKeyForm({
     if (!requireRealAccount("AI provider keys")) return;
     setSaving(true);
     try {
+      // A key that failed pre-validation is saved INACTIVE: it must not silently
+      // become the route for all AI calls (validation can also be wrong — e.g. a
+      // temporary gateway restriction — so we don't refuse to store it).
+      const validated = validation.state !== "invalid";
       await aiAPI.createKey({
         provider: providerId,
         apiKey: assembledKey,
         name: name.trim() || undefined,
         modelOverride: modelOverride.trim() || null,
+        activate: validated,
       });
       setApiKey(""); setFieldValues({}); setJsonText(""); setName(""); setModelOverride(""); setValidation({ state: "idle" });
-      toast.success(`${sel?.label ?? providerId} key saved`);
+      if (validated) toast.success(`${sel?.label ?? providerId} key saved`);
+      else toast(`${sel?.label ?? providerId} key saved but left inactive — it didn't validate. Activate it from the list once it works.`, { icon: "⚠️", duration: 6000 });
       await onAdded();
     } catch (err) {
       const x = err as { response?: { data?: { error?: unknown } } };
@@ -292,7 +298,11 @@ export default function AddKeyForm({
             {(() => {
               const typed = modelSearch.trim();
               if (!typed || providerModels.some((m) => m.id === typed)) return null;
-              const customId = typed.includes("/") ? typed : `${providerId}/${typed}`;
+              // Gateway ids are maker/model. Only prefix the provider when its own
+              // models are namespaced under it (credential-route providers like
+              // Bedrock list canonical ids from other makers — leave those as typed).
+              const providerNamespaced = (sel?.models ?? []).every((m) => m.id.startsWith(`${providerId}/`));
+              const customId = typed.includes("/") ? typed : providerNamespaced ? `${providerId}/${typed}` : typed;
               const active = modelOverride === customId;
               return (
                 <button type="button" onClick={() => setModelOverride(customId)} className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left border border-dashed ${active ? "bg-primary/10 ring-1 ring-primary/30 border-transparent" : "border-border hover:bg-muted"}`}>
@@ -372,7 +382,7 @@ export default function AddKeyForm({
       <div className="flex items-center justify-end gap-3">
         {validation.state === "invalid" && <span className="text-[11px] text-muted-foreground">Save anyway? Click again.</span>}
         <button type="submit" disabled={saving || blocked || !assembledKey || validation.state === "checking"} className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50">
-          {saving ? "Saving…" : validation.state === "ok" ? "Save key ✓" : "Save key"}
+          {saving ? "Saving…" : validation.state === "ok" ? "Save key ✓" : validation.state === "invalid" ? "Save anyway (inactive)" : "Save key"}
         </button>
       </div>
     </form>

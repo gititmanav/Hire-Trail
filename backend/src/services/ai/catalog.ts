@@ -100,28 +100,22 @@ const CATALOG: Record<AIProvider, CatalogProvider> = {
   },
   bedrock: {
     id: "bedrock",
-    // Bedrock hosts many makers (Anthropic, Meta, Amazon, Mistral…) — there is no
-    // single "right" default, and newer Claude needs cross-region inference
-    // profiles. So the fallback defaults are the LEGACY Claude 3 ids (broadly
-    // on-demand-capable, no profile required); users should pick their own model
-    // in the add-key picker, which is then validated + used directly.
+    // The gateway has NO "bedrock/..." model namespace (verified: those ids 404).
+    // A Bedrock credential is a ROUTE: you request the canonical gateway id
+    // (anthropic/claude-…, amazon/nova-…) and the byok bedrock credential makes
+    // the gateway serve it through the user's AWS account.
     label: "Amazon Bedrock",
     models: [
-      // Cross-region inference profiles (us.*) — how current Claude/Nova models
-      // are invoked on Bedrock. Other regions can paste the eu./apac. variant as
-      // a custom id in the picker.
-      { id: "bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0", label: "Claude Sonnet 4.5 (us profile)", capability: "smart" },
-      { id: "bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0", label: "Claude Haiku 4.5 (us profile)", capability: "fast" },
-      { id: "bedrock/us.anthropic.claude-sonnet-4-20250514-v1:0", label: "Claude Sonnet 4 (us profile)", capability: "smart" },
-      { id: "bedrock/us.anthropic.claude-3-5-haiku-20241022-v1:0", label: "Claude 3.5 Haiku (us profile)", capability: "fast" },
-      { id: "bedrock/us.amazon.nova-pro-v1:0", label: "Amazon Nova Pro (us profile)", capability: "smart" },
-      { id: "bedrock/us.amazon.nova-lite-v1:0", label: "Amazon Nova Lite (us profile)", capability: "fast" },
-      // Legacy on-demand ids (no profile needed) — kept for older accounts.
-      { id: "bedrock/anthropic.claude-3-haiku-20240307-v1:0", label: "Claude 3 Haiku (legacy on-demand)", capability: "fast" },
-      { id: "bedrock/anthropic.claude-3-sonnet-20240229-v1:0", label: "Claude 3 Sonnet (legacy on-demand)", capability: "smart" },
+      { id: "anthropic/claude-sonnet-4.5", label: "Claude Sonnet 4.5 (via your AWS)", capability: "smart" },
+      { id: "anthropic/claude-haiku-4.5", label: "Claude Haiku 4.5 (via your AWS)", capability: "fast" },
+      { id: "anthropic/claude-sonnet-4", label: "Claude Sonnet 4 (via your AWS)", capability: "smart" },
+      { id: "anthropic/claude-3.5-haiku", label: "Claude 3.5 Haiku (via your AWS)", capability: "fast" },
+      { id: "amazon/nova-pro", label: "Amazon Nova Pro (via your AWS)", capability: "smart" },
+      { id: "amazon/nova-lite", label: "Amazon Nova Lite (via your AWS)", capability: "fast" },
+      { id: "meta/llama-3.1-70b", label: "Llama 3.1 70B (via your AWS)", capability: "smart" },
     ],
-    defaultFast: "bedrock/anthropic.claude-3-haiku-20240307-v1:0",
-    defaultSmart: "bedrock/anthropic.claude-3-sonnet-20240229-v1:0",
+    defaultFast: "anthropic/claude-haiku-4.5",
+    defaultSmart: "anthropic/claude-sonnet-4.5",
     freeTier: false,
     getKeyUrl: "https://console.aws.amazon.com/bedrock/",
     keyKind: "aws",

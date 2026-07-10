@@ -423,8 +423,8 @@ export const aiAPI = {
     return data.logos ?? {};
   },
   listKeys: async () => (await api.get<RawAIKey[]>("/ai/keys")).data.map(mapAIKey),
-  createKey: async (data: { provider: AIProvider; apiKey: string; name?: string; modelOverride?: string | null }) =>
-    mapAIKey((await api.post<RawAIKey>("/ai/keys", { provider: data.provider, key: data.apiKey, label: data.name, modelOverride: data.modelOverride ?? null })).data),
+  createKey: async (data: { provider: AIProvider; apiKey: string; name?: string; modelOverride?: string | null; activate?: boolean }) =>
+    mapAIKey((await api.post<RawAIKey>("/ai/keys", { provider: data.provider, key: data.apiKey, label: data.name, modelOverride: data.modelOverride ?? null, activate: data.activate ?? true })).data),
   /** Best-effort: ping the provider with the candidate key (and the chosen model,
    *  so we test what they'll actually run) and report whether it works, WITHOUT
    *  persisting anything. Optional AbortSignal cancels in-flight. */
