@@ -8,6 +8,7 @@ initSentry();
 
 import express from "express";
 import cors from "cors";
+import mongoose from "mongoose";
 import session from "express-session";
 import MongoStore from "connect-mongo";
 import passport from "passport";
@@ -97,17 +98,30 @@ if (env.NODE_ENV === "production") {
 app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ extended: false }));
 
+// Sessions are scoped to /api: static assets, the landing page, and the SPA
+// fallback must never depend on the session store — a Mongo hiccup was 500-ing
+// plain asset requests. The store reuses the app's Mongoose connection (one
+// pool, one failure domain) instead of opening a second client of its own.
 app.use(
+  "/api",
   session({
     secret: env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
     proxy: env.NODE_ENV === "production",
     store: MongoStore.create({
-      mongoUrl: env.MONGO_URI,
+      // Cast: mongoose bundles its own copy of the mongodb driver, so its
+      // MongoClient type differs from the one connect-mongo sees. Same runtime.
+      clientPromise: mongoose.connection
+        .asPromise()
+        .then((conn) => conn.getClient() as unknown as import("mongodb").MongoClient),
       dbName: "HireTrail",
       collectionName: "sessions",
       ttl: 24 * 60 * 60,
+      // Only rewrite the session doc every 12h instead of on every request —
+      // per-request touches raced the TTL cleanup ("Unable to find the session
+      // to touch") and doubled Mongo write load for no benefit.
+      touchAfter: 12 * 60 * 60,
     }),
     cookie: {
       maxAge: 24 * 60 * 60 * 1000,
@@ -119,8 +133,8 @@ app.use(
   })
 );
 
-app.use(passport.initialize());
-app.use(passport.session());
+app.use("/api", passport.initialize());
+app.use("/api", passport.session());
 
 app.use("/api", apiLimiter);
 app.use("/api", rejectMaintenanceForNonBypass);

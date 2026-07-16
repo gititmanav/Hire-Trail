@@ -11,7 +11,11 @@ export const authLimiter = rateLimit({
 
 export const apiLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 100, // 100 requests per minute
+  // Generous ceiling: one page load fires 5–10 API calls, and users behind a
+  // shared IP (campus/office NAT) pool this limit. 100/min was low enough that
+  // brisk normal use tripped 429s — which the auth check used to read as
+  // "logged out". Abusive traffic is still cut off well below flood level.
+  max: 600,
   message: { error: "Too many requests. Please slow down." },
   standardHeaders: true,
   legacyHeaders: false,

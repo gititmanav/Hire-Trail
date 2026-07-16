@@ -8,10 +8,10 @@
  * status, and Download (Gotenberg PDF, with a cold-start–aware loader). Step
  * components are shell-blind — they take only `{ studio }`.
  */
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, CloudOff, Download, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
-import { useStudioDocument } from "./useStudioDocument.ts";
+import { readStudioSession, writeStudioSession, useStudioDocument } from "./useStudioDocument.ts";
 import GapStep from "./steps/GapStep.tsx";
 import AlignStep, { defaultAlignConfig, buildAlignInstruction, type AlignConfig } from "./steps/AlignStep.tsx";
 import ReviewStep from "./steps/ReviewStep.tsx";
@@ -45,8 +45,24 @@ export default function StudioWizard({
   studio: StudioController;
   initialStep?: Step;
 }) {
-  const [step, setStep] = useState<Step>(initialStep);
-  const [alignConfig, setAlignConfig] = useState<AlignConfig | null>(null);
+  // Restore the wizard position after a reload / background-tab discard —
+  // otherwise a trip to another tab could silently reset users to Step 1.
+  // Clamped: never restore past "gap" unless the gap analysis is also restored.
+  const [step, setStep] = useState<Step>(() => {
+    const saved = readStudioSession(studio.resumeId);
+    if (saved?.step && STEP_ORDER.includes(saved.step)) {
+      // The hook rehydrates `studio.gap` an instant after this mount, so also
+      // trust the gap stored in the same session snapshot when clamping.
+      return saved.step !== "gap" && !studio.gap && !saved.gap ? "gap" : saved.step;
+    }
+    return initialStep;
+  });
+  const [alignConfig, setAlignConfig] = useState<AlignConfig | null>(
+    () => readStudioSession(studio.resumeId)?.alignConfig ?? null,
+  );
+  useEffect(() => {
+    writeStudioSession(studio.resumeId, { step, alignConfig });
+  }, [studio.resumeId, step, alignConfig]);
   const [downloading, setDownloading] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
 

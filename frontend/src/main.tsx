@@ -13,6 +13,19 @@ import "./App.css";
 // the maintainer can triage from /admin/bugs without leaving HireTrail.
 installGlobalBugReporters();
 
+// A deploy replaces the hashed chunk files, so a tab opened before the deploy
+// can fail to lazy-load a page ("Failed to fetch dynamically imported module").
+// Reload once to pick up the new build; the sessionStorage guard prevents a
+// reload loop if the chunk is genuinely gone.
+window.addEventListener("vite:preloadError", (event) => {
+  if (sessionStorage.getItem("chunk-reload") !== "1") {
+    sessionStorage.setItem("chunk-reload", "1");
+    event.preventDefault();
+    window.location.reload();
+  }
+});
+window.addEventListener("load", () => sessionStorage.removeItem("chunk-reload"));
+
 // Sentry — empty DSN disables sending; init still runs so we don't have to
 // branch the import path. Audit P0 #5: hear about silent UI errors before users do.
 const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN as string | undefined;

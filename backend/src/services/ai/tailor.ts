@@ -53,7 +53,9 @@ const analysisSchema = z.object({
   fitScore: z.number().int().min(1).max(5),
   fitGrade: z.enum(["A", "B", "C", "D", "F"]),
   /** ≤ 3 sentences. */
-  summary: z.string(),
+  summary: z.string().describe(
+    "Your 2–3 sentence assessment of THIS candidate's fit for THIS role: lead with the strongest overlap, name the biggest gap, and say what to emphasize. Do NOT echo the candidate's own summary text.",
+  ),
   /** The role's REAL requirements as cleaned, deduped, lowercase keywords —
    *  candidate-independent. This is the JD keyword set the deterministic
    *  coverage/score (keywords.ts/score.ts) is computed against. Noise excluded. */

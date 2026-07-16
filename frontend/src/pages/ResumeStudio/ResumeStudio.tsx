@@ -15,13 +15,12 @@ import StudioWizard from "./StudioWizard.tsx";
 import { authAPI } from "../../utils/api.ts";
 import { useDemoGate } from "../../hooks/useDemoGate.tsx";
 
-const DEFAULT_JD =
-  "Senior Software Engineer — build and operate event-driven backend services. Requirements: TypeScript, GraphQL, Kubernetes, observability, Terraform, Postgres, strong testing and CI/CD practices, mentoring.";
-
 export default function ResumeStudio() {
   const [params] = useSearchParams();
   const queryResume = params.get("resume");
-  const initialJd = params.get("jd") || DEFAULT_JD;
+  // JD comes from the launch context (?jd= via a job/extension) or the user
+  // pastes one — never a fake sample, so nobody analyzes against filler text.
+  const initialJd = params.get("jd") || "";
   const { isDemo } = useDemoGate();
 
   // Resolve a REAL resume id: ?resume= → the user's primary resume → none.

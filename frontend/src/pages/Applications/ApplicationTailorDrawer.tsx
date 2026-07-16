@@ -38,7 +38,7 @@ function defaultDrawerWidth(): number {
 }
 
 function isKeyIssue(msg: string): boolean {
-  return /add (a )?key|no active key|api key|quota|credit|billing|exhausted/i.test(msg);
+  return /add (a |your )?(own )?key|no active key|api key|server key|rejected .*key|quota|credit|billing|exhausted|verification/i.test(msg);
 }
 function errText(e: unknown, fallback: string): string {
   const err = e as { response?: { data?: { error?: string } }; message?: string };

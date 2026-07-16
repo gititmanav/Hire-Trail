@@ -121,9 +121,12 @@ function App() {
       if (ax.response?.status === 503 && ax.response?.data?.code === "MAINTENANCE") {
         setUser(null);
         navigate("/login?maintenance=1", { replace: true });
-      } else {
+      } else if (!ax.response || ax.response.status === 401 || ax.response.status === 403) {
+        // Definitively unauthenticated (or no server reachable at boot).
         setUser(null);
       }
+      // Transient failures (429 rate limit, 5xx) keep the current user — a
+      // busy minute must not silently log someone out onto the landing page.
     } finally {
       setLoading(false);
     }

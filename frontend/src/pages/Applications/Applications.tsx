@@ -495,10 +495,12 @@ export default function Applications() {
     try {
       const target = apps.find((a) => a._id === id);
       const fromStage = target?.stage;
-      await applicationsAPI.update(id, { stage });
+      const updated = await applicationsAPI.update(id, { stage });
       toast.success(`Stage updated to ${stage}`);
       await fetchData();
-      if (sidebarApp && sidebarApp._id === id) setSidebarApp((prev) => prev ? { ...prev, stage } : null);
+      // Use the server's response so stageHistory (and any other derived
+      // fields) refresh too — patching only `stage` left the history stale.
+      if (sidebarApp && sidebarApp._id === id) setSidebarApp(updated);
       // Phase-3 cross-cutting: prompt the user to close any related open
       // deadlines now that the stage has moved. Non-blocking — failures are
       // swallowed by the hook so a flaky fetch doesn't break the main flow.
