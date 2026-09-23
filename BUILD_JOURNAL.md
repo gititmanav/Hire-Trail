@@ -4,6 +4,16 @@ Append a dated entry every session: decisions, what was built, what was verified
 
 ---
 
+## 2026-09-23 — Prod outage after deploy (blank page) — fixed
+
+- **Symptom:** blank page; `TypeError: reading 'split'` in Header. `/api/*` returned `index.html` (200, text/html).
+- **Root cause:** `backend/vercel.json` rewrote `/api/(.*)` → `/api`, which chained into the SPA rule (`(?!api/…)` doesn't exclude bare `/api`) → `/index.html`. express.static served it `public, max-age=1y, immutable`, so the Vercel edge and browsers cached HTML as the API response; the client used the HTML string as the user. Config unchanged since April and fine on the 2026-07-09 deploy, so likely a Vercel-side routing change surfaced by the first deploy in 2.5 months (unconfirmed — build log would tell).
+- **Fix (b754b93, 5651638):** vercel.json keeps only `installCommand` (Express routes everything itself); `/api` responses `no-store`; static `.html` never immutable; client sends `Cache-Control/Pragma: no-cache` so poisoned browser entries are bypassed; `getMe` rejects non-user payloads (signed-out fallback, not a crash).
+- **Verified on prod:** `/`, `/applications` → HTML no-cache; `/api/*` → JSON no-store; bug-report POST 204; landing renders in a real browser.
+- **Sharp edges:** never reintroduce Vercel rewrites for this app — any path rewrite reaches Express as the *rewritten* path. Browsers that opened a deep link (e.g. `/applications`) during the outage cached that document immutably and need one hard refresh.
+
+---
+
 ## 2026-08-05 (third block) — Modal system rebuild + Applications stage-filter fix
 
 ### Decided (locked)
