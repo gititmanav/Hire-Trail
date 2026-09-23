@@ -183,6 +183,9 @@ export default function Applications() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [deadlines, setDeadlines] = useState<Deadline[]>([]);
   const [pag, setPag] = useState<Pagination>({ page: 1, limit: 25, total: 0, pages: 0 });
+  /** True per-stage totals for the current tab + search, from the server —
+   *  the loaded page alone can't know them. */
+  const [serverStageCounts, setServerStageCounts] = useState<Record<string, number> | null>(null);
   const [activeCount, setActiveCount] = useState(0);
   const [archivedCount, setArchivedCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -223,6 +226,7 @@ export default function Applications() {
           sort: state.sort.field, order: state.sort.order,
           search: state.debouncedSearch || undefined,
           archived: state.archiveTab === "archived" ? "true" : "false",
+          stage: state.stageFilter !== "All" ? state.stageFilter : undefined,
         }),
         resumesAPI.getAll(),
         applicationsAPI.getAll({ limit: 1, archived: state.archiveTab === "active" ? "true" : "false" }),
@@ -231,14 +235,20 @@ export default function Applications() {
         companiesAPI.getAll({ limit: 500 }),
       ]);
       setApps(a.data); setPag(a.pagination);
+      setServerStageCounts(a.stageCounts ?? null);
       setResumes(r); setContacts(c.data); setDeadlines(dl.data); setCompanies(co.data);
+      // Tab totals are stage-independent: pagination.total shrinks under a
+      // stage filter, so derive the tab count from the stage-count sum.
+      const tabTotal = a.stageCounts
+        ? Object.values(a.stageCounts).reduce((s, n) => s + n, 0)
+        : a.pagination.total;
       if (state.archiveTab === "active") {
-        setActiveCount(a.pagination.total); setArchivedCount(opposite.pagination.total);
+        setActiveCount(tabTotal); setArchivedCount(opposite.pagination.total);
       } else {
-        setArchivedCount(a.pagination.total); setActiveCount(opposite.pagination.total);
+        setArchivedCount(tabTotal); setActiveCount(opposite.pagination.total);
       }
     } catch { /* interceptor surfaces errors */ } finally { setLoading(false); }
-  }, [state.page, state.sort, state.debouncedSearch, state.archiveTab]);
+  }, [state.page, state.sort, state.debouncedSearch, state.archiveTab, state.stageFilter]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useRefetchOnFocus(fetchData);
@@ -261,12 +271,13 @@ export default function Applications() {
           sort: state.sort.field, order: state.sort.order,
           search: state.debouncedSearch || undefined,
           archived: state.archiveTab === "archived" ? "true" : "false",
+          stage: state.stageFilter !== "All" ? state.stageFilter : undefined,
         });
         setApps(a.data); setPag(a.pagination);
       } catch { /* interceptor surfaces errors */ }
     }, 4000);
     return () => window.clearInterval(id);
-  }, [hasInFlightAi, state.page, state.sort, state.debouncedSearch, state.archiveTab]);
+  }, [hasInFlightAi, state.page, state.sort, state.debouncedSearch, state.archiveTab, state.stageFilter]);
 
   /** Manually (re)run AI fit analysis for one application — backs the
    *  "Run AI analysis" / "Retry" / "Run now" CTAs on the row. Optimistically
@@ -400,16 +411,16 @@ export default function Applications() {
   }, [apps, searchParams, setSearchParams]);
 
   /* ─── Derived data ─── */
-  const filtered = useMemo(() => (
-    state.stageFilter === "All" ? apps : apps.filter((a) => a.stage === state.stageFilter)
-  ), [apps, state.stageFilter]);
+  // Stage filtering happens server-side (the list is paginated); the fetched
+  // page IS the filtered view.
+  const filtered = apps;
 
   const stageCounts = useMemo(() => {
     return STAGES.reduce((acc, s) => {
-      acc[s] = apps.filter((a) => a.stage === s).length;
+      acc[s] = serverStageCounts?.[s] ?? 0;
       return acc;
     }, {} as Record<Stage, number>);
-  }, [apps]);
+  }, [serverStageCounts]);
 
   const resumeById = useMemo(() => Object.fromEntries(resumes.map((r) => [r._id, r])), [resumes]);
   const contactById = useMemo(() => Object.fromEntries(contacts.map((c) => [c._id, c])), [contacts]);

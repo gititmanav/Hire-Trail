@@ -74,8 +74,8 @@ export const authAPI = {
 };
 
 export const applicationsAPI = {
-  getAll: (params?: { page?: number; limit?: number; sort?: string; order?: string; search?: string; archived?: string }) =>
-    api.get<PaginatedResponse<Application>>("/applications", { params }).then((r) => r.data),
+  getAll: (params?: { page?: number; limit?: number; sort?: string; order?: string; search?: string; archived?: string; stage?: string }) =>
+    api.get<PaginatedResponse<Application> & { stageCounts?: Record<string, number> }>("/applications", { params }).then((r) => r.data),
   getOne: (id: string) => api.get<Application>(`/applications/${id}`).then((r) => r.data),
   create: (data: ApplicationFormData) => api.post<Application>("/applications", data).then((r) => r.data),
   update: (id: string, data: Partial<ApplicationFormData & { applicationDate?: string; archived?: boolean; archivedAt?: string | null; archivedReason?: string | null }>) =>

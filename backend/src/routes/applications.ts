@@ -129,16 +129,29 @@ router.get("/", async (req: Request, res: Response, next: NextFunction) => {
       }
     }
 
+    // Stage filter is applied on top of the base query. stageCounts aggregates
+    // over the base (stage-less) query so the filter chips always show true
+    // per-stage totals for the current tab + search, not just the loaded page.
+    const stageParam = (req.query.stage as string) || "";
+    const baseQuery = { ...query };
+    if (stageParam && stageParam !== "All") query.stage = stageParam;
+
     const skip = (page - 1) * limit;
-    const [apps, total] = await Promise.all([
+    const [apps, total, stageAgg] = await Promise.all([
       Application.find(query).sort(sort).skip(skip).limit(limit).lean(),
       Application.countDocuments(query),
+      Application.aggregate<{ _id: string; n: number }>([
+        { $match: baseQuery },
+        { $group: { _id: "$stage", n: { $sum: 1 } } },
+      ]),
     ]);
+    const stageCounts: Record<string, number> = {};
+    for (const { _id, n } of stageAgg) stageCounts[_id] = n;
 
     const fitMap = await loadFitSummaries(apps);
     const enriched = apps.map((a) => ({ ...a, fit: fitMap.get(String(a._id)) || null }));
 
-    res.json({ data: enriched, pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
+    res.json({ data: enriched, pagination: { page, limit, total, pages: Math.ceil(total / limit) }, stageCounts });
   } catch (err) { next(err); }
 });
 
