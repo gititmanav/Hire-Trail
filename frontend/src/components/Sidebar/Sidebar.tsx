@@ -4,7 +4,7 @@ import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard, ClipboardList, Columns3, Calendar, Clock,
   Users, Building2, FileText, Sparkles, Search, ArrowLeftRight,
-  Shield, MessageSquare, PanelLeftClose, PanelLeftOpen, Wand2,
+  Shield, MessageSquare, PanelLeftClose, PanelLeftOpen, Wand2, Bell,
   type LucideIcon,
 } from "lucide-react";
 import { useFeatureFlags } from "../../hooks/useFeatureFlags.tsx";
@@ -33,6 +33,7 @@ const groups: NavGroup[] = [
     label: "Overview",
     items: [
       { to: "/", label: "Dashboard", Icon: LayoutDashboard },
+      { to: "/notifications", label: "Notifications", Icon: Bell },
     ],
   },
   {
