@@ -325,10 +325,6 @@ export const announcementsAPI = {
   getActive: () => api.get<Announcement[]>("/announcements/active").then((r) => r.data),
 };
 
-export const proxyAPI = {
-  fetchTweakcn: (url: string) => api.post<{ html: string }>("/proxy/tweakcn", { url }).then((r) => r.data),
-};
-
 /** A gateway provider id — curated or dynamic (the gateway routes to 40+). */
 export type AIProvider = string;
 

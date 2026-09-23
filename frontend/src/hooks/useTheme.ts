@@ -84,6 +84,24 @@ function syncThemeToDocument(theme: Theme) {
   withTransitionsSuspended(() => applyTheme(theme));
 }
 
+/** "system" is a *preference*, not a theme — it resolves to light or dark from
+ *  the OS setting at read time (and re-resolves live when the OS flips). */
+const SYSTEM_ID = "system";
+
+function systemPrefersDark(): boolean {
+  return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-color-scheme: dark)").matches;
+}
+
+/** The id we store/compare. Concrete ids collapse through getTheme (legacy
+ *  preset ids → "default"/"dark"); the system preference survives as-is. */
+function canonicalId(id: string): string {
+  return id === SYSTEM_ID ? SYSTEM_ID : getTheme(id).id;
+}
+
+function resolveTheme(id: string): Theme {
+  return id === SYSTEM_ID ? getTheme(systemPrefersDark() ? "dark" : "default") : getTheme(id);
+}
+
 function resolveInitialId(userId?: string | null): string {
   if (typeof window === "undefined") return "modern-minimal";
   const stored = localStorage.getItem(keyForUser(userId));
@@ -93,23 +111,34 @@ function resolveInitialId(userId?: string | null): string {
   const legacy = localStorage.getItem("hiretrail-theme");
   if (legacy === "dark") return "dark";
   // First-time users default to LIGHT regardless of OS preference. Once they
-  // toggle the theme, their choice is persisted per-user in localStorage and
-  // honored on subsequent logins.
+  // pick a theme (including "System"), the choice is persisted per-user in
+  // localStorage and honored on subsequent logins.
   return "modern-minimal";
 }
 
 export function useTheme(userId?: string | null) {
   const [themeId, setThemeId] = useState(() => resolveInitialId(userId));
-  const currentTheme = getTheme(themeId);
+  // Bump to re-render when the OS scheme changes while in system mode.
+  const [, setOsSchemeTick] = useState(0);
+  const currentTheme = resolveTheme(themeId);
 
   // Apply CSS variables synchronously during render — NOT in useEffect.
   // This guarantees child useEffect hooks (e.g. chart widgets) read fresh values.
   syncThemeToDocument(currentTheme);
 
-  // Keep React state aligned with real theme ids (e.g. legacy "dark" → concrete preset id).
+  // Keep React state aligned with canonical ids (e.g. legacy "catppuccin" → "dark").
   useEffect(() => {
-    const canonical = getTheme(themeId).id;
+    const canonical = canonicalId(themeId);
     if (canonical !== themeId) setThemeId(canonical);
+  }, [themeId]);
+
+  // In system mode, follow live OS scheme changes.
+  useEffect(() => {
+    if (themeId !== SYSTEM_ID || typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const onChange = () => setOsSchemeTick((t) => t + 1);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
   }, [themeId]);
 
   // When auth resolves or the account changes, load that user's saved theme.
@@ -121,17 +150,17 @@ export function useTheme(userId?: string | null) {
     if (!raw) {
       const globalRaw = localStorage.getItem(STORAGE_KEY);
       if (!globalRaw) return;
-      const globalCanonical = getTheme(globalRaw).id;
+      const globalCanonical = canonicalId(globalRaw);
       setThemeId((prev) => (prev === globalCanonical ? prev : globalCanonical));
       return;
     }
-    const canonical = getTheme(raw).id;
+    const canonical = canonicalId(raw);
     setThemeId((prev) => (prev === canonical ? prev : canonical));
   }, [userId]);
 
   // Persist canonical id (side effect, so kept in useEffect)
   useEffect(() => {
-    const canonical = getTheme(themeId).id;
+    const canonical = canonicalId(themeId);
     localStorage.setItem(keyForUser(userId), canonical);
     localStorage.setItem(STORAGE_KEY, canonical);
   }, [themeId, userId]);
@@ -140,12 +169,11 @@ export function useTheme(userId?: string | null) {
     setThemeId(id);
   }, []);
 
+  /** Header sun/moon: explicit flip. Leaving system mode here is deliberate —
+   *  the user just overrode the OS choice. */
   const toggle = useCallback((_e?: React.MouseEvent) => {
-    setThemeId((prev) => {
-      const cur = getTheme(prev);
-      return cur.isDark ? "modern-minimal" : "dark";
-    });
+    setThemeId((prev) => (resolveTheme(prev).isDark ? "modern-minimal" : "dark"));
   }, []);
 
-  return { dark: currentTheme.isDark, toggle, themeId: currentTheme.id, setTheme, currentTheme };
+  return { dark: currentTheme.isDark, toggle, themeId: canonicalId(themeId), setTheme, currentTheme };
 }
