@@ -134,6 +134,14 @@
 .animate-in { animation: scale-in 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
 .fade-up { animation: fade-up 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
 
+/* Modal overlay fade (panel uses .animate-in). Kept separate from the panel
+ * so the dim layer never scales. */
+@keyframes overlay-in { from { opacity: 0; } to { opacity: 1; } }
+.modal-overlay-in { animation: overlay-in 0.15s ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .modal-overlay-in, .animate-in, .fade-up { animation: none; }
+}
+
 /* Per-row stagger on Applications list reflow. Capped to the first ~12 rows
  *  so a 200-app list doesn't take 5 seconds to materialize. */
 @keyframes app-row-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }

@@ -10,9 +10,8 @@
  * Keys come from the shared useAIKeyStatus provider so the header badge / BYOK
  * warning clear the instant a key is activated here.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import { ArrowLeft, KeyRound, Sparkles, Trash2 } from "lucide-react";
+import { useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { KeyRound, Sparkles, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal.tsx";
 import AiPulse from "../../components/AiIndicator/AiPulse.tsx";
@@ -38,6 +37,11 @@ function labelFor(catalog: AICatalogProvider[], id: string): string {
   return catalog.find((p) => p.id === id)?.label ?? id.replace(/[-_]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 import { useAIKeyStatus } from "../../hooks/useAIKeyStatus.tsx";
+import { useDemoGate } from "../../hooks/useDemoGate.tsx";
+import { UserContext } from "../../App.tsx";
+import { api } from "../../utils/api.ts";
+import type { User } from "../../types";
+import Toggle from "../../components/ui/Toggle.tsx";
 import AddKeyForm from "./AddKeyForm.tsx";
 
 function notImplemented(err: unknown): boolean {
@@ -344,16 +348,13 @@ export default function AISettings() {
   );
 
   return (
-    <div className="max-w-4xl mx-auto fade-up">
-      <div className="mb-5">
-        <Link to="/settings" className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground mb-2">
-          <ArrowLeft size={13} strokeWidth={2} /> Back to Settings
-        </Link>
+    <div className="fade-up">
+      <div className="mb-6">
         <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-semibold text-foreground">AI Providers</h1>
+          <h1 className="text-xl font-semibold text-foreground">AI &amp; Models</h1>
           <span className="px-2 py-0.5 text-[11px] font-medium rounded-full bg-primary/10 text-primary">BYOK</span>
         </div>
-        <p className="text-xs text-muted-foreground mt-1">
+        <p className="text-sm text-muted-foreground mt-1 leading-relaxed max-w-xl">
           Bring your own API key for resume parsing, tailoring, and rewrites. Keys are encrypted at rest. Exactly one key is active at a time; with no key, HireTrail falls back to a limited shared provider.
         </p>
       </div>
@@ -411,6 +412,10 @@ export default function AISettings() {
             onAdded={async () => { await refresh(); await loadInsights(); }}
           />
         </section>
+
+        {/* Behavior — AI-adjacent preferences (moved here from the old
+         *  standalone "Profile Sync" settings section). */}
+        <ProfileSyncCard />
       </div>
 
       {pendingDelete && (
@@ -424,5 +429,53 @@ export default function AISettings() {
         />
       )}
     </div>
+  );
+}
+
+/** Profile sync: controls how re-parsing a resume updates the master profile.
+ *  Lives on the AI page because the merge itself is an AI operation. */
+function ProfileSyncCard() {
+  const { user, setUser } = useContext(UserContext);
+  const { requireRealAccount } = useDemoGate();
+  const [enabled, setEnabled] = useState(user?.mergeResumesEnabled !== false);
+  const [saving, setSaving] = useState(false);
+
+  return (
+    <section className="bg-card border border-border rounded-xl p-5 sm:p-7">
+      <h2 className="text-base font-semibold text-foreground mb-1">Profile sync</h2>
+      <p className="text-xs text-muted-foreground mb-4">How re-parsing a resume updates your master profile.</p>
+      <div className="rounded-lg border border-border bg-background px-4 py-3.5 flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-foreground">AI-assisted merge</p>
+          <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+            When enabled, re-parsing sends both your existing master profile and the newly parsed one
+            to your AI provider, which combines them — deduping experiences, unioning skills, and
+            preserving content from both. When disabled, re-parsing <strong>overwrites</strong> the master profile.
+          </p>
+        </div>
+        <div className="shrink-0 mt-0.5">
+          <Toggle
+            label="AI-assisted profile merge"
+            checked={enabled}
+            disabled={saving}
+            onChange={async (next) => {
+              if (!requireRealAccount("Profile Sync")) return;
+              setEnabled(next);
+              setSaving(true);
+              try {
+                const res = await api.put<User>("/auth/profile", { mergeResumesEnabled: next });
+                setUser(res.data);
+                toast.success(next ? "Merge enabled" : "Merge disabled");
+              } catch {
+                setEnabled(!next);
+                toast.error("Could not update setting");
+              } finally {
+                setSaving(false);
+              }
+            }}
+          />
+        </div>
+      </div>
+    </section>
   );
 }

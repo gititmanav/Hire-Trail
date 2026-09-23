@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useLayoutEffect, FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
-  ChevronDown, Download, Plus, Upload, X
+  Download, Plus, Upload
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { applicationsAPI, resumesAPI, contactsAPI, deadlinesAPI, companiesAPI, masterProfileAPI, tailorAPI } from "../../utils/api.ts";
@@ -18,7 +18,10 @@ import { useRefetchOnFocus } from "../../hooks/useRefetchOnFocus.ts";
 import { useApplicationsListState } from "../../hooks/useApplicationsListState.ts";
 import { exportToCSV } from "../../utils/csv.ts";
 import ImportModal from "../../components/ImportModal/ImportModal.tsx";
-import ActionDropdown from "../../components/ActionDropdown/ActionDropdown.tsx";
+import { Modal, ModalHeader, ModalBody, ModalFooter } from "../../components/ui/Modal.tsx";
+import { Field, TextField, Textarea } from "../../components/ui/Field.tsx";
+import Select from "../../components/ui/Select.tsx";
+import Button from "../../components/ui/Button.tsx";
 import { SkeletonStats } from "../../components/Skeleton/Skeleton.tsx";
 import ResumePreview from "../../components/ResumePreview/ResumePreview.tsx";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal.tsx";
@@ -48,7 +51,7 @@ import type {
 const LOGO_FETCH_SEEN = new Set<string>();
 
 /* ─── Top-level "New / Edit" modal (kept inline; small enough not to extract) ─── */
-function Modal({ app, resumes, onSave, onClose, onResumesChanged }: {
+function ApplicationFormModal({ app, resumes, onSave, onClose, onResumesChanged }: {
   app: Application | null;
   resumes: Resume[];
   onSave: (d: ApplicationFormData) => Promise<void>;
@@ -66,12 +69,6 @@ function Modal({ app, resumes, onSave, onClose, onResumesChanged }: {
   const [showResumeModal, setShowResumeModal] = useState(false);
   const u = (k: string, v: string) => setForm({ ...form, [k]: v });
 
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => { if (e.key === "Escape" && !showResumeModal) onClose(); };
-    document.addEventListener("keydown", h);
-    return () => document.removeEventListener("keydown", h);
-  }, [onClose, showResumeModal]);
-
   const handleAddResume = async (data: { name: string; targetRole: string; fileName: string; file: File | null }) => {
     const created = await resumesAPI.create(data);
     const updated = await onResumesChanged();
@@ -83,82 +80,76 @@ function Modal({ app, resumes, onSave, onClose, onResumesChanged }: {
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/45 flex items-center justify-center z-50" onClick={onClose}>
-        <div className="card-premium p-6 w-full max-w-[520px] max-h-[90vh] overflow-y-auto animate-in" onClick={(e) => e.stopPropagation()}>
-          <div className="flex items-center justify-between mb-5">
-            <h2 className="text-lg font-semibold text-foreground">{app ? "Edit application" : "New application"}</h2>
-            <button onClick={onClose} className="w-9 h-9 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted">
-              <X size={16} strokeWidth={2} aria-hidden />
-            </button>
-          </div>
-          <form onSubmit={(e: FormEvent) => { e.preventDefault(); setSaving(true); onSave(form).catch(() => setSaving(false)); }} className="space-y-4">
-            <div><label className="block text-sm font-medium text-foreground mb-1.5">Company *</label><input className="input-premium" value={form.company} onChange={(e) => u("company", e.target.value)} required /></div>
-            <div><label className="block text-sm font-medium text-foreground mb-1.5">Role *</label><input className="input-premium" value={form.role} onChange={(e) => u("role", e.target.value)} required /></div>
-            <div><label className="block text-sm font-medium text-foreground mb-1.5">Job URL</label><input type="url" className="input-premium" value={form.jobUrl} onChange={(e) => u("jobUrl", e.target.value)} /></div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div><label className="block text-sm font-medium text-foreground mb-1.5">Location</label><input className="input-premium" value={form.location || ""} onChange={(e) => u("location", e.target.value)} placeholder="City, remote, etc." /></div>
-              <div><label className="block text-sm font-medium text-foreground mb-1.5">Salary</label><input className="input-premium" value={form.salary || ""} onChange={(e) => u("salary", e.target.value)} placeholder="e.g. $120k–$150k" /></div>
-              <div><label className="block text-sm font-medium text-foreground mb-1.5">Job type</label><input className="input-premium" value={form.jobType || ""} onChange={(e) => u("jobType", e.target.value)} placeholder="Full-time, internship…" /></div>
+      <Modal onClose={onClose} size="md" ariaLabel={app ? "Edit application" : "New application"}>
+        <ModalHeader
+          title={app ? "Edit application" : "New application"}
+          description={app ? `${app.company} — ${app.role}` : "Track a role you're pursuing."}
+          onClose={onClose}
+        />
+        <form
+          className="flex flex-col min-h-0"
+          onSubmit={(e: FormEvent) => { e.preventDefault(); setSaving(true); onSave(form).catch(() => setSaving(false)); }}
+        >
+          <ModalBody className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <TextField label="Company" required value={form.company} onChange={(e) => u("company", e.target.value)} placeholder="e.g. Stripe" data-autofocus />
+              <TextField label="Role" required value={form.role} onChange={(e) => u("role", e.target.value)} placeholder="e.g. Software Engineer Intern" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">Stage</label>
-                <ActionDropdown
-                  align="left"
-                  menuWidth="w-full"
-                  trigger={
-                    <button type="button" className="input-premium h-9 flex items-center justify-between text-left">
-                      <span>{form.stage}</span>
-                      <ChevronDown size={14} strokeWidth={1.5} />
-                    </button>
-                  }
-                  items={STAGES.map((s) => ({
-                    label: s,
-                    onClick: () => u("stage", s),
-                    className: form.stage === s ? "text-primary font-medium" : undefined,
-                  }))}
+            <TextField label="Job URL" type="url" value={form.jobUrl} onChange={(e) => u("jobUrl", e.target.value)} placeholder="https://…" />
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <TextField label="Location" value={form.location || ""} onChange={(e) => u("location", e.target.value)} placeholder="City or remote" />
+              <TextField label="Salary" value={form.salary || ""} onChange={(e) => u("salary", e.target.value)} placeholder="$120k–$150k" />
+              <TextField label="Job type" value={form.jobType || ""} onChange={(e) => u("jobType", e.target.value)} placeholder="Internship" />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Field label="Stage">
+                <Select
+                  value={form.stage}
+                  onChange={(v) => u("stage", v)}
+                  ariaLabel="Stage"
+                  options={STAGES.map((s) => ({ value: s, label: s }))}
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">Resume</label>
+              </Field>
+              <Field label="Resume">
                 <div className="flex gap-1.5">
-                  <div className="flex-1">
-                    <ActionDropdown
-                      align="left"
-                      menuWidth="w-full"
+                  <div className="flex-1 min-w-0">
+                    <Select
+                      value={form.resumeId || ""}
+                      onChange={(v) => u("resumeId", v)}
+                      ariaLabel="Resume"
+                      placeholder="None"
                       searchable
-                      searchPlaceholder="Search resumes..."
-                      maxVisibleItems={8}
-                      trigger={
-                        <button type="button" className="input-premium h-9 flex items-center justify-between text-left">
-                          <span className="truncate">{resumes.find((r) => r._id === form.resumeId)?.name || "None"}</span>
-                          <ChevronDown size={14} strokeWidth={1.5} />
-                        </button>
-                      }
-                      items={[
-                        { label: "None", onClick: () => u("resumeId", ""), className: !form.resumeId ? "text-primary font-medium" : undefined },
-                        ...resumes.map((r) => ({
-                          label: r.name,
-                          onClick: () => u("resumeId", r._id),
-                          className: form.resumeId === r._id ? "text-primary font-medium" : undefined,
-                        })),
+                      searchPlaceholder="Search resumes…"
+                      options={[
+                        { value: "", label: "None" },
+                        ...resumes.map((r) => ({ value: r._id, label: r.name })),
                       ]}
                     />
                   </div>
-                  <button type="button" onClick={() => setShowResumeModal(true)} title="Add new resume" className="w-9 h-9 shrink-0 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground/40">
-                    <Plus size={16} strokeWidth={2} />
+                  <button
+                    type="button"
+                    onClick={() => setShowResumeModal(true)}
+                    title="Add new resume"
+                    aria-label="Add new resume"
+                    className="w-10 h-10 shrink-0 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <Plus size={16} strokeWidth={2} aria-hidden />
                   </button>
                 </div>
-              </div>
+              </Field>
             </div>
-            <div><label className="block text-sm font-medium text-foreground mb-1.5">Notes</label><textarea className="input-premium min-h-[80px] resize-y" value={form.notes} onChange={(e) => u("notes", e.target.value)} /></div>
-            <div className="flex justify-end gap-2 pt-4 border-t border-border">
-              <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
-              <button type="submit" disabled={saving} className="btn-accent disabled:opacity-50">{saving ? "Saving..." : app ? "Update" : "Add application"}</button>
-            </div>
-          </form>
-        </div>
-      </div>
+            <Field label="Notes">
+              <Textarea value={form.notes} onChange={(e) => u("notes", e.target.value)} placeholder="Referral, recruiter contact, next steps…" />
+            </Field>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" onClick={onClose}>Cancel</Button>
+            <Button type="submit" variant="primary" loading={saving}>
+              {app ? "Save changes" : "Add application"}
+            </Button>
+          </ModalFooter>
+        </form>
+      </Modal>
       {showResumeModal && <ResumeModal resume={null} existingTags={[...new Set(resumes.flatMap((r) => r.tags || []))].sort()} onSave={handleAddResume as any} onClose={() => setShowResumeModal(false)} />}
     </>
   );
@@ -192,6 +183,9 @@ export default function Applications() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [deadlines, setDeadlines] = useState<Deadline[]>([]);
   const [pag, setPag] = useState<Pagination>({ page: 1, limit: 25, total: 0, pages: 0 });
+  /** True per-stage totals for the current tab + search, from the server —
+   *  the loaded page alone can't know them. */
+  const [serverStageCounts, setServerStageCounts] = useState<Record<string, number> | null>(null);
   const [activeCount, setActiveCount] = useState(0);
   const [archivedCount, setArchivedCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -232,6 +226,7 @@ export default function Applications() {
           sort: state.sort.field, order: state.sort.order,
           search: state.debouncedSearch || undefined,
           archived: state.archiveTab === "archived" ? "true" : "false",
+          stage: state.stageFilter !== "All" ? state.stageFilter : undefined,
         }),
         resumesAPI.getAll(),
         applicationsAPI.getAll({ limit: 1, archived: state.archiveTab === "active" ? "true" : "false" }),
@@ -240,14 +235,20 @@ export default function Applications() {
         companiesAPI.getAll({ limit: 500 }),
       ]);
       setApps(a.data); setPag(a.pagination);
+      setServerStageCounts(a.stageCounts ?? null);
       setResumes(r); setContacts(c.data); setDeadlines(dl.data); setCompanies(co.data);
+      // Tab totals are stage-independent: pagination.total shrinks under a
+      // stage filter, so derive the tab count from the stage-count sum.
+      const tabTotal = a.stageCounts
+        ? Object.values(a.stageCounts).reduce((s, n) => s + n, 0)
+        : a.pagination.total;
       if (state.archiveTab === "active") {
-        setActiveCount(a.pagination.total); setArchivedCount(opposite.pagination.total);
+        setActiveCount(tabTotal); setArchivedCount(opposite.pagination.total);
       } else {
-        setArchivedCount(a.pagination.total); setActiveCount(opposite.pagination.total);
+        setArchivedCount(tabTotal); setActiveCount(opposite.pagination.total);
       }
     } catch { /* interceptor surfaces errors */ } finally { setLoading(false); }
-  }, [state.page, state.sort, state.debouncedSearch, state.archiveTab]);
+  }, [state.page, state.sort, state.debouncedSearch, state.archiveTab, state.stageFilter]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useRefetchOnFocus(fetchData);
@@ -270,12 +271,13 @@ export default function Applications() {
           sort: state.sort.field, order: state.sort.order,
           search: state.debouncedSearch || undefined,
           archived: state.archiveTab === "archived" ? "true" : "false",
+          stage: state.stageFilter !== "All" ? state.stageFilter : undefined,
         });
         setApps(a.data); setPag(a.pagination);
       } catch { /* interceptor surfaces errors */ }
     }, 4000);
     return () => window.clearInterval(id);
-  }, [hasInFlightAi, state.page, state.sort, state.debouncedSearch, state.archiveTab]);
+  }, [hasInFlightAi, state.page, state.sort, state.debouncedSearch, state.archiveTab, state.stageFilter]);
 
   /** Manually (re)run AI fit analysis for one application — backs the
    *  "Run AI analysis" / "Retry" / "Run now" CTAs on the row. Optimistically
@@ -409,16 +411,16 @@ export default function Applications() {
   }, [apps, searchParams, setSearchParams]);
 
   /* ─── Derived data ─── */
-  const filtered = useMemo(() => (
-    state.stageFilter === "All" ? apps : apps.filter((a) => a.stage === state.stageFilter)
-  ), [apps, state.stageFilter]);
+  // Stage filtering happens server-side (the list is paginated); the fetched
+  // page IS the filtered view.
+  const filtered = apps;
 
   const stageCounts = useMemo(() => {
     return STAGES.reduce((acc, s) => {
-      acc[s] = apps.filter((a) => a.stage === s).length;
+      acc[s] = serverStageCounts?.[s] ?? 0;
       return acc;
     }, {} as Record<Stage, number>);
-  }, [apps]);
+  }, [serverStageCounts]);
 
   const resumeById = useMemo(() => Object.fromEntries(resumes.map((r) => [r._id, r])), [resumes]);
   const contactById = useMemo(() => Object.fromEntries(contacts.map((c) => [c._id, c])), [contacts]);
@@ -833,7 +835,7 @@ export default function Applications() {
       )}
 
       {modal && (
-        <Modal
+        <ApplicationFormModal
           app={editing}
           resumes={resumes}
           onSave={handleSave}

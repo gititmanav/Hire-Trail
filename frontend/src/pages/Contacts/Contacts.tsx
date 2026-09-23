@@ -1,7 +1,7 @@
 /** Paginated contact cards with client-side search across the current page. */
 import { useState, useEffect, useCallback, useRef, FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
-import { ChevronDown, ChevronRight, Pencil, Plus, Send, Star, Trash2, X } from "lucide-react";
+import { ChevronRight, Pencil, Plus, Send, Star, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { contactsAPI, companiesAPI } from "../../utils/api.ts";
 import CompanyLogo from "../../components/CompanyLogo/CompanyLogo.tsx";
@@ -10,6 +10,11 @@ import EmptyState from "../../components/EmptyState/EmptyState.tsx";
 import ActionDropdown from "../../components/ActionDropdown/ActionDropdown.tsx";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal.tsx";
 import CompanyCombobox from "../../components/CompanyCombobox/CompanyCombobox.tsx";
+import { Modal, ModalHeader, ModalBody, ModalFooter } from "../../components/ui/Modal.tsx";
+import { Field, TextField, Textarea, controlCls } from "../../components/ui/Field.tsx";
+import Select from "../../components/ui/Select.tsx";
+import DateInput from "../../components/ui/DateInput.tsx";
+import Button from "../../components/ui/Button.tsx";
 import { useConfirm } from "../../hooks/useConfirm.ts";
 import { contactStrength } from "../../utils/contactStrength.ts";
 import { OUTREACH_TEMPLATES, renderOutreachTemplate, templateToClipboard } from "../../utils/outreachTemplates.ts";
@@ -50,7 +55,7 @@ function needsFollowUp(c: Contact): boolean {
   return false;
 }
 
-function Modal({ contact, onSave, onClose }: { contact: Contact | null; onSave: (d: ContactFormData) => Promise<void>; onClose: () => void }) {
+function ContactFormModal({ contact, onSave, onClose }: { contact: Contact | null; onSave: (d: ContactFormData) => Promise<void>; onClose: () => void }) {
   const [form, setForm] = useState<ContactFormData>({
     name: contact?.name || "", company: contact?.company || "", role: contact?.role || "",
     linkedinUrl: contact?.linkedinUrl || "", connectionSource: contact?.connectionSource || "", notes: contact?.notes || "",
@@ -61,75 +66,68 @@ function Modal({ contact, onSave, onClose }: { contact: Contact | null; onSave: 
   const [saving, setSaving] = useState(false);
   const u = (k: string, v: string) => setForm({ ...form, [k]: v });
 
-  useEffect(() => { const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); }; document.addEventListener("keydown", h); return () => document.removeEventListener("keydown", h); }, [onClose]);
-
   return (
-    <div className="fixed inset-0 bg-black/45 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-card rounded-xl p-6 w-full max-w-[520px] max-h-[90vh] overflow-y-auto shadow-2xl animate-in" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-5"><h2 className="text-lg font-semibold text-foreground">{contact ? "Edit contact" : "New contact"}</h2><button className={btnIcon} onClick={onClose}><X size={16} strokeWidth={2} /></button></div>
-        <form onSubmit={(e: FormEvent) => { e.preventDefault(); setSaving(true); onSave(form).catch(() => setSaving(false)); }} className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div><label className="block text-sm font-medium text-foreground mb-1.5">Name *</label><input className={inputCls} value={form.name} onChange={(e) => u("name", e.target.value)} required /></div>
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">Company *</label>
+    <Modal onClose={onClose} size="md" ariaLabel={contact ? "Edit contact" : "New contact"}>
+      <ModalHeader
+        title={contact ? "Edit contact" : "New contact"}
+        description="Recruiters, referrers, and people you're networking with."
+        onClose={onClose}
+      />
+      <form className="flex flex-col min-h-0" onSubmit={(e: FormEvent) => { e.preventDefault(); setSaving(true); onSave(form).catch(() => setSaving(false)); }}>
+        <ModalBody className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <TextField label="Name" required value={form.name} onChange={(e) => u("name", e.target.value)} placeholder="e.g. Priya Sharma" data-autofocus />
+            <Field label="Company" required>
               <CompanyCombobox
                 name={form.company}
                 companyId={form.companyId}
                 onChange={({ name, companyId }) => setForm({ ...form, company: name, companyId })}
-                inputClassName={inputCls}
+                inputClassName={controlCls}
                 required
               />
-            </div>
+            </Field>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div><label className="block text-sm font-medium text-foreground mb-1.5">Role</label><input className={inputCls} value={form.role} onChange={(e) => u("role", e.target.value)} /></div>
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">How connected</label>
-              <ActionDropdown
-                align="left"
-                menuWidth="w-full"
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <TextField label="Role" value={form.role} onChange={(e) => u("role", e.target.value)} placeholder="e.g. Recruiter" />
+            <Field label="How connected">
+              <Select
+                value={form.connectionSource || ""}
+                onChange={(v) => u("connectionSource", v)}
+                ariaLabel="How connected"
+                placeholder="Select a source"
                 searchable
-                searchPlaceholder="Search source..."
-                trigger={
-                  <button type="button" className={`${inputCls} h-9 flex items-center justify-between text-left`}>
-                    <span className="truncate">{form.connectionSource || "Select..."}</span>
-                    <ChevronDown size={14} strokeWidth={1.5} />
-                  </button>
-                }
-                items={[
-                  { label: "Select...", onClick: () => u("connectionSource", ""), className: !form.connectionSource ? "text-primary font-medium" : undefined },
-                  ...SOURCES.map((s) => ({ label: s, onClick: () => u("connectionSource", s), className: form.connectionSource === s ? "text-primary font-medium" : undefined })),
+                searchPlaceholder="Search sources…"
+                options={[
+                  { value: "", label: "None" },
+                  ...SOURCES.map((s) => ({ value: s, label: s })),
                 ]}
               />
-            </div>
+            </Field>
           </div>
-          <div><label className="block text-sm font-medium text-foreground mb-1.5">LinkedIn URL</label><input type="url" className={inputCls} value={form.linkedinUrl} onChange={(e) => u("linkedinUrl", e.target.value)} /></div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">Outreach status</label>
-              <ActionDropdown
-                align="left"
-                menuWidth="w-full"
-                trigger={
-                  <button type="button" className={`${inputCls} h-9 flex items-center justify-between text-left`}>
-                    <span>{OUTREACH_STATUSES.find((s) => s.value === form.outreachStatus)?.label || "Not contacted"}</span>
-                    <ChevronDown size={14} strokeWidth={1.5} />
-                  </button>
-                }
-                items={OUTREACH_STATUSES.map((s) => ({
-                  label: s.label,
-                  onClick: () => u("outreachStatus", s.value),
-                  className: form.outreachStatus === s.value ? "text-primary font-medium" : undefined,
-                }))}
+          <TextField label="LinkedIn URL" type="url" value={form.linkedinUrl} onChange={(e) => u("linkedinUrl", e.target.value)} placeholder="https://linkedin.com/in/…" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="Outreach status">
+              <Select
+                value={form.outreachStatus || "not_contacted"}
+                onChange={(v) => u("outreachStatus", v)}
+                ariaLabel="Outreach status"
+                options={OUTREACH_STATUSES.map((s) => ({ value: s.value, label: s.label }))}
               />
-            </div>
-            <div><label className="block text-sm font-medium text-foreground mb-1.5">Follow-up date</label><input type="date" className={inputCls} value={form.nextFollowUpDate} onChange={(e) => u("nextFollowUpDate", e.target.value)} /></div>
+            </Field>
+            <Field label="Follow-up date">
+              <DateInput value={form.nextFollowUpDate || ""} onChange={(v) => u("nextFollowUpDate", v)} ariaLabel="Follow-up date" />
+            </Field>
           </div>
-          <div><label className="block text-sm font-medium text-foreground mb-1.5">Notes</label><textarea className={`${inputCls} min-h-[80px] resize-y`} value={form.notes} onChange={(e) => u("notes", e.target.value)} /></div>
-          <div className="flex justify-end gap-2 pt-4 border-t border-border"><button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-foreground border border-border rounded-lg hover:bg-muted">Cancel</button><button type="submit" disabled={saving} className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50">{saving ? "Saving..." : contact ? "Update" : "Add contact"}</button></div>
-        </form>
-      </div>
-    </div>
+          <Field label="Notes">
+            <Textarea value={form.notes} onChange={(e) => u("notes", e.target.value)} placeholder="Where you met, what you talked about…" />
+          </Field>
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button type="submit" variant="primary" loading={saving}>{contact ? "Save changes" : "Add contact"}</Button>
+        </ModalFooter>
+      </form>
+    </Modal>
   );
 }
 
@@ -588,7 +586,7 @@ export default function Contacts() {
         </>
       )}
 
-      {modal && <Modal contact={editing} onSave={save} onClose={() => { setModal(false); setEditing(null); }} />}
+      {modal && <ContactFormModal contact={editing} onSave={save} onClose={() => { setModal(false); setEditing(null); }} />}
       {confirmState.open && (
         <ConfirmModal
           title={confirmState.title}

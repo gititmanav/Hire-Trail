@@ -87,7 +87,7 @@ export function buildEmailScanTask({ jobId, sublabel }: BuildParams): StartTaskI
           ? `Scan ready — ${job.counts.totalCandidates} application${job.counts.totalCandidates === 1 ? "" : "s"} to review`
           : "Scan ready — no new applications found",
       ctaLabel: job.counts.totalCandidates > 0 ? "Review" : undefined,
-      ctaPath: job.counts.totalCandidates > 0 ? "/settings/email-review" : undefined,
+      ctaPath: job.counts.totalCandidates > 0 ? "/email-review" : undefined,
     }),
     onError: (err) => (err instanceof Error && err.message ? err.message : "Scan failed."),
   };

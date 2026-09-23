@@ -2,7 +2,7 @@
  * Root router: session bootstrap, protected shell, job-search UI state, theme context.
  */
 import { useState, useEffect, useCallback, createContext, lazy, Suspense } from "react";
-import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import Layout from "./components/Layout/Layout.tsx";
 import ProtectedRoute from "./components/ProtectedRoute/ProtectedRoute.tsx";
 import AdminLayout from "./components/AdminLayout/AdminLayout.tsx";
@@ -35,7 +35,7 @@ const loadDeadlines = () => import("./pages/Deadlines/Deadlines.tsx");
 const loadCalendar  = () => import("./pages/Calendar/Calendar.tsx");
 const loadImport    = () => import("./pages/ImportExport/ImportExport.tsx");
 const loadProfile   = () => import("./pages/Profile/Profile.tsx");
-const loadSettings  = () => import("./pages/Settings/Settings.tsx");
+const loadSettingsLayout = () => import("./pages/Settings/SettingsLayout.tsx");
 const loadAISettings = () => import("./pages/AISettings/AISettings.tsx");
 const loadResumeStudio = () => import("./pages/ResumeStudio/ResumeStudio.tsx");
 const loadEmailScanReview = () => import("./pages/EmailScanReview/EmailScanReview.tsx");
@@ -50,7 +50,11 @@ const Deadlines    = lazy(loadDeadlines);
 const CalendarPage = lazy(loadCalendar);
 const ImportExport = lazy(loadImport);
 const Profile      = lazy(loadProfile);
-const Settings     = lazy(loadSettings);
+const SettingsLayout = lazy(loadSettingsLayout);
+const ProfileSettings = lazy(() => import("./pages/Settings/sections/ProfileSettings.tsx"));
+const PersonalizeSettings = lazy(() => import("./pages/Settings/sections/PersonalizeSettings.tsx"));
+const ClipboardSettings = lazy(() => import("./pages/Settings/sections/ClipboardSettings.tsx"));
+const MailboxSettings = lazy(() => import("./pages/Settings/sections/MailboxSettings.tsx"));
 const AISettings   = lazy(loadAISettings);
 const ResumeStudio = lazy(loadResumeStudio);
 const EmailScanReview = lazy(loadEmailScanReview);
@@ -103,6 +107,23 @@ function FeatureRoute({ flag, children }: { flag: string; children: React.ReactN
   if (loading) return <div className="spinner" style={{ minHeight: "50vh" }} />;
   if (!isEnabled(flag)) return <Navigate to="/" replace />;
   return <>{children}</>;
+}
+
+/** /settings landing: routes legacy deep links to the right section page.
+ *  OAuth callbacks (?gmail=… / ?outlook=…) → Mailboxes with params intact;
+ *  old scroll-spy hashes (#clipboard etc.) → their section; else Profile. */
+function SettingsIndexRedirect() {
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  if (params.has("gmail") || params.has("outlook")) {
+    return <Navigate to={{ pathname: "/settings/mailboxes", search: location.search }} replace />;
+  }
+  const hash = location.hash.replace(/^#/, "");
+  const legacyHashMap: Record<string, string> = {
+    account: "profile", password: "profile", email: "mailboxes",
+    ai: "ai", profileSync: "ai", clipboard: "clipboard",
+  };
+  return <Navigate to={`/settings/${legacyHashMap[hash] ?? "profile"}`} replace />;
 }
 
 function App() {
@@ -209,11 +230,22 @@ function App() {
             <Route path="/calendar" element={<CalendarPage />} />
             <Route path="/import-export" element={<FeatureRoute flag="feature_csv_import_export"><ImportExport /></FeatureRoute>} />
             <Route path="/profile" element={<Profile />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/settings/ai" element={<AISettings />} />
-            <Route path="/settings/email-review" element={<EmailScanReview />} />
+            <Route path="/email-review" element={<EmailScanReview />} />
+            {/* Legacy path — notifications and bookmarks predating the move. */}
+            <Route path="/settings/email-review" element={<Navigate to="/email-review" replace />} />
             <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="/resume-studio" element={<ResumeStudio />} />
+          </Route>
+
+          {/* Settings — its own shell with a dedicated sidebar (no main app chrome). */}
+          <Route path="/settings" element={<ProtectedRoute user={user}><SettingsLayout /></ProtectedRoute>}>
+            <Route index element={<SettingsIndexRedirect />} />
+            <Route path="profile" element={<ProfileSettings />} />
+            <Route path="personalize" element={<PersonalizeSettings />} />
+            <Route path="clipboard" element={<ClipboardSettings />} />
+            <Route path="mailboxes" element={<MailboxSettings />} />
+            <Route path="ai" element={<AISettings />} />
+            <Route path="*" element={<Navigate to="/settings/profile" replace />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

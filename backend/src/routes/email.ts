@@ -41,12 +41,12 @@ async function handleGmailCallback(req: Request, res: Response) {
   try {
     const code = req.query.code as string;
     const state = req.query.state as string;
-    if (!code || !state) return res.redirect(`${env.CLIENT_URL}/settings?gmail=error`);
+    if (!code || !state) return res.redirect(`${env.CLIENT_URL}/settings/mailboxes?gmail=error`);
     await gmail.handleCallback(code, state);
-    res.redirect(`${env.CLIENT_URL}/settings?gmail=success`);
+    res.redirect(`${env.CLIENT_URL}/settings/mailboxes?gmail=success`);
   } catch (err) {
     console.error("[Gmail] Callback error:", err);
-    res.redirect(`${env.CLIENT_URL}/settings?gmail=error`);
+    res.redirect(`${env.CLIENT_URL}/settings/mailboxes?gmail=error`);
   }
 }
 
@@ -54,12 +54,12 @@ router.get("/outlook/callback", async (req: Request, res: Response) => {
   try {
     const code = req.query.code as string;
     const state = req.query.state as string;
-    if (!code || !state) return res.redirect(`${env.CLIENT_URL}/settings?outlook=error`);
+    if (!code || !state) return res.redirect(`${env.CLIENT_URL}/settings/mailboxes?outlook=error`);
     await outlook.handleCallback(code, state);
-    res.redirect(`${env.CLIENT_URL}/settings?outlook=success`);
+    res.redirect(`${env.CLIENT_URL}/settings/mailboxes?outlook=success`);
   } catch (err) {
     console.error("[Outlook] Callback error:", err);
-    res.redirect(`${env.CLIENT_URL}/settings?outlook=error`);
+    res.redirect(`${env.CLIENT_URL}/settings/mailboxes?outlook=error`);
   }
 });
 

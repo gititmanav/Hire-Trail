@@ -2,8 +2,8 @@
 import { useState, useEffect, useCallback, useMemo, useRef, FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
-  AlertTriangle, Calendar, Check, ChevronDown, ClipboardList, Clock, Heart, Mail,
-  Pencil, Plus, RefreshCw, Trash2, Users, X,
+  AlertTriangle, Calendar, Check, ClipboardList, Clock, Heart, Mail,
+  Pencil, Plus, RefreshCw, Trash2, Users,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { deadlinesAPI, applicationsAPI } from "../../utils/api.ts";
@@ -11,6 +11,11 @@ import { SkeletonTable } from "../../components/Skeleton/Skeleton.tsx";
 import EmptyState from "../../components/EmptyState/EmptyState.tsx";
 import ActionDropdown from "../../components/ActionDropdown/ActionDropdown.tsx";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal.tsx";
+import { Modal, ModalHeader, ModalBody, ModalFooter } from "../../components/ui/Modal.tsx";
+import { Field, Input, Textarea } from "../../components/ui/Field.tsx";
+import Select from "../../components/ui/Select.tsx";
+import DateInput from "../../components/ui/DateInput.tsx";
+import Button from "../../components/ui/Button.tsx";
 import { useConfirm } from "../../hooks/useConfirm.ts";
 import { groupDeadlines, BUCKET_LABEL, BUCKET_ORDER, type DeadlineBucket } from "../../utils/deadlineGroups.ts";
 import CompanyLogo from "../../components/CompanyLogo/CompanyLogo.tsx";
@@ -55,96 +60,87 @@ const dueCls = (d: string, done: boolean) => {
   if (n <= 7) return "bg-primary/10 text-primary bg-primary/10 text-primary";
   return "bg-muted text-muted-foreground";
 };
-const inputCls = "w-full px-3 py-2 text-sm bg-card border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring";
 const btnIcon = "w-9 h-9 flex items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted";
 
-function Modal({ deadline: dl, applications: apps, onSave, onClose }: { deadline: Deadline | null; applications: Application[]; onSave: (d: DeadlineFormData) => Promise<void>; onClose: () => void }) {
+function DeadlineFormModal({ deadline: dl, applications: apps, onSave, onClose }: { deadline: Deadline | null; applications: Application[]; onSave: (d: DeadlineFormData) => Promise<void>; onClose: () => void }) {
   const [form, setForm] = useState<DeadlineFormData>({ applicationId: dl?.applicationId || "", type: dl?.type || "", dueDate: dl?.dueDate ? new Date(dl.dueDate).toISOString().split("T")[0] : "", notes: dl?.notes || "", recurrenceDays: dl?.recurrenceDays || 0 });
   const [saving, setSaving] = useState(false);
-  const selectedApp = apps.find((a) => a._id === form.applicationId);
-
-  useEffect(() => { const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); }; document.addEventListener("keydown", h); return () => document.removeEventListener("keydown", h); }, [onClose]);
 
   return (
-    <div className="fixed inset-0 bg-black/45 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-card rounded-xl p-6 w-full max-w-[520px] max-h-[90vh] overflow-y-auto shadow-2xl animate-in" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-5"><h2 className="text-lg font-semibold text-foreground">{dl ? "Edit deadline" : "New deadline"}</h2><button className={btnIcon} onClick={onClose}><X size={16} strokeWidth={2} /></button></div>
-        <form
-          onSubmit={(e: FormEvent) => {
-            e.preventDefault();
-            if (!form.type) return toast.error("Please select a deadline type");
-            setSaving(true);
-            onSave(form).catch(() => setSaving(false));
-          }}
-          className="space-y-4"
-        >
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">Type *</label>
-              <ActionDropdown
-                align="left"
-                menuWidth="w-full"
-                searchable
-                searchPlaceholder="Search type..."
-                trigger={
-                  <button type="button" className={`${inputCls} h-9 flex items-center justify-between text-left`}>
-                    <span>{form.type || "Select..."}</span>
-                    <ChevronDown size={14} strokeWidth={1.5} />
-                  </button>
-                }
-                items={[
-                  { label: "Select...", onClick: () => setForm({ ...form, type: "" }), className: !form.type ? "text-primary font-medium" : undefined },
-                  ...TYPES.map((t) => ({ label: t, onClick: () => setForm({ ...form, type: t }), className: form.type === t ? "text-primary font-medium" : undefined })),
-                ]}
+    <Modal onClose={onClose} size="md" ariaLabel={dl ? "Edit deadline" : "New deadline"}>
+      <ModalHeader
+        title={dl ? "Edit deadline" : "New deadline"}
+        description="A dated to-do — interviews, assessments, follow-ups."
+        onClose={onClose}
+      />
+      <form
+        className="flex flex-col min-h-0"
+        onSubmit={(e: FormEvent) => {
+          e.preventDefault();
+          if (!form.type) return toast.error("Please select a deadline type");
+          if (!form.dueDate) return toast.error("Please pick a due date");
+          setSaving(true);
+          onSave(form).catch(() => setSaving(false));
+        }}
+      >
+        <ModalBody className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="Type" required>
+              <Select
+                value={form.type}
+                onChange={(v) => setForm({ ...form, type: v })}
+                ariaLabel="Deadline type"
+                placeholder="Select a type"
+                options={TYPES.map((t) => ({ value: t, label: t }))}
               />
-            </div>
-            <div><label className="block text-sm font-medium text-foreground mb-1.5">Due date *</label><input type="date" className={inputCls} value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} required /></div>
+            </Field>
+            <Field label="Due date" required>
+              <DateInput
+                value={form.dueDate}
+                onChange={(v) => setForm({ ...form, dueDate: v })}
+                required
+                ariaLabel="Due date"
+              />
+            </Field>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">Application</label>
-            <ActionDropdown
-              align="left"
-              menuWidth="w-full"
+          <Field label="Application" hint="Optional — link this deadline to an application.">
+            <Select
+              value={form.applicationId || ""}
+              onChange={(v) => setForm({ ...form, applicationId: v })}
+              ariaLabel="Application"
+              placeholder="None"
               searchable
-              searchPlaceholder="Search application..."
-              maxVisibleItems={8}
-              trigger={
-                <button type="button" className={`${inputCls} h-9 flex items-center justify-between text-left`}>
-                  <span className="truncate">{selectedApp ? `${selectedApp.company} — ${selectedApp.role}` : "None"}</span>
-                  <ChevronDown size={14} strokeWidth={1.5} />
-                </button>
-              }
-              items={[
-                { label: "None", onClick: () => setForm({ ...form, applicationId: "" }), className: !form.applicationId ? "text-primary font-medium" : undefined },
-                ...apps.map((a) => ({
-                  label: `${a.company} — ${a.role}`,
-                  onClick: () => setForm({ ...form, applicationId: a._id }),
-                  className: form.applicationId === a._id ? "text-primary font-medium" : undefined,
-                })),
+              searchPlaceholder="Search applications…"
+              options={[
+                { value: "", label: "None" },
+                ...apps.map((a) => ({ value: a._id, label: a.company, description: a.role })),
               ]}
             />
-          </div>
+          </Field>
           {/* Recurrence cadence — "Follow up every 2 weeks until response." When
            *  non-zero, the backend spawns the next occurrence automatically when
            *  this one is completed. Leave at 0 (default) for a one-off. */}
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">Repeat every (days)</label>
-            <input
+          <Field label="Repeat every (days)" hint="When marked complete, the next occurrence is created automatically. 0 = one-off.">
+            <Input
               type="number"
               min={0}
               max={365}
-              className={inputCls}
               value={form.recurrenceDays ?? 0}
               onChange={(e) => setForm({ ...form, recurrenceDays: Math.max(0, Math.min(365, parseInt(e.target.value || "0", 10) || 0)) })}
               placeholder="0 = one-off"
+              className="sm:w-40"
             />
-            <p className="text-[11px] text-muted-foreground mt-1">When marked complete, the next occurrence is created automatically.</p>
-          </div>
-          <div><label className="block text-sm font-medium text-foreground mb-1.5">Notes</label><textarea className={`${inputCls} min-h-[80px] resize-y`} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></div>
-          <div className="flex justify-end gap-2 pt-4 border-t border-border"><button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-foreground border border-border rounded-lg hover:bg-muted">Cancel</button><button type="submit" disabled={saving} className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50">{saving ? "Saving..." : dl ? "Update" : "Add deadline"}</button></div>
-        </form>
-      </div>
-    </div>
+          </Field>
+          <Field label="Notes">
+            <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Prep topics, links, who you're meeting…" />
+          </Field>
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button type="submit" variant="primary" loading={saving}>{dl ? "Save changes" : "Add deadline"}</Button>
+        </ModalFooter>
+      </form>
+    </Modal>
   );
 }
 
@@ -451,7 +447,7 @@ export default function Deadlines() {
         </div>
       )}
 
-      {modal && <Modal deadline={editing} applications={apps} onSave={save} onClose={() => { setModal(false); setEditing(null); }} />}
+      {modal && <DeadlineFormModal deadline={editing} applications={apps} onSave={save} onClose={() => { setModal(false); setEditing(null); }} />}
       {confirmState.open && (
         <ConfirmModal
           title={confirmState.title}

@@ -77,7 +77,7 @@ export function useApplicationsListState(): ApplicationsListState {
   const [archiveTab, setArchiveTabRaw] = useState<ArchiveTab>("active");
   const [sort, setSort] = useState<SortConfig>({ field: "createdAt", order: "desc" });
   const [page, setPage] = useState(1);
-  const [stageFilter, setStageFilter] = useState<StageFilter>("All");
+  const [stageFilter, setStageFilterRaw] = useState<StageFilter>("All");
   const [density, setDensityRaw] = useState<Density>(() =>
     readStored<Density>(DENSITY_KEY, "comfortable", ["comfortable", "compact"])
   );
@@ -110,6 +110,13 @@ export function useApplicationsListState(): ApplicationsListState {
     setPage(1);
     setStageFilter("All");
     setSelectedIds(new Set());
+  }, []);
+
+  // Stage filtering is server-side (paginated list) — a stage change restarts
+  // from page 1 so the fetch can't land on an out-of-range page.
+  const setStageFilter = useCallback((s: StageFilter) => {
+    setStageFilterRaw(s);
+    setPage(1);
   }, []);
 
   const setDensity = useCallback((d: Density) => setDensityRaw(d), []);
