@@ -138,6 +138,15 @@ app.use("/api", passport.session());
 app.use("/api", apiLimiter);
 app.use("/api", rejectMaintenanceForNonBypass);
 
+// API responses are per-user and must never be stored by a browser or CDN.
+// (2026-09-23 incident: a CDN rewrite routed /api/* to index.html, and the
+// static middleware's immutable 1y header let the edge and browsers cache the
+// HTML as the API response.) Routes that want caching can still override.
+app.use("/api", (_req, res, next) => {
+  res.set("Cache-Control", "no-store");
+  next();
+});
+
 app.use("/api/auth", authRoutes);
 app.use("/api/applications", applicationRoutes);
 app.use("/api/resumes", resumeRoutes);
@@ -166,6 +175,13 @@ app.use(
     maxAge: "1y",
     immutable: true,
     index: false, // don't auto-serve index.html from static middleware
+    // A direct request for /index.html (or anything rewritten to it) must not
+    // inherit the immutable header — that pins a stale shell for a year.
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith(".html")) {
+        res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      }
+    },
   })
 );
 

@@ -21,7 +21,10 @@ import type {
 
 export const api = axios.create({
   baseURL: getApiBaseURL(),
-  headers: { "Content-Type": "application/json" },
+  // Cache-Control/Pragma on the REQUEST make browsers bypass their HTTP cache.
+  // Required after the 2026-09-23 incident, when browsers stored an HTML page
+  // as immutable for /api/* responses — without this they'd replay it for a year.
+  headers: { "Content-Type": "application/json", "Cache-Control": "no-cache", Pragma: "no-cache" },
   withCredentials: true,
 });
 
@@ -65,7 +68,16 @@ export const authAPI = {
   login: (email: string, password: string) => api.post<User>("/auth/login", { email, password }).then((r) => r.data),
   register: (name: string, email: string, password: string) => api.post<User>("/auth/register", { name, email, password }).then((r) => r.data),
   logout: () => api.post("/auth/logout").then((r) => r.data),
-  getMe: () => api.get<User>("/auth/me").then((r) => r.data),
+  /** Rejects anything that isn't a user object (e.g. an HTML page from a
+   *  misrouted proxy) so the app falls back to signed-out instead of
+   *  crashing on a string "user". */
+  getMe: () => api.get<User>("/auth/me").then((r) => {
+    const u = r.data as unknown;
+    if (!u || typeof u !== "object" || typeof (u as User)._id !== "string" || typeof (u as User).name !== "string") {
+      throw new Error("Unexpected /auth/me response");
+    }
+    return u as User;
+  }),
   updateProfile: (data: { name?: string; email?: string; primaryResumeId?: string | null }) =>
     api.put<User>("/auth/profile", data).then((r) => r.data),
   completeTour: () => api.put("/auth/tour").then((r) => r.data),
