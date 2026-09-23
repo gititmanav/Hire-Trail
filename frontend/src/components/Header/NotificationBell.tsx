@@ -157,8 +157,8 @@ export default function NotificationBell() {
       } catch { /* ignore */ }
     }
     setOpen(false);
-    if (n.type === "scan_ready") navigate("/settings/email-review");
-    else if (n.type === "clipboard_config") navigate("/settings#clipboard");
+    if (n.type === "scan_ready") navigate("/email-review");
+    else if (n.type === "clipboard_config") navigate("/settings/clipboard");
     else if (n.applicationId) navigate(`/applications?focus=${n.applicationId}`);
     else navigate("/notifications");
   };

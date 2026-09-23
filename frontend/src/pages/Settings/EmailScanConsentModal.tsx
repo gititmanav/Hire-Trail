@@ -63,7 +63,7 @@ export function EmailScanConsentModal({
       toast.success("Inbox scan started — we'll show progress in the bottom-right.");
       onStarted({ scanJobId: result.scanJobId, windowDays });
       onClose();
-      navigate("/settings/email-review");
+      navigate("/email-review");
     } catch (err) {
       const e = err as { response?: { data?: { error?: string } } };
       toast.error(e.response?.data?.error || "Could not start the scan.");

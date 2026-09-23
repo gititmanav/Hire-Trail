@@ -129,7 +129,7 @@ export default function EmailScanReview() {
     try {
       await emailAPI.completeScan(job._id);
       toast.success("Review closed.");
-      navigate("/settings");
+      navigate("/settings/mailboxes");
     } catch {/* */}
   };
 
@@ -153,7 +153,7 @@ export default function EmailScanReview() {
         title="No inbox scan to review"
         body="Connect Gmail from Settings and we'll find recent applications for you."
         ctaLabel="Open Settings"
-        ctaHref="/settings"
+        ctaHref="/settings/mailboxes"
       />
     );
   }
@@ -162,7 +162,7 @@ export default function EmailScanReview() {
     <div className="max-w-4xl mx-auto px-5 py-8">
       {/* Header */}
       <div className="mb-6">
-        <Link to="/settings" className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mb-3">
+        <Link to="/settings/mailboxes" className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mb-3">
           <ChevronLeft size={12} strokeWidth={2.5} />
           Back to Settings
         </Link>
@@ -184,7 +184,7 @@ export default function EmailScanReview() {
           <div className="text-sm font-semibold text-red-900 dark:text-red-200">Scan failed</div>
           <p className="text-[13px] text-red-900/80 dark:text-red-200/80 mt-1">{job.error || "An unknown error occurred."}</p>
           <Link
-            to="/settings"
+            to="/settings/mailboxes"
             className="inline-block mt-3 px-4 py-2 text-sm font-medium border border-red-400 dark:border-red-800 text-red-700 dark:text-red-200 hover:bg-red-100 dark:hover:bg-red-900/40 rounded-lg"
           >
             Retry from Settings
@@ -226,7 +226,7 @@ export default function EmailScanReview() {
           title="No applications detected"
           body="Your inbox didn't have any clear application emails in the chosen window. You can still add applications manually or via the extension."
           ctaLabel="Back to Settings"
-          ctaHref="/settings"
+          ctaHref="/settings/mailboxes"
         />
       )}
 

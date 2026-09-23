@@ -115,8 +115,8 @@ export default function Notifications() {
         setItems((prev) => prev.map((x) => x._id === n._id ? { ...x, read: true } : x));
       } catch { /* ignore */ }
     }
-    if (n.type === "scan_ready") navigate("/settings/email-review");
-    else if (n.type === "clipboard_config") navigate("/settings#clipboard");
+    if (n.type === "scan_ready") navigate("/email-review");
+    else if (n.type === "clipboard_config") navigate("/settings/clipboard");
     else if (n.applicationId) navigate(`/applications?focus=${n.applicationId}`);
   };
 
