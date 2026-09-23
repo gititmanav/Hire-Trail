@@ -1,13 +1,3 @@
 {
-    "installCommand": "npm install && cd ../frontend && npm install",
-    "rewrites": [
-        {
-            "source": "/api/(.*)",
-            "destination": "/api"
-        },
-        {
-            "source": "/((?!api/|assets/|.*\\..*).*)",
-            "destination": "/index.html"
-        }
-    ]
+    "installCommand": "npm install && cd ../frontend && npm install"
 }
