@@ -1,7 +1,11 @@
 /** Quick-add deadline triggered by clicking an empty day in the calendar. */
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { format } from "date-fns";
-import { X } from "lucide-react";
+import { Modal, ModalHeader, ModalBody, ModalFooter } from "../../../components/ui/Modal.tsx";
+import { Field, Textarea } from "../../../components/ui/Field.tsx";
+import Select from "../../../components/ui/Select.tsx";
+import DateInput from "../../../components/ui/DateInput.tsx";
+import Button from "../../../components/ui/Button.tsx";
 
 const DEADLINE_TYPES = [
   "OA due date",
@@ -24,12 +28,6 @@ export function QuickAddDeadlineModal({ initialDate, onClose, onCreate }: Props)
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", h);
-    return () => document.removeEventListener("keydown", h);
-  }, [onClose]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (saving) return;
@@ -43,35 +41,30 @@ export function QuickAddDeadlineModal({ initialDate, onClose, onCreate }: Props)
   };
 
   return (
-    <div className="quick-add" onClick={onClose}>
-      <div className="quick-add__panel" onClick={(e) => e.stopPropagation()}>
-        <div className="quick-add__head">
-          <h3>New deadline</h3>
-          <button type="button" onClick={onClose} className="quick-add__close" aria-label="Close">
-            <X size={14} strokeWidth={2} />
-          </button>
-        </div>
-        <form onSubmit={handleSubmit} className="quick-add__form">
-          <label>
-            <span>Type</span>
-            <select value={type} onChange={(e) => setType(e.target.value)}>
-              {DEADLINE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </label>
-          <label>
-            <span>Due date</span>
-            <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} required />
-          </label>
-          <label>
-            <span>Notes (optional)</span>
-            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Anything to remember" rows={3} />
-          </label>
-          <div className="quick-add__actions">
-            <button type="button" className="quick-add__cancel" onClick={onClose}>Cancel</button>
-            <button type="submit" className="quick-add__save" disabled={saving}>{saving ? "Adding…" : "Add deadline"}</button>
-          </div>
-        </form>
-      </div>
-    </div>
+    <Modal onClose={onClose} size="sm" ariaLabel="New deadline">
+      <ModalHeader title="New deadline" description={format(initialDate, "EEEE, MMM d")} onClose={onClose} />
+      <form className="flex flex-col min-h-0" onSubmit={handleSubmit}>
+        <ModalBody className="space-y-4">
+          <Field label="Type">
+            <Select
+              value={type}
+              onChange={setType}
+              ariaLabel="Deadline type"
+              options={DEADLINE_TYPES.map((t) => ({ value: t, label: t }))}
+            />
+          </Field>
+          <Field label="Due date" required>
+            <DateInput value={dueDate} onChange={setDueDate} required ariaLabel="Due date" />
+          </Field>
+          <Field label="Notes">
+            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Anything to remember" />
+          </Field>
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button type="submit" variant="primary" loading={saving}>Add deadline</Button>
+        </ModalFooter>
+      </form>
+    </Modal>
   );
 }

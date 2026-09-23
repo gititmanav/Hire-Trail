@@ -1,8 +1,11 @@
 /** Shared resume add/edit modal — used by Resumes page and Application form. */
-import { useState, useRef, useEffect, useMemo, FormEvent, KeyboardEvent } from "react";
+import { useState, useRef, useMemo, FormEvent, KeyboardEvent } from "react";
 import { X, Tag, FileText, CheckCircle2, UploadCloud } from "lucide-react";
 import toast from "react-hot-toast";
 import type { Resume } from "../../types";
+import { Modal, ModalHeader, ModalBody, ModalFooter } from "../ui/Modal.tsx";
+import { TextField } from "../ui/Field.tsx";
+import Button from "../ui/Button.tsx";
 
 interface Props {
   resume: Resume | null;
@@ -24,8 +27,6 @@ export default function ResumeModal({ resume, existingTags = [], onSave, onClose
   const fileRef = useRef<HTMLInputElement>(null);
   const tagInputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => { const h = (e: globalThis.KeyboardEvent) => { if (e.key === "Escape") onClose(); }; document.addEventListener("keydown", h); return () => document.removeEventListener("keydown", h); }, [onClose]);
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -86,21 +87,24 @@ export default function ResumeModal({ resume, existingTags = [], onSave, onClose
   const removeTag = (idx: number) => setTags(tags.filter((_, i) => i !== idx));
 
   return (
-    <div className="fixed inset-0 bg-black/45 flex items-center justify-center z-[60]" onClick={onClose}>
-      <div className="card-premium p-6 w-full max-w-[520px] max-h-[90vh] overflow-y-auto animate-in" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-semibold text-foreground">{resume ? "Edit resume" : "New resume version"}</h2>
-          <button onClick={onClose} className="w-9 h-9 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted"><X size={16} strokeWidth={2} /></button>
-        </div>
-        <form onSubmit={(e: FormEvent) => { e.preventDefault(); setSaving(true); onSave({ name, targetRole, fileName, tags, file }).catch(() => setSaving(false)); }} className="space-y-4">
-          <div><label className="block text-sm font-medium text-foreground mb-1.5">Version name *</label><input className="input-premium" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. SWE Resume v2" required /></div>
-          <div><label className="block text-sm font-medium text-foreground mb-1.5">Target role</label><input className="input-premium" value={targetRole} onChange={(e) => setTargetRole(e.target.value)} placeholder="e.g. Software Engineer" /></div>
+    <Modal onClose={onClose} size="md" ariaLabel={resume ? "Edit resume" : "New resume version"}>
+      <ModalHeader
+        title={resume ? "Edit resume" : "New resume version"}
+        description="Versions keep tailored variants of your resume organized."
+        onClose={onClose}
+      />
+      <form className="flex flex-col min-h-0" onSubmit={(e: FormEvent) => { e.preventDefault(); setSaving(true); onSave({ name, targetRole, fileName, tags, file }).catch(() => setSaving(false)); }}>
+        <ModalBody className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <TextField label="Version name" required value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. SWE Resume v2" data-autofocus />
+            <TextField label="Target role" value={targetRole} onChange={(e) => setTargetRole(e.target.value)} placeholder="e.g. Software Engineer" />
+          </div>
 
           {/* Tags input with autocomplete */}
           <div className="relative">
-            <label className="block text-sm font-medium text-foreground mb-1.5">Tags</label>
+            <label className="block text-[13px] font-medium text-foreground mb-1.5">Tags</label>
             <div
-              className="input-premium flex flex-wrap gap-1.5 min-h-[38px] !py-1.5 cursor-text"
+              className="w-full min-h-[40px] px-3 py-1.5 text-sm bg-background border border-border rounded-lg flex flex-wrap items-center gap-1.5 cursor-text transition-shadow focus-within:ring-2 focus-within:ring-ring/25 focus-within:border-ring"
               onClick={() => tagInputRef.current?.focus()}
             >
               {tags.map((t, i) => (
@@ -133,7 +137,7 @@ export default function ResumeModal({ resume, existingTags = [], onSave, onClose
             {showSuggestions && suggestions.length > 0 && (
               <div
                 ref={suggestionsRef}
-                className="absolute left-0 right-0 top-full mt-1 bg-card border border-border rounded-lg shadow-lg z-10 max-h-[160px] overflow-y-auto py-1"
+                className="absolute left-0 right-0 top-full mt-1.5 bg-popover border border-border rounded-lg shadow-lg z-10 max-h-[160px] overflow-y-auto py-1"
               >
                 {suggestions.map((s, i) => (
                   <button
@@ -155,7 +159,7 @@ export default function ResumeModal({ resume, existingTags = [], onSave, onClose
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">PDF file <span className="text-muted-foreground font-normal">(optional)</span></label>
+            <label className="block text-[13px] font-medium text-foreground mb-1.5">PDF file <span className="text-muted-foreground font-normal">(optional)</span></label>
             <div
               className="border-2 border-dashed border-border rounded-xl p-6 text-center hover:border-primary cursor-pointer"
               onClick={() => fileRef.current?.click()}
@@ -189,12 +193,12 @@ export default function ResumeModal({ resume, existingTags = [], onSave, onClose
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-4 border-t border-border">
-            <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
-            <button type="submit" disabled={saving} className="btn-accent disabled:opacity-50">{saving ? "Saving..." : resume ? "Update" : "Add resume"}</button>
-          </div>
-        </form>
-      </div>
-    </div>
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button type="submit" variant="primary" loading={saving}>{resume ? "Save changes" : "Add resume"}</Button>
+        </ModalFooter>
+      </form>
+    </Modal>
   );
 }
