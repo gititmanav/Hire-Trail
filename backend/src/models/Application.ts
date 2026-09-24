@@ -236,7 +236,9 @@ const applicationSchema = new Schema<IApplication>(
 applicationSchema.index({ userId: 1, stage: 1 });
 applicationSchema.index({ userId: 1, applicationDate: -1 });
 applicationSchema.index({ userId: 1, resumeId: 1 });
-applicationSchema.index({ userId: 1, archived: 1 });
+// Serves the list's default query (tab + newest first) straight from the index;
+// its {userId, archived} prefix also covers every tab-only lookup.
+applicationSchema.index({ userId: 1, archived: 1, createdAt: -1 });
 applicationSchema.index({ userId: 1, companyId: 1 });
 applicationSchema.index({ userId: 1, jobUrl: 1 });
 

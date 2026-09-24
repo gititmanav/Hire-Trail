@@ -1,5 +1,7 @@
 import { Router, Request, Response, NextFunction } from "express";
-import { Application } from "../models/Application.js";
+import { Types, type PipelineStage } from "mongoose";
+import { Application, APPLICATION_SOURCES, STAGES } from "../models/Application.js";
+import { searchRegex } from "../utils/regex.js";
 import { Company } from "../models/Company.js";
 import { ensureAuth, getUser } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
@@ -20,7 +22,8 @@ export interface AppFitSummary {
   status: "processing" | "succeeded" | "failed" | "deferred";
   fitScore: number;
   fitGrade: "A" | "B" | "C" | "D" | "F" | "";
-  summary: string;
+  /** Omitted in list (`fields=summary`) responses — no list surface renders it. */
+  summary?: string;
   matchedCount: number;
   missingCount: number;
   /** First few matched skills — surfaced by the Application row AI panel as
@@ -33,7 +36,10 @@ export interface AppFitSummary {
  *  Returns a map keyed by application id (string). Apps with no tailorSessionId
  *  or a missing session are simply absent from the map (frontend renders the
  *  "no fit yet" state). */
-async function loadFitSummaries(apps: Array<{ _id: unknown; tailorSessionId: unknown }>): Promise<Map<string, AppFitSummary>> {
+async function loadFitSummaries(
+  apps: Array<{ _id: unknown; tailorSessionId: unknown }>,
+  { withSummary = true }: { withSummary?: boolean } = {},
+): Promise<Map<string, AppFitSummary>> {
   const sessionIds = apps.map((a) => a.tailorSessionId).filter(Boolean);
   if (sessionIds.length === 0) return new Map();
   const sessions = await TailorSession.find({ _id: { $in: sessionIds } })
@@ -50,7 +56,7 @@ async function loadFitSummaries(apps: Array<{ _id: unknown; tailorSessionId: unk
       status: s.status,
       fitScore: s.fitScore || 0,
       fitGrade: s.fitGrade || "",
-      summary: s.summary || "",
+      ...(withSummary && { summary: s.summary || "" }),
       matchedCount: Array.isArray(s.matchedSkills) ? s.matchedSkills.length : 0,
       missingCount: Array.isArray(s.missingSkills) ? s.missingSkills.length : 0,
       topMatched: Array.isArray(s.matchedSkills) ? s.matchedSkills.slice(0, 3) : [],
@@ -94,64 +100,137 @@ function companyWebsiteFromJobUrl(jobUrl?: string | null): string {
 const router = Router();
 router.use(ensureAuth);
 
-// GET list: pagination, sort, server-side search
+const LIST_SORTS = ["company", "role", "stage", "applicationDate", "createdAt"] as const;
+
+/** Tab filter. `$in: [false, null]` also matches legacy documents that predate
+ *  the `archived` field (null matches missing) while staying a plain index
+ *  lookup — the old `$or` on `$exists` could not use the compound index. */
+function archivedMatch(param: unknown): Record<string, unknown> {
+  if (param === "true") return { archived: true };
+  if (param === "all") return {};
+  return { archived: { $in: [false, null] } };
+}
+
+/** Filters shared by the list, board, and filter-options endpoints. Every
+ *  value is validated — a stale or hand-edited URL narrows nothing instead of
+ *  erroring (or reaching the database as an operator). */
+function listFilters(req: Request, userId: Types.ObjectId): Record<string, unknown> {
+  const match: Record<string, unknown> = { userId, ...archivedMatch(req.query.archived) };
+  const search = searchRegex(req.query.search);
+  if (search) match.$or = [{ company: search }, { role: search }];
+  const company = typeof req.query.company === "string" ? req.query.company.trim() : "";
+  if (company) match.company = company;
+  const resume = req.query.resumeId;
+  if (resume === "none") match.resumeId = null;
+  else if (typeof resume === "string" && Types.ObjectId.isValid(resume)) match.resumeId = new Types.ObjectId(resume);
+  const source = req.query.source;
+  if (typeof source === "string" && (APPLICATION_SOURCES as readonly string[]).includes(source)) {
+    // Legacy docs predate `source`; the schema default ("manual") never ran for them.
+    match.source = source === "manual" ? { $in: ["manual", null] } : source;
+  }
+  return match;
+}
+
+/**
+ * GET list: filters, sort, pagination — one aggregate round-trip returning the
+ * page, the filtered total, and per-stage counts (computed over the stage-less
+ * match so filter chips show true totals, not just the loaded page).
+ *
+ * `fields=summary` omits `jobDescription` (the bulk of every document) and adds
+ * a `hasJobDescription` flag — lists and the board never render the JD.
+ * `tabCounts` gives Active/Archived totals so clients don't need a second call.
+ */
 router.get("/", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = getUser(req);
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
     const limit = Math.min(1000, Math.max(1, parseInt(req.query.limit as string) || 25));
-    const sortField = (req.query.sort as string) || "createdAt";
+    const sortField = (LIST_SORTS as readonly string[]).includes(req.query.sort as string)
+      ? (req.query.sort as string)
+      : "createdAt";
     const sortOrder = req.query.order === "asc" ? 1 : -1;
-    const search = (req.query.search as string) || "";
+    // _id tiebreak: identical createdAt/company values otherwise shuffle
+    // between pages, duplicating or skipping rows.
+    const sort: Record<string, 1 | -1> = { [sortField]: sortOrder, _id: sortOrder };
 
-    const allowedSorts = ["company", "role", "stage", "applicationDate", "createdAt"];
-    const sort: Record<string, 1 | -1> = {};
-    sort[allowedSorts.includes(sortField) ? sortField : "createdAt"] = sortOrder;
+    const base = listFilters(req, user._id as Types.ObjectId);
+    const stage = typeof req.query.stage === "string" && (STAGES as readonly string[]).includes(req.query.stage)
+      ? req.query.stage
+      : null;
+    const pageMatch = stage ? { stage } : {};
 
-    // Build query
-    const query: any = { userId: user._id };
-    const archivedParam = req.query.archived as string;
-    if (archivedParam === "true") {
-      query.archived = true;
-    } else if (archivedParam !== "all") {
-      // Default: only show non-archived
-      query.$or = [{ archived: false }, { archived: { $exists: false } }];
-    }
-    if (search.trim()) {
-      const regex = new RegExp(search.trim(), "i");
-      const searchOr = [{ company: regex }, { role: regex }];
-      if (query.$or) {
-        // Combine archived filter with search — use $and
-        query.$and = [{ $or: query.$or }, { $or: searchOr }];
-        delete query.$or;
-      } else {
-        query.$or = searchOr;
-      }
-    }
+    const summaryStages: PipelineStage.FacetPipelineStage[] = req.query.fields === "summary"
+      ? [
+          { $addFields: { hasJobDescription: { $gt: [{ $strLenCP: { $trim: { input: { $ifNull: ["$jobDescription", ""] } } } }, 0] } } },
+          // userId is always the requester; updatedAt/__v are never rendered.
+          { $project: { jobDescription: 0, userId: 0, updatedAt: 0, __v: 0 } },
+        ]
+      : [];
 
-    // Stage filter is applied on top of the base query. stageCounts aggregates
-    // over the base (stage-less) query so the filter chips always show true
-    // per-stage totals for the current tab + search, not just the loaded page.
-    const stageParam = (req.query.stage as string) || "";
-    const baseQuery = { ...query };
-    if (stageParam && stageParam !== "All") query.stage = stageParam;
-
-    const skip = (page - 1) * limit;
-    const [apps, total, stageAgg] = await Promise.all([
-      Application.find(query).sort(sort).skip(skip).limit(limit).lean(),
-      Application.countDocuments(query),
-      Application.aggregate<{ _id: string; n: number }>([
-        { $match: baseQuery },
-        { $group: { _id: "$stage", n: { $sum: 1 } } },
+    const [[facet], tabAgg] = await Promise.all([
+      Application.aggregate<{
+        data: Array<Record<string, unknown> & { _id: unknown; tailorSessionId: unknown }>;
+        total: { n: number }[];
+        stageCounts: { _id: string; n: number }[];
+      }>([
+        { $match: base },
+        {
+          $facet: {
+            stageCounts: [{ $group: { _id: "$stage", n: { $sum: 1 } } }],
+            total: [{ $match: pageMatch }, { $count: "n" }],
+            data: [
+              { $match: pageMatch },
+              { $sort: sort },
+              { $skip: (page - 1) * limit },
+              { $limit: limit },
+              ...summaryStages,
+            ],
+          },
+        },
+      ]),
+      Application.aggregate<{ _id: boolean; n: number }>([
+        { $match: { userId: user._id } },
+        { $group: { _id: { $eq: ["$archived", true] }, n: { $sum: 1 } } },
       ]),
     ]);
-    const stageCounts: Record<string, number> = {};
-    for (const { _id, n } of stageAgg) stageCounts[_id] = n;
 
-    const fitMap = await loadFitSummaries(apps);
+    const total = facet?.total[0]?.n ?? 0;
+    const stageCounts: Record<string, number> = {};
+    for (const { _id, n } of facet?.stageCounts ?? []) stageCounts[_id] = n;
+    const tabCounts = {
+      active: tabAgg.find((t) => t._id === false)?.n ?? 0,
+      archived: tabAgg.find((t) => t._id === true)?.n ?? 0,
+    };
+
+    const apps = facet?.data ?? [];
+    const fitMap = await loadFitSummaries(apps, { withSummary: req.query.fields !== "summary" });
     const enriched = apps.map((a) => ({ ...a, fit: fitMap.get(String(a._id)) || null }));
 
-    res.json({ data: enriched, pagination: { page, limit, total, pages: Math.ceil(total / limit) }, stageCounts });
+    res.json({
+      data: enriched,
+      pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+      stageCounts,
+      tabCounts,
+    });
+  } catch (err) { next(err); }
+});
+
+/** Distinct values the Filters menu offers (companies, sources, resumes in
+ *  use) for the given tab — computed across ALL the user's applications, not
+ *  the loaded page, so narrowing one filter never hides another's options. */
+router.get("/filter-options", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = getUser(req);
+    const [agg] = await Application.aggregate<{ companies: string[]; sources: (string | null)[]; resumeIds: (Types.ObjectId | null)[] }>([
+      { $match: { userId: user._id, ...archivedMatch(req.query.archived) } },
+      { $group: { _id: null, companies: { $addToSet: "$company" }, sources: { $addToSet: "$source" }, resumeIds: { $addToSet: "$resumeId" } } },
+    ]);
+    res.json({
+      companies: (agg?.companies ?? []).filter(Boolean).sort((a, b) => a.localeCompare(b)),
+      sources: [...new Set((agg?.sources ?? []).map((s) => s ?? "manual"))].sort(),
+      resumeIds: (agg?.resumeIds ?? []).filter(Boolean).map(String),
+      hasUnassignedResume: (agg?.resumeIds ?? []).some((r) => r == null),
+    });
   } catch (err) { next(err); }
 });
 
