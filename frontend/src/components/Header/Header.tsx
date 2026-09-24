@@ -59,6 +59,18 @@ export default function Header({ user, onLogout, onMobileMenuToggle }: Props) {
     return () => document.removeEventListener("mousedown", h);
   }, []);
 
+  // Publish the header's live height as --app-header-h so page-level sticky
+  // bars (PageHeader) sit flush beneath it at any viewport/wrap state.
+  const headerRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const root = document.documentElement;
+    const ro = new ResizeObserver(() => root.style.setProperty("--app-header-h", `${el.offsetHeight}px`));
+    ro.observe(el);
+    return () => { ro.disconnect(); root.style.removeProperty("--app-header-h"); };
+  }, []);
+
   const handleLogout = async () => {
     if (loggingOut) return;
     setLoggingOut(true);
@@ -71,7 +83,7 @@ export default function Header({ user, onLogout, onMobileMenuToggle }: Props) {
   };
 
   return (
-    <header className="glass-header">
+    <header ref={headerRef} className="glass-header">
       <div className="flex items-center justify-between px-4 md:px-6 py-2.5 gap-2">
         {/* Mobile hamburger + Extension download CTA */}
         <div className="flex items-center">

@@ -19,7 +19,7 @@ interface PopoverPos { top?: number; bottom?: number; left: number; width: numbe
 
 export default function Select({
   value, options, onChange, placeholder = "Select…", searchable, searchPlaceholder = "Search…",
-  disabled, id, ariaLabel, renderValue,
+  disabled, id, ariaLabel, renderValue, size = "md",
 }: {
   value: string;
   options: SelectOption[];
@@ -32,6 +32,8 @@ export default function Select({
   ariaLabel?: string;
   /** Override the closed-state rendering (defaults to selected label). */
   renderValue?: (selected: SelectOption | undefined) => ReactNode;
+  /** "sm" for dense surfaces (filter panels); "md" matches form inputs. */
+  size?: "sm" | "md";
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -150,7 +152,7 @@ export default function Select({
         aria-label={ariaLabel}
         onClick={() => setOpen((o) => !o)}
         onKeyDown={onKeyDown}
-        className="w-full h-10 px-3 flex items-center justify-between gap-2 text-sm bg-background border border-border rounded-lg text-left text-foreground transition-shadow hover:border-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-ring/25 focus:border-ring disabled:opacity-50 disabled:cursor-not-allowed"
+        className={`w-full ${size === "sm" ? "h-8 px-2.5 text-[13px]" : "h-10 px-3 text-sm"} flex items-center justify-between gap-2 bg-background border border-border rounded-lg text-left text-foreground transition-shadow hover:border-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-ring/25 focus:border-ring disabled:opacity-50 disabled:cursor-not-allowed`}
       >
         <span className={`truncate ${selected ? "" : "text-muted-foreground/60"}`}>
           {renderValue ? renderValue(selected) : selected?.label ?? placeholder}

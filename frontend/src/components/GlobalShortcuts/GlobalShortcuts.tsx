@@ -29,6 +29,14 @@ interface Binding {
 
 const SEQUENCE_WINDOW_MS = 1200;
 
+/** Mirrors "a g/n prefix is waiting for its second key". Page-level single-key
+ *  shortcuts check this so "g c" (go to Contacts) never also fires a page's
+ *  "c" — page listeners register first and would otherwise see the key first. */
+let pendingPrefixUntil = 0;
+export function isShortcutSequencePending(): boolean {
+  return Date.now() < pendingPrefixUntil;
+}
+
 function isTyping(): boolean {
   const el = document.activeElement as HTMLElement | null;
   if (!el) return false;
@@ -76,19 +84,23 @@ export default function GlobalShortcuts() {
     }
 
     const now = Date.now();
-    if (now > buffer.current.expiresAt) buffer.current = { keys: [], expiresAt: 0 };
+    if (now > buffer.current.expiresAt) { buffer.current = { keys: [], expiresAt: 0 }; pendingPrefixUntil = 0; }
 
     const key = e.key.toLowerCase();
     // Single-letter prefix that starts a sequence — don't consume the event
     // so per-page shortcuts (j/k/e/etc.) still work.
     if (buffer.current.keys.length === 0 && (key === "g" || key === "n")) {
       buffer.current = { keys: [key], expiresAt: now + SEQUENCE_WINDOW_MS };
+      pendingPrefixUntil = now + SEQUENCE_WINDOW_MS;
       return;
     }
     if (buffer.current.keys.length === 1) {
       const full = [...buffer.current.keys, key];
       const match = bindings.find((b) => b.sequence.length === 2 && b.sequence[0] === full[0] && b.sequence[1] === full[1]);
       buffer.current = { keys: [], expiresAt: 0 };
+      // Cleared on the NEXT tick: page listeners that already ran for this
+      // keydown saw the prefix pending; later keys must not.
+      window.setTimeout(() => { pendingPrefixUntil = 0; }, 0);
       if (match) {
         e.preventDefault();
         match.action();
