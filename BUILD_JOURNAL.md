@@ -4,6 +4,34 @@ Append a dated entry every session: decisions, what was built, what was verified
 
 ---
 
+## 2026-09-24 — Prod 500s root-caused; Applications page revamp (List · Board · Calendar + detail page)
+
+Decisions and their reasons live in **Revamp.md** (new, dated decision log for the page-by-page revamp).
+
+### Built
+- **Prod 500s (shipped to main, 5b66f07):** Vercel freeze/thaw left a Mongo connect in flight → unhandled rejection → runtime exit 128 → every concurrent request 500'd. `attachDatabasePool` + `maxIdleTimeMS`; duplicate schema indexes removed.
+- **Search 500s:** `utils/regex.ts` escapes user search text everywhere (applications, companies, admin ×3).
+- **Applications API:** single-round-trip aggregate (page + total + stageCounts + tabCounts), server filters (company/resume/source), `fields=summary`, `/filter-options`, new compound index.
+- **Frontend:** TanStack Query layer; unified `/applications` shell with List (Classic | Table, dev toggle) · Board · Calendar; `/applications/:id` detail page; Popover/Menu/Tooltip/SegmentedControl/PageHeader primitives; app-wide scroll-to-top on forward navigation; page-shortcut rules (`usePageShortcuts`).
+- Removed: Applications.tsx (860 lines), Kanban.tsx (745), detail sidebar, AI-analysis sidebar, ApplicationDetailBody, ApplicationsToolbar, useApplicationsListState, dead ApplicationStatusPanel.
+
+### Verified (HOW) — local, demo account, 650 apps
+- API: counts sum to 650; `stage=Interview` → 98 of 98; `search=C++` and `search=(` → 200 (were 500); hostile params ignored; company filter exact; payload −14% on JD-less demo data.
+- Browser, driven: Classic + Table render (light + dark, 1320 + 1920 wide — 5 → 9 columns); Filters panel incl. nested Select keeps panel open, URL `?company=Adobe`, badge; Escape layering; optimistic stage change repaints in <17ms; row → detail (instant from cache), J → next ("22 of 650"), Escape → back with scroll restored to the pixel; Board pointer-drag Applied→Interview persisted (verified via API) and didn't trigger a click-open; card click → detail; Calendar embedded; `/kanban`, `/calendar`, `?stage=`, `?focus=`, `?new=1`, bad id all correct; shortcuts 1/2/f/c// and `g c` guard.
+- Gates: backend `tsc`, frontend `tsc -b`, `npm run build` green. Main chunk 779 → 836 KB (TanStack Query + shell); Board 64 KB and detail 25 KB are lazy.
+- Local demo data re-seeded after tests.
+- NOT verified: keyboard drag on the Board (synthetic keys can't activate dnd-kit — pointer path verified instead); real-mouse drag feel; Export CSV download; production soak of the 500 fix.
+
+### Sharp edges
+- **React portals bubble events through the component tree.** A click inside a portaled menu reaches the row's onClick; rows guard with `e.currentTarget.contains(e.target)`.
+- **A click whose target was unmounted mid-handler** (picking a Select option) looks like an outside click to document listeners — Popover ignores `!target.isConnected`.
+- **Two `setSearchParams` calls in one tick lose one update** (react-router) — always patch filters in a single call.
+- **Page listeners register before GlobalShortcuts'**, so page shortcuts see keys first; they must check `isShortcutSequencePending()`.
+- `placeholderData` as a function confuses TanStack's type inference — pass the generic explicitly.
+- The in-app browser pane throttles rAF/timers when hidden; time optimistic updates with `setTimeout` sampling, not rAF.
+
+---
+
 ## 2026-09-23 — Prod outage after deploy (blank page) — fixed
 
 - **Symptom:** blank page; `TypeError: reading 'split'` in Header. `/api/*` returned `index.html` (200, text/html).

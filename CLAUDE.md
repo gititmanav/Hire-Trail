@@ -33,13 +33,22 @@ Clean, calm, minimal — Apple/Linear. Restraint over decoration: generous white
 
 **Monorepo:** `backend/` (Express 4 + TS strict + Mongoose 8, ESM), `frontend/` (React 18 + Vite 5 + TS strict + Tailwind 3.4 + react-router 6), `extension/` (Chrome MV3, packed to `frontend/public/extension.zip`).
 
-- Frontend pages: `frontend/src/pages/<Feature>/` (~26k LOC). Shared components: `frontend/src/components/`. API client: `frontend/src/utils/api.ts` (single axios instance, cookie session, typed namespaces) + `studioApi.ts`. Types: `frontend/src/types/index.ts`. No state library, no server cache — Context + useState/useEffect per page.
-- Design tokens: `frontend/src/App.css` (`:root` + `.dark`, shadcn-style HSL triplets) mapped in `tailwind.config.js` via `hsl(var(--x))`. Theme engine: `hooks/useTheme.ts` + `utils/themes.ts` (42 presets; only light/dark reachable from UI).
+- Frontend pages: `frontend/src/pages/<Feature>/` (~26k LOC). Shared components: `frontend/src/components/`. API client: `frontend/src/utils/api.ts` (single axios instance, cookie session, typed namespaces) + `studioApi.ts`. Types: `frontend/src/types/index.ts`. Server state: **TanStack Query** (`utils/queryClient.ts`) — adopted page by page, starting with Applications (`pages/Applications/data/`); pages not yet revamped still use Context + useState/useEffect.
+- Design tokens: `frontend/src/App.css` (`:root` + `.dark`, shadcn-style HSL triplets) mapped in `tailwind.config.js` via `hsl(var(--x))`. Theme engine: `hooks/useTheme.ts` + `utils/themes.ts` (light + dark + System).
 - Backend routes: `backend/src/routes/` (+ `routes/admin/` with 22 sub-routers), business logic in `backend/src/services/`. **All AI calls must go through `services/ai/run.ts`** (resolve → cache → quota → retry → meter). Models: `backend/src/models/`. Env: `backend/src/config/env.ts` (Zod; `.env.local` loads first and wins).
 - Auth: Passport cookie sessions (+ Bearer JWT for the extension only). `ensureAdmin` is session-only. Demo user (`demo@hiretrail.com`) is blocked from state-changing/AI routes via `blockDemoUser`.
 - PDF: Gotenberg (`services/pdf/renderHtml.ts`); resume HTML sanitized in `services/resume/html.ts` — Studio preview must stay pixel-faithful to the PDF.
 
 ## Rules that will bite you if ignored
+
+- **Revamp.md is the decision log for the page-by-page revamp** — read the page's section before touching it.
+- **Applications** is one route area: `ApplicationsLayout` (shell: header, URL filters, dialogs, deep links `?new/?focus/?tailor/?tailorSession/?stage/?devtools`) + `views/` (List = Classic|Table, Board, Calendar) + `ApplicationDetailPage` (`/applications/:id`). Filters are URL params — patch them with ONE `setFilters` call (two `setSearchParams` in one tick drop an update). Extension-shipped links (`/applications?tailor=`, `?tailorSession=`) must keep working forever.
+- **Query requests pass `quiet: true`** (the axios interceptor then skips its toast; QueryCache toasts after one silent retry). Mutations are NOT quiet — the interceptor is their only error toast; don't add a second one in `onError` (just roll back).
+- **Page single-key shortcuts go through `hooks/usePageShortcuts`** (skips typing, open layers, and pending global `g`/`n` sequences). Never bind "?" in a page — it's GlobalShortcuts'.
+- **Portaled menus bubble React events through the tree** — clickable rows must ignore clicks whose DOM target isn't inside them (`e.currentTarget.contains(e.target)`).
+- **Never add Vercel rewrites to `backend/vercel.json`** — Express routes everything itself; a rewrite reaches Express as the *rewritten* path (2026-09-23 outage).
+- **Mongo on Vercel**: keep `attachDatabasePool` + `maxIdleTimeMS` in `config/db.ts` (freeze/thaw crash, 2026-09-24). User search text → `utils/regex.ts` (`searchRegex`/`escapeRegex`), never raw `new RegExp(input)`.
+- List payloads use `fields=summary` (no `jobDescription`; has `hasJobDescription`). Read JD presence via `utils/applicationFields.hasJobDescription`, never `app.jobDescription` in list code.
 
 - **Dialogs and pickers**: build on `frontend/src/components/ui/` (Modal + Button + Field + Select + DateInput + Toggle). Never hand-roll a `fixed inset-0` overlay, raw `<select>`, or `<input type="date">` in product surfaces. Floating widgets that handle Escape must register on `ui/layers.ts` (one stack for modals + popovers) or the dialog underneath closes too. Popovers inside a scrollable ModalBody must portal to `<body>` fixed-position (Select/DateInput show the pattern).
 
