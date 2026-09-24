@@ -1,4 +1,5 @@
 import { Router, Request, Response, NextFunction } from "express";
+import { escapeRegex } from "../../utils/regex.js";
 import { User } from "../../models/User.js";
 import { Notification } from "../../models/Notification.js";
 import { scanUserInbox as scanGmail, disconnectGmail } from "../../services/gmailService.js";
@@ -40,7 +41,7 @@ router.get("/users", async (req: Request, res: Response, next: NextFunction) => 
     else filter.$or = [{ gmailConnected: true }, { outlookConnected: true }];
 
     if (search) {
-      const regex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+      const regex = new RegExp(escapeRegex(search), "i");
       const searchClause = [{ name: regex }, { email: regex }, { gmailEmail: regex }, { outlookEmail: regex }];
       if (filter.$or) {
         const base = filter.$or as Record<string, unknown>[];

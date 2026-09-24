@@ -3,6 +3,7 @@ import { Application } from "../../models/Application.js";
 import { Contact } from "../../models/Contact.js";
 import { Deadline } from "../../models/Deadline.js";
 import { Resume } from "../../models/Resume.js";
+import { escapeRegex } from "../../utils/regex.js";
 
 const router = Router();
 
@@ -21,7 +22,7 @@ router.get("/applications", async (req: Request, res: Response, next: NextFuncti
 
     const filter: Record<string, unknown> = {};
     if (search) {
-      const regex = new RegExp(search, "i");
+      const regex = new RegExp(escapeRegex(search), "i");
       filter.$or = [{ company: regex }, { role: regex }];
     }
     if (stage) filter.stage = stage;
@@ -50,7 +51,7 @@ router.get("/contacts", async (req: Request, res: Response, next: NextFunction) 
 
     const filter: Record<string, unknown> = {};
     if (search) {
-      const regex = new RegExp(search, "i");
+      const regex = new RegExp(escapeRegex(search), "i");
       filter.$or = [{ name: regex }, { company: regex }, { role: regex }];
     }
 
@@ -107,7 +108,7 @@ router.get("/resumes", async (req: Request, res: Response, next: NextFunction) =
 
     const filter: Record<string, unknown> = {};
     if (search) {
-      const regex = new RegExp(search, "i");
+      const regex = new RegExp(escapeRegex(search), "i");
       filter.$or = [{ name: regex }, { targetRole: regex }];
     }
 

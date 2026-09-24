@@ -5,6 +5,7 @@ import { ensureAuth, getUser } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
 import { updateCompanySchema } from "../validators/companies.js";
 import { NotFoundError } from "../errors/AppError.js";
+import { searchRegex } from "../utils/regex.js";
 import { env } from "../config/env.js";
 import {
   extractDomainFromUrl,
@@ -140,9 +141,8 @@ router.get("/", async (req: Request, res: Response, next: NextFunction) => {
     const search = (req.query.search as string) || "";
 
     const query: any = { users: user._id };
-    if (search.trim()) {
-      query.name = new RegExp(search.trim(), "i");
-    }
+    const nameRegex = searchRegex(search);
+    if (nameRegex) query.name = nameRegex;
 
     const [companies, total] = await Promise.all([
       Company.find(query).sort({ name: 1 }).skip(skip).limit(limit).lean(),

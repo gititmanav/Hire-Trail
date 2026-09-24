@@ -10,6 +10,7 @@ import { MasterProfile } from "../../models/MasterProfile.js";
 import { TailorSession } from "../../models/TailorSession.js";
 import { AIProviderConfig } from "../../models/AIProviderConfig.js";
 import { getUser } from "../../middleware/auth.js";
+import { escapeRegex } from "../../utils/regex.js";
 import { logAudit, getClientInfo } from "../../utils/auditLog.js";
 import { validate } from "../../middleware/validate.js";
 import { userRoleSchema } from "../../validators/admin.js";
@@ -29,7 +30,7 @@ router.get("/", async (req: Request, res: Response, next: NextFunction) => {
 
     const filter: Record<string, unknown> = {};
     if (search) {
-      const regex = new RegExp(search, "i");
+      const regex = new RegExp(escapeRegex(search), "i");
       filter.$or = [{ name: regex }, { email: regex }];
     }
     if (roleFilter && ["user", "admin"].includes(roleFilter)) {
