@@ -54,12 +54,12 @@ export default function GlobalShortcuts() {
     // Navigation (g <letter>)
     { label: "g d", sequence: ["g", "d"], description: "Go to Dashboard",     section: "Navigation", action: () => navigate("/") },
     { label: "g a", sequence: ["g", "a"], description: "Go to Applications",  section: "Navigation", action: () => navigate("/applications") },
-    { label: "g k", sequence: ["g", "k"], description: "Go to Kanban Board",  section: "Navigation", action: () => navigate("/kanban") },
+    { label: "g k", sequence: ["g", "k"], description: "Go to Board",         section: "Navigation", action: () => navigate("/applications/board") },
     { label: "g c", sequence: ["g", "c"], description: "Go to Contacts",      section: "Navigation", action: () => navigate("/contacts") },
     { label: "g o", sequence: ["g", "o"], description: "Go to Companies",     section: "Navigation", action: () => navigate("/companies") },
     { label: "g r", sequence: ["g", "r"], description: "Go to Resumes",       section: "Navigation", action: () => navigate("/resumes") },
     { label: "g l", sequence: ["g", "l"], description: "Go to Deadlines",     section: "Navigation", action: () => navigate("/deadlines") },
-    { label: "g m", sequence: ["g", "m"], description: "Go to Calendar",      section: "Navigation", action: () => navigate("/calendar") },
+    { label: "g m", sequence: ["g", "m"], description: "Go to Calendar",      section: "Navigation", action: () => navigate("/applications/calendar") },
     { label: "g p", sequence: ["g", "p"], description: "Go to Profile",       section: "Navigation", action: () => navigate("/profile") },
 
     // Create (n <letter>) — opens the target page; the page itself focuses

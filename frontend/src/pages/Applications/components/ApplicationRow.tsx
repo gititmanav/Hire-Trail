@@ -24,6 +24,7 @@ import {
   suggestNextAction,
 } from "../../../utils/applicationHealth.ts";
 import { STAGE_STRIPE_CLASS } from "../../../utils/stageStyles.ts";
+import { hasJobDescription } from "../../../utils/applicationFields.ts";
 import type { Application, Company, Contact, Deadline, Resume } from "../../../types";
 
 interface Props {
@@ -311,7 +312,7 @@ function ApplicationRowImpl({
         onOpen={(sid) => onOpenFit?.(sid)}
         onRun={onRunFit}
         hasMasterProfile={hasMasterProfile}
-        hasJobDescription={!!app.jobDescription?.trim()}
+        hasJobDescription={hasJobDescription(app)}
         extracting={app.aiExtractionStatus === "processing"}
       />
     </div>

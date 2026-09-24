@@ -75,7 +75,8 @@ export interface AppFit {
   status: FitStatus;
   fitScore: number;
   fitGrade: "A" | "B" | "C" | "D" | "F" | "";
-  summary: string;
+  /** Absent in list (`fields=summary`) responses. */
+  summary?: string;
   matchedCount: number;
   missingCount: number;
   /** Up to 3 top matched skill names — surfaced as the checkmark list on
@@ -111,6 +112,9 @@ export interface Application {
   } | null;
   /** Server-derived summary of the linked TailorSession, when one exists. */
   fit?: AppFit | null;
+  /** List payloads (`fields=summary`) omit `jobDescription` and send this
+   *  flag instead; the full document (GET /applications/:id) has the text. */
+  hasJobDescription?: boolean;
   createdAt: string; updatedAt: string;
 }
 export interface ResumeVersion { timestamp: string; summary: string; }

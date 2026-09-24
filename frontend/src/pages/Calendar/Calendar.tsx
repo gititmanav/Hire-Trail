@@ -67,7 +67,9 @@ function rbcEventToSelected(event: HireTrailCalendarEvent): SelectedEvent | null
   };
 }
 
-export default function CalendarPage() {
+/** `embedded`: rendered as the Applications page's Calendar view, whose page
+ *  header already names the page — skip the standalone title. */
+export default function CalendarPage({ embedded = false }: { embedded?: boolean } = {}) {
   const location = useLocation();
   const [loading, setLoading] = useState(true);
   const [applications, setApplications] = useState<Application[]>([]);
@@ -318,12 +320,14 @@ export default function CalendarPage() {
 
   return (
     <div className="cal-page">
-      <header className="cal-page__header">
-        <h1 className="cal-page__title">Calendar</h1>
-        {location.pathname.startsWith("/admin") && (
-          <span className="cal-page__chip">Admin view</span>
-        )}
-      </header>
+      {!embedded && (
+        <header className="cal-page__header">
+          <h1 className="cal-page__title">Calendar</h1>
+          {location.pathname.startsWith("/admin") && (
+            <span className="cal-page__chip">Admin view</span>
+          )}
+        </header>
+      )}
 
       <div className={`cal-shell ${rightPaneOpen ? "" : "cal-shell--no-right"}`}>
         {/* LEFT PANEL */}

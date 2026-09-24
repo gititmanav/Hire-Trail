@@ -1,8 +1,9 @@
 /**
  * Root router: session bootstrap, protected shell, job-search UI state, theme context.
  */
-import { useState, useEffect, useCallback, createContext, lazy, Suspense } from "react";
+import { useState, useEffect, useCallback, useRef, createContext, lazy, Suspense } from "react";
 import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
+import { queryClient } from "./utils/queryClient.ts";
 import Layout from "./components/Layout/Layout.tsx";
 import ProtectedRoute from "./components/ProtectedRoute/ProtectedRoute.tsx";
 import AdminLayout from "./components/AdminLayout/AdminLayout.tsx";
@@ -18,15 +19,18 @@ import BackgroundTaskCenter from "./components/BackgroundTaskCenter/BackgroundTa
 import GlobalShortcuts from "./components/GlobalShortcuts/GlobalShortcuts.tsx";
 import IdleWarningModal from "./components/IdleWarningModal/IdleWarningModal.tsx";
 // Code-split heavy / rarely-loaded routes. Keeps the initial chunk small —
-// Dashboard + Applications + the core auth shell are in the main chunk,
+// Dashboard + the Applications shell/List view + the core auth shell are in the main chunk,
 // everything else loads on demand. Suspense fallback shares the existing
 // spinner component for visual consistency.
 import Dashboard from "./pages/Dashboard/Dashboard.tsx";
-import Applications from "./pages/Applications/Applications.tsx";
+import ApplicationsLayout from "./pages/Applications/ApplicationsLayout.tsx";
+import ListView from "./pages/Applications/views/ListView.tsx";
 // Factories so we can BOTH lazy-load via React.lazy AND fire the same import
 // from a post-mount warmer to preload chunks the sidebar links to. Idempotent:
 // the underlying module cache means calling the import a second time is free.
-const loadKanban    = () => import("./pages/Kanban/Kanban.tsx");
+const loadBoardView = () => import("./pages/Applications/views/BoardView.tsx");
+const loadCalendarView = () => import("./pages/Applications/views/CalendarView.tsx");
+const loadApplicationDetail = () => import("./pages/Applications/ApplicationDetailPage.tsx");
 const loadJobSearch = () => import("./pages/JobSearch/JobSearch.tsx");
 const loadResumes   = () => import("./pages/Resumes/Resumes.tsx");
 const loadContacts  = () => import("./pages/Contacts/Contacts.tsx");
@@ -41,7 +45,9 @@ const loadResumeStudio = () => import("./pages/ResumeStudio/ResumeStudio.tsx");
 const loadEmailScanReview = () => import("./pages/EmailScanReview/EmailScanReview.tsx");
 const loadNotifications = () => import("./pages/Notifications/Notifications.tsx");
 
-const Kanban       = lazy(loadKanban);
+const BoardView    = lazy(loadBoardView);
+const CalendarView = lazy(loadCalendarView);
+const ApplicationDetailPage = lazy(loadApplicationDetail);
 const JobSearch    = lazy(loadJobSearch);
 const Resumes      = lazy(loadResumes);
 const Contacts     = lazy(loadContacts);
@@ -67,8 +73,8 @@ const NotificationsPage = lazy(loadNotifications);
 function preloadSidebarRoutes(): void {
   setTimeout(() => {
     void Promise.all([
-      loadKanban(), loadContacts(), loadCompanies(), loadResumes(),
-      loadDeadlines(), loadCalendar(),
+      loadBoardView(), loadApplicationDetail(), loadContacts(), loadCompanies(),
+      loadResumes(), loadDeadlines(), loadCalendarView(),
     ]).catch(() => undefined);
   }, 600);
 }
@@ -160,6 +166,16 @@ function App() {
     if (user) preloadSidebarRoutes();
   }, [user]);
 
+  /* The query cache is per-account data: drop it whenever the signed-in user
+   * changes (logout, or a different account signing in on this tab), so no
+   * one ever sees a previous user's cached applications. */
+  const userId = user?._id ?? null;
+  const lastUserIdRef = useRef<string | null>(userId);
+  useEffect(() => {
+    if (lastUserIdRef.current !== userId) queryClient.clear();
+    lastUserIdRef.current = userId;
+  }, [userId]);
+
   if (loading) return <div className="spinner" style={{ minHeight: "100vh" }} />;
 
   return (
@@ -220,14 +236,21 @@ function App() {
             try { await authAPI.logout(); } catch { } finally { setUser(null); setAuthActionLoading(false); }
           }} /></ProtectedRoute>}>
             <Route path="/" element={user?.role === "admin" ? <Navigate to="/admin" replace /> : <Dashboard />} />
-            <Route path="/applications" element={<Applications />} />
+            {/* Applications: one page, three views (shell owns header + filters). */}
+            <Route path="/applications" element={<ApplicationsLayout />}>
+              <Route index element={<ListView />} />
+              <Route path="board" element={<FeatureRoute flag="feature_kanban"><BoardView /></FeatureRoute>} />
+              <Route path="calendar" element={<CalendarView />} />
+            </Route>
+            <Route path="/applications/:id" element={<ApplicationDetailPage />} />
             <Route path="/companies" element={<Companies />} />
-            <Route path="/kanban" element={<FeatureRoute flag="feature_kanban"><Kanban /></FeatureRoute>} />
+            {/* Pre-2026-09 URLs (bookmarks, tour, old links). */}
+            <Route path="/kanban" element={<Navigate to="/applications/board" replace />} />
             <Route path="/jobs" element={<FeatureRoute flag="feature_job_search"><JobSearch /></FeatureRoute>} />
             <Route path="/resumes" element={<Resumes />} />
             <Route path="/contacts" element={<Contacts />} />
             <Route path="/deadlines" element={<Deadlines />} />
-            <Route path="/calendar" element={<CalendarPage />} />
+            <Route path="/calendar" element={<Navigate to="/applications/calendar" replace />} />
             <Route path="/import-export" element={<FeatureRoute flag="feature_csv_import_export"><ImportExport /></FeatureRoute>} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/email-review" element={<EmailScanReview />} />

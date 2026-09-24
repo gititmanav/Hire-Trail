@@ -19,6 +19,15 @@ import type {
   BroadcastEmailItem, BroadcastRecipientType, MailerStatus,
 } from "../types";
 
+declare module "axios" {
+  interface AxiosRequestConfig {
+    /** Skip the interceptor's error toast (5xx are still reported). The caller
+     *  owns user-facing error messaging — used by the query layer, which
+     *  retries before surfacing anything. */
+    quiet?: boolean;
+  }
+}
+
 export const api = axios.create({
   baseURL: getApiBaseURL(),
   // Cache-Control/Pragma on the REQUEST make browsers bypass their HTTP cache.
@@ -38,8 +47,11 @@ api.interceptors.response.use(
     // gateway timeouts) send an OBJECT like {code, message}. Rendering that in a
     // toast crashes React (#31), so coerce to a string no matter the shape.
     const rawErr = error.response?.data?.error;
-    const msg =
-      typeof rawErr === "string" && rawErr
+    const msg = !error.response
+      // No response at all (offline, DNS, CORS, server unreachable) — axios's
+      // raw "Network Error" means nothing to a user.
+      ? "Couldn't reach HireTrail. Check your connection and try again."
+      : typeof rawErr === "string" && rawErr
         ? rawErr
         : (typeof rawErr === "object" && rawErr?.message) || error.message || "Something went wrong";
 
@@ -56,6 +68,9 @@ api.interceptors.response.use(
     }
 
     if (status === 401 && error.config?.url?.includes("/auth/me")) return Promise.reject(error);
+    // Query-layer requests (TanStack Query) retry transient failures and toast
+    // only once retries are exhausted — see utils/queryClient.ts.
+    if (error.config?.quiet) return Promise.reject(error);
     // id = message: identical errors collapse into one toast, including when a
     // local catch handler toasts the same message this interceptor already did.
     if (status === 429) toast.error("Too many requests. Please slow down.", { id: "rate-limit" });
@@ -85,10 +100,34 @@ export const authAPI = {
     api.delete<{ message: string }>("/auth/me", { data: { confirm } }).then((r) => r.data),
 };
 
+/** Server-side list filters (see backend routes/applications.ts `listFilters`). */
+export interface ApplicationListParams {
+  page?: number; limit?: number; sort?: string; order?: string;
+  search?: string; archived?: "true" | "false" | "all"; stage?: string;
+  company?: string; resumeId?: string; source?: string;
+  /** "summary" drops jobDescription (adds hasJobDescription) for list surfaces. */
+  fields?: "summary";
+}
+
+export interface ApplicationListResponse extends PaginatedResponse<Application> {
+  stageCounts?: Record<string, number>;
+  tabCounts?: { active: number; archived: number };
+}
+
+export interface ApplicationFilterOptions {
+  companies: string[];
+  sources: string[];
+  resumeIds: string[];
+  hasUnassignedResume: boolean;
+}
+
 export const applicationsAPI = {
-  getAll: (params?: { page?: number; limit?: number; sort?: string; order?: string; search?: string; archived?: string; stage?: string }) =>
-    api.get<PaginatedResponse<Application> & { stageCounts?: Record<string, number> }>("/applications", { params }).then((r) => r.data),
-  getOne: (id: string) => api.get<Application>(`/applications/${id}`).then((r) => r.data),
+  getAll: (params?: ApplicationListParams, config?: { quiet?: boolean; signal?: AbortSignal }) =>
+    api.get<ApplicationListResponse>("/applications", { params, ...config }).then((r) => r.data),
+  filterOptions: (archived: "true" | "false", config?: { quiet?: boolean; signal?: AbortSignal }) =>
+    api.get<ApplicationFilterOptions>("/applications/filter-options", { params: { archived }, ...config }).then((r) => r.data),
+  getOne: (id: string, config?: { quiet?: boolean; signal?: AbortSignal }) =>
+    api.get<Application>(`/applications/${id}`, config).then((r) => r.data),
   create: (data: ApplicationFormData) => api.post<Application>("/applications", data).then((r) => r.data),
   update: (id: string, data: Partial<ApplicationFormData & { applicationDate?: string; archived?: boolean; archivedAt?: string | null; archivedReason?: string | null }>) =>
     api.put<Application>(`/applications/${id}`, data).then((r) => r.data),

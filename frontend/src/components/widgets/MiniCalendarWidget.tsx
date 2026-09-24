@@ -18,14 +18,14 @@ export default function MiniCalendarWidget({ events }: Props) {
 
   const onEventClick = (arg: EventClickArg) => {
     arg.jsEvent.preventDefault();
-    navigate(((arg.event.extendedProps?.route as string | undefined) || "/calendar"));
+    navigate(((arg.event.extendedProps?.route as string | undefined) || "/applications/calendar"));
   };
 
   return (
     <div className="h-full flex flex-col mini-calendar-widget">
       <div className="flex items-center justify-between mb-3">
         <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Calendar snapshot</span>
-        <Link to="/calendar" className="text-xs text-muted-foreground hover:text-foreground hover:underline">
+        <Link to="/applications/calendar" className="text-xs text-muted-foreground hover:text-foreground hover:underline">
           Open full
         </Link>
       </div>

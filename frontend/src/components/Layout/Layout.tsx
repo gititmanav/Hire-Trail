@@ -1,6 +1,6 @@
 /** App shell: collapsible sidebar, header, fluid vs max-width main by route. */
-import { useState, useEffect } from "react";
-import { Outlet, useLocation } from "react-router-dom";
+import { useState, useEffect, useLayoutEffect } from "react";
+import { Outlet, useLocation, useNavigationType } from "react-router-dom";
 import Sidebar from "../Sidebar/Sidebar.tsx";
 import Header from "../Header/Header.tsx";
 import { AnnouncementsProvider } from "../Announcements/AnnouncementsProvider.tsx";
@@ -17,10 +17,24 @@ export default function Layout({ user, onLogout }: Props) {
   });
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
-  const fullWidth = ["/", "/kanban", "/calendar", "/profile", "/resume-studio"].includes(location.pathname);
+  // Applications manages its own widths (Classic list keeps its 1200px column).
+  const fullWidth = ["/", "/profile", "/resume-studio"].includes(location.pathname)
+    || location.pathname.startsWith("/applications");
+  // Remount (and replay the entrance) per section, not per path — switching
+  // Applications views or stepping J/K through applications must not reset
+  // the page or flash the fade.
+  const sectionKey = location.pathname.split("/")[1] ?? "";
 
   // Close mobile sidebar on route change
   useEffect(() => { setMobileOpen(false); }, [location.pathname]);
+
+  // New page → start at the top. Back/forward (POP) is left alone so a list
+  // can restore the exact scroll position the user left it at.
+  const navigationType = useNavigationType();
+  useLayoutEffect(() => {
+    if (navigationType !== "POP") window.scrollTo(0, 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
 
   useEffect(() => {
     try { localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? "1" : "0"); } catch { /* ignore */ }
@@ -62,7 +76,7 @@ export default function Layout({ user, onLogout }: Props) {
          *  `clip` is preferred over `hidden` because it doesn't create a
          *  scroll container — sticky positioning inside still works. */}
         <main className="flex-1 overflow-x-clip">
-          <div key={location.pathname} className={`p-4 md:p-6 ${fullWidth ? "" : "max-w-[1200px]"} mx-auto fade-up`}>
+          <div key={sectionKey} className={`p-4 md:p-6 ${fullWidth ? "" : "max-w-[1200px]"} mx-auto fade-up`}>
             <Outlet />
           </div>
         </main>

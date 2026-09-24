@@ -181,9 +181,9 @@ export default function Header({ user, onLogout, onMobileMenuToggle }: Props) {
           )}
           <NotificationBell />
           <button
-            onClick={() => navigate("/calendar")}
+            onClick={() => navigate("/applications/calendar")}
             className={`w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-secondary-foreground ${
-              location.pathname === "/calendar" ? "bg-muted text-foreground" : ""
+              location.pathname === "/applications/calendar" ? "bg-muted text-foreground" : ""
             }`}
             title="Open calendar"
             aria-label="Open calendar"

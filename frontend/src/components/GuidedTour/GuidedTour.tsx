@@ -22,8 +22,7 @@ const STEPS: Step[] = [
   { target: ".dashboard-grid", title: "Your Dashboard", content: "Every card here is a widget you can drag, resize, or hide. We'll show you how to customize it." },
   { target: "[data-tour='widgets-btn']", title: "Add or remove widgets", content: "Click Widgets to pick what shows up here. The grid persists per account." },
   { target: "[data-tour='lock-btn']", title: "Lock when you're happy", content: "Lock the layout so you don't accidentally drag a widget while skimming." },
-  { target: "a[href='/applications']", title: "Applications", content: "Every tracked job lives here. Filter by stage, search, and click a row for the full detail panel + AI fit." },
-  { target: "a[href='/kanban']", title: "Visual pipeline", content: "Drag applications between stages on the Kanban board. The strip color on each card matches the stage." },
+  { target: "a[href='/applications']", title: "Applications", content: "Every tracked job lives here — as a list, a drag-and-drop board, or a calendar. Filter, search, and open any application for its full page and AI fit." },
   { target: "a[href='/resumes']", title: "Resumes", content: "Set a Primary resume so the browser extension attaches it on Apply-clicks. Each resume shows response / OA / interview / offer rates so you know what works." },
   // Profile lives inside the user-menu dropdown (avatar button, top-right of
   // Header) — there's no sidebar Profile link to anchor against. Targeting

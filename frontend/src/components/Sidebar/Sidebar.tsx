@@ -2,7 +2,7 @@
 import { useState, lazy, Suspense } from "react";
 import { NavLink } from "react-router-dom";
 import {
-  LayoutDashboard, ClipboardList, Columns3, Calendar, Clock,
+  LayoutDashboard, ClipboardList, Clock,
   Users, Building2, FileText, Sparkles, Search, ArrowLeftRight,
   Shield, MessageSquare, PanelLeftClose, PanelLeftOpen, Wand2, Bell,
   type LucideIcon,
@@ -39,9 +39,8 @@ const groups: NavGroup[] = [
   {
     label: "Track",
     items: [
+      // Board and Calendar are views inside Applications now (header switcher).
       { to: "/applications", label: "Applications", Icon: ClipboardList },
-      { to: "/kanban", label: "Kanban Board", Icon: Columns3, featureKey: "feature_kanban" },
-      { to: "/calendar", label: "Calendar", Icon: Calendar },
       { to: "/deadlines", label: "Deadlines", Icon: Clock },
     ],
   },
