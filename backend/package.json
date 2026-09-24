@@ -21,6 +21,7 @@
     "@azure/msal-node": "^5.2.1",
     "@openrouter/ai-sdk-provider": "^2.9.0",
     "@sentry/node": "^9.47.1",
+    "@vercel/functions": "^3.9.9",
     "ai": "^6.0.182",
     "bcrypt": "^5.1.1",
     "cloudinary": "^2.5.1",

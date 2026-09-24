@@ -37,7 +37,6 @@ const inviteSchema = new Schema<IInvite>(
   { timestamps: true }
 );
 
-inviteSchema.index({ code: 1 }, { unique: true });
 inviteSchema.index({ expiresAt: 1 });
 
 export const Invite = mongoose.model<IInvite>("Invite", inviteSchema);

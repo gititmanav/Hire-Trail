@@ -142,8 +142,8 @@ const userSchema = new Schema<IUser>(
   }
 );
 
-userSchema.index({ email: 1 });
-userSchema.index({ googleId: 1 }, { sparse: true });
+// email (unique) and googleId (sparse) are indexed at the field level — an
+// extra schema.index() here duplicated them (Mongoose boot warning).
 
 /* Auto-exclude soft-deleted users from normal find queries.
    Admin routes that need deleted users should use User.find({ deleted: true }) explicitly
