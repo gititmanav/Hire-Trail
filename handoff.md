@@ -5,8 +5,7 @@ _Last updated: 2026-09-25 (evening) — the landing rebuilt for phones and table
 ## Current state
 
 - **On `main` (deployed):** the prod-500 fix (5b66f07). Nothing from the revamp is on prod.
-- **On `master` (pushed to `origin/master`, not merged to `main`):** the Applications revamp, the card shell / dropdowns / motion, Personalize + Custom themes, the charcoal default, and the new landing, the sign-in sheet, the dark public pages, and the first-paint split (BUILD_JOURNAL "2026-09-25 (later)").
-- **Uncommitted in the working tree (awaiting the owner's go to commit/push):** the phone/tablet landing (BUILD_JOURNAL "2026-09-25 (evening)").
+- **On `master` (pushed to `origin/master`, not merged to `main`):** the Applications revamp, the card shell / dropdowns / motion, Personalize + Custom themes, the charcoal default, the new landing, the sign-in sheet, the dark public pages, the first-paint split (BUILD_JOURNAL "2026-09-25 (later)"), and the phone/tablet landing (BUILD_JOURNAL "2026-09-25 (evening)").
 - **Decision log:** `Revamp.md` — "2026-09-25 — Landing page, the sign-in sheet, About / Privacy / Terms" (+ "Noted, not changed" and "Parked — decide at the end").
 
 ## Ship blockers — land these before `master` goes to `main`
