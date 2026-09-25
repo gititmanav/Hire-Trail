@@ -4,6 +4,97 @@ Append a dated entry every session: decisions, what was built, what was verified
 
 ---
 
+## 2026-09-25 — Owner feedback: drag-tracking Custom themes, charcoal default, Sora sidebar/cards
+
+Details: **Revamp.md → "Owner feedback round (2026-09-25)"**.
+
+### Built
+- Engine: no clamp band — the background is the pick; one text flip; bounded surfaces flatten on mid-tones; fills step away from text there; tier floor + chroma fade near black; exact black/white at L 0/1 (a `[0,0,2]` "black" missed a mid-tone target); base/accent taken from the continuous gamut-fitted colour (8-bit rounding invented hues near black); quiet Sora hairlines; accent tint = OKLab blend of accent into base.
+- Presets: charcoal on #fcfcfc, neutral greys (Dark mirrored); `--shadow-pill`; Dark hairlines 18%.
+- UI: header theme/calendar buttons removed; Sora selected tab (`navTone`), quiet sidebar text, hover = text only; sidebar footer + Settings sidebar dividers removed; `.surface-card` in Settings + Admin; accent-coloured selection on Personalize cards; mid-tone note replaces "Adjusted"; toggle knobs follow state.
+
+### Verified (HOW)
+- `node --test src/utils/theme.test.ts` 8/8 — new: drag sweep (backgrounds/cards/backdrop ≤ 8 levels per even OKLab step, fills too except at the flip, ≤ 1 flip), background = pick (lightness ±0.006, hue ±3°), fills visible on mid-tones, borders visible vs their card. Gates: backend tsc, frontend tsc -b, build green (main 857 KB / 252 KB gzip).
+- Browser: `#926095` + black accent paints exactly (white text, mid-tone note); `#B33939` shows darker hairlines + card shadows; header has no theme/calendar; raised pill in app/Settings/Admin; hover keeps the background transparent and brightens text (#6e6e6e → #333); Dark toggles show a dark knob on the near-white track.
+- NOT verified: the drag *feel* on your screen (pane hidden — covered by the sweep test instead); Safari/Firefox.
+
+### Sharp edges
+- **Measure drag continuity in even perceptual steps through real 8-bit colours** — CIELCH steps near black are huge in OKLab, and OKLab exaggerates the first 8-bit levels.
+- **Test rules encode design choices** — "border ≥ 1.12:1 on the background" had to go when the owner asked for quiet hairlines; the invariant is "visible against the card it outlines".
+- A hand-toggled `.dark` class without `theme-transitioning` leaves transitions mid-flight in a hidden pane — read computed colours only after suppressing them.
+
+---
+
+## 2026-09-24 (latest) — Personalize v2, Custom themes, colour discipline, Admin shell
+
+Decisions + details: **Revamp.md → "Personalize page + Custom theme"** (plan, owner answers, Steps 1–5 as built, findings, open calls).
+
+### Decided (owner)
+- Personalize page remembers preferences on the account; Classic | Table lives there (default Classic).
+- A universal colour picker and a Custom theme, following the Sora spec (Sora read-only).
+- `node:test`; Admin renders presets under Custom; brand-tinted active nav in Custom; demo prefs on the device.
+- Admin is fixed alongside whatever we're working on — no hardcoded colours there either.
+
+### Built
+- **Preferences:** `preferences` {theme, listDesign} on User (strict zod, both-sides normalizer); `PUT /auth/profile {preferences}` merges per key; demo → 403.
+- **Colour discipline:** Tailwind's palette reads `--palette-*` variables (presets = Tailwind's exact values), `--paper` / `--scrim` / shadow tokens, `cssPalette()`, token-only chart helpers, `.tag-chip`, native-surface theming (`color-scheme`, `accent-color`, `caret-color`, `::selection`), quiet sidebar scrollbars.
+- **Admin shell = app shell** (backdrop + card scroll root, shared nav parts, `hooks/useShellCollapse` View Transition for both shells).
+- **Engine:** `utils/theme.ts` + `utils/tailwindPalette.ts` + property test `utils/theme.test.ts`.
+- **State:** `hooks/useTheme.tsx` (ThemeProvider, split contexts, debounced/keepalive save, legacy adopt), `utils/themeDom.ts` (the one painter + boot cache), `index.html` boot script; `utils/themes.ts` deleted.
+- **UI:** `ui/Slider`, `ui/ColorPicker`; Personalize rebuilt (4 mode cards, Custom rows, Reset/Import/Copy with Undo); Resume Studio Style tab off native colour/range inputs.
+
+### Verified (HOW)
+- Gates: backend `tsc --noEmit`, frontend `tsc -b`, `npm run build` green; engine adds ≈ 4.9 KB gzip to the main chunk (859 KB / 251 KB gzip).
+- `node --test src/utils/theme.test.ts`: 7/7 — 4,900+ themes, zero contrast/structure failures; hex round-trip over 50k colours; `readableOn` over 20k fills; palette table = App.css = `tailwindcss/colors`. Mutation check (7:1 → 6:1) fails it by thousands.
+- Computed-style census (13 colour properties per element, light + dark) vs the pre-change baseline: Admin 17 pages — zero changes inside page content; app pages — zero on Settings ×5 / Email review / Import-Export / Jobs / Notifications, the rest differ only by data/state (every new value an existing token or exact palette colour). Tag chips: light identical to the old formula on 208/208 combos; dark ≥ 5.5:1.
+- Browser (dev DB): toggle → paint now, one PUT at ~574 ms; reload paints from the server value; boot script extracted from the served HTML re-paints preset and Custom (288 tokens) on a reset page; signed-out → Light, boot cache cleared; Admin → preset, back in the app → Custom restored. Picker with real pointer drags: live preview, one PUT per drag, drag past the edge keeps it open; swatches, Escape, keyboard slider (Home/End/PageDown bursts), Import (junk → inline error; valid → applied; Undo restores exactly), Copy (Linear format). Chart grid/tick colours re-read on toggle. Drag frame: 3.3 ms median / 6.6 ms p90.
+- Visual matrix screenshots: warm light + orange, dark slate + green (Applications, Board, Calendar, Contacts, Resumes), mid-grey (adjusted), saturated yellow + violet.
+- NOT verified: Resume Studio Style tab visually (needs a tailored document on the dev account); Safari/Firefox (Chrome only); the hidden pane blocked judging motion.
+
+### Sharp edges
+- **Restart the Vite dev server after any `tailwind.config.js` edit** — a stale one silently drops new utilities (`bg-paper`/`bg-scrim`/`shadow-panel` rendered transparent in dev only).
+- **Chart colours are CSS strings now** — never append hex alpha (`color + "AA"`); pass alpha to `tokenColor`/`chartColors`/`primaryColor`.
+- **WCAG ratio can't judge depth near black** — the property test measures backdrop/panel steps in OKLab L.
+- **CIELCH can name colours sRGB can't show** — the engine works from the painted (gamut-mapped) colour.
+- `git mv`/`git rm` this session staged `hooks/useTheme.ts → .tsx` and the `utils/themes.ts` deletion (nothing committed).
+- Editing a backend file restarts `tsx watch`, which drops the in-memory dev session — the app lands on the landing page; not a product bug.
+
+---
+
+## 2026-09-24 (later) — Card shell, list strips, one dropdown system, motion; boot migrations once
+
+Decisions + details: **Revamp.md → "2026-09-24 (later)"** and **"Parked — decide at the end"** (auto-archive promise, nightly scan).
+
+### Built
+- **Shell:** header + sidebar are one backdrop (`--sidebar`, Sora-measured); the main section is a rounded card that is the scroll container (`#app-scroll`, `utils/scrollRoot.ts`). Sticky page bars use `top: 0`.
+- **Tokens:** App.css is now the only token source — `utils/themes.ts` used to copy every token and write it inline on `<html>`, overriding App.css. New: `--control`, `--shadow-panel`, `--shadow-floating`, `--ease-out`.
+- **Applications:** PageHeader = card sub-header; Table strips (sidebar colour) carry the column labels and pin under it; no outer box / row dividers; `ui/Collapse` animates groups (Table + Classic); clear selected state on the view switcher / SegmentedControl; Classic stage chips removed.
+- **Dropdowns:** `ui/Popover` is the one floating surface (look, motion, placement, dismissal); Menu / Select / DateInput / Combobox / HoverCard on it. Every dropdown in the app moved onto it (ActionDropdown deleted; 16 native selects, 5 native date pickers, a datalist, 7 hand-rolled panels). Stage options show colour dots, company options logos.
+- **Motion:** dialogs animate out via `hooks/useExitAnimation` (inert copy plays the exit) — every `ui/Modal` + the hand-rolled overlays; sidebar collapse is a View Transition.
+- **Backend:** `runBootMigrations` + `migrations` ledger — each migration once per database; new resumes get a first "Created" version on create.
+
+### Verified (HOW)
+- Gates: backend `tsc --noEmit`, frontend `tsc -b`, `npm run build` green (main chunk 836 → 837 KB).
+- Sidebar perf (in-app browser, visible, 650-row table): **before** 50–83 ms frames during the toggle (~15 fps), cause = the Table re-rendering all rows per resize frame. After the re-render fix, forced style+layout per animation step measured 2.3–5 ms (Table), ~1 ms (Board), 1–5 ms (Dashboard). View Transition path checked functionally (class added/cleared, widths/margins/border correct both ways). **Not seen with real frames** — the pane was hidden for the rest of the session.
+- Shell: main scrolls, document doesn't; PageHeader pins at the card top; strips pin at card top + header (122 px = 64 + 57 + 1); Deadlines tab bar + bucket headers pin flush (0 / 42 px).
+- Collapse: height interpolates over ~220 ms both ways; closing rows inert, unmounted after.
+- Dropdowns: Filters panel / nested Select layering (Esc closes the list only, then the panel; focus returns to the trigger); sibling dropdowns close each other; Account menu / bell / Filters close each other; picking an option applies the filter (`?source=extension`) and keeps the panel open. Screenshots: shell + table (light, dark), Filters panel, user menu, notifications panel.
+- Dialog exit: New application → Esc — inert copy with `overlay-out`/`panel-out`, no ids, live dialog gone, body scroll unlocked, copy removed; no copy on open (StrictMode double-mount safe).
+- Backend: first boot recorded all four migrations; the next boot ran none. Resume hook checked on the local DB with throwaway docs: `create` and `insertMany` → "Created"; explicit versions kept; cleaned up.
+- NOT verified (pane hidden): screenshots of the stage-dot / logo options, Classic without chips, Calendar filters panel, Admin pages' new Selects/DateInputs, the ⌘K / shortcuts / import exits, dark mode of the new dropdowns, the View Transition motion itself.
+
+### Sharp edges
+- **Tailwind `shadow-<name>` collides with colour names** — `shadow-card` compiled to a shadow *colour*. Shadow tokens are `shadow-panel` / `shadow-floating`.
+- **Portaled panels leave page-scoped CSS variables behind** (Calendar's `--cal-border` lives on `.cal-page`) — declare them on the panel body too.
+- **Outside-click by stack position is wrong** — the dropdown being opened registers before the click reaches `document`. Decide by containment, in the capture phase (triggers that stop propagation would hide it otherwise).
+- **React detaches refs before it removes DOM** — that's what lets `useExitAnimation` copy the node. Check `isConnected` in a microtask so StrictMode/Suspense detaches don't leave copies.
+- **`::view-transition-new` is live** — never combine a view transition with CSS transitions on the same change (double motion). The shell's CSS transitions only apply without View Transitions.
+- **A live width transition on the shell re-lays-out and re-rasters the whole card every frame**, and a raw-width `ResizeObserver` → setState re-renders the whole list per frame. Bucket the width.
+- `noUnusedLocals` is off — unused imports aren't caught by `tsc`; check touched files by hand.
+- The in-app browser pane: hidden → `visibilityState: hidden`, rAF stops (no frame timing possible); viewport emulation renders scaled — don't judge smoothness with emulation on.
+
+---
+
 ## 2026-09-24 — Prod 500s root-caused; Applications page revamp (List · Board · Calendar + detail page)
 
 Decisions and their reasons live in **Revamp.md** (new, dated decision log for the page-by-page revamp).

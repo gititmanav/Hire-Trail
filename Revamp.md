@@ -97,7 +97,180 @@ Three views + a detail page over the same data need a shared cache for instant v
 - Classic rows would have shown "add a JD" on every row once lists dropped the JD text — caught before shipping (`utils/applicationFields.hasJobDescription` handles both payload shapes).
 
 ### Found along the way — needs an owner decision
-1. **"Rejected — auto-archiving in 7 days" is a false promise.** No job anywhere auto-archives rejected applications; `archivedReason: "rejected"` is just stored on an active application. New surfaces no longer say it; the old copy still appears in the edit-save toast path and Settings → Report a rejection. Decide: build the job, or drop the promise everywhere.
-2. **The nightly inbox scan likely never runs in production.** It's an in-process `node-cron` timer (`0 1 * * *`); Vercel freezes idle function instances, so a 1 AM timer inside one won't fire reliably. The Vercel-native fix is a Cron Job hitting an endpoint — that's deploy config (out of my scope unless you say so).
-3. **Boot migrations run on every cold start** (backfill resume versions, clipboard nudge, AI settings) — idempotent, but they add DB load to every cold start. Candidate for a one-off script or a "ran-at" guard.
-4. `ActionDropdown` (the old menu used in 20+ places) isn't portaled and doesn't use the layer stack — inside a modal, Escape closes both. Migrate its internals onto `ui/Menu` in the next pass.
+1. ~~False "auto-archiving in 7 days" promise~~ → **parked** (see "Parked — decide at the end").
+2. ~~Nightly inbox scan likely never runs on Vercel~~ → **parked** (see "Parked — decide at the end").
+3. ~~Boot migrations run on every cold start~~ → **fixed** 2026-09-24 (owner approved) — see the shell/dropdown round below.
+4. ~~`ActionDropdown` isn't portaled / layer-aware~~ → **done**: deleted; every dropdown is on `ui/Popover` (below).
+
+---
+
+## Parked — decide at the end
+
+Items the owner has seen and wants to decide on together once the revamp pages are done (owner, 2026-09-24: "document these for later; I'll add more along the way"). Nothing here is being worked on. Add new items at the bottom with the date raised.
+
+1. **"Rejected — auto-archiving in 7 days" is a false promise** (raised 2026-09-24). No job auto-archives rejected applications; `archivedReason: "rejected"` is stored on an active application and nothing acts on it. New surfaces don't say it; the old copy is still in the application edit-save toast path and Settings → Report a rejection. Options: build it (it can be done without a cron — archive a user's rejected-7-days-ago applications lazily when their list loads), or remove the promise everywhere.
+2. **The nightly inbox scan probably never runs in production** (raised 2026-09-24). It's an in-process `node-cron` timer (`0 1 * * *`); Vercel freezes idle instances, so a 1 AM timer inside one won't fire reliably. Confirm from data first (do scan timestamps ever land ~1 AM?). The fix is a Vercel Cron Job hitting an endpoint — deploy config, which is out of scope unless the owner approves it.
+
+---
+
+## 2026-09-24 (later) — App shell, list strips, one dropdown, motion
+
+### Decided (owner)
+
+1. **Shell:** the header takes the sidebar's colour; header + sidebar are one backdrop, and the main section ("main section" = the content area) is a card on it — rounded, subtle border + shadow. Light `--sidebar` is Sora's measured backdrop (`hsl(210 20% 96.1%)`, same hue as before, 2% darker); dark `--sidebar` is one step darker than `--background` so the card reads.
+2. **Applications header moves into the list:** the page header is the card's sub-header (slightly bigger title), directly above the list. No box around the rows, no row dividers — only the card has a border.
+3. **Table groups are strips** in the sidebar colour, and the column labels live in each strip (Sora pattern). Strips pin under the page header while their rows scroll.
+4. **Everything animates:** groups expand/collapse, dropdowns open/close, dialogs appear/disappear, the sidebar collapses — smoothly, at display rate.
+5. **The selected view (List/Board/Calendar) must be clearly visible** — Sora's filled segment.
+6. **All dropdowns look like Sora's** (quiet uppercase section labels, label-left/control-right rows, pill controls, soft shadow, 12px radius) and **every dropdown uses the same shared component**, Admin included, each keeping its own behaviour.
+7. Stage dropdowns show the stage's colour dot; company dropdowns show the company logo.
+8. **Classic view loses the stage-chip row** (the Stage filter lives in Filters).
+9. **Classic and Table both stay** (with the dev toggle) until the owner says otherwise.
+
+### Built
+
+**Shell & tokens**
+- `Layout`: the main section is the scroll container (`#app-scroll`, `utils/scrollRoot.ts`); header and sidebar never move. Page-level sticky bars pin to the card's top (`top: 0`); Contacts/Deadlines/Companies' hard-coded header offsets (57/105/49px) removed. List scroll save/restore and scroll-to-top-on-navigation use the scroll root.
+- Tokens in `App.css` only: `--control` (the neutral fill for selected segments, hovered rows, pills — `--muted` is too close to white to read as a state), `--shadow-panel`, `--shadow-floating`, `--ease-out`. Tailwind: `bg-control`, `shadow-panel`, `shadow-floating`, `ease-smooth`.
+- **Root-caused:** the theme engine copied every token into `utils/themes.ts` and wrote them inline on `<html>`, silently overriding any `App.css` change. A theme is now only the `.dark` class; App.css is the single source (the copies differed from App.css by ≤1 RGB step, so nothing else moved).
+- **Sidebar collapse is a View Transition.** The live width/margin transition re-laid-out and re-rastered the whole main card every frame — measured 50–83 ms frames (~15 fps) on the 650-row table. Now the browser snapshots the shell before/after and animates the snapshots on the compositor; the page lays out once. Sidebar rows keep one layout in both states (icons at the same x), so nothing jumps. Browsers without View Transitions fall back to the CSS transitions; reduced motion is instant.
+- Also fixed for that: the Table re-rendered all 650 rows on every resize frame (column memo keyed on raw width) — it now only re-renders when a column threshold is crossed; `PageHeader`'s height variable is only written when it changes (a custom property on `<html>` restyles the whole document).
+
+**Applications list**
+- `PageHeader` is sticky at the card top, publishes `--page-header-h`, 16px title.
+- Table: group strips (`bg-sidebar`, hairlines, uppercase labels) carry the column labels and pin under the header; "no grouping" gets one "All applications" strip so the labels still exist. No outer box, no row dividers; calm `bg-control` hover. Keyboard-scrolled rows clear the pinned header + strip (`scroll-margin`).
+- `ui/Collapse`: groups (Table) and company groups (Classic) ease open/closed (grid-rows 0fr↔1fr, no measuring); closing content stays inert until the motion ends, then unmounts.
+- View switcher + `SegmentedControl`: outlined track, clearly filled selected segment.
+- Classic: stage-chip row removed (owner).
+
+**One dropdown system** — `ui/Popover` is the only floating surface. It owns look, motion (fade/scale in from the trigger side, quicker fade out), viewport-measured placement (flip, 8px edge clamp), portal, and dismissal. Built on it: `ui/Menu` (actions + single-choice with custom triggers; headings, header block, search, warning/destructive tones), `ui/Select` (listbox; `field` and Sora `pill` looks; option icons), `ui/DateInput`, `ui/Combobox` (suggestion list under a caller-owned input), `ui/HoverCard`.
+- Moved onto it: every `ActionDropdown` site (14 — component deleted), the header user menu, "Where it works", notifications (keeps Current|Past, mark-all-read, confirm/revert, dismiss, See all), the admin profile menu, Calendar filters, the resume tag suggestions, `CompanyCombobox`, the admin model-id field (was a native `<datalist>`), the score info card, every native `<select>` (16, incl. Admin) and native date picker (5; the invite expiry is DateInput + a time Select). The Filters panel is laid out like Sora's.
+- **Outside clicks are decided by containment, not stack position** (`ui/layers.ts`), in the capture phase: opening a second dropdown closes the first (owner-reported bug — the newly opened one registered first, so the open one thought it wasn't on top; menu triggers that stop propagation hid the click too).
+- The one exception: react-big-calendar's "+N more" overlay is drawn by the library (it keeps drag-to-reschedule working inside it), so it wears the same tokens and motion rather than being a Popover.
+
+**Motion for dialogs** — `hooks/useExitAnimation`: as React removes an overlay, an inert static copy (same position, scroll, form values; no ids, not focusable, hidden from AT) plays the exit and is deleted. Works for every `ui/Modal` automatically and for the hand-rolled overlays (import, widget pickers, shortcuts, BYOK onboarding, ⌘K palette, inbox-scan dialogs, idle warning, Admin forms) — no call-site changes. StrictMode-safe (only inserts if the node is really gone). The drawers already slid out through their own close paths.
+
+**Backend — boot migrations run once** (owner approved)
+- `services/migrations/runBootMigrations.ts` + `models/Migration.ts` (`migrations` ledger): one read per cold start; each migration runs once per database and is recorded after it succeeds (a failure retries next boot).
+- Root-caused a hidden dependency: new resumes were created with `versions: []`, so the "one-time" backfill had actually been giving each new resume its first entry at the next cold start. New resumes now get a "Created" entry on create (`pre("validate")`, so `insertMany` seeds get it too).
+- The AI-settings migration's name includes the ai_* keys, so adding an AI setting later seeds it on the next boot.
+
+### Found along the way (fixed)
+- Menu hover/active states were `bg-muted` — invisible in light mode. Now `bg-control` everywhere a row is hovered or selected.
+- Row toolbars (Contacts, Deadlines) faded their trigger away while its (portaled) menu was open; they stay visible while a menu is open.
+- Admin form dialogs used `card-premium`, whose hover lift made the whole form jump.
+- `ReviewStep`'s sticky preview sat partly under the old sticky header (fixed by the scroll model; not visually re-checked).
+
+### Still open (not done this round, honestly)
+- Hand-rolled overlays still lack the Modal's focus trap / layer stack / scroll lock (they now animate like it). Converting them to `ui/Modal` stays queued.
+- Resume Studio's custom accent `<input type="color">` stays native (a colour well, not a dropdown).
+- Calendar page height math (`calc(100dvh - 108px)`) predates the card shell; the Calendar revamp is later (decided), so it's untouched.
+
+---
+
+## 2026-09-24 — Personalize page + Custom theme (approved 2026-09-24; built — Steps 1–5)
+
+Owner asks: a rebuilt **Settings → Personalize** that remembers preferences (server-side, follows the user); the **Classic | Table** choice moves there (**default Classic**); a **universal color picker**; a **Custom theme** (Background + Accent + Contrast → every token), ported from Sora's engine but with Sora's measured contrast failures fixed and proven by a property test. Brief: owner's spec pasted 2026-09-24 (Sora refs: `sora/app/lib/theme.ts`, `composables/useTheme.ts`, `plugins/theme.client.ts`, `ColorPicker.vue`, `ColorSwatches.vue`, `settings/personalize.vue` — read-only).
+
+### Audit (measured 2026-09-24)
+
+**Today:** Personalize = System/Light/Dark only, saved per browser per account (localStorage). Tokens live only in `App.css` (fixed this session). No boot script (`index.html` `theme-color` hardcoded `#1a1a1a`). Charts re-read CSS vars on `themeId`. The Classic/Table choice is a dev-only header toggle (localStorage). The demo account is shared by every visitor. Unit tests are co-located `node:test` files; no vitest in the repo.
+
+**Hardcoded colors — frontend, whole app: ~2,500 occurrences.**
+- Marketing site (`pages/Landing`, 630) — deliberately default-themed (auth/marketing render the default theme), untouched.
+- Admin (538, mostly status palette classes) — see open question 2.
+- **In-app (excl. Landing/Admin): 1,334 occurrences in 84 files.** By kind: Tailwind palette classes ~1,000 — ~75% are *meaning* (status red/amber/emerald/green, the six stage colors, A–F fit grades, notification-type chips); `text-white` on fills 67; `bg-white` 15 (logo plates, toggle knobs); `bg-black/x` scrims 22; hex 148 (provider brand colors in AddKeyForm 38, chart palette 19, calendar 18, stage hex 12, resume-print CSS 13); `rgba()` 124 (App.css shadows, auth screens, Calendar.css); generated `hsl()` tag colors (Resumes).
+- Heaviest files: EmailScanFlowModal 98 · App.css 93 · EmailScanReview 77 · BoardView 59 · AddKeyForm 59 · Contacts 57 · Resumes 54 · AuthModal 43 · stageStyles 42 · FitSection 42 · Deadlines 39 · applicationHealth 35 · GapStep 35 · AppFitPanel 35 · TableList 34 (full per-file list reproducible with the audit script in the journal).
+- Stage colors are still defined in several places (stageStyles badge/stripe/calendar-hex, chartSetup, calendarEvents, Companies) — unified by the stage tokens below.
+- Deliberately NOT themed: resume/document previews + PDF (paper), outgoing emails, the browser extension, the marketing/auth screens.
+
+### Token → tier map (Custom themes; presets keep today's App.css values)
+
+| HireTrail token | Role here | Custom source (Sora tier; `e` = step, `card` = brightest) |
+|---|---|---|
+| `--sidebar` | backdrop: sidebar + header | canvas: `card − 1.0e` |
+| `--background` | the main card (panel) | card tier |
+| `--card`, `--popover` | raised: inner cards, dropdowns, dialogs | light: = panel · dark: panel + 0.5e (today's dark raises cards) |
+| `--muted` | quiet fill (skeletons, chips) | `card − 0.35e` |
+| `--secondary` | secondary fill | `card − 0.7e` |
+| `--control` | selected segment / hovered row / pill | `card − 0.9e` (Sora's hover tier) |
+| `--accent` (shadcn: hover surface — NOT the user's accent) | brand-tinted hover (light blue today) | accent hue, low chroma, `card − 0.9e` |
+| `--sidebar-accent` (+fg) | active nav pill (brand-tinted today) | accent hue, low chroma, `canvas − 0.15e`; fg = `--brand-text` |
+| `--border`, `--sidebar-border` / `--input` | hairline / field edge | `card − 0.55e` (C ≤ .03) / `card − 1.1e` (C ≤ .045) |
+| `--foreground` (+ card/popover/sidebar/secondary/accent -foreground) | text | **solved ≥ 7:1** on every text surface |
+| `--muted-foreground` | quiet text | **solved ≥ 4.5:1**, least extreme passing |
+| `--primary`, `--ring`, `--sidebar-primary/-ring`, `--chart-1` | the user's Accent, exactly as picked | accent |
+| `--primary-foreground` (+ sidebar-primary-fg) | text on the accent | `readableOn(accent)` (flip at L .62, ≥ 3:1 guard) |
+| **new** `--brand-text` | links, active icons, focus ring | accent hue, **solved ≥ 4.5:1** vs card + canvas, gamut-aware chroma walk |
+| `--destructive`, `--danger` (+fg), `--success`, `--warning` (+fg) | status | fixed hues; text solved ≥ 4.5:1 |
+| **new** `--{success,warning,danger,info}-soft` (+`-soft-foreground`) | status tints (replace `emerald-50…`, `success.light` hex) | fixed hue, tint per theme, text ≥ 4.5:1 |
+| **new** `--stage-{drafting,applied,oa,interview,offer,rejected}` (+`-soft`, `-soft-foreground`) | stage dots/pills/columns/charts | fixed hues (they carry meaning), tint + text per theme |
+| **new** `--grade-{a…f}` (+soft/fg) | fit grades | fixed hues, per-theme tints |
+| `--chart-2…5` | charts | derived from the accent hue |
+| `--shadow-panel`, `--shadow-floating` | elevation | light: today's; dark/colored: stronger, hue-tinted |
+| **new** `--scrim`, `--selection`, `--logo-plate` | modal backdrop, `::selection`, company-logo plate | black-alpha / brand tint / neutral plate |
+
+Plus `color-scheme`, `<meta name="theme-color">` from `--sidebar`, `accent-color`, `caret-color`, placeholder, autofill, scrollbars.
+
+### Rollout (each step ships on its own, production green)
+
+1. **Personalize v2 + list style** — server-persisted `preferences.listDesign` (default Classic; one-time adopt of an existing local choice), remove the dev header toggle. No theming risk.
+2. **Color discipline, presets pixel-identical** — add the semantic tokens with preset values equal to today's Tailwind values; migrate the 84 in-app files; charts read tokens. Proof: a computed-style census (every element's color/background/border) on the main pages, before vs after, in Light and Dark → zero diffs except the listed genuine dark-mode leak fixes.
+3. **Engine + property test** — `lib/theme.ts` (conversions, generator for every HireTrail token, clamp band, solved text, `--brand-text`, status/stage tints, shadows, `readableOn`, Linear copy format). Property test: thousands of random themes × contrast 0–100, zero failures on fg ≥ 7, muted ≥ 4.5, brand ≥ 4.5, destructive/status ≥ 4.5, on-accent ≥ 3.
+4. **State + persistence + boot** — `preferences.theme` on User (validator + `normalizeThemePrefs` both sides), debounced save, server-wins hydration (with a one-time adopt of the same user's local theme so nobody's dark mode resets on deploy), no-flash `<head>` script from a cached token map, split context (drags don't re-render the app), theme-change signal for charts, default theme on auth/marketing.
+5. **Color picker + swatches + Custom UI** — Popover-based picker (SV square, hue, hex, EyeDropper, full keyboard), swatch row, mode cards with real generated previews, Accent/Background/Contrast rows, copy/import/reset. Replaces the one native color input (Resume Studio accent — the picker is reused; the resume itself stays paper).
+6. **Visual matrix + docs** — bases/accents/contrast matrix screenshots, Benchmark Check each; journal + CLAUDE.md rules.
+
+### Open questions for the owner
+1. **Test runner:** Node's built-in `node:test` (runs TS natively on Node 24, zero new deps, matches the existing co-located tests) vs adding vitest as the brief says. *Recommend node:test.*
+2. **Admin area:** follows Light/Dark but always renders the presets (never Custom) — *recommended*; or bring its 538 colors into the migration.
+3. **Active nav + hover in Custom:** keep HireTrail's brand-tinted active pill (from the user's accent hue) — *recommended* — or Sora's neutral pill.
+4. **Demo account:** theme + list style stay device-only for the demo user (it's shared by every visitor) — engineering default, flagging it.
+
+### Decided (owner, 2026-09-24)
+- All four recommendations accepted: `node:test`; Admin follows Light/Dark but renders presets under Custom; brand-tinted active nav pill in Custom; demo prefs stay on the device.
+- **Admin is fixed alongside** whatever we're working on — no hardcoded colours in Admin either.
+
+### Built so far
+**Step 1 — Personalize v2 + list style (done, verified).** `preferences` on User (`validators/preferences.ts`, strict zod, ≤2 KB; `normalizePreferences` mirrored in `frontend/src/utils/preferences.ts`); `PUT /auth/profile {preferences}` merges per key (demo → 403); `hooks/useListDesign` (server value, optimistic + rollback, one-time adopt of the old dev-toggle key; demo = device key). Settings → Personalize: Theme cards (System/Light/Dark with real token previews) + Applications list cards (Classic default | Table). Dev header toggle and `?devtools` removed.
+
+**Step 2 — colour discipline (done, verified).** Changed approach from the token map above, for a smaller, provable diff: instead of rewriting ~1,000 palette classes into new semantic tokens, **Tailwind's palette itself reads CSS variables** (`--palette-<family>-<shade>`, RGB triplets, Tailwind's exact values in App.css; `tailwind.config.js` maps every family). Presets are pixel-identical by construction; a Custom theme will re-tint the palette per shade role (Step 3). Plus:
+- New tokens: `--paper` (always white: logo plates, toggle knobs, resume paper), `--scrim` (always black: modal backdrops, tooltips), `--control`, shadow tokens (`--shadow-panel/-floating/-raised/-raised-hover/-button-hover/-xs/-xs-hover`), `--ease-out`.
+- `text-white` on accent fills → `text-primary-foreground`; `bg-black/x` → `bg-scrim/x`; `bg-white` knobs/plates → `bg-paper`.
+- Inline/JS colours → `utils/palette.ts` `cssPalette()` (stage calendar colours, calendar/deadline chips, score gauges, illustrations, AppFitPanel); Calendar.css / BackgroundTaskCenter.css tokenized; chart helpers (`utils/chartSetup.ts`) read tokens only (`tokenColor`, `paletteColor`, `chartColors(alpha)`, `primaryColor(alpha)`), no hex fallbacks.
+- Resume tag chips: per-tag hue + tone → `.tag-chip` (App.css) with light and dark shades. Light = the old formula exactly (208/208 hue×tone combos identical); dark was a light-pastel leak, now ≥ 5.5:1.
+- Native surfaces: `color-scheme` per mode, `accent-color` + `caret-color` = primary, `::selection` = primary @ 22%; sidebar navs get `.scroll-quiet` (scrollbar only on hover).
+- **Admin shell = the app shell**: backdrop + card main (the scroll container, `#app-scroll`), same nav rows (`components/Sidebar/navParts.tsx`, shared with the app sidebar), View-Transition collapse via the new shared `hooks/useShellCollapse` (Layout uses it too), remembered per shell. Dead `.glass-header` / `.shell-overlap-panel` CSS deleted.
+- Remaining literals are documented exemptions: brand marks (provider logos in AddKeyForm, supported job boards, Google/LinkedIn), resume content (Studio CSS, StyleTab presets, `resumeDocument` default accent), the CompanyLogo monogram hue (data), auth/landing, and white text on solid 500–700 status fills (the engine only keeps or darkens those).
+- **Proof:** computed-style census (13 colour properties on every element, light + dark). Admin, 17 pages: zero changes inside page content. App pages: zero on Settings ×5, Email review, Import/Export, Jobs, Notifications; the rest differ only by data/state since the baseline (loading skeletons, a moved stage, a different first company) — every new value is an existing token or exact palette colour.
+
+**Step 3 — engine + property test (done, verified).** `frontend/src/utils/theme.ts` (pure): CIELCH in, OKLCH generation, gamut mapping by chroma reduction, HSL-triplet / RGB-triplet out. Every App.css colour token + `--brand-text` + the 242 palette shades, solved per theme: text ≥ 7:1 and quiet text ≥ 4.5:1 on every text surface, brand/status text ≥ 4.5:1, on-fill text ≥ 3:1 (`readableOn`: flip at OKLCH L 0.62, 3:1 guard), palette text shades ≥ 4.5:1 on the theme's surfaces and their own tints. Base L in 0.32–0.80 moves to the nearest edge; a near-black base is lifted so the backdrop stays above ≈ #0a0a0a; both report `adjusted`. Tier steps are calibrated so the seeds (white / #171717 at contrast 30) land on the presets' spacing (light 100 / 96.5 / 91.0 % vs preset 100 / 96.1 / 91.0). `utils/tailwindPalette.ts` holds Tailwind's table (the test checks it against App.css and `tailwindcss/colors`). **Test:** `node --test src/utils/theme.test.ts` (Node runs the real TS module) — 4,900+ themes (edge colours × contrasts, band edges, 4,000 seeded random), zero failures; a mutation check (weakened 7:1 → 6:1) fails it by thousands. `text-primary` now reads `--brand-text` (Tailwind `textColor.primary`) — equal to `--primary` in the presets, solved in Custom.
+
+**Step 4 — state, persistence, boot (done, verified).** `hooks/useTheme.tsx`: `ThemeProvider` (mounted after auth; owns the route check so navigation re-renders only it) + two contexts — `ThemeContext` {dark, mode, revision, toggle} changes only on commit; `ThemeControlsContext` (Personalize) adds rAF previews that paint straight to the DOM. `utils/themeDom.ts` is the one painter (deduped by serialized prefs, transitions suspended across a drag, meta theme-color from the painted backdrop, boot cache). `preferences.theme` on the account, server wins; debounced 500 ms save, flushed with a keepalive request on tab close; rollback to the last saved value on failure. One-time adopt of the *same account's* old local choice (`hiretrail-theme-id:<id>`), then the old keys are removed. Demo = device key (`hiretrail-theme:demo`, reset by the demo login). Signed-out pages = Light; Admin = presets (Custom falls back to its side). `index.html` inline boot script paints from the cache before any JS (no flash). Charts key on `revision`. `utils/themes.ts` deleted.
+
+**Step 5 — picker + Custom UI (done, verified).** `ui/Slider` (role=slider, full keyboard, pointer capture, `onChange` live + `onCommit`) and `ui/ColorPicker` (Popover: SV square, hue slider, hex field, EyeDropper where supported, swatches; HSV is its own state; drags that end outside keep it open). Personalize: System / Light / Dark / Custom cards with real previews (Custom from its generated tokens); Accent / Background / Contrast rows with hex fields; "Adjusted for readability" note; Reset (+Undo); Share → Copy (Linear format) / Import (Modal, inline error, +Undo). Resume Studio's native colour input and range sliders → the shared picker/slider (the resume stays paper). No native `type="color"` / `type="range"` left in product surfaces.
+
+### Found along the way (fixed)
+- **Keys faster than a render stepped from a stale value** (Slider, picker square): seven PageDowns moved 10, not 70. Steps now build on the latest value held in a ref.
+- **`useListDesign` applied the server's whole response** — it would have overwritten a theme change still in its save debounce. Both prefs now update only their own field (functional `setUser`; `UserContext.setUser` is a real state setter).
+- **Demo theme read once at mount** — a visitor logging into the demo after someone else would have briefly seen the old choice. Derived per sign-in now.
+- **Admin dashboard charts broke in this change:** they appended hex alpha to colour strings (`palette[i] + "AA"`), which went invalid once the helpers returned `hsl(…)` — Chart.js drew black. Also, the old theme re-tint only touched datasets, so grid/tick colours stayed light-mode after a switch (near-white grid lines in dark). Now the chart config is rebuilt from live tokens on theme change; alpha goes through the helpers.
+- A stale Vite dev server (Tailwind config changed under it) silently dropped `bg-paper`/`bg-scrim`/`shadow-panel` — knobs and modal scrims went transparent in dev only. Restart the frontend dev server after any `tailwind.config.js` edit.
+
+### Noted, not changed (owner call)
+- **The default blue sits on the 0.62 flip** (OKLCH L 0.623): a Custom theme started from the preset gives buttons dark text where the Light preset has white (3.7:1). That's the spec's rule working as written; say if you'd rather prefer white whenever it clears 3:1.
+- **Links in Custom are a deeper blue than the preset's** (`--brand-text` solved to ≥ 4.5:1; the preset's `text-primary` is 3.7:1 on white). Presets unchanged.
+- A session that expires while a Custom theme is cached shows that theme for a moment on the signed-out landing (the boot script can't know the session is gone); cleared the moment auth answers.
+- Resume tag chips in light mode: worst case 4.2:1 (tone 0 on some hues) — a hair under AA for 10px text. Pre-existing; fixing it is a visible change.
+- White text on `bg-amber-600` buttons (Dashboard/Board "stage suggestions") is 3.2:1 — pre-existing, below AA.
+
+### Owner feedback round (2026-09-25) — decided + built
+- **The background follows the drag everywhere** (owner: the colour "flipped" near #926095 and stopped tracking). The spec's clamp band (L 0.32–0.80 snapped to the edges) is gone: the panel is the picked colour; text takes the side that reads better, so the only unavoidable change — dark ⇄ light text — happens once. Guarantee now: text 7:1 wherever the background allows it, otherwise the most black/white can reach there (never under 4.58:1); layers flatten on mid-tones instead of text going soft; hover/selected fills step *away* from the text on mid-tones so a selection stays visible (they change sides only at the flip). Near black, layers step from ≈ #0a0a0a and the base's chroma fades in, so the first levels above black don't jolt anything. Proof: new drag-sweep test (6 hue/chroma lines × 3 contrasts × 250 even OKLab steps: background/cards/backdrop never move > 8 levels a step; text flips ≤ once) + "background is the pick" + "fills visible on mid-tones" in the property test.
+- **Selection matches the accent:** the tint is the accent blended into the base (OKLab), so a grey accent keeps the base's hue; Personalize's selected cards use the accent (border + badge).
+- **Header:** theme toggle and calendar button removed (app + Admin); theme lives in Settings → Personalize, the calendar is an Applications view; Admin's account menu gained Settings.
+- **Default = charcoal on near-white:** `--primary` #262626 on `--background` #fcfcfc (1% black), every neutral token de-blued; charts a charcoal ramp; Dark mirrors it (near-white #ededed accent, dark text) — **engineering call, owner to confirm**. Stage/status colours unchanged. Custom's seed follows (Light: #fcfcfc + #262626; Dark: #171717 + #ededed). AI Fit panel slate → neutral.
+- **Sora's selected tab:** a raised pill (card surface + `shadow-pill`) with the icon in the accent; items rest in the quiet text colour (muted-foreground) and only brighten on hover — no fill. One style (`navTone`) for the app, Settings and Admin sidebars.
+- **Sora's quiet hairlines:** Custom borders are the surface a little darker (dark themes: just below the raised card); Dark preset `--border` 25% → 18% (`--input` 22%); the Settings sidebar's divider and the sidebar footer dividers are gone.
+- **Soft card shadows, Settings + Admin only:** `.surface-card` (App.css) = card + hairline + `--shadow-panel`; used by SettingsCard, Personalize cards, the AI-settings sections and 45 Admin cards (not modals, not cards inside cards).
+- **Toggles on a light accent:** a switched-on knob is `--primary-foreground` (it vanished white-on-near-white in Dark). Six hand-rolled switches (widget pickers, SystemConfig, AISystemConfig ×2, Resume Studio) got the fix; converting them to `ui/Toggle` is queued.
+
