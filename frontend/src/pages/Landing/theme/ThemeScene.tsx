@@ -1,4 +1,6 @@
-/** "Make it yours" — the theme playground, on the dark after the dive.
+/** "Make it yours" — the theme playground, on the dark after the dive. It
+ *  rises over the dive's last stretch (a hand-off, Landing.css), so its
+ *  title arrives as the page goes dark.
  *
  *  The same engine the app runs (utils/theme.ts `generateTheme`) paints a
  *  live Board preview from a background, an accent and a contrast — through
@@ -154,12 +156,14 @@ export default function ThemeScene() {
   const accentHex = lchToHex(hexToLch(pick.accent));
 
   return (
-    <section ref={sectionRef} className="relative bg-[hsl(var(--lp-night))] text-white overflow-clip" data-lp-tone="dark" aria-labelledby="lp-theme-title">
-      <div className="lp-grid opacity-60" />
-      <div
-        className={`lp-spotlight ${spotOn ? "is-on" : ""}`}
-        style={{ ["--lp-spot-x" as string]: "-6%", ["--lp-spot-y" as string]: "-4%", ["--lp-spot-angle" as string]: "30deg", ["--lp-spot-strength" as string]: "0.9" }}
-      />
+    <section ref={sectionRef} className="lp-theme lp-handoff relative text-white overflow-clip" data-lp-tone="dark" aria-labelledby="lp-theme-title">
+      <div className="lp-theme-light" aria-hidden>
+        <div className="lp-grid opacity-60" />
+        <div
+          className={`lp-spotlight ${spotOn ? "is-on" : ""}`}
+          style={{ ["--lp-spot-x" as string]: "-6%", ["--lp-spot-y" as string]: "var(--lp-overlap)", ["--lp-spot-angle" as string]: "30deg", ["--lp-spot-strength" as string]: "0.9" }}
+        />
+      </div>
       <div className="relative max-w-[1320px] mx-auto px-6 pt-[18vh] pb-[16vh]">
         <div className="max-w-[720px]">
           <p className="lp-eyebrow text-[hsl(var(--lp-fog-dark))]">Personalize</p>

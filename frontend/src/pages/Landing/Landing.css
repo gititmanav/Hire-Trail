@@ -663,12 +663,58 @@ html.lp-root body {
 
 .lp-ai-glow { box-shadow: 0 0 0 1px hsl(var(--border)), 0 0 28px -6px hsl(0 0% 100% / 0.35); }
 
+/* ─── Chapter hand-offs ─── */
+
+/* The next chapter starts while the last one is still leaving. It's pulled
+ * up over the previous chapter's final stretch (--lp-overlap) and is
+ * see-through there — its own background begins where the section before it
+ * ends — so the page never shows a screen of plain colour between chapters,
+ * and a colour change stays one full-screen fade over the content that's
+ * leaving. (Theme after the dive; Founder after the word list; Closing
+ * after the FAQ.) */
+.lp-handoff {
+  margin-top: calc(-1 * var(--lp-overlap));
+  background: linear-gradient(to bottom, transparent var(--lp-overlap), var(--lp-handoff-bg, transparent) var(--lp-overlap));
+}
+/* Lying over the chapter before, a pinned hand-off lets the pointer through;
+ * its controls opt back in as they appear. */
+.lp-handoff-pass { pointer-events: none; }
+/* Header tone bands for a hand-off: the old tone until the new colour is
+ * halfway in (--lp-flip), then the new one. The band inside the overlap is
+ * its own, so it's the smallest under the header there and wins over the
+ * previous chapter's band (engine/scroll.ts: the smallest band wins). */
+.lp-band { position: absolute; left: 0; right: 0; pointer-events: none; }
+.lp-band-before { top: 0; height: var(--lp-flip); }
+.lp-band-over { top: var(--lp-flip); height: calc(var(--lp-overlap) - var(--lp-flip)); }
+.lp-band-after { top: var(--lp-overlap); bottom: 0; }
+
+.lp-theme { --lp-overlap: 35vh; --lp-handoff-bg: hsl(var(--lp-night)); }
+@supports (height: 1svh) { .lp-theme { --lp-overlap: 35svh; } }
+/* The playground's grid and spotlight fade in below the overlap — never a
+ * lit edge along the section's top. */
+.lp-theme-light {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(to bottom, transparent var(--lp-overlap), #000 calc(var(--lp-overlap) + 30vh));
+  mask-image: linear-gradient(to bottom, transparent var(--lp-overlap), #000 calc(var(--lp-overlap) + 30vh));
+}
+
 /* ─── The founder's line ─── */
 
-/* 120 of pin: the white arrives in the first 14%, the words by 80%. */
-.lp-founder { height: calc(100vh + 120vh); }
+/* 120 of pin: the white arrives in the first 14%, the words by 80%. It
+ * pins 20 after the word list lets go (the list's stage is 100svh), so the
+ * last word leaves with the page before the white comes over it. */
+.lp-founder {
+  height: calc(100vh + 120vh);
+  --lp-overlap: 80vh;
+  --lp-flip: 8.5vh;
+  --lp-handoff-bg: hsl(var(--lp-night));
+}
 /* The stage is 100lvh (see FounderScene); the pin itself stays 120svh. */
-@supports (height: 1svh) { .lp-founder { height: calc(100lvh + 120svh); } }
+@supports (height: 1svh) {
+  .lp-founder { height: calc(100lvh + 120svh); --lp-overlap: 80svh; --lp-flip: 8.5svh; }
+}
 .lp-founder-line {
   font-size: clamp(1.75rem, 1.05rem + 2.9vw, 3.5rem);
   line-height: 1.16;
@@ -689,9 +735,18 @@ html.lp-root body {
 /* ─── The close ─── */
 
 /* 45 of pin: dark within the first third, the headline rising as it lands —
- * short, so nothing sits still under a moving scroll. */
-.lp-closing { height: calc(100vh + 45vh); }
-@supports (height: 1svh) { .lp-closing { height: calc(100lvh + 45svh); } }
+ * short, so nothing sits still under a moving scroll. It pins while the FAQ's
+ * last lines are still on screen (40 of overlap; the FAQ ends in 16 of
+ * padding), and they sink into the dark as they leave. */
+.lp-closing {
+  height: calc(100vh + 45vh);
+  --lp-overlap: 40vh;
+  --lp-flip: 7.5vh;
+  --lp-handoff-bg: #fff;
+}
+@supports (height: 1svh) {
+  .lp-closing { height: calc(100lvh + 45svh); --lp-overlap: 40svh; --lp-flip: 7.5svh; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .lp-reveal-wait { opacity: 1; transform: none; }

@@ -1,5 +1,6 @@
 /** The founder's line — the turn back to white. Pinned for a moment: the dark
- *  lifts to white, then the sentence lights up word by word as you read it.
+ *  lifts to white over the word list as it leaves (a hand-off, Landing.css),
+ *  then the sentence lights up word by word as you read it.
  *  Reduced motion: the same, as colour only (nothing moves). */
 import { useRef } from "react";
 import { Link } from "react-router-dom";
@@ -40,17 +41,22 @@ export default function FounderScene() {
     if (signRef.current) {
       signRef.current.style.opacity = sign.toFixed(3);
       signRef.current.style.transform = reducedRef.current ? "none" : `translate3d(0, ${Math.round((1 - sign) * 10)}px, 0)`;
+      // The section lets the pointer through (it lies over the word list); the link opts back in.
+      signRef.current.style.pointerEvents = sign > 0.5 ? "auto" : "none";
     }
   }, stageRef);
 
   return (
-    <section ref={sectionRef} className="lp-founder relative" aria-label="Why HireTrail exists">
+    <section ref={sectionRef} className="lp-founder lp-handoff lp-handoff-pass relative" aria-label="Why HireTrail exists">
       {/* The header reads dark until the page has turned white — halfway
           through its fade, 7% into the 120svh pin (see .lp-founder). */}
-      <div data-lp-tone="dark" className="absolute inset-x-0 top-0 h-[8.5vh] h-[8.5svh] pointer-events-none" />
-      <div data-lp-tone="light" className="absolute inset-x-0 top-[8.5vh] top-[8.5svh] bottom-0 pointer-events-none" />
-      {/* 100lvh: the stage still fills the screen once a phone's toolbars tuck away. */}
-      <div ref={stageRef} className="sticky top-0 h-screen h-lvh overflow-hidden bg-[hsl(var(--lp-night))]">
+      <div data-lp-tone="dark" className="lp-band lp-band-before" />
+      <div data-lp-tone="light" className="lp-band lp-band-over" />
+      <div data-lp-tone="light" className="lp-band lp-band-after" />
+      {/* See-through until the white comes in over the word list as it
+          leaves; 100lvh so it still fills the screen once a phone's toolbars
+          tuck away. */}
+      <div ref={stageRef} className="sticky top-0 h-screen h-lvh overflow-hidden">
         <div ref={whiteRef} className="absolute inset-0 bg-white" style={{ opacity: 0 }} />
         <div className="relative h-full max-w-[1080px] mx-auto px-6 flex flex-col justify-center lp-on-light">
           <p className="lp-founder-line">

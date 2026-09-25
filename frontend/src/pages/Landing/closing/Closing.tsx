@@ -1,6 +1,8 @@
 /** The close: the page goes back to black (pinned, so the whole screen
- *  fades — never a hard edge), one last ask under a spotlight, then the
- *  footer, whose content settles into place as the page reaches its end. */
+ *  fades — never a hard edge — starting while the FAQ's last lines are
+ *  still leaving: a hand-off, Landing.css), one last ask under a spotlight,
+ *  then the footer, whose content settles into place as the page reaches
+ *  its end. */
 import { useRef } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, Mail } from "lucide-react";
@@ -35,12 +37,15 @@ function CallToAction() {
   }, stageRef);
 
   return (
-    <section ref={sectionRef} className="lp-closing relative" aria-labelledby="lp-closing-title">
+    <section ref={sectionRef} className="lp-closing lp-handoff lp-handoff-pass relative" aria-labelledby="lp-closing-title">
       {/* Light until the fade is halfway: 17% into the 45svh pin (see .lp-closing). */}
-      <div data-lp-tone="light" className="absolute inset-x-0 top-0 h-[7.5vh] h-[7.5svh] pointer-events-none" />
-      <div data-lp-tone="dark" className="absolute inset-x-0 top-[7.5vh] top-[7.5svh] bottom-0 pointer-events-none" />
-      {/* 100lvh: the stage still fills the screen once a phone's toolbars tuck away. */}
-      <div ref={stageRef} className="sticky top-0 h-screen h-lvh overflow-hidden bg-white">
+      <div data-lp-tone="light" className="lp-band lp-band-before" />
+      <div data-lp-tone="dark" className="lp-band lp-band-over" />
+      <div data-lp-tone="dark" className="lp-band lp-band-after" />
+      {/* See-through, over the FAQ's last lines and then the section's own
+          white; 100lvh so it still fills the screen once a phone's toolbars
+          tuck away. */}
+      <div ref={stageRef} className="sticky top-0 h-screen h-lvh overflow-hidden">
         <div ref={darkRef} className="absolute inset-0 bg-[hsl(var(--lp-night))]" style={{ opacity: 0 }}>
           <div className="lp-grid opacity-70" />
           <div ref={spotRef} className="absolute inset-0" style={{ opacity: 0 }}>
