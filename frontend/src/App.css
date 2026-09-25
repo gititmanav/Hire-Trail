@@ -427,6 +427,25 @@ html.theme-transitioning *::after {
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
 }
+/* Phones: a sheet from the bottom edge, in reach of a thumb. Inputs at 16px
+ * so iOS Safari doesn't zoom the page when one is focused. */
+@keyframes auth-sheet-in { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes auth-sheet-out { from { transform: none; } to { transform: translateY(100%); } }
+@media (max-width: 639px) {
+  .auth-overlay { align-items: flex-end; padding: 0; }
+  .auth-surface {
+    max-width: none;
+    max-height: calc(100svh - 24px);
+    border-width: 1px 0 0;
+    border-radius: 22px 22px 0 0;
+  }
+  .auth-surface.modal-soft-panel-in { animation: auth-sheet-in 520ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+  .modal-soft-exit > .auth-surface { animation: auth-sheet-out 240ms cubic-bezier(0.4, 0, 1, 1) forwards; }
+  .auth-surface input { font-size: 16px; }
+}
+@media (max-width: 639px) and (prefers-reduced-motion: reduce) {
+  .auth-surface.modal-soft-panel-in, .modal-soft-exit > .auth-surface { animation: none; }
+}
 
 /* Extension CTA highlight — uses theme primary so it adapts to all themes */
 .ext-cta-highlight {
