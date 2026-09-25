@@ -48,6 +48,9 @@ export interface IUser extends Document {
   clipboardPromptTemplate: string;
   /** Set once the one-time "configure clipboard copy" discovery notification has been created for this user. */
   clipboardNudgeSeeded: boolean;
+  /** Settings → Personalize. Follows the user across devices. Missing on
+   *  documents that predate it — always read through normalizePreferences. */
+  preferences?: { theme?: unknown; listDesign?: string };
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidate: string): Promise<boolean>;
@@ -126,6 +129,17 @@ const userSchema = new Schema<IUser>(
       maxlength: [2000, "Prompt cannot exceed 2000 characters"],
     },
     clipboardNudgeSeeded: { type: Boolean, default: false },
+    preferences: {
+      type: new mongoose.Schema(
+        {
+          // Shape enforced by validators/preferences.ts on write.
+          theme: { type: Schema.Types.Mixed },
+          listDesign: { type: String, enum: ["classic", "table"] },
+        },
+        { _id: false },
+      ),
+      default: undefined,
+    },
   },
   {
     timestamps: true,

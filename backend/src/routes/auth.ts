@@ -5,6 +5,7 @@ import jwt from "jsonwebtoken";
 import { User, DEFAULT_CLIPBOARD_PROMPT } from "../models/User.js";
 import { validate } from "../middleware/validate.js";
 import { registerSchema, loginSchema } from "../validators/auth.js";
+import { normalizePreferences, preferencesPatchSchema } from "../validators/preferences.js";
 import { authLimiter } from "../middleware/rateLimiter.js";
 import { AppError } from "../errors/AppError.js";
 import { env } from "../config/env.js";
@@ -33,6 +34,31 @@ import {
 } from "../services/maintenance.js";
 
 const router = Router();
+
+const DEMO_EMAIL = "demo@hiretrail.com";
+
+/** The signed-in user as the web app sees it — one shape for register, login,
+ *  /me and profile updates, so no response can drop a field the app hydrates
+ *  from (a login that omitted preferences would reset the user's theme). */
+function clientUser(u: {
+  _id: unknown; name: string; email: string; role: string; tourCompleted?: boolean;
+  primaryResumeId?: unknown; mergeResumesEnabled?: boolean; clipboardCopyOnTrack?: boolean;
+  clipboardFormat?: string; clipboardPromptTemplate?: string; preferences?: unknown;
+}) {
+  return {
+    _id: u._id,
+    name: u.name,
+    email: u.email,
+    role: u.role,
+    tourCompleted: u.tourCompleted ?? false,
+    primaryResumeId: u.primaryResumeId ? String(u.primaryResumeId) : null,
+    mergeResumesEnabled: u.mergeResumesEnabled !== false,
+    clipboardCopyOnTrack: u.clipboardCopyOnTrack === true,
+    clipboardFormat: u.clipboardFormat ?? "metadata",
+    clipboardPromptTemplate: u.clipboardPromptTemplate ?? DEFAULT_CLIPBOARD_PROMPT,
+    preferences: normalizePreferences(u.preferences),
+  };
+}
 
 function getRequestMeta(req: Request): { ipAddress: string; userAgent: string } {
   const forwardedFor = req.headers["x-forwarded-for"];
@@ -81,12 +107,7 @@ router.post(
           provider: "local",
           ...meta,
         });
-        res.status(201).json({
-          _id: user._id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-        });
+        res.status(201).json(clientUser(user));
       });
     } catch (err) {
       next(err);
@@ -112,12 +133,7 @@ router.post(
         }
         req.login(user, (loginErr) => {
           if (loginErr) return next(loginErr);
-          res.json({
-            _id: user._id,
-            name: user.name,
-            email: user.email,
-            role: user.role,
-          });
+          res.json(clientUser(user));
           const meta = getRequestMeta(req);
           void AdminLoginEvent.create({
             userId: user._id,
@@ -158,18 +174,7 @@ router.get("/me", ensureAuth, async (req: Request, res: Response, next: NextFunc
     if (!doc.clipboardNudgeSeeded) {
       void ensureClipboardNudge(doc._id).catch(() => {});
     }
-    res.json({
-      _id: doc._id,
-      name: doc.name,
-      email: doc.email,
-      role: doc.role,
-      tourCompleted: doc.tourCompleted ?? false,
-      primaryResumeId: doc.primaryResumeId ? String(doc.primaryResumeId) : null,
-      mergeResumesEnabled: doc.mergeResumesEnabled !== false,
-      clipboardCopyOnTrack: doc.clipboardCopyOnTrack === true,
-      clipboardFormat: doc.clipboardFormat ?? "metadata",
-      clipboardPromptTemplate: doc.clipboardPromptTemplate ?? DEFAULT_CLIPBOARD_PROMPT,
-    });
+    res.json(clientUser(doc));
   } catch (err) {
     next(err);
   }
@@ -419,7 +424,7 @@ router.post(
 // PUT update profile (session or Bearer)
 router.put("/profile", ensureAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { name, email, primaryResumeId, mergeResumesEnabled, clipboardCopyOnTrack, clipboardFormat, clipboardPromptTemplate } = req.body;
+    const { name, email, primaryResumeId, mergeResumesEnabled, clipboardCopyOnTrack, clipboardFormat, clipboardPromptTemplate, preferences } = req.body;
     const user = getUser(req);
 
     if (email && email !== user.email) {
@@ -462,21 +467,20 @@ router.put("/profile", ensureAuth, async (req: Request, res: Response, next: Nex
       $set.clipboardPromptTemplate = tmpl;
     }
 
+    // Personalize prefs — a partial patch. The demo account is shared by every
+    // visitor, so its prefs stay on each device (the app never sends them).
+    if (preferences !== undefined) {
+      if (user.email === DEMO_EMAIL) throw new AppError("The demo account can't save preferences.", 403);
+      const parsed = preferencesPatchSchema.safeParse(preferences);
+      if (!parsed.success) throw new AppError("Invalid preferences", 400);
+      if (parsed.data.theme !== undefined) $set["preferences.theme"] = parsed.data.theme;
+      if (parsed.data.listDesign !== undefined) $set["preferences.listDesign"] = parsed.data.listDesign;
+    }
+
     const updated = await User.findByIdAndUpdate(user._id, { $set }, { new: true, runValidators: true }).lean();
     if (!updated) throw new AppError("Not found", 404);
 
-    res.json({
-      _id: updated._id,
-      name: updated.name,
-      email: updated.email,
-      role: updated.role,
-      tourCompleted: updated.tourCompleted ?? false,
-      primaryResumeId: updated.primaryResumeId ? String(updated.primaryResumeId) : null,
-      mergeResumesEnabled: updated.mergeResumesEnabled !== false,
-      clipboardCopyOnTrack: updated.clipboardCopyOnTrack === true,
-      clipboardFormat: updated.clipboardFormat ?? "metadata",
-      clipboardPromptTemplate: updated.clipboardPromptTemplate ?? DEFAULT_CLIPBOARD_PROMPT,
-    });
+    res.json(clientUser(updated));
   } catch (err) {
     next(err);
   }
@@ -489,7 +493,7 @@ router.delete("/me", ensureAuth, async (req: Request, res: Response, next: NextF
   try {
     const user = getUser(req);
 
-    if (user.email === "demo@hiretrail.com") {
+    if (user.email === DEMO_EMAIL) {
       throw new AppError("The demo account cannot be deleted.", 403);
     }
 
