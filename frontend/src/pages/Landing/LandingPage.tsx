@@ -7,7 +7,8 @@
  *
  * Chapters (colours alternate black · white · black · white · black):
  *   1. StoryScene — hero (beams) → Tailor · Apply · Track in one pinned
- *      product window → the dive into dark
+ *      product window → the dive into dark. Below 1024px, MobileStory tells
+ *      the same story composed for a narrow screen (story/mobile/).
  *   2. ThemeScene — "Make it yours": the theme engine, live
  *   3. EverythingScene — the rest of the app, one lit word at a time
  *   4. FounderScene → Promises → Compare → FAQ — back on white
@@ -21,9 +22,12 @@ import { UserContext, preloadAppShell } from "../../App.tsx";
 import { authAPI } from "../../utils/api.ts";
 import { DEMO_THEME_KEY } from "../../hooks/useTheme.tsx";
 import { usePageEntryScroll } from "../../hooks/usePageEntryScroll.ts";
+import { useCompactLanding } from "./engine/hooks.ts";
+import { onTone } from "./engine/scroll.ts";
 import { LandingAuthCtx, DEMO_EMAIL, DEMO_PASSWORD } from "./context";
 import Nav from "./Nav";
 import StoryScene from "./story/StoryScene.tsx";
+import MobileStory from "./story/mobile/MobileStory.tsx";
 import ThemeScene from "./theme/ThemeScene.tsx";
 import EverythingScene from "./everything/EverythingScene.tsx";
 import FounderScene from "./trust/FounderScene.tsx";
@@ -38,6 +42,7 @@ export default function LandingPage() {
   const [params, setParams] = useSearchParams();
   const [authMode, setAuthMode] = useState<AuthMode | null>(null);
   const [demoLoading, setDemoLoading] = useState(false);
+  const compact = useCompactLanding();
   usePageEntryScroll();
 
   // /login and /register both redirect here with ?auth=login|register so a
@@ -49,15 +54,17 @@ export default function LandingPage() {
   }, [params]);
 
   // While the landing is up, the page's overscroll matches its black ends and
-  // the browser chrome is tinted black; both are put back on the way out.
+  // the browser chrome follows the chapter under the header (black or white,
+  // like the header itself); both are put back on the way out.
   useEffect(() => {
     const root = document.documentElement;
     root.classList.add("lp-root");
     root.classList.remove("lp-boot"); // index.html's pre-paint, now covered by lp-root
     const meta = document.querySelector('meta[name="theme-color"]');
     const previous = meta?.getAttribute("content") ?? null;
-    meta?.setAttribute("content", "#000000");
+    const offTone = onTone((tone) => meta?.setAttribute("content", tone === "light" ? "#ffffff" : "#000000"));
     return () => {
+      offTone();
       root.classList.remove("lp-root");
       if (meta && previous !== null) meta.setAttribute("content", previous);
     };
@@ -99,7 +106,7 @@ export default function LandingPage() {
       <div className="lp min-h-screen">
         <Nav />
         <main>
-          <StoryScene />
+          {compact ? <MobileStory /> : <StoryScene />}
           <ThemeScene />
           <EverythingScene />
           <FounderScene />

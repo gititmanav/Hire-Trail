@@ -36,6 +36,23 @@ export function useScrolled(): boolean {
   return scrolled;
 }
 
+/** Whether a media query matches — right on the first render, then live. */
+export function useMedia(query: string): boolean {
+  const [matches, setMatches] = useState(() => typeof window !== "undefined" && !!window.matchMedia?.(query).matches);
+  useEffect(() => {
+    const mq = window.matchMedia?.(query);
+    if (!mq) return;
+    const onChange = () => setMatches(mq.matches);
+    onChange();
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, [query]);
+  return matches;
+}
+
+/** Phones and tablets get their own compositions (story/mobile) — below lg. */
+export const useCompactLanding = () => useMedia("(max-width: 1023px)");
+
 export function useReducedMotion(): boolean {
   const [reduced, setReduced] = useState(prefersReducedMotion);
   useEffect(() => {

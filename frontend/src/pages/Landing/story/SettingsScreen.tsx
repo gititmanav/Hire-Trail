@@ -7,7 +7,7 @@ import { SettingsShell } from "./shell.tsx";
 import { generateTheme, hexToLch } from "../../../utils/theme.ts";
 
 type Mode = "system" | "light" | "dark" | "custom";
-const MODES: { mode: Mode; label: string; Icon: LucideIcon }[] = [
+export const MODES: { mode: Mode; label: string; Icon: LucideIcon }[] = [
   { mode: "system", label: "System", Icon: Monitor },
   { mode: "light", label: "Light", Icon: Sun },
   { mode: "dark", label: "Dark", Icon: Moon },
@@ -15,12 +15,12 @@ const MODES: { mode: Mode; label: string; Icon: LucideIcon }[] = [
 ];
 
 /** A Custom theme for the fourth card: warm paper with an orange accent. */
-const CUSTOM_PREVIEW: CSSProperties = (() => {
+export const CUSTOM_PREVIEW: CSSProperties = (() => {
   const t = generateTheme({ base: hexToLch("#f7f3ea"), accent: hexToLch("#f97316"), contrast: 30 }).tokens;
   return Object.fromEntries(["--sidebar", "--background", "--border", "--primary"].map((k) => [k, t[k]])) as CSSProperties;
 })();
 
-function ShellPreview({ scope, style, lp }: { scope?: string; style?: CSSProperties; lp?: string }) {
+export function ShellPreview({ scope, style, lp }: { scope?: string; style?: CSSProperties; lp?: string }) {
   return (
     <div data-lp={lp} className={`${scope ?? ""} flex-1 flex bg-sidebar`} style={style}>
       <div className="w-[26%]" />

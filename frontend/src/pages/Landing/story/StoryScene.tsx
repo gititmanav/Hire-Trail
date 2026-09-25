@@ -1,4 +1,5 @@
-/** The story — one pinned stage from the hero to the dive into dark.
+/** The story — one pinned stage from the hero to the dive into dark. Wide
+ *  screens (1024px and up); below that, story/mobile/MobileStory tells it.
  *
  *  The stage (beams, the product window, the page colour) stays put while the
  *  copy scrolls over it: the hero, then Tailor · Apply · Track. The window
@@ -9,27 +10,24 @@
  *  Everything moves from one scroll callback (`paint`) that writes styles to
  *  marked elements — no React state per frame. Reduced motion keeps the
  *  crossfades and drops the moves (no rise, slide, dive or travel). */
-import { useCallback, useEffect, useLayoutEffect, useRef, type CSSProperties, type RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, type CSSProperties } from "react";
 import { ArrowRight } from "lucide-react";
 import { useScene, useReducedMotion } from "../engine/hooks.ts";
 import { clamp01, easeIn, easeInOut, easeOut, lerp, range, remeasure } from "../engine/scroll.ts";
 import HeroBeams, { type HeroBeamsHandle } from "../hero/HeroBeams.tsx";
 import ProductWindow, { SCREEN_URL, SCREENS, WINDOW_H, WINDOW_W, type ScreenName } from "./ProductWindow.tsx";
 import { GAUGE_CIRC, STUDIO_BULLETS, STUDIO_KEYWORDS } from "./StudioScreen.tsx";
-import { useDemoLogin, useOpenAuth } from "../context.ts";
-import { BOARDS, CHROME_STORE_URL, GITHUB_URL, GithubMark } from "../parts.tsx";
+import { BOARDS, CHROME_STORE_URL } from "../parts.tsx";
+import { boxWithin, center, collect, css, round, setState, setText, type Box, type Els } from "../engine/dom.ts";
+import HeroCopy from "./HeroCopy.tsx";
 
 /* ─── Geometry, measured on layout (never per frame) ─── */
 
-interface Box { x: number; y: number; w: number; h: number }
 interface Metrics {
   vw: number;
   vh: number;
-  layout: "desktop" | "tablet" | "mobile";
   hero: number;
   acts: { top: number; h: number }[];
-  /** Each act's copy top, within its block. */
-  copyTop: number[];
   zoom: { top: number; h: number };
   end: number;
   /** Window poses: scale at the hero peek, centred, and beside the copy. */
@@ -49,44 +47,6 @@ interface Metrics {
   zoomTarget: Box;
   cardH: number;
 }
-
-/** An element's box in the window's own (untransformed) coordinates. */
-function boxWithin(el: HTMLElement | null, root: HTMLElement): Box {
-  if (!el) return { x: 0, y: 0, w: 0, h: 0 };
-  let x = 0;
-  let y = 0;
-  let node: HTMLElement | null = el;
-  while (node && node !== root) {
-    x += node.offsetLeft;
-    y += node.offsetTop;
-    node = node.offsetParent as HTMLElement | null;
-  }
-  return { x, y, w: el.offsetWidth, h: el.offsetHeight };
-}
-
-const center = (b: Box) => ({ x: b.x + b.w / 2, y: b.y + b.h / 2 });
-
-/** Where the camera looks on phones, per beat (design-space x). */
-const FOCUS = { studio: 800, posting: 905, review: 930, move: 545, settings: 690 } as const;
-
-/* ─── Style writing ─── */
-
-type Els = Record<string, HTMLElement>;
-function css(el: HTMLElement | undefined, props: Record<string, string | number>) {
-  if (!el) return;
-  for (const [k, v] of Object.entries(props)) {
-    const value = String(v);
-    if (k.startsWith("--")) el.style.setProperty(k, value);
-    else (el.style as unknown as Record<string, string>)[k] = value;
-  }
-}
-function setText(el: HTMLElement | undefined, text: string) {
-  if (el && el.textContent !== text) el.textContent = text;
-}
-function setState(el: HTMLElement | undefined, state: string) {
-  if (el && el.dataset.state !== state) el.dataset.state = state;
-}
-const round = (v: number, d = 3) => Math.round(v * 10 ** d) / 10 ** d;
 
 /* ─── Copy ─── */
 
@@ -121,46 +81,6 @@ function ActCopy({ id, eyebrow, title, lede, points, children, actRef }: {
   );
 }
 
-function HeroCopy({ copyRef }: { copyRef: RefObject<HTMLDivElement> }) {
-  const openAuth = useOpenAuth();
-  const { loginDemo, demoLoading } = useDemoLogin();
-  return (
-    <div className="relative flex flex-col items-center justify-start md:justify-center text-center px-6 pt-[92px] md:pt-0 md:pb-[18svh]" style={{ height: "var(--lp-hero)" }}>
-      <div ref={copyRef} className="flex flex-col items-center">
-        <a
-          href={GITHUB_URL}
-          target="_blank"
-          rel="noreferrer noopener"
-          className="lp-rise group inline-flex items-center gap-2 h-9 pl-3 pr-3.5 rounded-full lp-panel-dark text-[13px] font-medium text-white/85 hover:text-white"
-          style={{ ["--lp-delay" as string]: "0ms" }}
-        >
-          <GithubMark size={15} />
-          Free and open source
-          <ArrowRight size={13} strokeWidth={2.2} className="transition-transform group-hover:translate-x-0.5" />
-        </a>
-        <h1 className="lp-display lp-rise mt-5 md:mt-7 text-white" style={{ ["--lp-delay" as string]: "70ms" }}>
-          <span className="block">Tailor. Apply. Track.</span>
-          <span className="block lp-sheen-text pb-[0.08em]">Without the spreadsheet.</span>
-        </h1>
-        <p className="lp-lede lp-rise mt-4 md:mt-6 max-w-[640px] text-[hsl(var(--lp-fog-dark))] text-pretty" style={{ ["--lp-delay" as string]: "140ms" }}>
-          HireTrail tailors your resume to every posting, saves jobs from six boards in one click, and catches recruiter replies in your inbox.
-        </p>
-        <div className="lp-rise mt-7 md:mt-9 flex flex-col sm:flex-row items-center gap-3" style={{ ["--lp-delay" as string]: "210ms" }}>
-          <button type="button" onClick={() => openAuth("register")} className="lp-btn lp-btn--lg lp-btn--solid-dark">
-            Get started — free <ArrowRight size={17} strokeWidth={2.2} />
-          </button>
-          <button type="button" onClick={loginDemo} disabled={demoLoading} className="lp-btn lp-btn--lg lp-btn--glass-dark">
-            {demoLoading ? "Opening the demo…" : "Try the live demo"}
-          </button>
-        </div>
-        <p className="lp-rise mt-6 md:mt-8 flex flex-wrap justify-center gap-x-3 gap-y-1 text-[13px] text-white/45" style={{ ["--lp-delay" as string]: "280ms" }}>
-          <span>6 job boards</span><span aria-hidden>·</span><span>40+ AI providers</span><span aria-hidden>·</span><span>100% open source</span>
-        </p>
-      </div>
-    </div>
-  );
-}
-
 /* ─── The scene ─── */
 
 export default function StoryScene() {
@@ -189,12 +109,7 @@ export default function StoryScene() {
   useLayoutEffect(() => {
     const win = windowRef.current;
     if (!win) return;
-    const map: Els = {};
-    win.querySelectorAll<HTMLElement>("[data-lp]").forEach((el) => {
-      const key = el.dataset.lp!;
-      if (!(key in map)) map[key] = el;
-    });
-    els.current = map;
+    els.current = collect(win);
     urls.current = Array.from(win.querySelectorAll<HTMLElement>('[data-lp="url"]'));
   }, []);
 
@@ -204,7 +119,6 @@ export default function StoryScene() {
     if (!section || !win) return;
     const vw = window.innerWidth;
     const vh = stageRef.current?.offsetHeight || window.innerHeight;
-    const layout = vw >= 1024 ? "desktop" : vw >= 768 ? "tablet" : "mobile";
     const blockBox = (el: HTMLElement | null) => ({ top: el?.offsetTop ?? 0, h: el?.offsetHeight ?? 0 });
     const content = heroBlockRef.current?.parentElement;
     const contentTop = content?.offsetTop ?? 0;
@@ -217,40 +131,15 @@ export default function StoryScene() {
     const zoom = { top: zb.top + contentTop, h: zb.h };
     const end = section.offsetHeight - vh;
 
-    let sCenter: number, sAct: number, sPeek: number, xAct: number, yAct: number, yCenter: number;
-    if (layout === "desktop") {
-      sCenter = Math.min((0.84 * vw) / WINDOW_W, (0.72 * vh) / WINDOW_H);
-      sAct = Math.min((0.54 * vw) / WINDOW_W, (0.7 * vh) / WINDOW_H);
-      xAct = vw * 0.215;
-      yAct = 0;
-      yCenter = vh * 0.035;
-    } else {
-      // Phones show the window larger than the screen — bleeding off both
-      // edges — and pan to what each act is about (FOCUS); tablets fit it.
-      const s = layout === "tablet"
-        ? Math.min((0.88 * vw) / WINDOW_W, (0.46 * vh) / WINDOW_H)
-        : Math.min((1.4 * vw) / WINDOW_W, (0.44 * vh) / WINDOW_H);
-      sCenter = sAct = s;
-      xAct = 0;
-      // Under the header, leaving the lower half for the copy.
-      yAct = yCenter = 78 + (WINDOW_H * s) / 2 - vh / 2;
-    }
-    sPeek = sCenter * 0.9;
-    // The window's top edge sits at ~80% of the viewport in the hero.
-    const yPeek = vh * (layout === "desktop" ? 0.82 : 0.88) + (WINDOW_H * sPeek) / 2 - vh / 2;
-
-    // Below the window on narrow screens: each act's copy is mid-way through
-    // its readable stretch (between entering from the bottom and reaching the
-    // window) at the moment its block is centred.
-    actCopies.current.forEach((el, i) => {
-      if (!el) return;
-      if (layout === "desktop") el.style.paddingTop = "";
-      else {
-        const windowBottom = 78 + WINDOW_H * sAct;
-        el.style.paddingTop = `${Math.max(0, Math.round(windowBottom + vh * 0.2 - (vh - acts[i].h) / 2))}px`;
-      }
-    });
-    const copyTop = actCopies.current.map((el) => el?.offsetTop ?? 0);
+    // Centred after the rise, then beside the copy.
+    const sCenter = Math.min((0.84 * vw) / WINDOW_W, (0.72 * vh) / WINDOW_H);
+    const sAct = Math.min((0.54 * vw) / WINDOW_W, (0.7 * vh) / WINDOW_H);
+    const xAct = vw * 0.215;
+    const yAct = 0;
+    const yCenter = vh * 0.035;
+    const sPeek = sCenter * 0.9;
+    // The window's top edge sits at ~82% of the viewport in the hero.
+    const yPeek = vh * 0.82 + (WINDOW_H * sPeek) / 2 - vh / 2;
 
     const e = els.current;
     const board = e.board;
@@ -260,7 +149,7 @@ export default function StoryScene() {
     const slotInterview = { ...boxWithin(e["slot-Interview"], board ?? win), h: cardH };
 
     metrics.current = {
-      vw, vh, layout, hero, acts, copyTop, zoom, end,
+      vw, vh, hero, acts, zoom, end,
       sPeek, sCenter, sAct, yPeek, yCenter, xAct, yAct,
       tab: boxWithin(e["ext-tab"], win),
       track: boxWithin(e["ext-track"], win),
@@ -278,9 +167,9 @@ export default function StoryScene() {
     const [dark1, light, dark2] = toneRefs.current;
     const lightFrom = hero * 0.55;
     const flip = zoom.top - vh * 0.5 + (zoom.h - vh * 0.5) * 0.3;
-    css(dark1 ?? undefined, { top: "0px", height: `${lightFrom}px` });
-    css(light ?? undefined, { top: `${lightFrom}px`, height: `${Math.max(0, flip - lightFrom)}px` });
-    css(dark2 ?? undefined, { top: `${flip}px`, height: `${Math.max(0, section.offsetHeight - flip)}px` });
+    css(dark1, { top: "0px", height: `${lightFrom}px` });
+    css(light, { top: `${lightFrom}px`, height: `${Math.max(0, flip - lightFrom)}px` });
+    css(dark2, { top: `${flip}px`, height: `${Math.max(0, section.offsetHeight - flip)}px` });
     remeasure();
   }, []);
 
@@ -309,9 +198,9 @@ export default function StoryScene() {
 
     /* Beams and glow fade as the page turns white; the beams stop once gone. */
     const beams = 1 - range(px, hero * 0.18, hero * 0.78);
-    css(beamsWrapRef.current ?? undefined, { opacity: round(beams) });
+    css(beamsWrapRef.current, { opacity: round(beams) });
     beamsRef.current?.setActive(beams > 0.001);
-    css(glowRef.current ?? undefined, { opacity: round(1 - range(px, hero * 0.3, hero * 0.9)) });
+    css(glowRef.current, { opacity: round(1 - range(px, hero * 0.3, hero * 0.9)) });
     css(win, { "--lp-window-rim": round(0.22 * (1 - white)) });
 
     /* Hero copy drifts up slower than the page and fades. */
@@ -322,8 +211,8 @@ export default function StoryScene() {
       });
     }
 
-    /* Window pose. The window steps aside for the copy on wide screens. */
-    const slideT = m.layout === "desktop" ? range(px, hero * 0.98, hero * 0.98 + vh * 0.42) : 0;
+    /* Window pose. The window steps aside for the copy. */
+    const slideT = range(px, hero * 0.98, hero * 0.98 + vh * 0.42);
     let x = 0;
     let y = 0;
     let s = m.sAct;
@@ -342,19 +231,6 @@ export default function StoryScene() {
       x = lerp(0, m.xAct, slide);
       y = lerp(yRise, m.yAct, slide);
       tilt = lerp(24, 0, easeOut(range(px, 0, hero * 0.9)));
-    }
-
-    /* Phones: pan to each beat's subject once the window has risen. */
-    if (m.layout === "mobile") {
-      const b1 = range(px, m.acts[1].top - vh * 0.6, m.acts[1].top - vh * 0.4);
-      const b2 = range(px, m.acts[2].top - vh * 0.6, m.acts[2].top - vh * 0.4);
-      let focus: number = FOCUS.studio;
-      focus = lerp(focus, FOCUS.posting, easeInOut(b1));
-      focus = lerp(focus, FOCUS.review, easeInOut(b2));
-      focus = lerp(focus, FOCUS.move, easeInOut(range(a3, 0.44, 0.58)));
-      focus = lerp(focus, FOCUS.settings, easeInOut(range(z, 0.04, 0.2)));
-      const settle = still ? 1 : easeOut(range(px, hero * 0.3, hero * 0.92));
-      x = (WINDOW_W / 2 - focus) * s * settle;
     }
 
     /* The dive: the Dark card's centre travels to mid-screen as the camera zooms in. */
@@ -380,8 +256,8 @@ export default function StoryScene() {
       opacity: still ? round(range(px, hero * 0.45, hero * 0.85)) : 1,
     });
     // The light the window is lit from sits under it.
-    css(glowRef.current ?? undefined, { transform: `translate3d(${round(x, 1)}px, ${round(y, 1)}px, 0) scale(${round(s, 4)})` });
-    css(nightRef.current ?? undefined, { opacity: round(still ? range(z, 0.5, 0.95) : range(z, 0.82, 1)) });
+    css(glowRef.current, { transform: `translate3d(${round(x, 1)}px, ${round(y, 1)}px, 0) scale(${round(s, 4)})` });
+    css(nightRef.current, { opacity: round(still ? range(z, 0.5, 0.95) : range(z, 0.82, 1)) });
 
     /* Screens: crossfade across each act boundary. */
     const edge = (i: number) => m.acts[i].top - vh * 0.5;
@@ -516,21 +392,10 @@ export default function StoryScene() {
     actCopies.current.forEach((el, i) => {
       if (!el) return;
       const b = m.acts[i];
-      if (m.layout === "desktop") {
-        const d = Math.abs(b.top + b.h / 2 - (px + vh / 2)) / vh;
-        // The first act waits until the window has made room for it.
-        const room = i === 0 && !still ? range(slideT, 0.55, 1) : 1;
-        css(el, { opacity: round(Math.min(room, 1 - clamp01((d - 0.26) / 0.22))) });
-      } else {
-        // Below the window: fade in from the bottom, out before sliding under it.
-        const top = b.top + m.copyTop[i] + parseFloat(el.style.paddingTop || "0") - px;
-        const windowBottom = 78 + WINDOW_H * m.sAct;
-        // In as it rises from the bottom; gone before it reaches the window
-        // (the copy draws above the stage, so it must never overlap it).
-        const inFrom = clamp01((vh - top) / (vh * 0.16));
-        const outBy = clamp01((top - windowBottom - 6) / 44);
-        css(el, { opacity: round(Math.min(inFrom, outBy)) });
-      }
+      const d = Math.abs(b.top + b.h / 2 - (px + vh / 2)) / vh;
+      // The first act waits until the window has made room for it.
+      const room = i === 0 && !still ? range(slideT, 0.55, 1) : 1;
+      css(el, { opacity: round(Math.min(room, 1 - clamp01((d - 0.26) / 0.22))) });
     });
   }, []);
 

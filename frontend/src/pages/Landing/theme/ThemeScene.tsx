@@ -4,7 +4,11 @@
  *  live Board preview from a background, an accent and a contrast — through
  *  the app's own picker, swatches and slider. A few looks to start from; it
  *  tours them on its own until the visitor takes over (never under reduced
- *  motion). Whatever they settle on is offered to their new account. */
+ *  motion). Whatever they settle on is offered to their new account.
+ *
+ *  Below 1024px the preview is the phone story's narrow Applications list,
+ *  docked under the header while the controls scroll beneath it — so every
+ *  change stays in view (two columns on a tablet). */
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { ArrowRight, RotateCcw } from "lucide-react";
 import { generateTheme, hexToLch, lchToHex, DEFAULT_CONTRAST } from "../../../utils/theme.ts";
@@ -16,8 +20,10 @@ import Slider from "../../../components/ui/Slider.tsx";
 import { BrowserBar } from "../story/shell.tsx";
 import BoardScreen from "../story/BoardScreen.tsx";
 import { WINDOW_H, WINDOW_W } from "../story/ProductWindow.tsx";
+import { DEVICE_H, DEVICE_W } from "../story/mobile/Device.tsx";
+import { MiniBar, MListPreview, M_PREVIEW_H } from "../story/mobile/screens.tsx";
 import { useOpenAuth } from "../context.ts";
-import { useReducedMotion } from "../engine/hooks.ts";
+import { useCompactLanding, useMedia, useReducedMotion } from "../engine/hooks.ts";
 
 interface Look { name: string; base: string; accent: string }
 const LOOKS: Look[] = [
@@ -63,11 +69,17 @@ function Swatch({ color, selected, onClick, label, size = 22 }: { color: string;
 export default function ThemeScene() {
   const openAuth = useOpenAuth();
   const reduced = useReducedMotion();
+  const compact = useCompactLanding();
+  // A phone shows a strip of the list above the controls; a tablet, beside them, all of it.
+  const beside = useMedia("(min-width: 768px)");
+  const designW = compact ? DEVICE_W : WINDOW_W;
+  const designH = compact ? (beside ? DEVICE_H : M_PREVIEW_H) : WINDOW_H;
   const [pick, setPick] = useState<Pick>(() => fromLook(LOOKS[0]));
   const [live, setLive] = useState(false);
   const [touched, setTouched] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
+  const dockRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.6);
   const [inView, setInView] = useState(false);
   const [spotOn, setSpotOn] = useState(false);
@@ -79,10 +91,23 @@ export default function ThemeScene() {
   useEffect(() => {
     const el = frameRef.current;
     if (!el) return;
-    const ro = new ResizeObserver(([entry]) => setScale(entry.contentRect.width / WINDOW_W));
+    const ro = new ResizeObserver(([entry]) => setScale(entry.contentRect.width / designW));
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+  }, [designW]);
+
+  // The docked preview hides what scrolls behind the header — only while it's
+  // stuck there (in the flow, a band above it would cover the copy).
+  useEffect(() => {
+    const el = dockRef.current;
+    if (!compact || !el) return;
+    const top = parseFloat(getComputedStyle(el).top) || 0;
+    const io = new IntersectionObserver(([entry]) => {
+      el.toggleAttribute("data-stuck", entry.intersectionRatio < 1 && entry.boundingClientRect.top <= top + 1);
+    }, { rootMargin: `${-(top + 1)}px 0px 0px 0px`, threshold: [1] });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [compact]);
 
   useEffect(() => {
     const el = sectionRef.current;
@@ -129,7 +154,7 @@ export default function ThemeScene() {
   const accentHex = lchToHex(hexToLch(pick.accent));
 
   return (
-    <section ref={sectionRef} className="relative bg-[hsl(var(--lp-night))] text-white overflow-hidden" data-lp-tone="dark" aria-labelledby="lp-theme-title">
+    <section ref={sectionRef} className="relative bg-[hsl(var(--lp-night))] text-white overflow-clip" data-lp-tone="dark" aria-labelledby="lp-theme-title">
       <div className="lp-grid opacity-60" />
       <div
         className={`lp-spotlight ${spotOn ? "is-on" : ""}`}
@@ -144,18 +169,29 @@ export default function ThemeScene() {
           </p>
         </div>
 
-        <div className="mt-14 grid lg:grid-cols-[minmax(0,1fr)_340px] gap-8 lg:gap-10 items-start">
-          {/* The preview: the Board, painted by the engine. */}
-          <div ref={frameRef} className="relative w-full" style={{ height: WINDOW_H * scale }}>
-            <div
-              className="absolute left-0 top-0 origin-top-left rounded-[18px] overflow-hidden shadow-[0_0_0_1px_rgb(255_255_255/0.08),0_40px_120px_-30px_rgb(0_0_0/0.9)]"
-              style={{ width: WINDOW_W, height: WINDOW_H, transform: `scale(${scale})` }}
-              aria-hidden
-              ref={(n) => n?.setAttribute("inert", "")}
-            >
-              <div className={`lp-themed absolute inset-0 ${theme.isDark ? "dark" : ""}`} style={previewStyle} data-live={live ? "" : undefined}>
-                <div className="absolute inset-0 top-11"><BoardScreen still /></div>
-                <BrowserBar dark={theme.isDark} />
+        <div className={`mt-14 grid gap-8 items-start ${compact ? "md:grid-cols-[minmax(0,1fr)_320px]" : "lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-10"}`}>
+          {/* The preview: the app, painted by the engine. */}
+          <div ref={dockRef} className={compact ? "lp-theme-dock" : undefined}>
+            <div ref={frameRef} className="relative w-full" style={{ height: designH * scale }}>
+              <div
+                className={`absolute left-0 top-0 origin-top-left overflow-hidden shadow-[0_0_0_1px_rgb(255_255_255/0.08),0_40px_120px_-30px_rgb(0_0_0/0.9)] ${compact ? "rounded-[16px]" : "rounded-[18px]"}`}
+                style={{ width: designW, height: designH, transform: `scale(${scale})` }}
+                aria-hidden
+                ref={(n) => n?.setAttribute("inert", "")}
+              >
+                <div className={`lp-themed absolute inset-0 ${theme.isDark ? "dark" : ""}`} style={previewStyle} data-live={live ? "" : undefined}>
+                  {compact ? (
+                    <>
+                      <div className="absolute inset-0 top-8"><MListPreview /></div>
+                      <MiniBar url="hiretrail.manavkaneria.me/applications" dark={theme.isDark} />
+                    </>
+                  ) : (
+                    <>
+                      <div className="absolute inset-0 top-11"><BoardScreen still /></div>
+                      <BrowserBar dark={theme.isDark} />
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           </div>

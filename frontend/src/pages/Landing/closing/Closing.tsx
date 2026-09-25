@@ -39,7 +39,8 @@ function CallToAction() {
       {/* Light until the fade is halfway: 17% into the 45svh pin (see .lp-closing). */}
       <div data-lp-tone="light" className="absolute inset-x-0 top-0 h-[7.5vh] h-[7.5svh] pointer-events-none" />
       <div data-lp-tone="dark" className="absolute inset-x-0 top-[7.5vh] top-[7.5svh] bottom-0 pointer-events-none" />
-      <div ref={stageRef} className="sticky top-0 h-screen h-svh overflow-hidden bg-white">
+      {/* 100lvh: the stage still fills the screen once a phone's toolbars tuck away. */}
+      <div ref={stageRef} className="sticky top-0 h-screen h-lvh overflow-hidden bg-white">
         <div ref={darkRef} className="absolute inset-0 bg-[hsl(var(--lp-night))]" style={{ opacity: 0 }}>
           <div className="lp-grid opacity-70" />
           <div ref={spotRef} className="absolute inset-0" style={{ opacity: 0 }}>
@@ -49,17 +50,20 @@ function CallToAction() {
         <div ref={copyRef} className="relative h-full flex flex-col items-center justify-center text-center px-6 text-white" style={{ opacity: 0 }}>
           <h2 id="lp-closing-title" className="lp-display max-w-[900px]">Ready when you are.</h2>
           <p className="lp-lede mt-6 max-w-[560px] text-[hsl(var(--lp-fog-dark))]">Free and open source. Set up in a minute — your next application can be the first one HireTrail tracks.</p>
-          <div className="mt-10 flex flex-col sm:flex-row items-center gap-3">
-            <button type="button" onClick={() => openAuth("register")} className="lp-btn lp-btn--lg lp-btn--solid-dark">
+          <div className="mt-10 flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto max-w-[340px] sm:max-w-none">
+            <button type="button" onClick={() => openAuth("register")} className="lp-btn lp-btn--lg lp-btn--solid-dark w-full sm:w-auto">
               Create your account <ArrowRight size={17} strokeWidth={2.2} />
             </button>
-            <button type="button" onClick={loginDemo} disabled={demoLoading} className="lp-btn lp-btn--lg lp-btn--glass-dark">
+            <button type="button" onClick={loginDemo} disabled={demoLoading} className="lp-btn lp-btn--lg lp-btn--glass-dark w-full sm:w-auto">
               {demoLoading ? "Opening the demo…" : "Try the live demo"}
             </button>
           </div>
-          <a href={CHROME_STORE_URL} target="_blank" rel="noopener noreferrer" className="lp-link mt-8 text-[15px] text-white/75 hover:text-white">
-            Add to Chrome <ArrowRight size={15} strokeWidth={2.2} />
-          </a>
+          {/* The extension installs on a computer — not offered on phones and tablets. */}
+          <div className="hidden lg:block mt-8">
+            <a href={CHROME_STORE_URL} target="_blank" rel="noopener noreferrer" className="lp-link text-[15px] text-white/75 hover:text-white">
+              Add to Chrome <ArrowRight size={15} strokeWidth={2.2} />
+            </a>
+          </div>
         </div>
       </div>
     </section>

@@ -1,8 +1,9 @@
 /** "And everything else" — a pinned list of big words. The list glides up as
  *  you scroll; the word on the reading line is lit by a spotlight, its line of
- *  copy fades in beneath it and a piece of the real app appears beside it.
+ *  copy fades in beneath it and a piece of the real app appears beside it (on
+ *  a phone, beneath it — the same scrubbed hand-off, placed by Landing.css).
  *  Reduced motion: the list doesn't travel — the lit word simply changes. */
-import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useRef } from "react";
 import { useReducedMotion, useScene } from "../engine/hooks.ts";
 import { clamp01, range } from "../engine/scroll.ts";
 import { AIVignette, CalendarVignette, ContactsVignette, DeadlinesVignette, ImportVignette, SearchVignette } from "./Vignettes.tsx";
@@ -28,8 +29,6 @@ export default function EverythingScene() {
   const reduced = useReducedMotion();
   const reducedRef = useRef(reduced);
   reducedRef.current = reduced;
-  const [active, setActive] = useState(0);
-  const activeRef = useRef(0);
 
   const measure = useCallback(() => {
     const list = listRef.current;
@@ -51,10 +50,6 @@ export default function EverythingScene() {
     const pos = clamp01(p) * (ITEMS.length - 1);
     const still = reducedRef.current;
     const current = Math.round(pos);
-    if (current !== activeRef.current) {
-      activeRef.current = current;
-      setActive(current);
-    }
     if (listRef.current) {
       const tops = rowTops.current;
       const at = still ? current : pos;
@@ -77,11 +72,15 @@ export default function EverythingScene() {
       if (!el) return;
       el.style.opacity = (1 - range(dist(i), 0.18, 0.46)).toFixed(3);
     });
-    // The pieces of the app hand over at the midpoint, overlapping a little so
-    // the side is never empty.
+    // The pieces of the app hand over at the midpoint: the next one dissolves
+    // in over this one, which holds until it's mostly covered — never empty,
+    // and never two half-faded pieces showing through each other.
+    const last = ITEMS.length - 1;
     cardRefs.current.forEach((el, i) => {
       if (!el) return;
-      const o = 1 - range(dist(i), 0.4, 0.6);
+      const o = still
+        ? (i === current ? 1 : 0)
+        : (i === 0 ? 1 : range(pos - i + 1, 0.4, 0.6)) * (i === last ? 1 : 1 - range(pos - i, 0.5, 0.6));
       el.style.opacity = o.toFixed(3);
       el.style.transform = still ? "none" : `translate3d(0, ${Math.round((pos - i) * -24)}px, 0) scale(${(0.975 + 0.025 * o).toFixed(4)})`;
       el.style.visibility = o > 0.001 ? "visible" : "hidden";
@@ -115,7 +114,7 @@ export default function EverythingScene() {
               </div>
             </div>
           </div>
-          <div className="relative hidden lg:flex items-center theme-dark dark">
+          <div className="lp-vignettes theme-dark dark">
             {ITEMS.map((item, i) => (
               <div
                 key={item.word}
@@ -127,15 +126,6 @@ export default function EverythingScene() {
                 <item.Vignette />
               </div>
             ))}
-          </div>
-        </div>
-        {/* Narrow screens: the active piece of the app sits under the words. */}
-        <div className="lg:hidden absolute inset-x-0 bottom-[6svh] px-5 theme-dark dark" aria-hidden>
-          <div className="relative max-w-[440px] mx-auto">
-            {(() => {
-              const V = ITEMS[active].Vignette;
-              return <div key={active} className="lp-fade-in"><V /></div>;
-            })()}
           </div>
         </div>
       </div>

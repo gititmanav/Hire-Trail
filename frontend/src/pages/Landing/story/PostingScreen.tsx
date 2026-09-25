@@ -4,7 +4,7 @@
  *  posting itself is a generic job-board page. */
 import { Check, ChevronRight, Copy, Sparkles } from "lucide-react";
 
-function Glyph({ gradient, children }: { gradient: string; children: React.ReactNode }) {
+export function Glyph({ gradient, children }: { gradient: string; children: React.ReactNode }) {
   return (
     <span className="w-8 h-8 shrink-0 rounded-lg flex items-center justify-center text-white" style={{ background: gradient }}>
       {children}
@@ -12,7 +12,7 @@ function Glyph({ gradient, children }: { gradient: string; children: React.React
   );
 }
 
-function BookmarkIcon() {
+export function BookmarkIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
       <path d="M19 4a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v17a1 1 0 0 0 1.55.83L12 18.2l5.45 3.63A1 1 0 0 0 19 21V4Z" />

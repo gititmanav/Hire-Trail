@@ -43,7 +43,7 @@ export default function Nav() {
         <div className="flex items-center justify-between h-12 pl-4 pr-2 sm:pl-5 sm:pr-2.5">
           <Link to="/" className={`flex items-center gap-2 rounded-lg ${dark ? "text-white" : "text-[hsl(var(--lp-ink))]"}`} aria-label="HireTrail home">
             <BrandMark size={26} tone={dark ? "dark" : "light"} />
-            <span className="font-semibold tracking-[-0.02em] text-[15px]">HireTrail</span>
+            <span className="hidden min-[360px]:inline font-semibold tracking-[-0.02em] text-[15px]">HireTrail</span>
           </Link>
           <nav className="flex items-center gap-1 sm:gap-1.5" aria-label="Main">
             {LINKS.map((l) => (
@@ -65,7 +65,7 @@ export default function Nav() {
               <Play size={12} strokeWidth={2.4} aria-hidden="true" />
               {demoLoading ? "Signing in…" : "Try demo"}
             </button>
-            <button type="button" onClick={() => openAuth("login")} className={`hidden sm:inline-flex text-[14px] font-medium px-3 py-2 rounded-full transition-colors ${quiet}`}>
+            <button type="button" onClick={() => openAuth("login")} className={`inline-flex text-[14px] font-medium px-2.5 sm:px-3 py-2 rounded-full transition-colors ${quiet}`}>
               Log in
             </button>
             <button type="button" onClick={() => openAuth("register")} className={`lp-btn lp-btn--sm ${dark ? "lp-btn--solid-dark" : "lp-btn--solid-light"}`}>

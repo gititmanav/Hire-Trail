@@ -1,9 +1,12 @@
 /** "Why people switch." — a quiet, typographic comparison. The middle column
- *  describes trackers in general, so it stays general. */
+ *  describes trackers in general, so it stays general. Phones get the same
+ *  rows stacked (each feature over its three answers) instead of a table
+ *  that scrolls sideways. */
 import { Check, Minus } from "lucide-react";
 import Reveal from "../engine/Reveal.tsx";
 
 type Cell = true | false | string;
+const COLUMNS = ["A spreadsheet", "A typical tracker", "HireTrail"] as const;
 const ROWS: { label: string; sheet: Cell; tracker: Cell; us: Cell }[] = [
   { label: "Tailors your resume to each job", sheet: false, tracker: "Often a paid plan", us: "Included" },
   { label: "Updates from your inbox", sheet: false, tracker: "Rarely", us: "You confirm each change" },
@@ -27,14 +30,35 @@ export default function Compare() {
           <p className="lp-eyebrow text-[hsl(var(--lp-fog-light))]">Compare</p>
           <h2 id="lp-compare-title" className="lp-h2 mt-2 text-[hsl(var(--lp-ink))]">Why people switch.</h2>
         </Reveal>
-        <Reveal delay={80} className="mt-12 overflow-x-auto -mx-6 px-6">
-          <table className="w-full min-w-[640px] border-collapse text-[15px]">
+        {/* Phones: each feature over its three answers, HireTrail's in a lit column. */}
+        <Reveal delay={80} className="sm:hidden mt-10">
+          <div className="grid grid-cols-3 gap-3 pb-3 text-[12.5px] font-medium text-[hsl(var(--lp-fog-light))]" aria-hidden>
+            <span>{COLUMNS[0]}</span>
+            <span>{COLUMNS[1]}</span>
+            <span className="-mx-2.5 px-2.5 font-semibold text-[hsl(var(--lp-ink))]">{COLUMNS[2]}</span>
+          </div>
+          <dl>
+            {ROWS.map((r) => (
+              <div key={r.label} className="border-t border-black/[0.08] pt-4 pb-4">
+                <dt className="text-[15px] font-medium leading-snug text-[hsl(var(--lp-ink))]">{r.label}</dt>
+                <dd className="mt-2.5 grid grid-cols-3 gap-3 items-center text-[14px] leading-snug">
+                  <span><span className="sr-only">{COLUMNS[0]}: </span><Value v={r.sheet} /></span>
+                  <span><span className="sr-only">{COLUMNS[1]}: </span><Value v={r.tracker} /></span>
+                  <span className="-mx-2.5 px-2.5 py-1.5 rounded-lg bg-[hsl(var(--lp-mist))]"><span className="sr-only">{COLUMNS[2]}: </span><Value v={r.us} strong /></span>
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </Reveal>
+
+        <Reveal delay={80} className="hidden sm:block mt-12">
+          <table className="w-full border-collapse text-[15px]">
             <thead>
               <tr className="text-left">
                 <th scope="col" className="w-[34%] pb-4 font-medium text-[13px] text-[hsl(var(--lp-fog-light))]"><span className="sr-only">Feature</span></th>
-                <th scope="col" className="w-[20%] pb-4 font-medium text-[13px] text-[hsl(var(--lp-fog-light))]">A spreadsheet</th>
-                <th scope="col" className="w-[22%] pb-4 font-medium text-[13px] text-[hsl(var(--lp-fog-light))]">A typical tracker</th>
-                <th scope="col" className="w-[24%] pb-4 pl-5 font-semibold text-[13px] text-[hsl(var(--lp-ink))] rounded-t-2xl bg-[hsl(var(--lp-mist))] pt-4">HireTrail</th>
+                <th scope="col" className="w-[20%] pb-4 font-medium text-[13px] text-[hsl(var(--lp-fog-light))]">{COLUMNS[0]}</th>
+                <th scope="col" className="w-[22%] pb-4 font-medium text-[13px] text-[hsl(var(--lp-fog-light))]">{COLUMNS[1]}</th>
+                <th scope="col" className="w-[24%] pb-4 pl-5 font-semibold text-[13px] text-[hsl(var(--lp-ink))] rounded-t-2xl bg-[hsl(var(--lp-mist))] pt-4">{COLUMNS[2]}</th>
               </tr>
             </thead>
             <tbody>

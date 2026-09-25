@@ -318,10 +318,146 @@ html.lp-root body {
   margin-left: max(24px, 6vw);
   width: min(440px, 33vw);
 }
-@media (max-width: 1023px) {
-  .lp-story { --lp-act: 96svh; }
-  .lp-act { align-items: flex-start; justify-content: center; }
-  .lp-act-copy { margin: 0; width: auto; max-width: 560px; padding-left: 24px; padding-right: 24px; }
+
+/* ─── The phone story (story/mobile: below 1024px) ─── */
+
+/* Two layers in one grid cell: the scrolling content (the headline) above
+ * the pinned stage. The stage is 100lvh so it fills the screen with the
+ * browser's toolbars shown or hidden; what sits on it is placed inside the
+ * top 100svh (the probe measures it), which is always visible. */
+.lp-mstory {
+  position: relative;
+  display: grid;
+  --lp-hero: 100vh;
+}
+@supports (height: 1svh) {
+  .lp-mstory { --lp-hero: 100svh; }
+}
+.lp-mlayer { grid-area: 1 / 1; position: relative; min-width: 0; }
+.lp-mcontent { z-index: 10; pointer-events: none; }
+.lp-mcontent > :first-child { pointer-events: auto; }
+.lp-mstage {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100lvh;
+  overflow: hidden;
+}
+.lp-svh-probe {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1px;
+  height: 100vh;
+  height: 100svh;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* The device: a narrow browser window (360 × 500), scaled by the scene. */
+.lp-device {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 360px;
+  height: 500px;
+  margin-left: -180px;
+  border-radius: 20px;
+  overflow: hidden;
+  background: hsl(0 0% 99%);
+  transform-origin: 50% 50%;
+  box-shadow:
+    0 0 0 1px hsl(0 0% 0% / 0.08),
+    0 2px 6px hsl(0 0% 0% / 0.06),
+    0 24px 60px -18px hsl(0 0% 0% / 0.35),
+    0 48px 100px -32px hsl(0 0% 0% / 0.28);
+  contain: layout paint;
+}
+.lp-device::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.5), 0 0 0 1px hsl(0 0% 100% / var(--lp-window-rim, 0));
+  pointer-events: none;
+  z-index: 5;
+}
+.lp-device .lp-screen { inset: 32px 0 0 0; }
+.lp-device-glow {
+  position: absolute;
+  left: 50%;
+  top: -200px;
+  width: 760px;
+  height: 900px;
+  margin-left: -380px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, hsl(0 0% 100% / 0.16), transparent 70%);
+  pointer-events: none;
+}
+/* Where a finger lands (a phone has no pointer to follow). */
+.lp-touch {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 30;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: radial-gradient(circle, hsl(0 0% 20% / 0.34) 0 58%, hsl(0 0% 20% / 0.22) 100%);
+  box-shadow: 0 0 0 1.5px hsl(0 0% 100% / 0.85), 0 0 0 3px hsl(0 0% 0% / 0.08), 0 4px 14px hsl(0 0% 0% / 0.22);
+  pointer-events: none;
+}
+/* Studio's "see the gap": the missing keywords glow before they're chosen. */
+.lp-gap-chip {
+  box-shadow: 0 0 0 calc(var(--lp-on, 0) * 1.5px) rgb(var(--palette-amber-400) / var(--lp-on, 0)),
+    0 0 14px rgb(var(--palette-amber-300) / calc(var(--lp-on, 0) * 0.6));
+}
+
+/* The caption slot under the device. */
+.lp-mcaptions {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 100vh;
+  height: 100svh;
+  display: grid;
+  align-items: end;
+  padding: 0 24px 28px;
+  text-align: center;
+  pointer-events: none;
+}
+.lp-mcaption { grid-area: 1 / 1; width: 100%; max-width: 560px; margin: 0 auto; }
+.lp-mcaption-eyebrow {
+  font-size: 0.9375rem;
+  line-height: 1.3;
+  letter-spacing: -0.012em;
+  font-weight: 600;
+}
+.lp-mcaption-title {
+  font-size: clamp(1.5rem, 1.1rem + 1.8vw, 2.5rem);
+  line-height: 1.08;
+  letter-spacing: -0.032em;
+  font-weight: 700;
+}
+.lp-mcaption-lede {
+  max-width: 30rem;
+  margin-inline: auto;
+  font-size: clamp(0.9375rem, 0.88rem + 0.3vw, 1.125rem);
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+  font-weight: 500;
+}
+/* Short phones: a tighter caption leaves the device room to stay readable. */
+@media (orientation: portrait) and (max-height: 640px) {
+  .lp-mcaptions { padding-bottom: 18px; }
+  .lp-mcaption-title { font-size: 1.375rem; }
+  .lp-mcaption-lede { font-size: 0.875rem; line-height: 1.45; }
+}
+/* A phone on its side: the captions sit beside the device. */
+@media (orientation: landscape) and (max-height: 560px) {
+  .lp-mcaptions { left: 50%; padding: 72px 32px 20px 12px; align-items: center; text-align: left; }
+  .lp-mcaption-lede { margin-inline: 0; }
 }
 
 /* Studio: the posting's keywords light up as the gap is found. */
@@ -366,6 +502,43 @@ html.lp-root body {
 .lp-themed[data-live],
 .lp-themed[data-live] * {
   transition: none !important;
+}
+
+/* Below 1024px the theme preview docks under the header while the controls
+ * scroll beneath it; a band of the chapter's night hides what passes under. */
+.lp-theme-dock {
+  position: sticky;
+  top: 64px;
+  z-index: 10;
+  margin: 0 -24px;
+  padding: 8px 24px 12px;
+  background: hsl(var(--lp-night));
+}
+.lp-theme-dock::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  height: 28px;
+  background: linear-gradient(hsl(var(--lp-night)), hsl(var(--lp-night) / 0));
+  pointer-events: none;
+}
+.lp-theme-dock[data-stuck]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: 64px;
+  background: hsl(var(--lp-night));
+}
+.lp-theme-dock > div { max-width: 420px; margin: 0 auto; }
+@media (min-width: 768px) {
+  .lp-theme-dock { top: 96px; margin: 0; padding: 0; background: none; }
+  .lp-theme-dock::after,
+  .lp-theme-dock[data-stuck]::before { display: none; }
+  .lp-theme-dock > div { max-width: none; }
 }
 
 /* ─── Footer ─── */
@@ -450,6 +623,9 @@ html.lp-root body {
   font-weight: 700;
 }
 .lp-word-line { margin-top: 0.85rem; max-width: 30rem; min-height: 3em; }
+/* The pieces of the app: beside the words (the grid's second column), or
+ * under them on narrower screens — bottom-aligned in a slot above the fold. */
+.lp-vignettes { position: relative; display: flex; align-items: center; }
 .lp-reading-light {
   position: absolute;
   left: -12%;
@@ -472,6 +648,17 @@ html.lp-root body {
   }
   .lp-reading-light { top: 32%; height: 40%; }
   .lp-word-line { min-height: 0; font-size: 1rem; }
+  .lp-vignettes {
+    position: absolute;
+    left: 20px;
+    right: 20px;
+    bottom: 5vh;
+    bottom: 5svh;
+    max-width: 440px;
+    height: 320px;
+    margin: 0 auto;
+    align-items: flex-end;
+  }
 }
 
 .lp-ai-glow { box-shadow: 0 0 0 1px hsl(var(--border)), 0 0 28px -6px hsl(0 0% 100% / 0.35); }
@@ -480,7 +667,8 @@ html.lp-root body {
 
 /* 120 of pin: the white arrives in the first 14%, the words by 80%. */
 .lp-founder { height: calc(100vh + 120vh); }
-@supports (height: 1svh) { .lp-founder { height: calc(100svh + 120svh); } }
+/* The stage is 100lvh (see FounderScene); the pin itself stays 120svh. */
+@supports (height: 1svh) { .lp-founder { height: calc(100lvh + 120svh); } }
 .lp-founder-line {
   font-size: clamp(1.75rem, 1.05rem + 2.9vw, 3.5rem);
   line-height: 1.16;
@@ -503,7 +691,7 @@ html.lp-root body {
 /* 45 of pin: dark within the first third, the headline rising as it lands —
  * short, so nothing sits still under a moving scroll. */
 .lp-closing { height: calc(100vh + 45vh); }
-@supports (height: 1svh) { .lp-closing { height: calc(100svh + 45svh); } }
+@supports (height: 1svh) { .lp-closing { height: calc(100lvh + 45svh); } }
 
 @media (prefers-reduced-motion: reduce) {
   .lp-reveal-wait { opacity: 1; transform: none; }

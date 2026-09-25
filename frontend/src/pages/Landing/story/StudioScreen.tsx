@@ -8,7 +8,7 @@ import { AppShell } from "./shell.tsx";
 
 export const STUDIO_KEYWORDS = ["React", "TypeScript", "design systems", "accessibility", "performance"] as const;
 /** Which keywords the resume already covers before the rewrite. */
-const MATCHED_BEFORE = new Set(["React", "TypeScript"]);
+export const MATCHED_BEFORE = new Set(["React", "TypeScript"]);
 
 export const STUDIO_BULLETS = [
   {
