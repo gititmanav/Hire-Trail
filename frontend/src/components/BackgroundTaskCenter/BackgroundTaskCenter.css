@@ -26,8 +26,8 @@
   border: 1px solid hsl(var(--border));
   background: hsl(var(--card));
   box-shadow:
-    0 2px 6px rgba(0, 0, 0, 0.06),
-    0 12px 32px rgba(0, 0, 0, 0.10);
+    0 2px 6px hsl(var(--scrim) / 0.06),
+    0 12px 32px hsl(var(--scrim) / 0.10);
   animation: bgTaskIn 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
@@ -37,11 +37,11 @@
 }
 
 .bg-task-card.status-success {
-  border-color: rgba(16, 185, 129, 0.35); /* emerald-500 */
+  border-color: rgb(var(--palette-emerald-500) / 0.35);
 }
 
 .bg-task-card.status-error {
-  border-color: rgba(239, 68, 68, 0.45); /* red-500 */
+  border-color: rgb(var(--palette-red-500) / 0.45);
 }
 
 .bg-task-icon {
@@ -56,13 +56,13 @@
 }
 
 .bg-task-card.status-success .bg-task-icon {
-  background: rgba(16, 185, 129, 0.12);
-  color: rgb(5, 150, 105);
+  background: rgb(var(--palette-emerald-500) / 0.12);
+  color: rgb(var(--palette-emerald-600));
 }
 
 .bg-task-card.status-error .bg-task-icon {
-  background: rgba(239, 68, 68, 0.12);
-  color: rgb(220, 38, 38);
+  background: rgb(var(--palette-red-500) / 0.12);
+  color: rgb(var(--palette-red-600));
 }
 
 .bg-task-body {

@@ -18,11 +18,14 @@
  * confirm. Confirming sends `abandonScan` so pending candidates are
  * cleaned up server-side (imported/merged ones stay — they're real Apps).
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { X, Mail, Filter, Search, AlertTriangle, RotateCw, Link2 } from "lucide-react";
+import Select from "../../components/ui/Select.tsx";
+import { STAGE_STRIPE_CLASS } from "../../utils/stageStyles.ts";
 import toast from "react-hot-toast";
 import { emailAPI, type ScanCandidate, type ScanJob, type ScanJobStatus } from "../../utils/api.ts";
 import AiStepper from "../../components/AiIndicator/AiStepper.tsx";
+import { MODAL_EXIT, useExitAnimation } from "../../hooks/useExitAnimation.ts";
 
 const POLL_MS = 3000;
 
@@ -82,6 +85,8 @@ export interface EmailScanFlowModalProps {
 }
 
 export default function EmailScanFlowModal({ initialJob, onClose, onFinished }: EmailScanFlowModalProps) {
+  const exitRef = useExitAnimation(MODAL_EXIT);
+  const confirmExitRef = useExitAnimation(MODAL_EXIT);
   const [step, setStep] = useState<Step>(stepForJob(initialJob));
   const [job, setJob] = useState<ScanJob | null>(initialJob);
   const [candidates, setCandidates] = useState<ScanCandidate[]>([]);
@@ -222,13 +227,15 @@ export default function EmailScanFlowModal({ initialJob, onClose, onFinished }: 
 
   return (
     <div
-      className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4"
+      ref={exitRef}
+      className="fixed inset-0 bg-scrim/70 z-50 flex items-center justify-center p-4 modal-overlay-in"
       onClick={requestClose}
       role="dialog"
       aria-modal="true"
       aria-labelledby="scan-flow-title"
     >
       <div
+        data-modal-panel
         className="bg-card border border-border rounded-2xl w-full max-w-2xl max-h-[92vh] overflow-hidden shadow-2xl animate-in flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
@@ -258,11 +265,13 @@ export default function EmailScanFlowModal({ initialJob, onClose, onFinished }: 
       {/* Lose-results sub-confirm */}
       {confirmClose && (
         <div
-          className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-4"
+          ref={confirmExitRef}
+          className="fixed inset-0 bg-scrim/70 z-[60] flex items-center justify-center p-4 modal-overlay-in"
           onClick={(e) => { e.stopPropagation(); setConfirmClose(false); }}
         >
           <div
-            className="bg-card border border-red-300 dark:border-red-900 rounded-2xl w-full max-w-md p-6 shadow-2xl"
+            data-modal-panel
+            className="bg-card border border-red-300 dark:border-red-900 rounded-2xl w-full max-w-md p-6 shadow-2xl animate-in"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-base font-semibold text-red-700 dark:text-red-200">
@@ -339,7 +348,7 @@ function FailedStep({ job, onRetry, onReconnect, onClose }: {
           <button
             type="button"
             onClick={onReconnect}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg"
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg"
           >
             <Link2 size={15} strokeWidth={2} />Reconnect Gmail
           </button>
@@ -347,7 +356,7 @@ function FailedStep({ job, onRetry, onReconnect, onClose }: {
           <button
             type="button"
             onClick={onRetry}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg"
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg"
           >
             <RotateCw size={15} strokeWidth={2} />Try again
           </button>
@@ -465,7 +474,7 @@ function PickerStep({
           type="button"
           onClick={start}
           disabled={!consent || submitting}
-          className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50 inline-flex items-center gap-2"
+          className="px-4 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50 inline-flex items-center gap-2"
         >
           {submitting ? "Starting…" : "Start scan"}
         </button>
@@ -645,7 +654,7 @@ function ReviewStep({
           type="button"
           onClick={handleFinish}
           disabled={confirming}
-          className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50"
+          className="px-4 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50"
         >
           {confirming ? "Finishing…" : pending.length === 0 ? "Confirm & finish" : "Done with review"}
         </button>
@@ -702,14 +711,14 @@ function CandidateCard({
         </div>
         <div>
           <label className="block text-[10.5px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Stage</label>
-          <select
-            className={inputCls}
+          <Select
+            size="sm"
+            ariaLabel="Stage"
             value={stage}
-            onChange={(e) => onChange({ stage: e.target.value as Stage })}
+            onChange={(v) => onChange({ stage: v as Stage })}
             disabled={busy}
-          >
-            {STAGES.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
+            options={STAGES.map((s) => ({ value: s, label: s, icon: <span className={`w-2 h-2 rounded-full ${STAGE_STRIPE_CLASS[s]}`} /> }))}
+          />
         </div>
         <div className="text-[11px] text-muted-foreground self-end pb-2">
           <span className={`inline-block px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border text-[10px] ${STAGE_TONE[stage]}`}>
@@ -744,7 +753,7 @@ function CandidateCard({
           type="button"
           onClick={onImport}
           disabled={busy || !role.trim() || !company.trim()}
-          className="px-3 py-1.5 text-xs font-medium text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50"
+          className="px-3 py-1.5 text-xs font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50"
         >
           {busy ? "Working…" : isFailed ? "Retry import" : "Import"}
         </button>
@@ -803,7 +812,7 @@ function DoneStep({ job, onClose }: { job: ScanJob; onClose: () => void }) {
         <button
           type="button"
           onClick={onClose}
-          className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg"
+          className="px-4 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg"
         >
           Done
         </button>

@@ -25,8 +25,8 @@ export default function Toggle({ checked, onChange, disabled, label }: Props) {
     >
       <span
         aria-hidden
-        className={`inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200 ${
-          checked ? "translate-x-[22px]" : "translate-x-[2px]"
+        className={`inline-block h-5 w-5 rounded-full shadow-sm transition-transform duration-200 ${
+          checked ? "translate-x-[22px] bg-primary-foreground" : "translate-x-[2px] bg-paper"
         }`}
       />
     </button>

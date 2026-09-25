@@ -4,6 +4,7 @@ import { adminAPI } from "../../utils/api";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal";
 import { useConfirm } from "../../hooks/useConfirm";
 import type { AdminNotificationItem, AdminNotificationStats, Pagination, NotificationSignalType } from "../../types";
+import Select from "../../components/ui/Select.tsx";
 
 const TYPE_META: Record<NotificationSignalType, { label: string; cls: string; dot: string }> = {
   rejection_detected: { label: "Rejection", cls: "bg-red-500/10 text-red-700 dark:text-red-300 border-red-500/20", dot: "bg-red-500" },
@@ -141,7 +142,7 @@ export default function NotificationCenter() {
               { label: "Open signals", value: stats.unresolvedSignals, accent: "text-primary" },
               { label: "Today", value: stats.todayCount, accent: "text-emerald-600 dark:text-emerald-400" },
             ].map((s) => (
-              <div key={s.label} className="bg-card border border-border rounded-xl p-4">
+              <div key={s.label} className="surface-card p-4">
                 <p className="text-xs uppercase tracking-wider text-muted-foreground">{s.label}</p>
                 <p className={`text-2xl font-bold mt-1 ${s.accent}`}>{s.value}</p>
               </div>
@@ -180,45 +181,57 @@ export default function NotificationCenter() {
           value={search}
           onChange={(e) => handleSearch(e.target.value)}
         />
-        <select
-          className="input-premium w-auto"
-          value={typeFilter}
-          onChange={(e) => { setTypeFilter(e.target.value); refetch({ type: e.target.value }); }}
-        >
-          <option value="">All types</option>
-          <option value="interview_detected">Interview</option>
-          <option value="offer_detected">Offer</option>
-          <option value="follow_up_detected">Follow-up</option>
-          <option value="rejection_detected">Rejection</option>
-          <option value="info">Info</option>
-        </select>
-        <select
-          className="input-premium w-auto"
-          value={sourceFilter}
-          onChange={(e) => { setSourceFilter(e.target.value); refetch({ source: e.target.value }); }}
-        >
-          <option value="">All sources</option>
-          <option value="gmail">Gmail ({sourceStats.gmail})</option>
-          <option value="outlook">Outlook ({sourceStats.outlook})</option>
-        </select>
-        <select
-          className="input-premium w-auto"
-          value={readFilter}
-          onChange={(e) => { setReadFilter(e.target.value); refetch({ read: e.target.value }); }}
-        >
-          <option value="">Read & unread</option>
-          <option value="false">Unread only</option>
-          <option value="true">Read only</option>
-        </select>
-        <select
-          className="input-premium w-auto"
-          value={resolvedFilter}
-          onChange={(e) => { setResolvedFilter(e.target.value); refetch({ resolved: e.target.value }); }}
-        >
-          <option value="">Any state</option>
-          <option value="false">Unresolved</option>
-          <option value="true">Resolved</option>
-        </select>
+        <div className="w-40">
+          <Select
+            ariaLabel="Type"
+            value={typeFilter}
+            onChange={(v) => { setTypeFilter(v); refetch({ type: v }); }}
+            options={[
+              { value: "", label: "All types" },
+              { value: "interview_detected", label: "Interview" },
+              { value: "offer_detected", label: "Offer" },
+              { value: "follow_up_detected", label: "Follow-up" },
+              { value: "rejection_detected", label: "Rejection" },
+              { value: "info", label: "Info" },
+            ]}
+          />
+        </div>
+        <div className="w-44">
+          <Select
+            ariaLabel="Source"
+            value={sourceFilter}
+            onChange={(v) => { setSourceFilter(v); refetch({ source: v }); }}
+            options={[
+              { value: "", label: "All sources" },
+              { value: "gmail", label: `Gmail (${sourceStats.gmail})` },
+              { value: "outlook", label: `Outlook (${sourceStats.outlook})` },
+            ]}
+          />
+        </div>
+        <div className="w-40">
+          <Select
+            ariaLabel="Read state"
+            value={readFilter}
+            onChange={(v) => { setReadFilter(v); refetch({ read: v }); }}
+            options={[
+              { value: "", label: "Read & unread" },
+              { value: "false", label: "Unread only" },
+              { value: "true", label: "Read only" },
+            ]}
+          />
+        </div>
+        <div className="w-36">
+          <Select
+            ariaLabel="Resolved state"
+            value={resolvedFilter}
+            onChange={(v) => { setResolvedFilter(v); refetch({ resolved: v }); }}
+            options={[
+              { value: "", label: "Any state" },
+              { value: "false", label: "Unresolved" },
+              { value: "true", label: "Resolved" },
+            ]}
+          />
+        </div>
         {hasFilters && (
           <button onClick={clearFilters} className="px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground">
             Clear filters
@@ -227,7 +240,7 @@ export default function NotificationCenter() {
       </div>
 
       {/* Table */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="surface-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>

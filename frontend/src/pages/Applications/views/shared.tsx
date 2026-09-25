@@ -10,6 +10,7 @@ import { useConfirm } from "../../../hooks/useConfirm.ts";
 import ConfirmModal from "../../../components/ConfirmModal/ConfirmModal.tsx";
 import BulkActionBar from "../components/BulkActionBar.tsx";
 import { rememberDetailNav, saveListScroll, takeListScroll } from "../data/navigation.ts";
+import { appScrollRoot } from "../../../utils/scrollRoot.ts";
 import { useArchiveMutation, useCompanies, useDeleteMutation } from "../data/queries.ts";
 import type { Application, Company } from "../../../types";
 
@@ -39,7 +40,7 @@ export function useRestoreListScroll(ready: boolean) {
   useEffect(() => {
     if (!ready) return;
     const y = takeListScroll(location.pathname + location.search);
-    if (y != null) requestAnimationFrame(() => window.scrollTo(0, y));
+    if (y != null) requestAnimationFrame(() => appScrollRoot().scrollTo(0, y));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready]);
 }
@@ -118,10 +119,11 @@ export function useListBehavior({ apps, archived, onOpen, onEdit }: {
     Escape: () => { if (selected.size === 0) return false; clear(); },
   });
 
-  // Keep the keyboard-focused row in view.
+  // Keep the keyboard-focused row in view. A group that is animating shut
+  // still shows its old rows (inert) — never scroll to one of those.
   useEffect(() => {
     if (focusedIndex < 0) return;
-    document.querySelector<HTMLElement>(`[data-row-index="${focusedIndex}"]`)?.scrollIntoView({ block: "nearest" });
+    document.querySelector<HTMLElement>(`[data-row-index="${focusedIndex}"]:not([inert] *)`)?.scrollIntoView({ block: "nearest" });
   }, [focusedIndex]);
 
   const ids = [...selected];

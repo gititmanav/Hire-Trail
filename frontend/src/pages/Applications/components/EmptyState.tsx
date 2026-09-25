@@ -9,6 +9,7 @@
  */
 
 import { Search, Plus, Puzzle, Upload } from "lucide-react";
+import { cssPalette } from "../../../utils/palette.ts";
 
 interface Props {
   mode: "welcome" | "filtered";
@@ -81,23 +82,23 @@ export default function EmptyState({ mode, onAddManually, onImport, onClearFilte
           <svg width="200" height="160" viewBox="0 0 200 160" fill="none" aria-hidden>
             <defs>
               <linearGradient id="funnelGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#3B82F6" stopOpacity="0.15" />
-                <stop offset="100%" stopColor="#3B82F6" stopOpacity="0" />
+                <stop offset="0%" style={{ stopColor: cssPalette("blue-500") }} stopOpacity="0.15" />
+                <stop offset="100%" style={{ stopColor: cssPalette("blue-500") }} stopOpacity="0" />
               </linearGradient>
             </defs>
             {/* Funnel bands */}
-            <rect x="20" y="20" width="160" height="22" rx="4" fill="#94a3b8" opacity="0.18" />
-            <rect x="38" y="50" width="124" height="22" rx="4" fill="#3B82F6" opacity="0.25" />
-            <rect x="58" y="80" width="84"  height="22" rx="4" fill="#F59E0B" opacity="0.25" />
-            <rect x="76" y="110" width="48" height="22" rx="4" fill="#8B5CF6" opacity="0.30" />
+            <rect x="20" y="20" width="160" height="22" rx="4" style={{ fill: cssPalette("slate-400") }} opacity="0.18" />
+            <rect x="38" y="50" width="124" height="22" rx="4" style={{ fill: cssPalette("blue-500") }} opacity="0.25" />
+            <rect x="58" y="80" width="84"  height="22" rx="4" style={{ fill: cssPalette("amber-500") }} opacity="0.25" />
+            <rect x="76" y="110" width="48" height="22" rx="4" style={{ fill: cssPalette("violet-500") }} opacity="0.30" />
             {/* Apex offer band */}
-            <rect x="88" y="140" width="24" height="14" rx="3" fill="#10B981" opacity="0.45" />
+            <rect x="88" y="140" width="24" height="14" rx="3" style={{ fill: cssPalette("emerald-500") }} opacity="0.45" />
             {/* Stage dots on the right */}
-            <circle cx="195" cy="31" r="3" fill="#94a3b8" />
-            <circle cx="195" cy="61" r="3" fill="#3B82F6" />
-            <circle cx="195" cy="91" r="3" fill="#F59E0B" />
-            <circle cx="195" cy="121" r="3" fill="#8B5CF6" />
-            <circle cx="195" cy="147" r="3" fill="#10B981" />
+            <circle cx="195" cy="31" r="3" style={{ fill: cssPalette("slate-400") }} />
+            <circle cx="195" cy="61" r="3" style={{ fill: cssPalette("blue-500") }} />
+            <circle cx="195" cy="91" r="3" style={{ fill: cssPalette("amber-500") }} />
+            <circle cx="195" cy="121" r="3" style={{ fill: cssPalette("violet-500") }} />
+            <circle cx="195" cy="147" r="3" style={{ fill: cssPalette("emerald-500") }} />
             {/* Ambient glow */}
             <rect x="0" y="0" width="200" height="160" fill="url(#funnelGrad)" />
           </svg>

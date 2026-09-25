@@ -5,6 +5,8 @@ import { adminAPI } from "../../utils/api";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal";
 import { useConfirm } from "../../hooks/useConfirm";
 import type { EmailTemplate } from "../../types";
+import Select from "../../components/ui/Select.tsx";
+import { MODAL_EXIT, useExitAnimation } from "../../hooks/useExitAnimation.ts";
 
 const TYPE_STYLES: Record<string, { bg: string; text: string; ring: string }> = {
   welcome:  { bg: "bg-emerald-500/10", text: "text-emerald-700 dark:text-emerald-300", ring: "ring-emerald-500/30" },
@@ -44,6 +46,7 @@ const EMPTY_FORM: FormData = {
 };
 
 export default function EmailTemplates() {
+  const formExitRef = useExitAnimation(MODAL_EXIT);
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -187,15 +190,15 @@ export default function EmailTemplates() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-        <div className="bg-card border border-border rounded-xl p-4">
+        <div className="surface-card p-4">
           <p className="text-xs uppercase tracking-wider text-muted-foreground">Total</p>
           <p className="text-2xl font-bold text-foreground mt-1">{stats.total}</p>
         </div>
-        <div className="bg-card border border-border rounded-xl p-4">
+        <div className="surface-card p-4">
           <p className="text-xs uppercase tracking-wider text-muted-foreground">Active</p>
           <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">{stats.active}</p>
         </div>
-        <div className="bg-card border border-border rounded-xl p-4 col-span-2">
+        <div className="surface-card p-4 col-span-2">
           <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">By type</p>
           <div className="flex flex-wrap gap-1.5">
             {ALL_TYPES.map((t) => {
@@ -242,7 +245,7 @@ export default function EmailTemplates() {
       {loading ? (
         <div className="flex items-center justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>
       ) : filtered.length === 0 ? (
-        <div className="bg-card border border-border rounded-xl p-12 text-center text-muted-foreground">
+        <div className="surface-card p-12 text-center text-muted-foreground">
           {templates.length === 0 ? "No email templates yet — create your first one." : "No templates match these filters."}
         </div>
       ) : (
@@ -250,7 +253,7 @@ export default function EmailTemplates() {
           {filtered.map((t) => {
             const style = TYPE_STYLES[t.type] || TYPE_STYLES.welcome;
             return (
-              <div key={t._id} className="bg-card border border-border rounded-xl p-5 hover:shadow-sm transition-shadow">
+              <div key={t._id} className="surface-card p-5 hover:shadow-sm transition-shadow">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -288,8 +291,8 @@ export default function EmailTemplates() {
 
       {/* Form modal */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="card-premium w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 space-y-4">
+        <div ref={formExitRef} className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/50 p-4 modal-overlay-in">
+          <div data-modal-panel className="card-premium card-no-lift w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 space-y-4 animate-in">
             <h2 className="text-lg font-semibold text-foreground">{editingId ? "Edit Template" : "Create Template"}</h2>
 
             <div className="grid grid-cols-2 gap-4">
@@ -299,9 +302,12 @@ export default function EmailTemplates() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1">Type</label>
-                <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as EmailTemplate["type"] })} className="input-premium w-full">
-                  {ALL_TYPES.map((t) => <option key={t} value={t} className="capitalize">{t}</option>)}
-                </select>
+                <Select
+                  ariaLabel="Type"
+                  value={form.type}
+                  onChange={(v) => setForm({ ...form, type: v as EmailTemplate["type"] })}
+                  options={ALL_TYPES.map((t) => ({ value: t, label: t.charAt(0).toUpperCase() + t.slice(1) }))}
+                />
               </div>
             </div>
 

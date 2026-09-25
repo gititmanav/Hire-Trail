@@ -8,16 +8,17 @@ import AiPulse from "../../../components/AiIndicator/AiPulse.tsx";
 import { useDemoGate } from "../../../hooks/useDemoGate.tsx";
 import type { StudioController } from "../useStudioDocument.ts";
 import type { SectionFlag } from "../../../utils/resumeDocument.ts";
+import { cssPalette } from "../../../utils/palette.ts";
 
 function CoverageRing({ pct }: { pct: number }) {
   const R = 52;
   const C = 2 * Math.PI * R;
-  const color = pct >= 75 ? "#10b981" : pct >= 50 ? "#f59e0b" : "#ef4444";
+  const color = cssPalette(pct >= 75 ? "emerald-500" : pct >= 50 ? "amber-500" : "red-500");
   return (
     <div className="relative" style={{ width: 150, height: 150 }}>
       <svg width={150} height={150} viewBox="0 0 120 120" className="-rotate-90">
-        <circle cx="60" cy="60" r={R} fill="none" stroke="hsl(var(--muted))" strokeWidth="10" />
-        <circle cx="60" cy="60" r={R} fill="none" stroke={color} strokeWidth="10" strokeLinecap="round" strokeDasharray={C} strokeDashoffset={C * (1 - pct / 100)} style={{ transition: "stroke-dashoffset 800ms cubic-bezier(0.16,1,0.3,1)" }} />
+        <circle cx="60" cy="60" r={R} fill="none" strokeWidth="10" style={{ stroke: "hsl(var(--muted))" }} />
+        <circle cx="60" cy="60" r={R} fill="none" strokeWidth="10" strokeLinecap="round" strokeDasharray={C} strokeDashoffset={C * (1 - pct / 100)} style={{ stroke: color, transition: "stroke-dashoffset 800ms cubic-bezier(0.16,1,0.3,1)" }} />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-3xl font-bold tabular-nums text-foreground">{Math.round(pct)}%</span>
@@ -70,7 +71,7 @@ export default function GapStep({ studio }: { studio: StudioController }) {
                   <RotateCcw size={13} strokeWidth={2} /> {gapLoading ? "Retrying…" : "Retry"}
                 </button>
                 {gapError.isKeyIssue && (
-                  <Link to="/settings/ai" className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-primary hover:bg-primary/90 rounded-lg">
+                  <Link to="/settings/ai" className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg">
                     <KeyRound size={13} strokeWidth={2} /> Add a key
                   </Link>
                 )}
@@ -159,7 +160,7 @@ export default function GapStep({ studio }: { studio: StudioController }) {
                 onClick={runAnalyze}
                 disabled={gapLoading || jd.trim().length < 20}
                 title={jd.trim().length < 20 ? "Paste a job description (20+ chars) to analyze" : undefined}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {gapLoading ? "Analyzing…" : gap ? "Re-analyze" : "Analyze gap"}
               </button>

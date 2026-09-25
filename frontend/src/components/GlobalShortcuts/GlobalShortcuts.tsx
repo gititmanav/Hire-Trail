@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { X } from "lucide-react";
+import { MODAL_EXIT, useExitAnimation } from "../../hooks/useExitAnimation.ts";
 
 interface Binding {
   /** Display label: e.g. "g a". */
@@ -45,6 +46,7 @@ function isTyping(): boolean {
 }
 
 export default function GlobalShortcuts() {
+  const exitRef = useExitAnimation(MODAL_EXIT);
   const navigate = useNavigate();
   const location = useLocation();
   const [helpOpen, setHelpOpen] = useState(false);
@@ -137,12 +139,14 @@ export default function GlobalShortcuts() {
 
   return (
     <div
-      className="fixed inset-0 z-[90] bg-background/70 backdrop-blur-sm flex items-center justify-center p-4"
+      ref={exitRef}
+      className="fixed inset-0 z-[90] bg-background/70 backdrop-blur-sm flex items-center justify-center p-4 modal-overlay-in"
       onMouseDown={(e) => { if (e.target === e.currentTarget) setHelpOpen(false); }}
       role="dialog"
       aria-label="Keyboard shortcuts"
     >
       <div
+        data-modal-panel
         className="w-full max-w-[520px] bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-in"
         onMouseDown={(e) => e.stopPropagation()}
       >

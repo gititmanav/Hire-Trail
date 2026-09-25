@@ -27,6 +27,7 @@ import { EventDetailPanel, type SelectedEvent } from "./components/EventDetailPa
 import { FiltersPopover } from "./components/FiltersPopover.tsx";
 
 import "./Calendar.css";
+import { cssPalette } from "../../utils/palette.ts";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const DnDCalendar = withDragAndDrop(Calendar) as any;
@@ -40,10 +41,10 @@ const localizer = dateFnsLocalizer({
 });
 
 const FACTOR_OPTIONS: { key: CalendarFactor; label: string; swatch: string }[] = [
-  { key: "application_submitted", label: "Applications", swatch: "#475569" },
-  { key: "stage_change", label: "Stage changes", swatch: "#0ea5e9" },
-  { key: "deadline_application", label: "App deadlines", swatch: "#d97706" },
-  { key: "deadline_general", label: "Other deadlines", swatch: "#7c3aed" },
+  { key: "application_submitted", label: "Applications", swatch: cssPalette("slate-600") },
+  { key: "stage_change", label: "Stage changes", swatch: cssPalette("sky-500") },
+  { key: "deadline_application", label: "App deadlines", swatch: cssPalette("amber-600") },
+  { key: "deadline_general", label: "Other deadlines", swatch: cssPalette("violet-600") },
 ];
 
 const defaultFactors = (): Record<CalendarFactor, boolean> =>

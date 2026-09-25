@@ -1,11 +1,12 @@
 /** Admin → AI Providers. Controls the platform-wide AI default: the enable
  *  toggle (off ⇒ users must BYOK), the encrypted default key, the default
  *  provider/model, and the per-user monthly token quota. Wired to /api/admin/ai. */
-import { useCallback, useEffect, useState } from "react";
-import { Sparkles, Check, ChevronDown, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { Sparkles, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { adminAiAPI, aiAPI, type AdminAiConfig, type AICatalogProvider, type AIModel } from "../../utils/api";
-import ActionDropdown from "../../components/ActionDropdown/ActionDropdown.tsx";
+import Select from "../../components/ui/Select.tsx";
+import { ComboboxList, handleComboboxKey, type ComboboxOption } from "../../components/ui/Combobox.tsx";
 
 /** Fallback provider list when the live catalog can't be fetched. */
 const FALLBACK_PROVIDERS = ["google", "openai", "anthropic", "openrouter", "bedrock", "mistral", "xai", "groq", "deepseek", "perplexity", "cohere"];
@@ -46,6 +47,27 @@ export default function AISystemConfig() {
     ? catalog.map((p) => ({ id: p.id, label: p.label }))
     : FALLBACK_PROVIDERS.map((id) => ({ id, label: id }));
   const providerModels = models.filter((m) => m.provider === keyProvider);
+
+  // Model-id suggestions (free text allowed): the provider's models, else all.
+  const [modelListOpen, setModelListOpen] = useState(false);
+  const [modelActive, setModelActive] = useState(-1);
+  const modelWrapRef = useRef<HTMLDivElement>(null);
+  const modelListId = useId();
+  const modelOptions: ComboboxOption[] = useMemo(() => {
+    const q = defaultModel.trim().toLowerCase();
+    const pool = providerModels.length ? providerModels : models;
+    return pool
+      .filter((m) => !q || m.id.toLowerCase().includes(q) || m.label.toLowerCase().includes(q))
+      .slice(0, 60)
+      .map((m) => ({
+        key: m.id,
+        label: m.id,
+        hint: m.label !== m.id ? m.label : undefined,
+        current: m.id === defaultModel,
+        onSelect: () => { setDefaultModel(m.id); setModelListOpen(false); },
+      }));
+  }, [providerModels, models, defaultModel]);
+  useEffect(() => { setModelActive(-1); }, [defaultModel]);
   useEffect(() => { void load(); }, [load]);
 
   const patch = async (p: Partial<AdminAiConfig>) => {
@@ -88,7 +110,7 @@ export default function AISystemConfig() {
       </div>
 
       {/* Enable toggle */}
-      <div className="bg-card border border-border rounded-xl p-5 flex items-start justify-between gap-4">
+      <div className="surface-card p-5 flex items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-foreground">Default AI enabled</p>
           <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
@@ -98,14 +120,14 @@ export default function AISystemConfig() {
         </div>
         <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
           <input type="checkbox" className="sr-only peer" checked={config.enabled} disabled={busy} onChange={(e) => patch({ enabled: e.target.checked })} />
-          <span className="w-11 h-6 bg-muted border border-border rounded-full peer-checked:bg-primary peer-disabled:opacity-50 transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:shadow-sm after:transition-transform peer-checked:after:translate-x-5"></span>
+          <span className="w-11 h-6 bg-muted border border-border rounded-full peer-checked:bg-primary peer-disabled:opacity-50 transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-paper after:rounded-full after:h-5 after:w-5 after:shadow-sm after:transition-transform peer-checked:after:translate-x-5 peer-checked:after:bg-primary-foreground"></span>
         </label>
       </div>
 
       {/* Gateway system credits — the no-key default path. Without this (or a
           default key below) an "enabled" default has nothing to run on. */}
       {gatewayConfigured && (
-        <div className="bg-card border border-border rounded-xl p-5 flex items-start justify-between gap-4">
+        <div className="surface-card p-5 flex items-start justify-between gap-4">
           <div className="min-w-0">
             <p className="text-sm font-semibold text-foreground">Use gateway credits</p>
             <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
@@ -115,13 +137,13 @@ export default function AISystemConfig() {
           </div>
           <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
             <input type="checkbox" className="sr-only peer" checked={config.usesGatewayCredits} disabled={busy} onChange={(e) => patch({ usesGatewayCredits: e.target.checked })} />
-            <span className="w-11 h-6 bg-muted border border-border rounded-full peer-checked:bg-primary peer-disabled:opacity-50 transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:shadow-sm after:transition-transform peer-checked:after:translate-x-5"></span>
+            <span className="w-11 h-6 bg-muted border border-border rounded-full peer-checked:bg-primary peer-disabled:opacity-50 transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-paper after:rounded-full after:h-5 after:w-5 after:shadow-sm after:transition-transform peer-checked:after:translate-x-5 peer-checked:after:bg-primary-foreground"></span>
           </label>
         </div>
       )}
 
       {/* Default key */}
-      <div className="bg-card border border-border rounded-xl p-5">
+      <div className="surface-card p-5">
         <div className="flex items-center justify-between gap-3 mb-3">
           <p className="text-sm font-semibold text-foreground">Default API key</p>
           {config.hasDefaultKey && (
@@ -132,28 +154,57 @@ export default function AISystemConfig() {
           )}
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-[180px_1fr] gap-3">
-          <ActionDropdown
-            align="left" menuWidth="w-full"
-            trigger={<button type="button" className="w-full flex items-center justify-between gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground hover:border-muted-foreground/40"><span>{providerOptions.find((p) => p.id === keyProvider)?.label ?? keyProvider}</span><ChevronDown size={16} className="text-muted-foreground" /></button>}
-            items={providerOptions.map((p) => ({ label: p.label, icon: <Check size={14} className={keyProvider === p.id ? "text-primary" : "opacity-0"} />, onClick: () => setKeyProvider(p.id) }))}
+          <Select
+            ariaLabel="Provider"
+            value={keyProvider}
+            onChange={setKeyProvider}
+            searchable={providerOptions.length > 8}
+            searchPlaceholder="Search providers…"
+            options={providerOptions.map((p) => ({ value: p.id, label: p.label }))}
+            renderValue={(sel) => sel?.label ?? keyProvider}
           />
           <div className="flex gap-2">
             <input type="password" className={inputCls} placeholder={config.hasDefaultKey ? "Enter a new key to replace" : "Paste the default key"} value={keyValue} onChange={(e) => setKeyValue(e.target.value)} autoComplete="off" />
-            <button onClick={saveKey} disabled={busy || !keyValue.trim()} className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50 shrink-0">Save</button>
+            <button onClick={saveKey} disabled={busy || !keyValue.trim()} className="px-4 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50 shrink-0">Save</button>
           </div>
         </div>
         <p className="text-[11px] text-muted-foreground mt-2">Validated against the provider, then stored encrypted. For Bedrock, paste JSON credentials.</p>
       </div>
 
       {/* Model + quota */}
-      <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+      <div className="surface-card p-5 space-y-4">
         <div>
           <label className="block text-xs font-medium text-foreground mb-1.5">Default model override (optional)</label>
           <div className="flex gap-2">
-            <input className={inputCls} list="admin-model-options" placeholder="e.g. google/gemini-2.5-flash" value={defaultModel} onChange={(e) => setDefaultModel(e.target.value)} />
-            <datalist id="admin-model-options">
-              {(providerModels.length ? providerModels : models).map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
-            </datalist>
+            <div ref={modelWrapRef} className="relative flex-1 min-w-0">
+              <input
+                className={inputCls}
+                placeholder="e.g. google/gemini-2.5-flash"
+                value={defaultModel}
+                onChange={(e) => { setDefaultModel(e.target.value); setModelListOpen(true); }}
+                onFocus={() => setModelListOpen(true)}
+                onKeyDown={(e) => handleComboboxKey(e, {
+                  open: modelListOpen, setOpen: setModelListOpen, count: modelOptions.length, active: modelActive, setActive: setModelActive,
+                  pick: (i) => modelOptions[i]?.onSelect(),
+                })}
+                autoComplete="off"
+                role="combobox"
+                aria-expanded={modelListOpen}
+                aria-controls={modelListId}
+                aria-autocomplete="list"
+                aria-activedescendant={modelListOpen && modelActive >= 0 ? `${modelListId}-opt-${modelActive}` : undefined}
+              />
+              <ComboboxList
+                open={modelListOpen}
+                onOpenChange={setModelListOpen}
+                anchorRef={modelWrapRef}
+                options={modelOptions}
+                activeIndex={modelActive}
+                onActiveIndexChange={setModelActive}
+                ariaLabel="Models"
+                id={modelListId}
+              />
+            </div>
             <button onClick={() => patch({ defaultModel })} disabled={busy} className="px-4 py-2 text-sm font-medium border border-border rounded-lg hover:bg-muted shrink-0">Save</button>
           </div>
           <p className="text-[11px] text-muted-foreground mt-1">{models.length} models available via the gateway. Leave blank for the provider default.</p>

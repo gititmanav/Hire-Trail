@@ -10,6 +10,7 @@ import { useNavigate } from "react-router-dom";
 import { Search } from "lucide-react";
 import { applicationsAPI, companiesAPI, contactsAPI, deadlinesAPI } from "../../utils/api.ts";
 import type { Application, Company, Contact, Deadline } from "../../types";
+import { MODAL_EXIT, useExitAnimation } from "../../hooks/useExitAnimation.ts";
 
 type ResultKind = "application" | "company" | "contact" | "deadline";
 
@@ -40,6 +41,7 @@ function isMac(): boolean {
 }
 
 export default function GlobalSearch() {
+  const exitRef = useExitAnimation(MODAL_EXIT);
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -177,7 +179,7 @@ export default function GlobalSearch() {
       <button
         type="button"
         onClick={openPalette}
-        className="hidden md:flex items-center gap-2 px-3 h-9 rounded-lg border border-border text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors min-w-[200px]"
+        className="hidden md:flex items-center gap-2 px-3 h-9 rounded-lg border border-border bg-background text-xs text-muted-foreground hover:text-foreground hover:border-muted-foreground/30 transition-colors min-w-[200px]"
         title="Search applications, companies, contacts, deadlines"
         aria-label="Open global search"
       >
@@ -192,7 +194,7 @@ export default function GlobalSearch() {
       <button
         type="button"
         onClick={openPalette}
-        className="md:hidden w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-secondary-foreground"
+        className="md:hidden w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-background hover:text-foreground"
         title="Search"
         aria-label="Open search"
       >
@@ -201,7 +203,8 @@ export default function GlobalSearch() {
 
       {open && (
         <div
-          className="fixed inset-0 z-[80] bg-background/60 backdrop-blur-sm flex items-start justify-center pt-[12vh] px-4"
+          ref={exitRef}
+          className="fixed inset-0 z-[80] bg-background/60 backdrop-blur-sm flex items-start justify-center pt-[12vh] px-4 modal-overlay-in"
           onMouseDown={(e) => {
             // Close when the press starts on the backdrop itself (not when a
             // drag-select inside the card lifts onto it). Use mousedown so we
@@ -211,7 +214,8 @@ export default function GlobalSearch() {
           onClick={(e) => { if (e.target === e.currentTarget) closePalette(); }}
         >
           <div
-            className="w-full max-w-[560px] bg-card border border-border rounded-xl shadow-2xl overflow-hidden"
+            data-modal-panel
+            className="w-full max-w-[560px] bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-in"
             onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
           >

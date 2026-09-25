@@ -74,7 +74,7 @@ export default function BackupManagement() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Full Database Export */}
-        <div className="bg-card border border-border rounded-xl p-6 flex flex-col">
+        <div className="surface-card p-6 flex flex-col">
           <div className="flex items-center gap-2 mb-2">
             <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
               <Database width={18} height={18} strokeWidth={2} />
@@ -94,7 +94,7 @@ export default function BackupManagement() {
         </div>
 
         {/* Single User Data Export */}
-        <div className="bg-card border border-border rounded-xl p-6 flex flex-col">
+        <div className="surface-card p-6 flex flex-col">
           <div className="flex items-center gap-2 mb-2">
             <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
               <User width={18} height={18} strokeWidth={2} />
@@ -124,7 +124,7 @@ export default function BackupManagement() {
       </div>
 
       {/* Backup History placeholder */}
-      <div className="bg-card border border-border rounded-xl p-6">
+      <div className="surface-card p-6">
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-lg font-semibold text-foreground">Backup history</h2>
           <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300">Planned</span>

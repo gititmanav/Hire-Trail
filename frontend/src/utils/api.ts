@@ -18,6 +18,7 @@ import type {
   AdminMailboxUser, AdminMailboxStats, MailboxProvider,
   BroadcastEmailItem, BroadcastRecipientType, MailerStatus,
 } from "../types";
+import type { Preferences } from "./preferences.ts";
 
 declare module "axios" {
   interface AxiosRequestConfig {
@@ -95,6 +96,20 @@ export const authAPI = {
   }),
   updateProfile: (data: { name?: string; email?: string; primaryResumeId?: string | null }) =>
     api.put<User>("/auth/profile", data).then((r) => r.data),
+  /** A partial Personalize patch; resolves to the updated user. */
+  updatePreferences: (preferences: Partial<Preferences>) =>
+    api.put<User>("/auth/profile", { preferences }).then((r) => r.data),
+  /** The same patch as a request that outlives the page (tab closing
+   *  mid-debounce). Fire-and-forget: there's no page left to report to. */
+  flushPreferences: (preferences: Partial<Preferences>) => {
+    void fetch(`${getApiBaseURL()}/auth/profile`, {
+      method: "PUT",
+      credentials: "include",
+      keepalive: true,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ preferences }),
+    }).catch(() => { /* page is gone */ });
+  },
   completeTour: () => api.put("/auth/tour").then((r) => r.data),
   deleteAccount: (confirm: string) =>
     api.delete<{ message: string }>("/auth/me", { data: { confirm } }).then((r) => r.data),

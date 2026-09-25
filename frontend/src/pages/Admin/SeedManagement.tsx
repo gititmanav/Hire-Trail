@@ -70,7 +70,7 @@ export default function SeedManagement() {
       </div>
 
       {/* What gets seeded */}
-      <div className="bg-card border border-border rounded-xl p-6">
+      <div className="surface-card p-6">
         <h2 className="text-lg font-semibold text-foreground mb-1">What seed data creates</h2>
         <p className="text-sm text-secondary-foreground mb-4">
           One demo user with realistic application history, resumes, contacts, and deadlines. Sign in as <code className="text-xs px-1 py-0.5 rounded bg-muted">demo@hiretrail.com / password123</code> after seeding.
@@ -92,7 +92,7 @@ export default function SeedManagement() {
       </div>
 
       {/* Actions */}
-      <div className="bg-card border border-border rounded-xl p-6">
+      <div className="surface-card p-6">
         <h2 className="text-lg font-semibold text-foreground mb-4">Actions</h2>
         <div className="flex flex-wrap gap-3">
           <button

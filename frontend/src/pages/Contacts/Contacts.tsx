@@ -7,7 +7,7 @@ import { contactsAPI, companiesAPI } from "../../utils/api.ts";
 import CompanyLogo from "../../components/CompanyLogo/CompanyLogo.tsx";
 import { SkeletonCard } from "../../components/Skeleton/Skeleton.tsx";
 import EmptyState from "../../components/EmptyState/EmptyState.tsx";
-import ActionDropdown from "../../components/ActionDropdown/ActionDropdown.tsx";
+import Menu from "../../components/ui/Menu.tsx";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal.tsx";
 import CompanyCombobox from "../../components/CompanyCombobox/CompanyCombobox.tsx";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "../../components/ui/Modal.tsx";
@@ -283,20 +283,21 @@ function ContactCard({ c, onEdit, onDelete, companyLogoUrl }: { c: Contact; onEd
         </button>
       ) : null}
       {/* Action toolbar — Outreach + LinkedIn + Edit + Delete. */}
-      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+      <div className="flex gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 has-[[aria-expanded=true]]:opacity-100 transition-opacity shrink-0">
         {/* Outreach templates: pick one → email is rendered with the
          *  contact's name/role/company filled in and copied to clipboard. */}
-        <ActionDropdown
-          align="right"
-          menuWidth="w-56"
+        <Menu
+          ariaLabel="Outreach templates"
+          align="end"
+          width={224}
           trigger={
-            <button className={btnIcon} title="Outreach templates" aria-label="Outreach templates">
+            <button type="button" className={btnIcon} title="Outreach templates" aria-label="Outreach templates">
               <Send size={14} strokeWidth={1.6} aria-hidden />
             </button>
           }
           items={OUTREACH_TEMPLATES.map((tpl) => ({
             label: tpl.label,
-            onClick: async () => {
+            onSelect: async () => {
               const rendered = renderOutreachTemplate(tpl.key, c);
               const text = templateToClipboard(rendered);
               try {
@@ -465,7 +466,7 @@ export default function Contacts() {
             <button onClick={() => setViewMode("person")} className={`px-3 py-1.5 text-xs font-medium ${viewMode === "person" ? "bg-muted text-foreground" : "bg-card text-secondary-foreground hover:bg-muted"}`}>By Person</button>
             <button onClick={() => setViewMode("company")} className={`px-3 py-1.5 text-xs font-medium ${viewMode === "company" ? "bg-muted text-foreground" : "bg-card text-secondary-foreground hover:bg-muted"}`}>By Company</button>
           </div>
-          <button onClick={() => { setEditing(null); setModal(true); }} className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary hover:bg-primary/90 text-white text-sm font-medium rounded-lg"><Plus size={16} strokeWidth={2} />Add contact</button>
+          <button onClick={() => { setEditing(null); setModal(true); }} className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium rounded-lg"><Plus size={16} strokeWidth={2} />Add contact</button>
         </div>
       </div>
 
@@ -489,7 +490,7 @@ export default function Contacts() {
         ))}
       </div>
 
-      <div className="sticky top-[57px] z-20 bg-background/95 backdrop-blur-sm py-3 -mx-4 md:-mx-6 px-4 md:px-6">
+      <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm py-3 -mx-4 md:-mx-6 px-4 md:px-6">
         <div className="flex flex-wrap items-center gap-3 max-w-[1200px]">
           <input className={`${inputCls} w-[280px]`} placeholder="Search name or company..." value={search} onChange={(e) => setSearch(e.target.value)} />
           <div className="flex flex-wrap gap-1.5">

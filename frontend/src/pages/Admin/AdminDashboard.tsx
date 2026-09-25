@@ -1,15 +1,14 @@
 /** Admin Dashboard — comprehensive single-screen snapshot of the platform.
  *  KPI strip · pipeline funnel · integration health · tailor/profile metrics · feedback · recent activity. */
-import { useEffect, useMemo, useRef, useState, useContext } from "react";
+import { useEffect, useMemo, useState, useContext } from "react";
 import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import { Line, Bar, Doughnut } from "react-chartjs-2";
 import "../../utils/chartSetup";
 import { chartColors, primaryColor, mutedFgColor, borderColor } from "../../utils/chartSetup";
-import { ThemeContext } from "../../App.tsx";
+import { ThemeContext } from "../../hooks/useTheme.tsx";
 import { adminAPI } from "../../utils/api";
 import type { AdminDashboardData, AuditLog } from "../../types";
-import type { Chart as ChartJS } from "chart.js";
 
 /* ---------------- helpers ---------------- */
 
@@ -38,14 +37,9 @@ const SIGNAL_LABELS: Record<string, string> = {
 /* ---------------- page ---------------- */
 
 export default function AdminDashboard() {
-  const { themeId } = useContext(ThemeContext);
+  const { revision } = useContext(ThemeContext);
   const [data, setData] = useState<AdminDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
-
-  const userGrowthRef = useRef<ChartJS<"line">>(null);
-  const tailorPerDayRef = useRef<ChartJS<"line">>(null);
-  const appsPerDayRef = useRef<ChartJS<"bar">>(null);
-  const stageRef = useRef<ChartJS<"doughnut">>(null);
 
   useEffect(() => {
     adminAPI.getDashboard()
@@ -54,24 +48,9 @@ export default function AdminDashboard() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Re-tint charts on theme change.
-  useEffect(() => {
-    const palette = chartColors();
-    const refs = [userGrowthRef.current, tailorPerDayRef.current, appsPerDayRef.current, stageRef.current];
-    refs.forEach((c) => {
-      if (!c) return;
-      c.data.datasets.forEach((ds, i) => {
-        ds.borderColor = palette[i % palette.length];
-        if (Array.isArray(ds.backgroundColor)) {
-          ds.backgroundColor = ds.backgroundColor.map((_, j) => palette[j % palette.length] + "55");
-        } else {
-          ds.backgroundColor = palette[i % palette.length] + "33";
-        }
-      });
-      c.update();
-    });
-  }, [themeId]);
-
+  // Canvas can't read CSS variables, so the chart config is rebuilt from the
+  // live tokens whenever the theme changes (the theme class is applied during
+  // the provider's render, before this runs).
   const charts = useMemo(() => {
     if (!data) return null;
     const palette = chartColors();
@@ -95,7 +74,7 @@ export default function AdminDashboard() {
         label: "New users",
         data: data.charts.userGrowth.map((d) => d.count),
         borderColor: primary,
-        backgroundColor: primary + "22",
+        backgroundColor: primaryColor(0.13),
         fill: true,
         tension: 0.3,
       }],
@@ -107,7 +86,7 @@ export default function AdminDashboard() {
         label: "Tailor sessions",
         data: data.charts.tailorPerDay.map((d) => d.count),
         borderColor: palette[1],
-        backgroundColor: palette[1] + "22",
+        backgroundColor: chartColors(0.13)[1],
         fill: true,
         tension: 0.3,
       }],
@@ -118,7 +97,7 @@ export default function AdminDashboard() {
       datasets: [{
         label: "Applications added",
         data: data.charts.appsPerDay.map((d) => d.count),
-        backgroundColor: palette[2] + "AA",
+        backgroundColor: chartColors(0.67)[2],
         borderColor: palette[2],
         borderWidth: 1,
       }],
@@ -128,7 +107,7 @@ export default function AdminDashboard() {
       labels: STAGE_ORDER.filter((s) => data.breakdowns.applicationsByStage[s]),
       datasets: [{
         data: STAGE_ORDER.filter((s) => data.breakdowns.applicationsByStage[s]).map((s) => data.breakdowns.applicationsByStage[s] || 0),
-        backgroundColor: palette.slice(0, STAGE_ORDER.length).map((c) => c + "AA"),
+        backgroundColor: chartColors(0.67),
         borderColor: border,
         borderWidth: 1,
       }],
@@ -153,7 +132,7 @@ export default function AdminDashboard() {
     } as const;
 
     return { userGrowth, tailorPerDay, appsPerDay, stageBreakdown, lineOpts, barOpts, doughnutOpts };
-  }, [data]);
+  }, [data, revision]);
 
   if (loading) {
     return (
@@ -215,13 +194,13 @@ export default function AdminDashboard() {
       {/* ===== Growth charts ===== */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <ChartCard title="User signups (30d)" subtitle={`+${s.signupsThisMonth} this month`}>
-          <Line ref={userGrowthRef} data={charts.userGrowth} options={charts.lineOpts} />
+          <Line data={charts.userGrowth} options={charts.lineOpts} />
         </ChartCard>
         <ChartCard title="Applications tracked (30d)">
-          <Bar ref={appsPerDayRef} data={charts.appsPerDay} options={charts.barOpts} />
+          <Bar data={charts.appsPerDay} options={charts.barOpts} />
         </ChartCard>
         <ChartCard title="Tailor sessions (30d)" subtitle={`${s.tailorSessionsTotal} total · avg fit ${avgFit}/5`}>
-          <Line ref={tailorPerDayRef} data={charts.tailorPerDay} options={charts.lineOpts} />
+          <Line data={charts.tailorPerDay} options={charts.lineOpts} />
         </ChartCard>
       </div>
 
@@ -231,7 +210,7 @@ export default function AdminDashboard() {
           {Object.values(data.breakdowns.applicationsByStage).reduce((a, b) => a + b, 0) === 0 ? (
             <EmptyChart label="No applications tracked yet" />
           ) : (
-            <Doughnut ref={stageRef} data={charts.stageBreakdown} options={charts.doughnutOpts} />
+            <Doughnut data={charts.stageBreakdown} options={charts.doughnutOpts} />
           )}
         </ChartCard>
 
@@ -260,7 +239,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* ===== Recent audit activity ===== */}
-      <div className="bg-card border border-border rounded-xl">
+      <div className="surface-card">
         <div className="px-5 py-3.5 border-b border-border flex items-center justify-between">
           <h3 className="text-sm font-semibold text-foreground">Recent activity</h3>
           <Link to="/admin/audit-logs" className="text-xs font-medium text-primary hover:underline">All audit logs →</Link>
@@ -312,7 +291,7 @@ function Kpi({ label, value, subValue, highlight, link }: { label: string; value
 
 function ChartCard({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
   return (
-    <div className="bg-card border border-border rounded-xl p-4">
+    <div className="surface-card p-4">
       <div className="mb-3">
         <h3 className="text-sm font-semibold text-foreground">{title}</h3>
         {subtitle && <p className="text-[11px] text-muted-foreground mt-0.5">{subtitle}</p>}
@@ -324,7 +303,7 @@ function ChartCard({ title, subtitle, children }: { title: string; subtitle?: st
 
 function Card({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
   return (
-    <div className="bg-card border border-border rounded-xl p-4">
+    <div className="surface-card p-4">
       <div className="mb-3">
         <h3 className="text-sm font-semibold text-foreground">{title}</h3>
         {subtitle && <p className="text-[11px] text-muted-foreground mt-0.5">{subtitle}</p>}

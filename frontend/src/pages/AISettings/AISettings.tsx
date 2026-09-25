@@ -5,7 +5,7 @@
  *   • Status   — GET /ai/status: which provider AI requests resolve to.
  *   • Usage    — GET /ai/usage: BYOK → tokens + est $; default → 0–100% meter + reset.
  *   • Keys     — list w/ exactly-one-active toggle + type-DELETE removal.
- *   • Add key  — any provider via ActionDropdown, validate-on-add (AddKeyForm).
+ *   • Add key  — any provider via the inline provider/model picker, validate-on-add (AddKeyForm).
  *
  * Keys come from the shared useAIKeyStatus provider so the header badge / BYOK
  * warning clear the instant a key is activated here.
@@ -64,7 +64,7 @@ function StatusCard({ status, loading }: { status: (AIStatus & { mode: string })
     muted: "bg-muted text-muted-foreground",
   }[tone];
   return (
-    <section className="bg-card border border-border rounded-xl p-5 sm:p-7">
+    <section className="surface-card p-5 sm:p-7">
       <h2 className="text-base font-semibold text-foreground mb-1">Status</h2>
       <p className="text-xs text-muted-foreground mb-4">Which provider your AI requests currently use.</p>
       {loading ? (
@@ -108,7 +108,7 @@ const fmtNum = (n: number) => n.toLocaleString();
 
 function UsageCard({ usage, loading }: { usage: AIUsage | null; loading: boolean }) {
   return (
-    <section className="bg-card border border-border rounded-xl p-5 sm:p-7">
+    <section className="surface-card p-5 sm:p-7">
       <h2 className="text-base font-semibold text-foreground mb-1">Usage</h2>
       <p className="text-xs text-muted-foreground mb-4">
         {usage?.mode === "byok"
@@ -364,7 +364,7 @@ export default function AISettings() {
         <UsageCard usage={usage} loading={insightsLoading} />
 
         {/* Keys */}
-        <section className="bg-card border border-border rounded-xl p-5 sm:p-7">
+        <section className="surface-card p-5 sm:p-7">
           <div className="flex items-center gap-2 mb-1">
             <KeyRound size={16} strokeWidth={1.8} className="text-muted-foreground" />
             <h2 className="text-base font-semibold text-foreground">Your keys</h2>
@@ -402,7 +402,7 @@ export default function AISettings() {
         </section>
 
         {/* Add key */}
-        <section className="bg-card border border-border rounded-xl p-5 sm:p-7">
+        <section className="surface-card p-5 sm:p-7">
           <h2 className="text-base font-semibold text-foreground mb-1">Add a key</h2>
           <p className="text-xs text-muted-foreground mb-4">Pick a provider, paste the key — we validate it before saving.</p>
           <AddKeyForm
@@ -441,7 +441,7 @@ function ProfileSyncCard() {
   const [saving, setSaving] = useState(false);
 
   return (
-    <section className="bg-card border border-border rounded-xl p-5 sm:p-7">
+    <section className="surface-card p-5 sm:p-7">
       <h2 className="text-base font-semibold text-foreground mb-1">Profile sync</h2>
       <p className="text-xs text-muted-foreground mb-4">How re-parsing a resume updates your master profile.</p>
       <div className="rounded-lg border border-border bg-background px-4 py-3.5 flex items-start justify-between gap-4">

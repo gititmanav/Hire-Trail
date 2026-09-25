@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search } from "lucide-react";
+import { ChevronDown, Search } from "lucide-react";
 import toast from "react-hot-toast";
 import { adminAPI } from "../../utils/api";
-import ActionDropdown from "../../components/ActionDropdown/ActionDropdown";
+import Menu, { type MenuItem } from "../../components/ui/Menu.tsx";
+import Select from "../../components/ui/Select.tsx";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal";
 import { useConfirm } from "../../hooks/useConfirm";
 import type { AdminUserDetail, Pagination } from "../../types";
-import type { DropdownItem } from "../../components/ActionDropdown/ActionDropdown";
 
 const roleBadge: Record<string, string> = {
   admin: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
@@ -198,26 +198,11 @@ export default function UserManagement() {
     }
   };
 
-  const getDropdownItems = (user: AdminUserDetail): DropdownItem[] => [
-    {
-      label: `Make ${user.role === "admin" ? "User" : "Admin"}`,
-      onClick: () => handleChangeRole(user),
-    },
-    {
-      label: user.suspended ? "Unsuspend" : "Suspend",
-      onClick: () => handleSuspend(user),
-    },
-    {
-      label: "Soft Delete",
-      onClick: () => handleSoftDelete(user),
-      className: "text-orange-600 dark:text-orange-400",
-      divider: true,
-    },
-    {
-      label: "Hard Delete",
-      onClick: () => handleHardDelete(user),
-      className: "text-red-600 dark:text-red-400",
-    },
+  const getMenuItems = (user: AdminUserDetail): MenuItem[] => [
+    { label: `Make ${user.role === "admin" ? "User" : "Admin"}`, onSelect: () => handleChangeRole(user) },
+    { label: user.suspended ? "Unsuspend" : "Suspend", onSelect: () => handleSuspend(user) },
+    { label: "Soft Delete", onSelect: () => handleSoftDelete(user), warning: true, dividerBefore: true },
+    { label: "Hard Delete", onSelect: () => handleHardDelete(user), destructive: true },
   ];
 
   return (
@@ -258,15 +243,14 @@ export default function UserManagement() {
             onChange={(e) => handleSearchChange(e.target.value)}
           />
         </div>
-        <select
-          className="input-premium w-full sm:w-44"
-          value={roleFilter}
-          onChange={(e) => setRoleFilter(e.target.value)}
-        >
-          <option value="">All Roles</option>
-          <option value="admin">Admin</option>
-          <option value="user">User</option>
-        </select>
+        <div className="w-full sm:w-44">
+          <Select
+            ariaLabel="Role"
+            value={roleFilter}
+            onChange={setRoleFilter}
+            options={[{ value: "", label: "All Roles" }, { value: "admin", label: "Admin" }, { value: "user", label: "User" }]}
+          />
+        </div>
       </div>
 
       {/* Table */}
@@ -359,7 +343,17 @@ export default function UserManagement() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <ActionDropdown items={getDropdownItems(user)} align="right" />
+<Menu
+                        ariaLabel={`Actions for ${user.name}`}
+                        align="end"
+                        width={200}
+                        items={getMenuItems(user)}
+                        trigger={
+                          <button type="button" className="btn-secondary text-xs px-3 py-1.5">
+                            Actions <ChevronDown size={12} strokeWidth={2} aria-hidden />
+                          </button>
+                        }
+                      />
                     </td>
                   </tr>
                 );

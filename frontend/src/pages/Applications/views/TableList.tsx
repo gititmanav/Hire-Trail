@@ -11,6 +11,7 @@
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ChevronRight } from "lucide-react";
 import CompanyLogo from "../../../components/CompanyLogo/CompanyLogo.tsx";
+import Collapse from "../../../components/ui/Collapse.tsx";
 import AiPulse from "../../../components/AiIndicator/AiPulse.tsx";
 import { usePersistentState } from "../../../hooks/usePersistentState.ts";
 import { STAGES, STAGE_STRIPE_CLASS } from "../../../utils/stageStyles.ts";
@@ -155,9 +156,9 @@ const TableRow = memo(function TableRow({
         if (!e.currentTarget.contains(e.target as Node)) return;
         onOpen(app, e);
       }}
-      style={{ gridTemplateColumns: template, contentVisibility: "auto", containIntrinsicSize: "auto 44px" }}
-      className={`group/row grid items-center gap-x-4 h-11 px-4 border-b border-border/70 cursor-pointer transition-colors outline-none ${
-        selected ? "bg-primary/[0.06]" : focused ? "bg-muted/60" : "hover:bg-muted/40"
+      style={{ gridTemplateColumns: template, contentVisibility: "auto", containIntrinsicSize: "auto 44px", scrollMarginTop: ROW_SCROLL_MARGIN }}
+      className={`group/row grid items-center gap-x-4 h-11 px-3 cursor-pointer transition-colors outline-none ${
+        selected ? "bg-primary/[0.06]" : focused ? "bg-control/70" : ""
       }`}
     >
       {columns.map((c) => (
@@ -167,23 +168,68 @@ const TableRow = memo(function TableRow({
   );
 });
 
-/* ─── Group header ─── */
+/* ─── Group strip ─── */
 
-function GroupHeader({ label, count, collapsed, onToggle, leading }: {
-  label: string; count: number; collapsed: boolean; onToggle: () => void; leading: React.ReactNode;
+/** Sticky strips pin under the page header; rows scrolled into view by the
+ *  keyboard must clear both. */
+const STRIP_H = 36;
+const ROW_SCROLL_MARGIN = `calc(var(--page-header-h, 0px) + ${STRIP_H}px)`;
+
+/** A group's header strip. It carries the column labels (so they stay in view
+ *  while its rows scroll — the strip pins under the page header), the group's
+ *  name and count, and toggles the group. `onToggle` omitted = a plain header
+ *  (grouping: none). */
+function GroupStrip({ label, count, collapsed, onToggle, leading, columns, template, uppercase, controls }: {
+  label: string;
+  count: number;
+  collapsed?: boolean;
+  onToggle?: () => void;
+  leading?: React.ReactNode;
+  columns: ColumnDef[];
+  template: string;
+  uppercase: boolean;
+  /** id of the group body, for aria-controls. */
+  controls?: string;
 }) {
   return (
-    <button
-      type="button"
+    <div
+      role="row"
       onClick={onToggle}
-      aria-expanded={!collapsed}
-      className="w-full flex items-center gap-2 h-9 px-4 bg-muted/40 border-b border-border/70 text-left hover:bg-muted/70 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+      style={{ gridTemplateColumns: template, top: "var(--page-header-h, 0px)", height: STRIP_H }}
+      className={`sticky z-10 grid items-center gap-x-4 px-3 bg-sidebar border-y border-border/60 select-none ${onToggle ? "cursor-pointer" : ""}`}
     >
-      <ChevronRight size={13} strokeWidth={2.2} className={`text-muted-foreground transition-transform duration-200 ${collapsed ? "" : "rotate-90"}`} aria-hidden />
+      <div role="rowheader" className="min-w-0 flex items-center">
+        {onToggle ? (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onToggle(); }}
+            aria-expanded={!collapsed}
+            aria-controls={controls}
+            className="-ml-1 pl-1 pr-1.5 h-7 min-w-0 inline-flex items-center gap-2 rounded-md text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <ChevronRight size={13} strokeWidth={2.2} className={`shrink-0 text-muted-foreground transition-transform duration-200 ease-smooth motion-reduce:transition-none ${collapsed ? "" : "rotate-90"}`} aria-hidden />
+            <GroupLabel label={label} count={count} leading={leading} uppercase={uppercase} />
+          </button>
+        ) : (
+          <span className="min-w-0 inline-flex items-center gap-2"><GroupLabel label={label} count={count} leading={leading} uppercase={uppercase} /></span>
+        )}
+      </div>
+      {columns.slice(1).map((c) => (
+        <div key={c.id} role="columnheader" className={`min-w-0 truncate text-[11px] font-medium uppercase tracking-[0.06em] text-muted-foreground/75 ${c.align === "right" ? "text-right" : ""}`}>
+          {c.label}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function GroupLabel({ label, count, leading, uppercase }: { label: string; count: number; leading?: React.ReactNode; uppercase: boolean }) {
+  return (
+    <>
       {leading}
-      <span className="text-[12.5px] font-semibold text-foreground">{label}</span>
+      <span className={`truncate text-[12px] font-semibold text-foreground ${uppercase ? "uppercase tracking-[0.05em]" : ""}`}>{label}</span>
       <span className="text-[12px] text-muted-foreground tabular-nums">{count}</span>
-    </button>
+    </>
   );
 }
 
@@ -192,8 +238,11 @@ function GroupHeader({ label, count, collapsed, onToggle, leading }: {
 function TableSkeleton({ template }: { template: string }) {
   return (
     <div aria-hidden>
+      <div className="flex items-center gap-2 px-3 bg-sidebar border-y border-border/60" style={{ height: STRIP_H }}>
+        <span className="h-2.5 w-24 rounded bg-muted-foreground/15 animate-pulse" />
+      </div>
       {Array.from({ length: 10 }).map((_, i) => (
-        <div key={i} className="grid items-center gap-x-4 h-11 px-4 border-b border-border/70" style={{ gridTemplateColumns: template }}>
+        <div key={i} className="grid items-center gap-x-4 h-11 px-3" style={{ gridTemplateColumns: template }}>
           <div className="flex items-center gap-2.5"><span className="w-4" /><span className="w-6 h-6 rounded-md bg-muted animate-pulse" /><span className="h-3 rounded bg-muted animate-pulse" style={{ width: `${40 + ((i * 17) % 35)}%` }} /></div>
           <span className="h-5 w-20 rounded-full bg-muted animate-pulse" />
         </div>
@@ -213,20 +262,27 @@ export default function TableList() {
   const { data: deadlines = [] } = useUpcomingDeadlines();
   const moveStage = useMoveStage();
 
-  /* Width-driven columns. */
+  /* Width-driven columns. The observer only updates state when a column
+   *  threshold is crossed — the raw width changes every frame while the
+   *  sidebar animates, and re-rendering 650 rows per frame is what made that
+   *  motion stutter. */
   const containerRef = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(0);
+  const [fitWidth, setFitWidth] = useState(0);
   useLayoutEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    setWidth(el.clientWidth);
-    const ro = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width));
+    const bucket = (w: number) => COLUMNS.reduce((max, c) => (w >= c.minWidth ? Math.max(max, c.minWidth) : max), 0);
+    setFitWidth(bucket(el.clientWidth));
+    const ro = new ResizeObserver(([entry]) => {
+      const next = bucket(entry.contentRect.width);
+      setFitWidth((prev) => (prev === next ? prev : next));
+    });
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
   const columns = useMemo(
-    () => COLUMNS.filter((c) => !c.optional || (!shell.hiddenColumns.includes(c.id) && width >= c.minWidth)),
-    [shell.hiddenColumns, width],
+    () => COLUMNS.filter((c) => !c.optional || (!shell.hiddenColumns.includes(c.id) && fitWidth >= c.minWidth)),
+    [shell.hiddenColumns, fitWidth],
   );
   const template = columns.map((c) => c.track).join(" ");
 
@@ -288,7 +344,7 @@ export default function TableList() {
   return (
     <div ref={containerRef}>
       {isPending ? (
-        <div className="rounded-xl border border-border bg-card overflow-hidden"><TableSkeleton template={template || "1fr 118px"} /></div>
+        <TableSkeleton template={template || "1fr 118px"} />
       ) : apps.length === 0 ? (
         <EmptyState
           mode={narrowing || filters.status === "archived" ? "filtered" : "welcome"}
@@ -297,49 +353,52 @@ export default function TableList() {
           onClearFilters={() => setFilters({ q: "", stage: "", company: "", resume: "", source: "" })}
         />
       ) : (
-        <div role="table" aria-label="Applications" aria-rowcount={apps.length} className="rounded-xl border border-border bg-card overflow-hidden">
-          <div role="row" className="grid items-center gap-x-4 h-9 px-4 border-b border-border bg-card" style={{ gridTemplateColumns: template }}>
-            {columns.map((c) => (
-              <div key={c.id} role="columnheader" className={`text-[11.5px] font-medium text-muted-foreground ${c.id === "role" ? "pl-[26px]" : ""}`}>{c.label}</div>
-            ))}
-          </div>
+        <div role="table" aria-label="Applications" aria-rowcount={apps.length}>
           {groups.map((g) => {
             const isCollapsed = collapsed.has(g.key);
+            const bodyId = `apps-group-${g.key.replace(/[^a-zA-Z0-9_-]/g, "_")}`;
+            const grouped = shell.tableGrouping !== "none";
             return (
-              <div key={g.key} role="rowgroup">
-                {shell.tableGrouping !== "none" && (
-                  <GroupHeader
-                    label={g.label}
-                    count={g.apps.length}
-                    collapsed={isCollapsed}
-                    onToggle={() => toggleGroup(g.key)}
-                    leading={"stage" in g && g.stage
-                      ? <span className={`w-2 h-2 rounded-full ${STAGE_STRIPE_CLASS[g.stage as Stage]}`} aria-hidden />
-                      : <CompanyLogo name={g.label} logoUrl={resolveCompany(g.apps[0])?.logoUrl} size="xs" />}
-                  />
-                )}
-                {!isCollapsed && g.apps.map((a) => {
-                  rowIndex += 1;
-                  return (
-                    <TableRow
-                      key={a._id}
-                      app={a}
-                      index={rowIndex}
-                      columns={columns}
-                      template={template}
-                      company={resolveCompany(a)}
-                      resume={a.resumeId ? resumeById.get(a.resumeId) : undefined}
-                      deadline={nextDeadline.get(a._id)}
-                      focused={focusedIndex === rowIndex}
-                      selected={selected.has(a._id)}
-                      selectionActive={selected.size > 0}
-                      onOpen={open}
-                      onToggle={toggle}
-                      onFocus={setFocusedIndex}
-                      onMove={moveStage}
-                    />
-                  );
-                })}
+              <div key={g.key} role="rowgroup" className="mb-3 last:mb-0">
+                <GroupStrip
+                  label={grouped ? g.label : "All applications"}
+                  count={g.apps.length}
+                  collapsed={isCollapsed}
+                  onToggle={grouped ? () => toggleGroup(g.key) : undefined}
+                  controls={bodyId}
+                  columns={columns}
+                  template={template}
+                  uppercase={shell.tableGrouping !== "company"}
+                  leading={"stage" in g && g.stage
+                    ? <span className={`w-2 h-2 rounded-full shrink-0 ${STAGE_STRIPE_CLASS[g.stage as Stage]}`} aria-hidden />
+                    : shell.tableGrouping === "company"
+                      ? <CompanyLogo name={g.label} logoUrl={resolveCompany(g.apps[0])?.logoUrl} size="xs" />
+                      : undefined}
+                />
+                <Collapse open={!isCollapsed} id={bodyId}>
+                  {!isCollapsed && g.apps.map((a) => {
+                    rowIndex += 1;
+                    return (
+                      <TableRow
+                        key={a._id}
+                        app={a}
+                        index={rowIndex}
+                        columns={columns}
+                        template={template}
+                        company={resolveCompany(a)}
+                        resume={a.resumeId ? resumeById.get(a.resumeId) : undefined}
+                        deadline={nextDeadline.get(a._id)}
+                        focused={focusedIndex === rowIndex}
+                        selected={selected.has(a._id)}
+                        selectionActive={selected.size > 0}
+                        onOpen={open}
+                        onToggle={toggle}
+                        onFocus={setFocusedIndex}
+                        onMove={moveStage}
+                      />
+                    );
+                  })}
+                </Collapse>
               </div>
             );
           })}

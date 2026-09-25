@@ -5,6 +5,20 @@ import { adminAPI } from "../../utils/api";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal";
 import { useConfirm } from "../../hooks/useConfirm";
 import type { Invite } from "../../types";
+import Select from "../../components/ui/Select.tsx";
+import DateInput from "../../components/ui/DateInput.tsx";
+
+const END_OF_DAY = "23:59";
+/** Every half hour, plus end of day. Values are 24h "HH:mm"; labels are local. */
+const TIME_OPTIONS = [
+  ...Array.from({ length: 48 }, (_, i) => {
+    const h = Math.floor(i / 2);
+    const m = i % 2 ? "30" : "00";
+    const value = `${String(h).padStart(2, "0")}:${m}`;
+    return { value, label: new Date(2000, 0, 1, h, Number(m)).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }) };
+  }),
+  { value: END_OF_DAY, label: "End of day" },
+];
 
 export default function InviteSystem() {
   const [invites, setInvites] = useState<Invite[]>([]);
@@ -14,7 +28,10 @@ export default function InviteSystem() {
 
   const [email, setEmail] = useState("");
   const [maxUses, setMaxUses] = useState(1);
-  const [expiresAt, setExpiresAt] = useState("");
+  // Expiry = a day + a time of day (local), composed as "YYYY-MM-DDTHH:mm".
+  const [expiryDate, setExpiryDate] = useState("");
+  const [expiryTime, setExpiryTime] = useState(END_OF_DAY);
+  const expiresAt = expiryDate ? `${expiryDate}T${expiryTime}` : "";
 
   const fetchInvites = useCallback(() => {
     adminAPI
@@ -44,7 +61,8 @@ export default function InviteSystem() {
       toast.success("Invite code generated");
       setEmail("");
       setMaxUses(1);
-      setExpiresAt("");
+      setExpiryDate("");
+      setExpiryTime(END_OF_DAY);
       fetchInvites();
     } catch {
       toast.error("Failed to generate invite");
@@ -120,7 +138,7 @@ export default function InviteSystem() {
           { label: "Expired", value: stats.expired, accent: "text-red-600 dark:text-red-400" },
           { label: "Redemptions", value: stats.totalUses, accent: "text-primary" },
         ].map((s) => (
-          <div key={s.label} className="bg-card border border-border rounded-xl p-4">
+          <div key={s.label} className="surface-card p-4">
             <p className="text-xs uppercase tracking-wider text-muted-foreground">{s.label}</p>
             <p className={`text-2xl font-bold mt-1 ${s.accent}`}>{s.value}</p>
           </div>
@@ -159,12 +177,10 @@ export default function InviteSystem() {
             <label className="block text-sm font-medium text-foreground mb-1">
               Expires At
             </label>
-            <input
-              type="datetime-local"
-              className="input-premium w-full"
-              value={expiresAt}
-              onChange={(e) => setExpiresAt(e.target.value)}
-            />
+            <div className="grid grid-cols-[1fr_140px] gap-2">
+              <DateInput ariaLabel="Expiry date" value={expiryDate} onChange={setExpiryDate} />
+              <Select ariaLabel="Expiry time" value={expiryTime} onChange={setExpiryTime} options={TIME_OPTIONS} />
+            </div>
           </div>
         </div>
         <button

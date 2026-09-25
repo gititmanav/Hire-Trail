@@ -85,7 +85,7 @@ export default function GmailManagement() {
             { label: "Rejections Detected", value: stats.totalRejectionsDetected, color: "text-red-600 dark:text-red-400" },
             { label: "Detections Today", value: stats.totalScansToday, color: "text-emerald-600 dark:text-emerald-400" },
           ].map((s) => (
-            <div key={s.label} className="bg-card border border-border rounded-xl p-4">
+            <div key={s.label} className="surface-card p-4">
               <p className="text-sm text-muted-foreground">{s.label}</p>
               <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
             </div>
@@ -104,7 +104,7 @@ export default function GmailManagement() {
       </div>
 
       {/* Table */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="surface-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>

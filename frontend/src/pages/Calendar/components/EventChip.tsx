@@ -3,6 +3,7 @@ import type { EventProps } from "react-big-calendar";
 import { Check, Send, Repeat, Clock } from "lucide-react";
 import type { CalendarFactor } from "../../../utils/calendarEvents.ts";
 import type { HireTrailCalendarEvent } from "../../../utils/calendarRbc.ts";
+import { cssPalette } from "../../../utils/palette.ts";
 
 function FactorIcon({ factor, completed }: { factor?: CalendarFactor; completed?: boolean }) {
   if (completed) return <Check size={11} strokeWidth={2.5} aria-hidden />;
@@ -16,8 +17,8 @@ function FactorIcon({ factor, completed }: { factor?: CalendarFactor; completed?
 }
 
 export function EventChip({ event }: EventProps<HireTrailCalendarEvent>) {
-  const bg = event.resource?.backgroundColor ?? "#64748b";
-  const border = event.resource?.borderColor ?? "#475569";
+  const bg = event.resource?.backgroundColor ?? cssPalette("slate-500");
+  const border = event.resource?.borderColor ?? cssPalette("slate-600");
   const factor = event.resource?.factor;
   const completed = event.resource?.completed;
   const label = typeof event.title === "string" ? event.title : "";

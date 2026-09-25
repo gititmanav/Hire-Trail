@@ -2,32 +2,35 @@
  *  view's display options, export, and the keyboard-shortcuts help. One place
  *  for all of it — nothing filter-shaped lives out in the open on the page. */
 import { ReactNode, useRef } from "react";
-import { Download, Keyboard, SlidersHorizontal } from "lucide-react";
-import Popover from "../../../components/ui/Popover.tsx";
-import Select from "../../../components/ui/Select.tsx";
+import { Building2, Download, FileText, Keyboard, Mail, PenLine, Puzzle, SlidersHorizontal } from "lucide-react";
+import CompanyLogo from "../../../components/CompanyLogo/CompanyLogo.tsx";
+import Popover, { PopoverDivider, PopoverLabel, PopoverSection } from "../../../components/ui/Popover.tsx";
+import Select, { type SelectOption } from "../../../components/ui/Select.tsx";
 import SegmentedControl from "../../../components/ui/SegmentedControl.tsx";
 import Tooltip from "../../../components/ui/Tooltip.tsx";
-import { STAGES } from "../../../utils/stageStyles.ts";
+import { STAGES, STAGE_STRIPE_CLASS } from "../../../utils/stageStyles.ts";
 import { activeFilterCount, type ApplicationFilters, type AppStatus } from "../data/filters.ts";
+import { useCompanies } from "../data/queries.ts";
 import type { ApplicationFilterOptions } from "../../../utils/api.ts";
 import type { Resume } from "../../../types";
 
 const SOURCE_LABEL: Record<string, string> = { manual: "Added manually", extension: "Browser extension", email: "Inbox scan" };
+const SOURCE_ICON: Record<string, React.ReactNode> = {
+  manual: <PenLine size={14} strokeWidth={1.8} className="text-muted-foreground" />,
+  extension: <Puzzle size={14} strokeWidth={1.8} className="text-muted-foreground" />,
+  email: <Mail size={14} strokeWidth={1.8} className="text-muted-foreground" />,
+};
 
+/** The "any" option's mark: a hollow ring where the others have a colour. */
+const ANY_DOT = <span className="w-2 h-2 rounded-full border border-muted-foreground/60" />;
+const stageDot = (s: string) => <span className={`w-2 h-2 rounded-full ${STAGE_STRIPE_CLASS[s as keyof typeof STAGE_STRIPE_CLASS]}`} />;
+
+/** One settings row: label left, its control right (Sora-style). */
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex items-center gap-3">
-      <span className="w-[72px] shrink-0 text-[13px] text-muted-foreground">{label}</span>
-      <div className="flex-1 min-w-0">{children}</div>
-    </div>
-  );
-}
-
-export function SectionLabel({ children, action }: { children: ReactNode; action?: ReactNode }) {
-  return (
-    <div className="flex items-center justify-between mb-2.5">
-      <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{children}</span>
-      {action}
+    <div className="flex items-center justify-between gap-3 min-h-9 px-2.5">
+      <span className="text-[13px] text-foreground shrink-0">{label}</span>
+      <div className="min-w-0 flex justify-end">{children}</div>
     </div>
   );
 }
@@ -58,20 +61,28 @@ export default function FiltersMenu({
   const anchorRef = useRef<HTMLButtonElement>(null);
   const active = activeFilterCount({ ...filters, stage: showStage ? filters.stage : "" });
 
+  const { data: companies = [] } = useCompanies();
+  const logoByName = new Map(companies.map((c) => [c.name.toLowerCase(), c.logoUrl]));
+  const companyMark = (name: string) => <CompanyLogo name={name} logoUrl={logoByName.get(name.toLowerCase())} size="2xs" />;
+  const resumeIcon = <FileText size={14} strokeWidth={1.8} className="text-muted-foreground" />;
+
   const resumeName = (id: string) => resumes.find((r) => r._id === id)?.name ?? "Untitled resume";
-  const resumeOptions = [
-    { value: "", label: "Any resume" },
-    ...(options?.hasUnassignedResume ? [{ value: "none", label: "No resume attached" }] : []),
-    ...(options?.resumeIds ?? []).map((id) => ({ value: id, label: resumeName(id) })).sort((a, b) => a.label.localeCompare(b.label)),
+  const resumeOptions: SelectOption[] = [
+    { value: "", label: "Any resume", icon: resumeIcon },
+    ...(options?.hasUnassignedResume ? [{ value: "none", label: "No resume attached", icon: resumeIcon }] : []),
+    ...(options?.resumeIds ?? []).map((id) => ({ value: id, label: resumeName(id), icon: resumeIcon })).sort((a, b) => a.label.localeCompare(b.label)),
   ];
   // A filter pointing at a value no longer in the data (stale link) still
   // shows, so the user can see — and clear — what's narrowing the view.
   if (filters.resume && !resumeOptions.some((o) => o.value === filters.resume)) {
-    resumeOptions.push({ value: filters.resume, label: resumeName(filters.resume) });
+    resumeOptions.push({ value: filters.resume, label: resumeName(filters.resume), icon: resumeIcon });
   }
-  const companyOptions = [{ value: "", label: "Any company" }, ...(options?.companies ?? []).map((c) => ({ value: c, label: c }))];
+  const companyOptions: SelectOption[] = [
+    { value: "", label: "Any company", icon: <Building2 size={14} strokeWidth={1.8} className="text-muted-foreground" /> },
+    ...(options?.companies ?? []).map((c) => ({ value: c, label: c, icon: companyMark(c) })),
+  ];
   if (filters.company && !companyOptions.some((o) => o.value === filters.company)) {
-    companyOptions.push({ value: filters.company, label: filters.company });
+    companyOptions.push({ value: filters.company, label: filters.company, icon: companyMark(filters.company) });
   }
 
   return (
@@ -84,7 +95,7 @@ export default function FiltersMenu({
           aria-label={active ? `Filters (${active} active)` : "Filters"}
           aria-expanded={open}
           className={`relative w-8 h-8 inline-flex items-center justify-center rounded-lg border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-            active || open ? "border-primary/40 bg-primary/5 text-primary" : "border-border text-muted-foreground hover:text-foreground hover:bg-muted"
+            active || open ? "border-primary/40 bg-primary/5 text-primary" : "border-border text-muted-foreground hover:text-foreground hover:bg-control"
           }`}
         >
           <SlidersHorizontal size={15} strokeWidth={1.8} aria-hidden />
@@ -96,96 +107,99 @@ export default function FiltersMenu({
         </button>
       </Tooltip>
 
-      <Popover open={open} onOpenChange={onOpenChange} anchorRef={anchorRef} align="end" width={344} ariaLabel="Filters and display">
-        <div className="p-4 space-y-4">
-          <section>
-            <SectionLabel
-              action={
-                <button
-                  type="button"
-                  onClick={resetFilters}
-                  disabled={active === 0}
-                  className="text-[12px] font-medium text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-default focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded px-1"
-                >
-                  Reset
-                </button>
-              }
-            >
-              Filters
-            </SectionLabel>
-            <div className="space-y-2.5">
-              <Row label="Status">
-                <SegmentedControl<AppStatus>
-                  ariaLabel="Status"
-                  size="sm"
-                  value={filters.status}
-                  onChange={(status) => setFilters({ status })}
-                  segments={[
-                    { value: "active", label: "Active", count: tabCounts?.active },
-                    { value: "archived", label: "Archived", count: tabCounts?.archived },
-                  ]}
-                />
-              </Row>
-              {showStage && (
-                <Row label="Stage">
-                  <Select
-                    size="sm"
-                    ariaLabel="Stage"
-                    value={filters.stage}
-                    onChange={(v) => setFilters({ stage: v as ApplicationFilters["stage"] })}
-                    options={[
-                      { value: "", label: "Any stage" },
-                      ...STAGES.map((s) => ({ value: s, label: stageCounts ? `${s} · ${stageCounts[s] ?? 0}` : s })),
-                    ]}
-                  />
-                </Row>
-              )}
-              <Row label="Company">
-                <Select size="sm" ariaLabel="Company" searchable searchPlaceholder="Search companies…" value={filters.company} onChange={(company) => setFilters({ company })} options={companyOptions} />
-              </Row>
-              <Row label="Resume">
-                <Select size="sm" ariaLabel="Resume" searchable={resumeOptions.length > 8} searchPlaceholder="Search resumes…" value={filters.resume} onChange={(resume) => setFilters({ resume })} options={resumeOptions} />
-              </Row>
-              <Row label="Source">
-                <Select
-                  size="sm"
-                  ariaLabel="Source"
-                  value={filters.source}
-                  onChange={(source) => setFilters({ source })}
-                  options={[{ value: "", label: "Any source" }, ...["manual", "extension", "email"].map((s) => ({ value: s, label: SOURCE_LABEL[s] }))]}
-                />
-              </Row>
-            </div>
-          </section>
-
-          {display && (
-            <section className="pt-4 border-t border-border">
-              <SectionLabel>Display</SectionLabel>
-              <div className="space-y-2.5">{display}</div>
-            </section>
-          )}
-
-          <div className="pt-3 border-t border-border flex items-center justify-between">
-            <button
-              type="button"
-              onClick={() => { onOpenChange(false); onShortcuts(); }}
-              className="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded px-1 py-0.5"
-            >
-              <Keyboard size={14} strokeWidth={1.8} aria-hidden />
-              Keyboard shortcuts
-            </button>
-            {onExport && (
+      <Popover open={open} onOpenChange={onOpenChange} anchorRef={anchorRef} align="end" width={340} ariaLabel="Filters and display">
+        <PopoverSection>
+          <PopoverLabel
+            action={
               <button
                 type="button"
-                onClick={() => { onOpenChange(false); onExport(); }}
-                className="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded px-1 py-0.5"
+                onClick={resetFilters}
+                disabled={active === 0}
+                className="text-[12px] font-medium text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-default focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded px-1"
               >
-                <Download size={14} strokeWidth={1.8} aria-hidden />
-                Export CSV
+                Reset
               </button>
-            )}
-          </div>
-        </div>
+            }
+          >
+            Filters
+          </PopoverLabel>
+          <Row label="Status">
+            <SegmentedControl<AppStatus>
+              ariaLabel="Status"
+              size="sm"
+              value={filters.status}
+              onChange={(status) => setFilters({ status })}
+              segments={[
+                { value: "active", label: "Active", count: tabCounts?.active },
+                { value: "archived", label: "Archived", count: tabCounts?.archived },
+              ]}
+            />
+          </Row>
+          {showStage && (
+            <Row label="Stage">
+              <Select
+                variant="pill"
+                ariaLabel="Stage"
+                value={filters.stage}
+                onChange={(v) => setFilters({ stage: v as ApplicationFilters["stage"] })}
+                options={[
+                  { value: "", label: "Any stage", icon: ANY_DOT },
+                  ...STAGES.map((s) => ({ value: s, label: stageCounts ? `${s} · ${stageCounts[s] ?? 0}` : s, icon: stageDot(s) })),
+                ]}
+              />
+            </Row>
+          )}
+          <Row label="Company">
+            <Select variant="pill" ariaLabel="Company" searchable searchPlaceholder="Search companies…" value={filters.company} onChange={(company) => setFilters({ company })} options={companyOptions} />
+          </Row>
+          <Row label="Resume">
+            <Select variant="pill" ariaLabel="Resume" searchable={resumeOptions.length > 8} searchPlaceholder="Search resumes…" value={filters.resume} onChange={(resume) => setFilters({ resume })} options={resumeOptions} />
+          </Row>
+          <Row label="Source">
+            <Select
+              variant="pill"
+              ariaLabel="Source"
+              value={filters.source}
+              onChange={(source) => setFilters({ source })}
+              options={[
+                { value: "", label: "Any source", icon: ANY_DOT },
+                ...["manual", "extension", "email"].map((s) => ({ value: s, label: SOURCE_LABEL[s], icon: SOURCE_ICON[s] })),
+              ]}
+            />
+          </Row>
+        </PopoverSection>
+
+        {display && (
+          <>
+            <PopoverDivider />
+            <PopoverSection>
+              <PopoverLabel>Display options</PopoverLabel>
+              {display}
+            </PopoverSection>
+          </>
+        )}
+
+        <PopoverDivider />
+        <PopoverSection className="flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => { onOpenChange(false); onShortcuts(); }}
+            className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-[12.5px] font-medium text-muted-foreground hover:text-foreground hover:bg-control focus:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
+          >
+            <Keyboard size={14} strokeWidth={1.8} aria-hidden />
+            Keyboard shortcuts
+          </button>
+          {onExport && (
+            <button
+              type="button"
+              onClick={() => { onOpenChange(false); onExport(); }}
+              className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-[12.5px] font-medium text-muted-foreground hover:text-foreground hover:bg-control focus:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
+            >
+              <Download size={14} strokeWidth={1.8} aria-hidden />
+              Export CSV
+            </button>
+          )}
+        </PopoverSection>
       </Popover>
     </>
   );

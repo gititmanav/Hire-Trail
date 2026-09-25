@@ -9,8 +9,8 @@
 import { useCallback, useContext, useEffect, useRef } from "react";
 import { Bar } from "react-chartjs-2";
 import { useNavigate } from "react-router-dom";
-import { ThemeContext } from "../../App.tsx";
-import { stageColor, mutedFgColor, borderColor } from "../../utils/chartSetup.ts";
+import { ThemeContext } from "../../hooks/useTheme.tsx";
+import { stageColor, mutedFgColor, borderColor, tooltipColor } from "../../utils/chartSetup.ts";
 import { FUNNEL_STAGES } from "../../utils/stageStyles.ts";
 import type { AnalyticsData } from "../../types";
 import type { Chart as ChartJS } from "chart.js";
@@ -18,7 +18,7 @@ import type { Chart as ChartJS } from "chart.js";
 interface Props { data: AnalyticsData; }
 
 export default function FunnelWidget({ data }: Props) {
-  const { themeId } = useContext(ThemeContext);
+  const { revision } = useContext(ThemeContext);
   const chartRef = useRef<ChartJS<"bar">>(null);
   const navigate = useNavigate();
 
@@ -38,7 +38,7 @@ export default function FunnelWidget({ data }: Props) {
     if (chart.options.scales?.y?.ticks) (chart.options.scales.y.ticks as any).color = m;
     if (chart.options.scales?.y?.grid) (chart.options.scales.y.grid as any).color = g;
     chart.update("none");
-  }, [themeId]);
+  }, [revision]);
 
   const handleBarClick = useCallback(
     (_e: unknown, elements: { index: number }[]) => {
@@ -72,7 +72,7 @@ export default function FunnelWidget({ data }: Props) {
     },
     plugins: {
       tooltip: {
-        backgroundColor: "rgba(0,0,0,0.8)",
+        backgroundColor: tooltipColor(),
         padding: 10,
         cornerRadius: 8,
         callbacks: {

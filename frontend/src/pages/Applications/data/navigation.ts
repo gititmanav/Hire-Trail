@@ -2,6 +2,8 @@
  *  they were looking at (for J/K next/previous) and where "Back" returns to
  *  (the exact view + filters). Session-scoped — a fresh tab starts clean. */
 
+import { appScrollRoot } from "../../../utils/scrollRoot.ts";
+
 const KEY = "hiretrail-apps-detail-nav";
 const SCROLL_PREFIX = "hiretrail-apps-scroll:";
 
@@ -28,7 +30,7 @@ export function readDetailNav(): DetailNav | null {
 
 /** Scroll position per list URL, restored when the user comes back. */
 export function saveListScroll(url: string): void {
-  try { sessionStorage.setItem(SCROLL_PREFIX + url, String(window.scrollY)); } catch { /* ignore */ }
+  try { sessionStorage.setItem(SCROLL_PREFIX + url, String(appScrollRoot().scrollTop)); } catch { /* ignore */ }
 }
 export function takeListScroll(url: string): number | null {
   try {

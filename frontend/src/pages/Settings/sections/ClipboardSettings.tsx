@@ -2,12 +2,12 @@
  *  when tracking a job. */
 import { useContext, useRef, useState } from "react";
 import toast from "react-hot-toast";
-import { Check, ChevronDown } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { api } from "../../../utils/api.ts";
 import type { User } from "../../../types";
 import { UserContext } from "../../../App.tsx";
 import { useDemoGate } from "../../../hooks/useDemoGate.tsx";
-import ActionDropdown from "../../../components/ActionDropdown/ActionDropdown.tsx";
+import Menu from "../../../components/ui/Menu.tsx";
 import Toggle from "../../../components/ui/Toggle.tsx";
 import { SettingsCard, SettingsHeader, SettingsRow } from "../ui.tsx";
 
@@ -76,9 +76,10 @@ export default function ClipboardSettings() {
         </SettingsRow>
 
         <SettingsRow title="Clipboard format" description={activeOption?.hint}>
-          <ActionDropdown
-            align="right"
-            menuWidth="w-64"
+          <Menu
+            ariaLabel="Clipboard format"
+            align="end"
+            width={256}
             disabled={saving}
             trigger={
               <button
@@ -92,8 +93,8 @@ export default function ClipboardSettings() {
             }
             items={CLIPBOARD_FORMAT_OPTIONS.map((opt) => ({
               label: opt.label,
-              icon: <Check size={14} className={format === opt.value ? "text-primary" : "opacity-0"} />,
-              onClick: async () => {
+              checked: format === opt.value,
+              onSelect: async () => {
                 if (opt.value === format) return;
                 if (!requireRealAccount("Clipboard")) return;
                 const prev = format;

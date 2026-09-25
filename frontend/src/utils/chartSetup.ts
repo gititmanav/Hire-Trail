@@ -12,71 +12,76 @@ ChartJS.defaults.responsive = true;
 ChartJS.defaults.maintainAspectRatio = false;
 export { ChartJS };
 
-/** Read a CSS variable as an hsl() string from the root element. */
-function cssVar(name: string): string {
-  const val = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  return val ? `hsl(${val})` : "";
+/* Canvas can't resolve CSS variables, so charts read the live token values
+ * at draw time (and re-read when the theme changes). No literals here — every
+ * color comes from App.css or a Custom theme. */
+function readVar(name: string): string {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 
-/** Get the 5 tweakcn chart colors resolved from CSS variables. */
-export function chartColors(): string[] {
-  return [
-    cssVar("--chart-1") || "#378ADD",
-    cssVar("--chart-2") || "#EF9F27",
-    cssVar("--chart-3") || "#7F77DD",
-    cssVar("--chart-4") || "#1E3A8A",
-    cssVar("--chart-5") || "#E24B4A",
-  ];
+/** A theme token (HSL triplet) as a color string, optionally translucent. */
+export function tokenColor(name: string, alpha = 1): string {
+  const v = readVar(name);
+  return alpha === 1 ? `hsl(${v})` : `hsl(${v} / ${alpha})`;
+}
+
+/** A palette color (App.css `--palette-*`, RGB triplet), e.g. "blue-500". */
+export function paletteColor(name: string, alpha = 1): string {
+  const [r, g, b] = readVar(`--palette-${name}`).split(/\s+/);
+  return alpha === 1 ? `rgb(${r}, ${g}, ${b})` : `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+/** The five chart colors, optionally translucent. */
+export function chartColors(alpha = 1): string[] {
+  return ["--chart-1", "--chart-2", "--chart-3", "--chart-4", "--chart-5"].map((t) => tokenColor(t, alpha));
 }
 
 function isDarkMode(): boolean {
   return document.documentElement.classList.contains("dark");
 }
 
-const STAGE_COLORS_LIGHT: Record<string, string> = {
-  applied: "#3b82f6",
-  oa: "#f59e0b",
-  interview: "#8b5cf6",
-  offer: "#10b981",
-  rejected: "#f43f5e",
-};
-
-const STAGE_COLORS_DARK: Record<string, string> = {
-  applied: "#60a5fa",
-  oa: "#fbbf24",
-  interview: "#a78bfa",
-  offer: "#34d399",
-  rejected: "#fb7185",
+/** Stage → palette color (the 500s in light, the 400s in dark). */
+const STAGE_PALETTE: Record<string, string> = {
+  applied: "blue",
+  oa: "amber",
+  interview: "violet",
+  offer: "emerald",
+  rejected: "rose",
 };
 
 /** Semantic stage colors to keep analytics meaning consistent across charts. */
 export function stageColor(stage: string): string {
-  const key = stage.toLowerCase();
-  const palette = isDarkMode() ? STAGE_COLORS_DARK : STAGE_COLORS_LIGHT;
-  return palette[key] || chartColors()[0];
+  const family = STAGE_PALETTE[stage.toLowerCase()];
+  if (!family) return chartColors()[0];
+  return paletteColor(`${family}-${isDarkMode() ? 400 : 500}`);
 }
 
-/** Get the primary color from CSS variables. */
-export function primaryColor(): string {
-  return cssVar("--primary") || "#378ADD";
+/** Get the primary color from CSS variables, optionally translucent. */
+export function primaryColor(alpha = 1): string {
+  return tokenColor("--primary", alpha);
 }
 
 /** Get muted-foreground for axis labels, grid lines, etc. */
 export function mutedFgColor(): string {
-  return cssVar("--muted-foreground") || "#9ca3af";
+  return tokenColor("--muted-foreground");
 }
 
 /** Get border color for grid lines. */
 export function borderColor(): string {
-  return cssVar("--border") || "rgba(0,0,0,0.06)";
+  return tokenColor("--border");
 }
 
 /** Get card color for tooltip backgrounds. */
 export function cardColor(): string {
-  return cssVar("--card") || "#ffffff";
+  return tokenColor("--card");
 }
 
 /** Get foreground color. */
 export function fgColor(): string {
-  return cssVar("--foreground") || "#111827";
+  return tokenColor("--foreground");
+}
+
+/** Chart tooltip background — the scrim at 80%. */
+export function tooltipColor(): string {
+  return tokenColor("--scrim", 0.8);
 }

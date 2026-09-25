@@ -70,7 +70,7 @@ export default function FeedbackModal({ onClose, initial }: Props) {
   return createPortal(
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" role="dialog" aria-modal="true">
       <div
-        className={`absolute inset-0 bg-black/65 transition-opacity duration-200 ${open ? "opacity-100" : "opacity-0"}`}
+        className={`absolute inset-0 bg-scrim/65 transition-opacity duration-200 ${open ? "opacity-100" : "opacity-0"}`}
         onClick={handleClose}
         aria-hidden="true"
       />
@@ -151,7 +151,7 @@ export default function FeedbackModal({ onClose, initial }: Props) {
             <button type="button" onClick={handleClose} className="px-4 py-2 text-sm font-medium border border-border rounded-lg text-secondary-foreground hover:bg-muted">
               Cancel
             </button>
-            <button type="submit" disabled={submitting} className="px-4 py-2 text-sm font-medium text-white bg-primary hover:brightness-110 rounded-lg disabled:opacity-50">
+            <button type="submit" disabled={submitting} className="px-4 py-2 text-sm font-medium text-primary-foreground bg-primary hover:brightness-110 rounded-lg disabled:opacity-50">
               {submitting ? "Sending…" : "Send feedback"}
             </button>
           </div>

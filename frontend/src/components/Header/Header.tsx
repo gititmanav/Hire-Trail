@@ -1,11 +1,13 @@
-/** Top bar: extension CTA, global search, calendar quick-access, notifications, theme, user menu. */
-import { useState, useRef, useEffect, useContext, useCallback } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+/** Top bar: extension CTA, global search, notifications, user menu. (Theme lives in
+ *  Settings → Personalize; the calendar is a view in Applications.) */
+import { useState, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import {
-  Menu, Puzzle, Download, Info, ChevronDown, Sun, Moon, User as UserIcon,
-  Settings as SettingsIcon, LogOut, Calendar, Wrench, Megaphone,
+  Menu as MenuIcon, Puzzle, Download, Info, ChevronDown, User as UserIcon,
+  Settings as SettingsIcon, LogOut, Wrench, Megaphone,
 } from "lucide-react";
-import { ThemeContext } from "../../App.tsx";
+import Menu from "../ui/Menu.tsx";
+import HoverCard from "../ui/HoverCard.tsx";
 import NotificationBell from "./NotificationBell.tsx";
 import GlobalSearch from "./GlobalSearch.tsx";
 import { useAnnouncements } from "../Announcements/AnnouncementsProvider.tsx";
@@ -26,18 +28,12 @@ const SUPPORTED_SITES = [
 interface Props { user: User; onLogout: () => Promise<void>; onMobileMenuToggle?: () => void; }
 
 export default function Header({ user, onLogout, onMobileMenuToggle }: Props) {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const { dark, toggle } = useContext(ThemeContext);
   const { hasActiveKey, ready } = useAIKeyStatus();
   const { hasAnnouncements, reopenAll } = useAnnouncements();
   const navigate = useNavigate();
-  const location = useLocation();
   const initials = user.name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
   const [extHighlight, setExtHighlight] = useState(() => !localStorage.getItem(EXT_DISMISSED_KEY));
-  const [sitesOpen, setSitesOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
-  const sitesRef = useRef<HTMLDivElement>(null);
 
   const handleExtDownload = useCallback(() => {
     if (extHighlight) {
@@ -46,35 +42,9 @@ export default function Header({ user, onLogout, onMobileMenuToggle }: Props) {
     }
   }, [extHighlight]);
 
-  // Click-outside for user menu
-  useEffect(() => { const h = (e: MouseEvent) => { if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false); }; document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h); }, []);
-  // Escape closes menus
-  useEffect(() => { const h = (e: KeyboardEvent) => { if (e.key === "Escape") { setMenuOpen(false); setSitesOpen(false); } }; document.addEventListener("keydown", h); return () => document.removeEventListener("keydown", h); }, []);
-  // Click-outside for supported-sites popover (esp. mobile tap-to-toggle)
-  useEffect(() => {
-    const h = (e: MouseEvent) => {
-      if (sitesRef.current && !sitesRef.current.contains(e.target as Node)) setSitesOpen(false);
-    };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
-  }, []);
-
-  // Publish the header's live height as --app-header-h so page-level sticky
-  // bars (PageHeader) sit flush beneath it at any viewport/wrap state.
-  const headerRef = useRef<HTMLElement>(null);
-  useEffect(() => {
-    const el = headerRef.current;
-    if (!el) return;
-    const root = document.documentElement;
-    const ro = new ResizeObserver(() => root.style.setProperty("--app-header-h", `${el.offsetHeight}px`));
-    ro.observe(el);
-    return () => { ro.disconnect(); root.style.removeProperty("--app-header-h"); };
-  }, []);
-
   const handleLogout = async () => {
     if (loggingOut) return;
     setLoggingOut(true);
-    setMenuOpen(false);
     try {
       await onLogout();
     } finally {
@@ -83,13 +53,13 @@ export default function Header({ user, onLogout, onMobileMenuToggle }: Props) {
   };
 
   return (
-    <header ref={headerRef} className="glass-header">
+    <header className="shrink-0 bg-sidebar">
       <div className="flex items-center justify-between px-4 md:px-6 py-2.5 gap-2">
-        {/* Mobile hamburger + Extension download CTA */}
-        <div className="flex items-center">
+        {/* Mobile hamburger + Extension download CTA (slides with the sidebar edge) */}
+        <div className="shell-header-start flex items-center">
           {onMobileMenuToggle && (
-            <button onClick={onMobileMenuToggle} className="md:hidden w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground mr-1">
-              <Menu size={20} strokeWidth={1.5} />
+            <button onClick={onMobileMenuToggle} className="md:hidden w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-background hover:text-foreground mr-1">
+              <MenuIcon size={20} strokeWidth={1.5} />
             </button>
           )}
           <a
@@ -101,7 +71,7 @@ export default function Header({ user, onLogout, onMobileMenuToggle }: Props) {
             className={`group flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-[transform,box-shadow,filter] duration-200 ${
               extHighlight
                 ? "ext-cta-highlight bg-primary text-primary-foreground shadow-md hover:shadow-lg hover:brightness-110"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                : "text-muted-foreground hover:text-foreground hover:bg-background"
             }`}
           >
             <Puzzle size={16} strokeWidth={1.8} className={extHighlight ? "text-primary-foreground" : ""} />
@@ -113,44 +83,36 @@ export default function Header({ user, onLogout, onMobileMenuToggle }: Props) {
             )}
           </a>
           {/* "Where it works" hover card */}
-          <div
-            className="relative hidden sm:block"
-            ref={sitesRef}
-            onMouseEnter={() => {
-              if (typeof matchMedia !== "undefined" && matchMedia("(hover: hover)").matches) setSitesOpen(true);
-            }}
-            onMouseLeave={() => {
-              if (typeof matchMedia !== "undefined" && matchMedia("(hover: hover)").matches) setSitesOpen(false);
-            }}
-          >
-            <button
-              type="button"
-              className="flex items-center gap-1 px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground rounded-md hover:bg-muted"
-              onClick={() => {
-                if (typeof matchMedia !== "undefined" && matchMedia("(pointer: coarse)").matches) {
-                  setSitesOpen((o) => !o);
-                }
-              }}
-            >
-              <Info size={13} strokeWidth={2} />
-              Where it works
-            </button>
-            <div className={`absolute left-0 top-full mt-1 w-[240px] card-premium z-50 transition-[opacity,transform] duration-200 origin-top-left ${sitesOpen ? "opacity-100 scale-100 pointer-events-auto" : "opacity-0 scale-95 pointer-events-none"}`}>
-              <div className="p-3 pb-2 border-b border-border">
-                <p className="text-xs font-semibold text-foreground">Supported job boards</p>
-                <p className="text-[11px] text-muted-foreground mt-0.5">One-click tracking on these sites</p>
-              </div>
-              <div className="p-2 space-y-0.5">
-                {SUPPORTED_SITES.map((s) => (
-                  <div key={s.domain} className="flex items-center gap-2.5 px-2 py-1.5 rounded-md">
-                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: s.color }} />
-                    <span className="text-[12px] font-medium text-foreground">{s.name}</span>
-                    <span className="text-[10px] text-muted-foreground ml-auto">{s.domain}</span>
+          <span className="hidden sm:inline-flex">
+            <HoverCard
+              ariaLabel="Supported job boards"
+              content={
+                <>
+                  <div className="px-3.5 pt-3 pb-2.5 border-b border-border">
+                    <p className="text-[13px] font-semibold text-foreground">Supported job boards</p>
+                    <p className="text-[12px] text-muted-foreground mt-0.5">One-click tracking on these sites</p>
                   </div>
-                ))}
-              </div>
-            </div>
-          </div>
+                  <div className="p-1.5">
+                    {SUPPORTED_SITES.map((s) => (
+                      <div key={s.domain} className="flex items-center gap-2.5 min-h-8 px-2.5 rounded-lg">
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: s.color }} />
+                        <span className="text-[13px] font-medium text-foreground">{s.name}</span>
+                        <span className="text-[11.5px] text-muted-foreground ml-auto">{s.domain}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              }
+            >
+              <button
+                type="button"
+                className="flex items-center gap-1 px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground rounded-md hover:bg-background"
+              >
+                <Info size={13} strokeWidth={2} />
+                Where it works
+              </button>
+            </HoverCard>
+          </span>
         </div>
         <div className="flex items-center gap-2">
           <GlobalSearch />
@@ -164,7 +126,7 @@ export default function Header({ user, onLogout, onMobileMenuToggle }: Props) {
               aria-label="No AI key connected — open AI settings"
             >
               <Wrench size={18} strokeWidth={1.8} />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500 ring-2 ring-background" aria-hidden />
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500 ring-2 ring-sidebar" aria-hidden />
             </button>
           )}
           {/* Announcements: only present when there's an active announcement.
@@ -172,7 +134,7 @@ export default function Header({ user, onLogout, onMobileMenuToggle }: Props) {
           {hasAnnouncements && (
             <button
               onClick={reopenAll}
-              className="w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-secondary-foreground"
+              className="w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-background hover:text-foreground"
               title="Show announcements"
               aria-label="Show announcements"
             >
@@ -180,53 +142,40 @@ export default function Header({ user, onLogout, onMobileMenuToggle }: Props) {
             </button>
           )}
           <NotificationBell />
-          <button
-            onClick={() => navigate("/applications/calendar")}
-            className={`w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-secondary-foreground ${
-              location.pathname === "/applications/calendar" ? "bg-muted text-foreground" : ""
-            }`}
-            title="Open calendar"
-            aria-label="Open calendar"
-          >
-            <Calendar size={18} strokeWidth={1.7} />
-          </button>
-          <button
-            onClick={() => toggle()}
-            className="w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-secondary-foreground"
-            title={dark ? "Switch to light mode" : "Switch to dark mode"}
-            aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
-          >
-            {dark ? <Sun size={18} strokeWidth={1.8} /> : <Moon size={18} strokeWidth={1.8} />}
-          </button>
-
           {/* User menu */}
-          <div className="relative" ref={menuRef}>
-            <button data-tour="user-menu" onClick={() => setMenuOpen(!menuOpen)} className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-muted">
-              <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-semibold shadow-sm">{initials}</div>
-              <div className="hidden sm:flex flex-col items-start">
-                <span className="text-[13px] font-medium text-foreground leading-tight">{user.name}</span>
-                <span className="text-[11px] text-muted-foreground leading-tight">{user.email}</span>
-              </div>
-              <ChevronDown size={14} strokeWidth={1.5} className={`text-muted-foreground transition-transform duration-200 ${menuOpen ? "rotate-180" : ""}`} />
-            </button>
-
-            {menuOpen && (
-              <div className="absolute right-0 top-full mt-1.5 w-56 card-premium py-1.5 animate-in z-50">
-                <div className="px-3 py-2 border-b border-border mb-1"><p className="text-sm font-medium text-foreground">{user.name}</p><p className="text-xs text-muted-foreground">{user.email}</p></div>
-                <button onClick={() => { setMenuOpen(false); navigate("/profile"); }} className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-secondary-foreground hover:bg-muted/50">
-                  <UserIcon size={16} strokeWidth={1.5} className="text-muted-foreground" />Profile
-                </button>
-                <button onClick={() => { setMenuOpen(false); navigate("/settings"); }} className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-secondary-foreground hover:bg-muted/50">
-                  <SettingsIcon size={16} strokeWidth={1.5} className="text-muted-foreground" />Settings
-                </button>
-                <div className="border-t border-border mt-1 pt-1">
-                  <button onClick={() => void handleLogout()} disabled={loggingOut} className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-red-500 hover:bg-red-50 hover:bg-destructive/10 disabled:opacity-60 disabled:cursor-not-allowed">
-                    <LogOut size={16} strokeWidth={1.5} />{loggingOut ? "Signing out..." : "Sign out"}
-                  </button>
+          <Menu
+            ariaLabel="Account"
+            align="end"
+            width={232}
+            header={
+              <>
+                <p className="text-[13.5px] font-medium text-foreground truncate">{user.name}</p>
+                <p className="text-[12px] text-muted-foreground truncate">{user.email}</p>
+              </>
+            }
+            items={[
+              { label: "Profile", icon: <UserIcon size={16} strokeWidth={1.6} />, onSelect: () => navigate("/profile") },
+              { label: "Settings", icon: <SettingsIcon size={16} strokeWidth={1.6} />, onSelect: () => navigate("/settings") },
+              {
+                label: loggingOut ? "Signing out…" : "Sign out",
+                icon: <LogOut size={16} strokeWidth={1.6} />,
+                destructive: true,
+                disabled: loggingOut,
+                dividerBefore: true,
+                onSelect: () => void handleLogout(),
+              },
+            ]}
+            trigger={(open) => (
+              <button data-tour="user-menu" type="button" aria-label="Account menu" className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-background focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-semibold shadow-sm">{initials}</div>
+                <div className="hidden sm:flex flex-col items-start">
+                  <span className="text-[13px] font-medium text-foreground leading-tight">{user.name}</span>
+                  <span className="text-[11px] text-muted-foreground leading-tight">{user.email}</span>
                 </div>
-              </div>
+                <ChevronDown size={14} strokeWidth={1.5} className={`text-muted-foreground transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+              </button>
             )}
-          </div>
+          />
         </div>
       </div>
     </header>

@@ -3,6 +3,7 @@ import { X, Upload, FileText, CheckCircle2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { parseCSV, downloadTemplate, type CSVRow } from "../../utils/csv.ts";
 import { applicationsAPI } from "../../utils/api.ts";
+import { MODAL_EXIT, useExitAnimation } from "../../hooks/useExitAnimation.ts";
 
 interface Props {
   onClose: () => void;
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export default function ImportModal({ onClose, onImported }: Props) {
+  const exitRef = useExitAnimation(MODAL_EXIT);
   const [file, setFile] = useState<File | null>(null);
   const [parsed, setParsed] = useState<CSVRow[] | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
@@ -55,8 +57,8 @@ export default function ImportModal({ onClose, onImported }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/45 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-card rounded-xl p-6 w-full max-w-[600px] max-h-[85vh] overflow-y-auto shadow-2xl animate-in" onClick={(e) => e.stopPropagation()}>
+    <div ref={exitRef} className="fixed inset-0 bg-scrim/45 flex items-center justify-center z-50 modal-overlay-in" onClick={onClose}>
+      <div data-modal-panel className="bg-card rounded-xl p-6 w-full max-w-[600px] max-h-[85vh] overflow-y-auto shadow-2xl animate-in" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-semibold text-foreground">Import Applications</h2>
           <button onClick={onClose} className="w-9 h-9 flex items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted">
@@ -167,7 +169,7 @@ export default function ImportModal({ onClose, onImported }: Props) {
               <button
                 onClick={handleImport}
                 disabled={importing || parsed.length === 0}
-                className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50"
+                className="px-4 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50"
               >
                 {importing ? "Importing..." : `Import ${parsed.length} applications`}
               </button>
@@ -182,7 +184,7 @@ export default function ImportModal({ onClose, onImported }: Props) {
             <p className="text-sm text-muted-foreground mb-4">
               {parsed?.length} applications have been added to your tracker
             </p>
-            <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg">
+            <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg">
               Done
             </button>
           </div>

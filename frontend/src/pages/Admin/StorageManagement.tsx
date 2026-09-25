@@ -68,16 +68,16 @@ export default function StorageManagement() {
 
       {/* Stat Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div className="bg-card border border-border rounded-xl p-5">
+        <div className="surface-card p-5">
           <p className="text-xs uppercase tracking-wider text-muted-foreground">Total files</p>
           <p className="text-3xl font-bold text-foreground mt-1">{stats.totalFiles}</p>
         </div>
-        <div className="bg-card border border-border rounded-xl p-5">
+        <div className="surface-card p-5">
           <p className="text-xs uppercase tracking-wider text-muted-foreground">Orphaned files</p>
           <p className={`text-3xl font-bold mt-1 ${stats.orphanedFiles > 0 ? "text-amber-600 dark:text-amber-400" : "text-foreground"}`}>{stats.orphanedFiles}</p>
           <p className="text-[11px] text-muted-foreground mt-1">{stats.orphanedFiles > 0 ? "Files in storage not referenced in DB" : "Storage and DB are in sync"}</p>
         </div>
-        <div className="bg-card border border-border rounded-xl p-5">
+        <div className="surface-card p-5">
           <p className="text-xs uppercase tracking-wider text-muted-foreground">Cloudinary storage</p>
           {stats.cloudinary ? (
             <div className="mt-1">
@@ -101,7 +101,7 @@ export default function StorageManagement() {
       </div>
 
       {/* Files Table */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="surface-card overflow-hidden">
         <div className="px-5 py-4 border-b border-border flex items-center justify-between">
           <h2 className="text-lg font-semibold text-foreground">Files</h2>
           <span className="text-xs text-muted-foreground">{files.length} total</span>
@@ -168,7 +168,7 @@ export default function StorageManagement() {
       </div>
 
       {/* Orphans Section */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="surface-card overflow-hidden">
         <div className="px-5 py-4 border-b border-border flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold text-foreground">Orphaned files</h2>

@@ -6,6 +6,7 @@ import type { Resume } from "../../types";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "../ui/Modal.tsx";
 import { TextField } from "../ui/Field.tsx";
 import Button from "../ui/Button.tsx";
+import { ComboboxList } from "../ui/Combobox.tsx";
 
 interface Props {
   resume: Resume | null;
@@ -26,7 +27,7 @@ export default function ResumeModal({ resume, existingTags = [], onSave, onClose
   const [saving, setSaving] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const tagInputRef = useRef<HTMLInputElement>(null);
-  const suggestionsRef = useRef<HTMLDivElement>(null);
+  const tagBoxRef = useRef<HTMLDivElement>(null);
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -104,6 +105,7 @@ export default function ResumeModal({ resume, existingTags = [], onSave, onClose
           <div className="relative">
             <label className="block text-[13px] font-medium text-foreground mb-1.5">Tags</label>
             <div
+              ref={tagBoxRef}
               className="w-full min-h-[40px] px-3 py-1.5 text-sm bg-background border border-border rounded-lg flex flex-wrap items-center gap-1.5 cursor-text transition-shadow focus-within:ring-2 focus-within:ring-ring/25 focus-within:border-ring"
               onClick={() => tagInputRef.current?.focus()}
             >
@@ -134,28 +136,20 @@ export default function ResumeModal({ resume, existingTags = [], onSave, onClose
             </div>
 
             {/* Suggestions dropdown */}
-            {showSuggestions && suggestions.length > 0 && (
-              <div
-                ref={suggestionsRef}
-                className="absolute left-0 right-0 top-full mt-1.5 bg-popover border border-border rounded-lg shadow-lg z-10 max-h-[160px] overflow-y-auto py-1"
-              >
-                {suggestions.map((s, i) => (
-                  <button
-                    key={s}
-                    type="button"
-                    onMouseDown={(e) => { e.preventDefault(); addTag(s); }}
-                    className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm text-left ${
-                      i === highlightIdx
-                        ? "bg-primary/10 text-primary"
-                        : "text-foreground hover:bg-muted"
-                    }`}
-                  >
-                    <Tag size={12} strokeWidth={2} className="text-muted-foreground shrink-0" />
-                    {s}
-                  </button>
-                ))}
-              </div>
-            )}
+            <ComboboxList
+              open={showSuggestions}
+              onOpenChange={setShowSuggestions}
+              anchorRef={tagBoxRef}
+              ariaLabel="Tag suggestions"
+              activeIndex={highlightIdx}
+              onActiveIndexChange={setHighlightIdx}
+              options={suggestions.map((t) => ({
+                key: t,
+                label: t,
+                icon: <Tag size={12} strokeWidth={2} />,
+                onSelect: () => addTag(t),
+              }))}
+            />
           </div>
 
           <div>

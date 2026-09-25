@@ -122,7 +122,7 @@ export default function StageSuggestionsCard({ onApplicationStageChanged }: Prop
                 <button
                   onClick={() => onConfirm(n)}
                   disabled={busyId === n._id}
-                  className="px-2.5 py-1 text-xs font-medium rounded-md bg-primary text-white hover:bg-primary/90 disabled:opacity-50"
+                  className="px-2.5 py-1 text-xs font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                 >
                   Confirm
                 </button>

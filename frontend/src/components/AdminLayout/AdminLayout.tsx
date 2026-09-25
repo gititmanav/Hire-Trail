@@ -1,112 +1,82 @@
-import { useState, useRef, useEffect, useContext } from "react";
-import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { Calendar, Sun, Moon, ChevronDown, User as UserIcon, LogOut } from "lucide-react";
+/** Admin shell — the same shape as the app's (Layout): sidebar + header form
+ *  one backdrop and the main section is a card that scrolls on its own. */
+import { useLayoutEffect, useRef } from "react";
+import { Outlet, useLocation, useNavigate, useNavigationType } from "react-router-dom";
+import { ChevronDown, User as UserIcon, Settings as SettingsIcon, LogOut } from "lucide-react";
 import AdminSidebar from "./AdminSidebar.tsx";
-import { ThemeContext } from "../../App.tsx";
+import Menu from "../ui/Menu.tsx";
+import { useShellCollapse } from "../../hooks/useShellCollapse.ts";
+import { APP_SCROLL_ID } from "../../utils/scrollRoot.ts";
 import type { User } from "../../types";
 
 interface Props { user: User; onLogout: () => void; }
 
+const SIDEBAR_COLLAPSED_KEY = "hiretrail-admin-sidebar-collapsed";
+
 export default function AdminLayout({ user, onLogout }: Props) {
-  const [collapsed, setCollapsed] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
-  const { dark, toggle } = useContext(ThemeContext);
+  const [collapsed, toggleCollapsed] = useShellCollapse(SIDEBAR_COLLAPSED_KEY);
   const navigate = useNavigate();
   const location = useLocation();
-  const profileRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLElement>(null);
   const initials = user.name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
 
-  useEffect(() => {
-    const h = (e: MouseEvent) => { if (profileRef.current && !profileRef.current.contains(e.target as Node)) setProfileOpen(false); };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
-  }, []);
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => { if (e.key === "Escape") { setProfileOpen(false); } };
-    document.addEventListener("keydown", h);
-    return () => document.removeEventListener("keydown", h);
-  }, []);
+  // New page → start at the top; back/forward keeps where the user was.
+  const navigationType = useNavigationType();
+  useLayoutEffect(() => {
+    if (navigationType !== "POP") scrollRef.current?.scrollTo(0, 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
 
   return (
-    <div className={`flex min-h-screen bg-background ${dark ? "dark" : ""}`}>
-      <AdminSidebar collapsed={collapsed} onToggle={() => setCollapsed((p) => !p)} />
+    <div className="flex h-dvh overflow-hidden bg-sidebar">
+      <AdminSidebar collapsed={collapsed} onToggle={toggleCollapsed} />
 
-      {/* Right side: header + content, offset by sidebar width */}
-      <div
-        className={`shell-overlap-panel flex-1 flex flex-col transition-[margin-left] duration-200 ease-out ${collapsed ? "ml-16" : "ml-60"}`}
-      >
-        {/* Header — sticky within the content column, never overlaps sidebar */}
-        <header className="sticky top-0 z-30 glass-header">
-          <div className="flex items-center justify-between px-6 h-[60px]">
-            <div className="flex items-center gap-3">
-              <span className="text-lg font-semibold text-foreground whitespace-nowrap">Admin Panel</span>
+      <div className={`shell-column flex-1 min-w-0 flex flex-col ${collapsed ? "ml-16" : "ml-60"}`}>
+        <header className="shrink-0 bg-sidebar">
+          <div className="flex items-center justify-between px-6 py-2.5 gap-2">
+            <div className="shell-header-start flex items-center gap-3">
+              <span className="text-[15px] font-semibold text-foreground whitespace-nowrap">Admin Panel</span>
               <span className="text-xs bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 px-2 py-0.5 rounded-full font-medium">Admin</span>
             </div>
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => navigate("/admin/calendar")}
-                className={`w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-secondary-foreground ${
-                  location.pathname === "/admin/calendar" ? "bg-muted text-foreground" : ""
-                }`}
-                title="Open calendar"
-                aria-label="Open calendar"
-              >
-                <Calendar size={18} strokeWidth={1.7} />
-              </button>
-              <button
-                onClick={() => toggle()}
-                className="w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-secondary-foreground"
-                title={dark ? "Switch to light mode" : "Switch to dark mode"}
-                aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
-              >
-                {dark ? <Sun size={18} strokeWidth={1.8} /> : <Moon size={18} strokeWidth={1.8} />}
-              </button>
-
               {/* Profile dropdown */}
-              <div className="relative" ref={profileRef}>
-                <button
-                  onClick={() => setProfileOpen(!profileOpen)}
-                  className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-muted"
-                >
-                  <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-semibold shadow-sm">{initials}</div>
-                  <div className="hidden sm:flex flex-col items-start">
-                    <span className="text-[13px] font-medium text-foreground leading-tight">{user.name}</span>
-                    <span className="text-[11px] text-muted-foreground leading-tight">{user.email}</span>
-                  </div>
-                  <ChevronDown size={14} strokeWidth={1.5} className={`text-muted-foreground transition-transform duration-200 ${profileOpen ? "rotate-180" : ""}`} />
-                </button>
-
-                {profileOpen && (
-                  <div className="absolute right-0 top-full mt-1.5 w-56 card-premium py-1.5 animate-in z-50">
-                    <div className="px-3 py-2 border-b border-border mb-1">
-                      <p className="text-sm font-medium text-foreground">{user.name}</p>
-                      <p className="text-xs text-muted-foreground">{user.email}</p>
+              <Menu
+                ariaLabel="Account"
+                align="end"
+                width={232}
+                header={
+                  <>
+                    <p className="text-[13.5px] font-medium text-foreground truncate">{user.name}</p>
+                    <p className="text-[12px] text-muted-foreground truncate">{user.email}</p>
+                  </>
+                }
+                items={[
+                  { label: "Edit profile", icon: <UserIcon size={16} strokeWidth={1.6} />, onSelect: () => navigate("/profile") },
+                  { label: "Settings", icon: <SettingsIcon size={16} strokeWidth={1.6} />, onSelect: () => navigate("/settings") },
+                  { label: "Sign out", icon: <LogOut size={16} strokeWidth={1.6} />, destructive: true, dividerBefore: true, onSelect: () => onLogout() },
+                ]}
+                trigger={(open) => (
+                  <button type="button" aria-label="Account menu" className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-background focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-semibold shadow-sm">{initials}</div>
+                    <div className="hidden sm:flex flex-col items-start">
+                      <span className="text-[13px] font-medium text-foreground leading-tight">{user.name}</span>
+                      <span className="text-[11px] text-muted-foreground leading-tight">{user.email}</span>
                     </div>
-                    <button
-                      onClick={() => { setProfileOpen(false); navigate("/profile"); }}
-                      className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-secondary-foreground hover:bg-muted/50"
-                    >
-                      <UserIcon size={16} strokeWidth={1.5} className="text-muted-foreground" />
-                      Edit profile
-                    </button>
-                    <div className="border-t border-border mt-1 pt-1">
-                      <button
-                        onClick={() => { setProfileOpen(false); onLogout(); }}
-                        className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-red-500 hover:bg-red-50 hover:bg-destructive/10"
-                      >
-                        <LogOut size={16} strokeWidth={1.5} />
-                        Sign out
-                      </button>
-                    </div>
-                  </div>
+                    <ChevronDown size={14} strokeWidth={1.5} className={`text-muted-foreground transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+                  </button>
                 )}
-              </div>
+              />
             </div>
           </div>
         </header>
 
-        {/* Main content */}
-        <main className="flex-1">
+        {/* The main section: a card on the backdrop and the scroll container
+         *  (utils/scrollRoot), so sticky bars pin to its top edge. */}
+        <main
+          ref={scrollRef}
+          id={APP_SCROLL_ID}
+          className="shell-main flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-background border rounded-xl shadow-panel mr-2 mb-2"
+        >
           <div className="p-6">
             <Outlet />
           </div>

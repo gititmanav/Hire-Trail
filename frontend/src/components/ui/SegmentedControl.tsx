@@ -29,7 +29,7 @@ export default function SegmentedControl<T extends string>({
     }
   };
   return (
-    <div role="radiogroup" aria-label={ariaLabel} onKeyDown={onKeyDown} className="inline-flex items-center gap-0.5 p-0.5 rounded-lg bg-muted/70 border border-border">
+    <div role="radiogroup" aria-label={ariaLabel} onKeyDown={onKeyDown} className="inline-flex items-center gap-0.5 p-0.5 rounded-lg border border-border">
       {segments.map((s) => {
         const active = s.value === value;
         return (
@@ -42,7 +42,7 @@ export default function SegmentedControl<T extends string>({
             onClick={() => onChange(s.value)}
             className={`inline-flex items-center gap-1.5 rounded-md font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
               size === "sm" ? "h-6 px-2 text-[12px]" : "h-7 px-2.5 text-[12.5px]"
-            } ${active ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+            } ${active ? "bg-control text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-control/60"}`}
           >
             {s.label}
             {s.count != null && <span className="tabular-nums text-muted-foreground text-[11px]">{s.count}</span>}

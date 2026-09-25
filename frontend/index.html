@@ -9,6 +9,21 @@
       content="HireTrail is the job-search tracker for serious applicants. Capture postings with one click, auto-update stages from your inbox, and tailor your resume against any JD."
     />
     <meta name="theme-color" content="#1a1a1a" />
+    <!-- Paint the signed-in user's theme before anything renders, from the
+         cache utils/themeDom.ts keeps (same shape as its BootCache). -->
+    <script>
+      (function () {
+        try {
+          var b = JSON.parse(localStorage.getItem("hiretrail-theme-boot") || "null");
+          if (!b) return;
+          var root = document.documentElement;
+          var dark = b.mode === "system" ? window.matchMedia("(prefers-color-scheme: dark)").matches : b.dark;
+          if (dark) root.classList.add("dark");
+          if (b.tokens) for (var k in b.tokens) root.style.setProperty(k, b.tokens[k]);
+          if (b.meta) document.querySelector('meta[name="theme-color"]').setAttribute("content", b.meta);
+        } catch (e) { /* no cache or no storage — the app paints once it loads */ }
+      })();
+    </script>
     <link rel="canonical" href="https://hiretrail.manavkaneria.me/" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="shortcut icon" href="/favicon.svg" />

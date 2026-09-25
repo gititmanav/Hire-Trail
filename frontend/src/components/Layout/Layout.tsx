@@ -1,10 +1,14 @@
-/** App shell: collapsible sidebar, header, fluid vs max-width main by route. */
-import { useState, useEffect, useLayoutEffect } from "react";
+/** App shell: sidebar + header form one backdrop; the main section is a card
+ *  on it that scrolls on its own (the header and sidebar never move). Pages
+ *  are fluid or max-width by route. */
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { Outlet, useLocation, useNavigationType } from "react-router-dom";
 import Sidebar from "../Sidebar/Sidebar.tsx";
 import Header from "../Header/Header.tsx";
 import { AnnouncementsProvider } from "../Announcements/AnnouncementsProvider.tsx";
 import AnnouncementBanner from "../Announcements/AnnouncementBanner.tsx";
+import { APP_SCROLL_ID } from "../../utils/scrollRoot.ts";
+import { useShellCollapse } from "../../hooks/useShellCollapse.ts";
 import type { User } from "../../types";
 
 interface Props { user: User; onLogout: () => Promise<void>; }
@@ -12,11 +16,10 @@ interface Props { user: User; onLogout: () => Promise<void>; }
 const SIDEBAR_COLLAPSED_KEY = "hiretrail-sidebar-collapsed";
 
 export default function Layout({ user, onLogout }: Props) {
-  const [collapsed, setCollapsed] = useState(() => {
-    try { return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1"; } catch { return false; }
-  });
+  const [collapsed, toggleCollapsed] = useShellCollapse(SIDEBAR_COLLAPSED_KEY);
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
+  const scrollRef = useRef<HTMLElement>(null);
   // Applications manages its own widths (Classic list keeps its 1200px column).
   const fullWidth = ["/", "/profile", "/resume-studio"].includes(location.pathname)
     || location.pathname.startsWith("/applications");
@@ -32,20 +35,16 @@ export default function Layout({ user, onLogout }: Props) {
   // can restore the exact scroll position the user left it at.
   const navigationType = useNavigationType();
   useLayoutEffect(() => {
-    if (navigationType !== "POP") window.scrollTo(0, 0);
+    if (navigationType !== "POP") scrollRef.current?.scrollTo(0, 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);
 
-  useEffect(() => {
-    try { localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? "1" : "0"); } catch { /* ignore */ }
-  }, [collapsed]);
-
   return (
     <AnnouncementsProvider>
-    <div className="flex min-h-screen bg-background">
+    <div className="flex h-dvh overflow-hidden bg-sidebar">
       {/* Mobile backdrop */}
       {mobileOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden" onClick={() => setMobileOpen(false)} />
+        <div className="fixed inset-0 bg-scrim/50 backdrop-blur-sm z-40 md:hidden" onClick={() => setMobileOpen(false)} />
       )}
 
       {/* Sidebar: off-canvas overlay on mobile, fixed on desktop. The wrapper
@@ -59,23 +58,25 @@ export default function Layout({ user, onLogout }: Props) {
           onToggle={() => {
             // On mobile, close the sidebar; on desktop, toggle collapse
             if (window.innerWidth < 768) setMobileOpen(false);
-            else setCollapsed(!collapsed);
+            else toggleCollapsed();
           }}
           isAdmin={user.role === "admin"}
         />
       </div>
 
-      <div
-        className={`shell-overlap-panel flex-1 flex flex-col transition-[margin-left] duration-200 ease-out md:${collapsed ? "ml-16" : "ml-60"} ${collapsed ? "md:ml-16" : "md:ml-60"}`}
-      >
+      <div className={`shell-column flex-1 min-w-0 flex flex-col ${collapsed ? "md:ml-16" : "md:ml-60"}`}>
         <Header user={user} onLogout={onLogout} onMobileMenuToggle={() => setMobileOpen(!mobileOpen)} />
-        <AnnouncementBanner />
-        {/* `overflow-x-clip` lets pages use `-mx-4` negative-margin "breakout"
-         *  patterns (full-bleed sticky filter bars on Applications, Deadlines,
-         *  Companies, etc.) without spilling past the viewport on mobile.
-         *  `clip` is preferred over `hidden` because it doesn't create a
-         *  scroll container — sticky positioning inside still works. */}
-        <main className="flex-1 overflow-x-clip">
+        {/* The main section. It is the scroll container, so page-level sticky
+         *  bars pin to its top edge (top: 0) and it clips everything to its
+         *  rounded corners. `overflow-x-hidden` keeps negative-margin
+         *  "breakout" bars (-mx-4 md:-mx-6) from spilling a horizontal
+         *  scrollbar. Edge-to-edge on mobile, a floating card from md up. */}
+        <main
+          ref={scrollRef}
+          id={APP_SCROLL_ID}
+          className="shell-main flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-background border-t border-border md:border md:rounded-xl md:shadow-panel md:mr-2 md:mb-2"
+        >
+          <AnnouncementBanner />
           <div key={sectionKey} className={`p-4 md:p-6 ${fullWidth ? "" : "max-w-[1200px]"} mx-auto fade-up`}>
             <Outlet />
           </div>

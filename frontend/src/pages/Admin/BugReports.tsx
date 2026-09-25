@@ -4,6 +4,8 @@ import { X } from "lucide-react";
 import toast from "react-hot-toast";
 import { adminAPI } from "../../utils/api.ts";
 import type { BugReport, BugReportStatus, BugReportSource } from "../../utils/api.ts";
+import Select from "../../components/ui/Select.tsx";
+import { MODAL_EXIT, useExitAnimation } from "../../hooks/useExitAnimation.ts";
 
 const STATUS_OPTIONS: { value: BugReportStatus; label: string }[] = [
   { value: "new", label: "New" },
@@ -124,22 +126,22 @@ export default function BugReports() {
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
-        <select
-          className="input-premium w-44"
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as BugReportStatus | "")}
-        >
-          <option value="">All statuses</option>
-          {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
-        <select
-          className="input-premium w-52"
-          value={sourceFilter}
-          onChange={(e) => setSourceFilter(e.target.value as BugReportSource | "")}
-        >
-          <option value="">All sources</option>
-          {SOURCE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
+        <div className="w-44">
+          <Select
+            ariaLabel="Status"
+            value={statusFilter}
+            onChange={(v) => setStatusFilter(v as BugReportStatus | "")}
+            options={[{ value: "", label: "All statuses" }, ...STATUS_OPTIONS.map((o) => ({ value: o.value, label: o.label }))]}
+          />
+        </div>
+        <div className="w-52">
+          <Select
+            ariaLabel="Source"
+            value={sourceFilter}
+            onChange={(v) => setSourceFilter(v as BugReportSource | "")}
+            options={[{ value: "", label: "All sources" }, ...SOURCE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))]}
+          />
+        </div>
         <input
           type="search"
           className="input-premium w-64"
@@ -255,6 +257,7 @@ function BugReportDetail({
   onStatus: (s: BugReportStatus) => void;
   onNotes: (n: string) => void;
 }) {
+  const exitRef = useExitAnimation(MODAL_EXIT);
   const [notes, setNotes] = useState(report.adminNotes);
   // Re-sync when the parent's selection changes (e.g. status update came back).
   useEffect(() => { setNotes(report.adminNotes); }, [report._id, report.adminNotes]);
@@ -275,8 +278,9 @@ function BugReportDetail({
   ).filter((a) => a.status !== report.status);
 
   return (
-    <div className="fixed inset-0 bg-black/55 z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <div ref={exitRef} className="fixed inset-0 bg-scrim/55 z-50 flex items-center justify-center p-4 modal-overlay-in" onClick={onClose}>
       <div
+        data-modal-panel
         className="bg-card border border-border rounded-2xl w-full max-w-3xl max-h-[88vh] overflow-y-auto shadow-2xl animate-in"
         onClick={(e) => e.stopPropagation()}
       >

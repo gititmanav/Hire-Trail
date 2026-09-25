@@ -10,8 +10,8 @@
  *   ?tailor=<id>        open the tailoring drawer (extension, Drafting chips)
  *   ?tailorSession=<id> resolve the session's application, then open the drawer
  *   ?stage=<Stage>      the stage filter itself (dashboard funnel)
- *   ?devtools=1         reveal the Classic/Table design toggle on this browser
- */
+ *
+ *  The list style (Classic | Table) is a Personalize preference (useListDesign). */
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Outlet, useLocation, useNavigate, useOutletContext, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -23,7 +23,9 @@ import { usePersistentState, oneOf, isBoolean } from "../../hooks/usePersistentS
 import PageHeader from "../../components/ui/PageHeader.tsx";
 import SegmentedControl from "../../components/ui/SegmentedControl.tsx";
 import Toggle from "../../components/ui/Toggle.tsx";
-import { SearchField, ViewSwitcher, DesignToggle, CreateButton, VIEWS, type ListDesign, type SearchFieldHandle, type ViewKey } from "./components/HeaderControls.tsx";
+import { SearchField, ViewSwitcher, CreateButton, VIEWS, type SearchFieldHandle, type ViewKey } from "./components/HeaderControls.tsx";
+import { useListDesign } from "../../hooks/useListDesign.ts";
+import type { ListDesign } from "../../utils/preferences.ts";
 import FiltersMenu, { FilterRow } from "./components/FiltersMenu.tsx";
 import ApplicationFormModal from "./components/ApplicationFormModal.tsx";
 import ShortcutsModal from "./components/ShortcutsModal.tsx";
@@ -54,8 +56,6 @@ export function useApplicationsShell() {
   return useOutletContext<ApplicationsShell>();
 }
 
-const DEV_TOOLS_KEY = "hiretrail-dev-tools";
-
 function viewFromPath(pathname: string): ViewKey {
   if (pathname.startsWith("/applications/board")) return "board";
   if (pathname.startsWith("/applications/calendar")) return "calendar";
@@ -71,7 +71,7 @@ export default function ApplicationsLayout() {
   const view = viewFromPath(location.pathname);
 
   /* ─── Preferences ─── */
-  const [design, setDesign] = usePersistentState<ListDesign>("hiretrail-apps-list-design", "classic", oneOf(["classic", "table"] as const));
+  const [design] = useListDesign();
   const [density, setDensity] = usePersistentState<Density>("hiretrail-apps-density", "comfortable", oneOf(["comfortable", "compact"] as const));
   const [groupByCompany, setGroupByCompany] = usePersistentState<boolean>("hiretrail-apps-group-by-company-v2", false, isBoolean);
   const [tableGrouping, setTableGrouping] = usePersistentState<TableGrouping>("hiretrail-apps-table-grouping", "stage", oneOf(["stage", "company", "none"] as const));
@@ -79,9 +79,6 @@ export default function ApplicationsLayout() {
     "hiretrail-apps-table-hidden-columns", [],
     (v): v is ColumnId[] => Array.isArray(v) && v.every((c) => OPTIONAL_COLUMNS.some((o) => o.id === c)),
   );
-  const [devTools, setDevTools] = useState(() => {
-    try { return import.meta.env.DEV || localStorage.getItem(DEV_TOOLS_KEY) === "1"; } catch { return import.meta.env.DEV; }
-  });
 
   /* ─── Dialogs ─── */
   const [editing, setEditing] = useState<Application | null | undefined>(undefined); // undefined = closed, null = create
@@ -126,10 +123,6 @@ export default function ApplicationsLayout() {
     let changed = false;
     const take = (k: string) => { const v = next.get(k); if (v != null) { next.delete(k); changed = true; } return v; };
 
-    if (take("devtools") === "1") {
-      try { localStorage.setItem(DEV_TOOLS_KEY, "1"); } catch { /* ignore */ }
-      setDevTools(true);
-    }
     if (take("new") === "1") setEditing(null);
     const tailor = take("tailor");
     if (tailor) setTailorAppId(tailor);
@@ -177,11 +170,8 @@ export default function ApplicationsLayout() {
           <SegmentedControl<Density> ariaLabel="Density" size="sm" value={density} onChange={setDensity}
             segments={[{ value: "comfortable", label: "Comfortable" }, { value: "compact", label: "Compact" }]} />
         </FilterRow>
-        <FilterRow label="Group">
-          <div className="flex items-center justify-between">
-            <span className="text-[13px] text-foreground">By company</span>
-            <Toggle label="Group by company" checked={groupByCompany} onChange={setGroupByCompany} />
-          </div>
+        <FilterRow label="Group by company">
+          <Toggle label="Group by company" checked={groupByCompany} onChange={setGroupByCompany} />
         </FilterRow>
       </>
     );
@@ -192,9 +182,9 @@ export default function ApplicationsLayout() {
           <SegmentedControl<TableGrouping> ariaLabel="Group by" size="sm" value={tableGrouping} onChange={setTableGrouping}
             segments={[{ value: "stage", label: "Stage" }, { value: "company", label: "Company" }, { value: "none", label: "None" }]} />
         </FilterRow>
-        <div className="flex items-start gap-3">
-          <span className="w-[72px] shrink-0 text-[13px] text-muted-foreground pt-1">Columns</span>
-          <div className="flex-1 flex flex-wrap gap-1.5">
+        <div className="px-2.5 pt-1.5 pb-1">
+          <span className="block text-[13px] text-foreground mb-2">Columns</span>
+          <div className="flex flex-wrap gap-1.5">
             {OPTIONAL_COLUMNS.map((c) => {
               const shown = !hiddenColumns.includes(c.id);
               return (
@@ -203,8 +193,8 @@ export default function ApplicationsLayout() {
                   type="button"
                   aria-pressed={shown}
                   onClick={() => setHiddenColumns(shown ? [...hiddenColumns, c.id] : hiddenColumns.filter((h) => h !== c.id))}
-                  className={`h-6 px-2 rounded-md text-[12px] font-medium border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                    shown ? "bg-muted border-border text-foreground" : "border-dashed border-border text-muted-foreground hover:text-foreground"
+                  className={`h-7 px-2.5 rounded-full text-[12px] font-medium border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                    shown ? "bg-control border-border text-foreground" : "border-dashed border-border text-muted-foreground hover:text-foreground"
                   }`}
                 >
                   {c.label}
@@ -234,7 +224,6 @@ export default function ApplicationsLayout() {
           <>
             {view !== "calendar" && <SearchField ref={searchRef} value={filters.q} onChange={(q) => setFilters({ q })} />}
             <ViewSwitcher views={views} search={filterSearch} />
-            {devTools && view === "list" && <DesignToggle value={design} onChange={setDesign} />}
             {view !== "calendar" && (
               <FiltersMenu
                 open={filtersOpen}

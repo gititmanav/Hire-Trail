@@ -2,8 +2,8 @@ import { useState, useEffect, useRef, useContext } from "react";
 import toast from "react-hot-toast";
 import { Bar } from "react-chartjs-2";
 import "../../utils/chartSetup";
-import { chartColors, mutedFgColor, borderColor, stageColor } from "../../utils/chartSetup";
-import { ThemeContext } from "../../App.tsx";
+import { chartColors, mutedFgColor, borderColor, stageColor, paletteColor } from "../../utils/chartSetup";
+import { ThemeContext } from "../../hooks/useTheme.tsx";
 import { adminAPI } from "../../utils/api";
 import type { PlatformAnalyticsData } from "../../types";
 import type { Chart as ChartJS } from "chart.js";
@@ -23,7 +23,7 @@ const RATE_COLOR_STAGE: Record<string, string> = {
 };
 
 export default function PlatformAnalytics() {
-  const { themeId } = useContext(ThemeContext);
+  const { revision } = useContext(ThemeContext);
   const [data, setData] = useState<PlatformAnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -60,15 +60,15 @@ export default function PlatformAnalytics() {
     }
 
     if (companiesRef.current) {
-      companiesRef.current.data.datasets[0].backgroundColor = colors[0] || "rgba(59,130,246,0.7)";
+      companiesRef.current.data.datasets[0].backgroundColor = colors[0];
       updateHorizontal(companiesRef.current);
     }
 
     if (rolesRef.current) {
-      rolesRef.current.data.datasets[0].backgroundColor = colors[1] || "rgba(245,158,11,0.7)";
+      rolesRef.current.data.datasets[0].backgroundColor = colors[1];
       updateHorizontal(rolesRef.current);
     }
-  }, [themeId]);
+  }, [revision]);
 
   if (loading) {
     return (
@@ -103,7 +103,7 @@ export default function PlatformAnalytics() {
       data: funnel.map((f) => f.count),
       backgroundColor: funnel.map((f) => {
         const idx = stageNames.indexOf(f._id);
-        return idx >= 0 ? stageColor(stageNames[idx]) : "rgba(156,163,175,0.7)";
+        return idx >= 0 ? stageColor(stageNames[idx]) : paletteColor("gray-400", 0.7);
       }),
       borderWidth: 0,
     }],
@@ -114,7 +114,7 @@ export default function PlatformAnalytics() {
     datasets: [{
       label: "Applications",
       data: topCompanies.map((c) => c.count),
-      backgroundColor: colors[0] || "rgba(59,130,246,0.7)",
+      backgroundColor: colors[0],
       borderWidth: 0,
     }],
   };
@@ -124,7 +124,7 @@ export default function PlatformAnalytics() {
     datasets: [{
       label: "Applications",
       data: topRoles.map((r) => r.count),
-      backgroundColor: colors[1] || "rgba(245,158,11,0.7)",
+      backgroundColor: colors[1],
       borderWidth: 0,
     }],
   };

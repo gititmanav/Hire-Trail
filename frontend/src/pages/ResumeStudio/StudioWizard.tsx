@@ -124,7 +124,7 @@ export default function StudioWizard({
         <button
           onClick={onDownload}
           disabled={downloading || !studio.doc}
-          className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50 shadow-sm"
+          className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50 shadow-sm"
           title="Download a PDF identical to the live preview"
         >
           {downloading ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} strokeWidth={2} />}
@@ -148,7 +148,7 @@ export default function StudioWizard({
                     : "bg-muted text-muted-foreground cursor-default"
                 }`}
               >
-                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold ${active ? "bg-white/20" : done ? "bg-primary/20" : "bg-muted-foreground/15"}`}>
+                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold ${active ? "bg-primary-foreground/20" : done ? "bg-primary/20" : "bg-muted-foreground/15"}`}>
                   {done ? <Check size={12} strokeWidth={3} /> : i + 1}
                 </span>
                 {STEP_LABEL[s]}
@@ -180,7 +180,7 @@ export default function StudioWizard({
             onClick={goNext}
             disabled={step === "gap" && (!studio.gap || studio.gapLoading)}
             title={step === "gap" && !studio.gap ? "Analyze the gap first" : undefined}
-            className="inline-flex items-center gap-1.5 px-5 py-2 text-sm font-semibold text-white bg-primary hover:bg-primary/90 rounded-lg shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-1.5 px-5 py-2 text-sm font-semibold text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {step === "gap" ? "Choose what to tailor" : "Review & edit"}
             <ArrowRight size={15} strokeWidth={2} />

@@ -9,6 +9,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronLeft, ChevronRight, KeyRound, ShieldCheck, Sparkles, X } from "lucide-react";
+import { MODAL_EXIT, useExitAnimation } from "../../hooks/useExitAnimation.ts";
 
 interface Slide {
   /** image slot — replace with a real asset at /public when available. */
@@ -59,6 +60,7 @@ function SlideArt({ art }: { art: Slide["art"] }) {
 }
 
 export default function ByokOnboardingModal({ onClose }: { onClose: () => void }) {
+  const exitRef = useExitAnimation(MODAL_EXIT);
   const navigate = useNavigate();
   const [i, setI] = useState(0);
   const slide = SLIDES[i];
@@ -77,8 +79,8 @@ export default function ByokOnboardingModal({ onClose }: { onClose: () => void }
   const goSettings = () => { onClose(); navigate("/settings/ai"); };
 
   return (
-    <div className="fixed inset-0 z-[90] bg-black/55 backdrop-blur-sm flex items-center justify-center px-4 animate-in" onClick={onClose}>
-      <div className="w-full max-w-[460px] bg-card border border-border rounded-2xl shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Bring your own AI key">
+    <div ref={exitRef} className="fixed inset-0 z-[90] bg-scrim/55 backdrop-blur-sm flex items-center justify-center px-4 modal-overlay-in" onClick={onClose}>
+      <div className="w-full max-w-[460px] bg-card border border-border rounded-2xl shadow-2xl overflow-hidden animate-in" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Bring your own AI key">
         <div className="flex items-center justify-between px-5 pt-4">
           <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-primary">
             <Sparkles size={13} strokeWidth={2} /> Free · 30s
@@ -120,11 +122,11 @@ export default function ByokOnboardingModal({ onClose }: { onClose: () => void }
               </button>
             )}
             {isLast ? (
-              <button onClick={goSettings} className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold text-white bg-primary hover:bg-primary/90 rounded-lg">
+              <button onClick={goSettings} className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg">
                 <KeyRound size={13} strokeWidth={2} /> Add my free key
               </button>
             ) : (
-              <button onClick={() => setI((p) => p + 1)} className="inline-flex items-center gap-1 px-4 py-1.5 text-xs font-semibold text-white bg-primary hover:bg-primary/90 rounded-lg">
+              <button onClick={() => setI((p) => p + 1)} className="inline-flex items-center gap-1 px-4 py-1.5 text-xs font-semibold text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg">
                 Next <ChevronRight size={13} strokeWidth={2} />
               </button>
             )}

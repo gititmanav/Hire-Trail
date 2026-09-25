@@ -9,7 +9,7 @@ import toast from "react-hot-toast";
 import { deadlinesAPI, applicationsAPI } from "../../utils/api.ts";
 import { SkeletonTable } from "../../components/Skeleton/Skeleton.tsx";
 import EmptyState from "../../components/EmptyState/EmptyState.tsx";
-import ActionDropdown from "../../components/ActionDropdown/ActionDropdown.tsx";
+import Menu from "../../components/ui/Menu.tsx";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal.tsx";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "../../components/ui/Modal.tsx";
 import { Field, Input, Textarea } from "../../components/ui/Field.tsx";
@@ -295,9 +295,9 @@ export default function Deadlines() {
 
   return (
     <div className="fade-up">
-      <div className="flex items-center justify-between flex-wrap gap-3 mb-6"><h1 className="text-2xl font-semibold text-foreground">Deadlines</h1><button onClick={() => { setEditing(null); setModal(true); }} className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary hover:bg-primary/90 text-white text-sm font-medium rounded-lg"><Plus size={16} strokeWidth={2} />Add deadline</button>      </div>
+      <div className="flex items-center justify-between flex-wrap gap-3 mb-6"><h1 className="text-2xl font-semibold text-foreground">Deadlines</h1><button onClick={() => { setEditing(null); setModal(true); }} className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium rounded-lg"><Plus size={16} strokeWidth={2} />Add deadline</button>      </div>
 
-      <div className="sticky top-[57px] z-20 bg-background/95 backdrop-blur-sm -mx-4 md:-mx-6 px-4 md:px-6 flex gap-1 border-b border-border mb-4">
+      <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm -mx-4 md:-mx-6 px-4 md:px-6 flex gap-1 border-b border-border mb-4">
         {([["upcoming", "Upcoming", uc], ["overdue", "Overdue", oc], ["completed", "Completed", cc], ["all", "All", 0]] as [string, string, number][]).map(([k, l, c]) => (
           <button key={k} onClick={() => { setPage(1); setFilter(k); }} className={`inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium border-b-2 -mb-px ${filter === k ? "text-primary border-primary" : "text-muted-foreground border-transparent hover:text-foreground"}`}>{l}{c > 0 && <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-full ${k === "overdue" ? "bg-danger-light text-danger" : "bg-muted text-muted-foreground"}`}>{c}</span>}</button>
         ))}
@@ -341,8 +341,9 @@ export default function Deadlines() {
         <div className="bg-card border border-border rounded-xl">
           {visibleBuckets.map((bucket) => (
             <div key={bucket} className="divide-y divide-border">
+              {/* Pins under the sticky tab bar above (42px tall). */}
               <div
-                className="sticky top-[105px] z-[5] px-5 py-2 bg-card/95 backdrop-blur-sm border-b border-border flex items-center justify-between"
+                className="sticky top-[42px] z-[5] px-5 py-2 bg-card/95 backdrop-blur-sm border-b border-border flex items-center justify-between"
               >
                 <span className={`text-[11px] font-semibold uppercase tracking-wider ${bucket === "overdue" ? "text-rose-600 dark:text-rose-400" : "text-muted-foreground"}`}>
                   {BUCKET_LABEL[bucket]}
@@ -413,20 +414,21 @@ export default function Deadlines() {
                      *  with a hover preview, so duplicating the action as text
                      *  was redundant. */}
                     <div className="flex items-center gap-2 shrink-0">
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 has-[[aria-expanded=true]]:opacity-100 transition-opacity">
                         {!d.completed && (
-                          <ActionDropdown
-                            align="right"
-                            menuWidth="w-44"
+                          <Menu
+                            ariaLabel="Snooze deadline"
+                            align="end"
+                            width={208}
                             trigger={
-                              <button className={btnIcon} title="Snooze deadline" aria-label="Snooze">
+                              <button type="button" className={btnIcon} title="Snooze deadline" aria-label="Snooze">
                                 <Clock size={14} strokeWidth={1.6} aria-hidden />
                               </button>
                             }
                             items={[
-                              { label: "Snooze 1 day", onClick: () => snooze(d, "1d") },
-                              { label: "Snooze 3 days", onClick: () => snooze(d, "3d") },
-                              { label: "Snooze until next Monday", onClick: () => snooze(d, "nextMon") },
+                              { label: "Snooze 1 day", onSelect: () => snooze(d, "1d") },
+                              { label: "Snooze 3 days", onSelect: () => snooze(d, "3d") },
+                              { label: "Snooze until next Monday", onSelect: () => snooze(d, "nextMon") },
                             ]}
                           />
                         )}

@@ -4,6 +4,7 @@ import { X } from "lucide-react";
 import toast from "react-hot-toast";
 import { adminAPI } from "../../utils/api.ts";
 import type { FeedbackItem, FeedbackStatus, FeedbackSeverity, FeedbackType } from "../../utils/api.ts";
+import Select from "../../components/ui/Select.tsx";
 
 const STATUS_OPTIONS: { value: FeedbackStatus; label: string }[] = [
   { value: "open", label: "Open" },
@@ -116,7 +117,7 @@ export default function FeedbackInbox() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-2 items-center bg-card border border-border rounded-xl p-3">
+      <div className="flex flex-wrap gap-2 items-center surface-card p-3">
         <input
           type="text"
           value={search}
@@ -132,7 +133,7 @@ export default function FeedbackInbox() {
       {/* List + detail split */}
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_420px] gap-4">
         {/* List */}
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="surface-card overflow-hidden">
           {loading ? (
             <div className="p-10 text-center text-sm text-muted-foreground">Loading…</div>
           ) : items.length === 0 ? (
@@ -201,14 +202,9 @@ function StatCard({ label, value, tone }: { label: string; value: number | strin
 
 function FilterSelect({ value, onChange, placeholder, options }: { value: string; onChange: (v: string) => void; placeholder: string; options: { value: string; label: string }[] }) {
   return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="px-3 py-1.5 text-sm bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30"
-    >
-      <option value="">{placeholder}</option>
-      {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-    </select>
+    <div className="w-44">
+      <Select size="sm" ariaLabel={placeholder} value={value} onChange={onChange} options={[{ value: "", label: placeholder }, ...options]} />
+    </div>
   );
 }
 
@@ -225,7 +221,7 @@ function DetailPane({ selected, onUpdate, onDelete, onClose }: {
 
   if (!selected) {
     return (
-      <div className="bg-card border border-border rounded-xl p-6 text-center text-sm text-muted-foreground">
+      <div className="surface-card p-6 text-center text-sm text-muted-foreground">
         Select a feedback item to triage.
       </div>
     );
@@ -266,7 +262,7 @@ function DetailPane({ selected, onUpdate, onDelete, onClose }: {
   };
 
   return (
-    <div className="bg-card border border-border rounded-xl p-5 space-y-4 self-start sticky top-4">
+    <div className="surface-card p-5 space-y-4 self-start sticky top-4">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2 flex-wrap">
           <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${TYPE_META[selected.type].tone}`}>
@@ -303,15 +299,11 @@ function DetailPane({ selected, onUpdate, onDelete, onClose }: {
       <div className="grid grid-cols-2 gap-3 pt-3 border-t border-border">
         <label className="text-xs">
           <span className="block text-muted-foreground mb-1">Status</span>
-          <select value={selected.status} onChange={(e) => setStatus(e.target.value as FeedbackStatus)} className="w-full px-2.5 py-1.5 text-sm bg-background border border-border rounded-md">
-            {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
+          <Select size="sm" ariaLabel="Status" value={selected.status} onChange={(v) => setStatus(v as FeedbackStatus)} options={STATUS_OPTIONS.map((o) => ({ value: o.value, label: o.label }))} />
         </label>
         <label className="text-xs">
           <span className="block text-muted-foreground mb-1">Severity</span>
-          <select value={selected.severity} onChange={(e) => setSeverity(e.target.value as FeedbackSeverity)} className="w-full px-2.5 py-1.5 text-sm bg-background border border-border rounded-md">
-            {SEVERITY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
+          <Select size="sm" ariaLabel="Severity" value={selected.severity} onChange={(v) => setSeverity(v as FeedbackSeverity)} options={SEVERITY_OPTIONS.map((o) => ({ value: o.value, label: o.label }))} />
         </label>
       </div>
 
@@ -325,7 +317,7 @@ function DetailPane({ selected, onUpdate, onDelete, onClose }: {
           className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 resize-y"
         />
         <div className="flex justify-end mt-2 gap-2">
-          <button onClick={saveNotes} disabled={savingNotes || notes === selected.adminNotes} className="px-3 py-1 text-xs font-medium text-white bg-primary rounded-md disabled:opacity-50">
+          <button onClick={saveNotes} disabled={savingNotes || notes === selected.adminNotes} className="px-3 py-1 text-xs font-medium text-primary-foreground bg-primary rounded-md disabled:opacity-50">
             {savingNotes ? "Saving…" : "Save notes"}
           </button>
         </div>

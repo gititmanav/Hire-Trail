@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import toast from "react-hot-toast";
 import { adminAPI } from "../../utils/api";
 import type { AuditLog, Pagination } from "../../types";
+import Select from "../../components/ui/Select.tsx";
+import DateInput from "../../components/ui/DateInput.tsx";
 
 const actionColors: Record<string, string> = {
   login: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
@@ -85,40 +87,30 @@ export default function AuditLogs() {
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
-        <select
-          className="input-premium w-44"
-          value={actionFilter}
-          onChange={(e) => setActionFilter(e.target.value)}
-        >
-          <option value="">All Actions</option>
-          {actionOptions.filter(Boolean).map((a) => (
-            <option key={a} value={a}>{a.replace(/_/g, " ")}</option>
-          ))}
-        </select>
-        <select
-          className="input-premium w-44"
-          value={resourceFilter}
-          onChange={(e) => setResourceFilter(e.target.value)}
-        >
-          <option value="">All Resources</option>
-          {resourceOptions.filter(Boolean).map((r) => (
-            <option key={r} value={r}>{labelResource(r)}</option>
-          ))}
-        </select>
-        <input
-          type="date"
-          className="input-premium w-44"
-          value={startDate}
-          onChange={(e) => setStartDate(e.target.value)}
-          placeholder="Start Date"
-        />
-        <input
-          type="date"
-          className="input-premium w-44"
-          value={endDate}
-          onChange={(e) => setEndDate(e.target.value)}
-          placeholder="End Date"
-        />
+        <div className="w-44">
+          <Select
+            ariaLabel="Action"
+            value={actionFilter}
+            onChange={setActionFilter}
+            searchable={actionOptions.length > 8}
+            searchPlaceholder="Search actions…"
+            options={[{ value: "", label: "All Actions" }, ...actionOptions.filter(Boolean).map((a) => ({ value: a, label: a.replace(/_/g, " ") }))]}
+          />
+        </div>
+        <div className="w-44">
+          <Select
+            ariaLabel="Resource"
+            value={resourceFilter}
+            onChange={setResourceFilter}
+            options={[{ value: "", label: "All Resources" }, ...resourceOptions.filter(Boolean).map((r) => ({ value: r, label: labelResource(r) }))]}
+          />
+        </div>
+        <div className="w-44">
+          <DateInput ariaLabel="Start date" placeholder="Start date" value={startDate} onChange={setStartDate} />
+        </div>
+        <div className="w-44">
+          <DateInput ariaLabel="End date" placeholder="End date" value={endDate} onChange={setEndDate} />
+        </div>
       </div>
 
       {/* Table */}

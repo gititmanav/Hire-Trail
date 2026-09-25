@@ -69,7 +69,7 @@ function SettingRow({
           >
             <span
               className={`inline-block h-4 w-4 transform rounded-full shadow-sm transition-transform ${
-                value ? "translate-x-6 bg-white" : "translate-x-1 bg-white"
+                value ? "translate-x-6 bg-primary-foreground" : "translate-x-1 bg-paper"
               }`}
             />
           </button>
@@ -210,7 +210,7 @@ export default function SystemConfig() {
         if (filtered.length === 0) return null;
 
         return (
-          <div key={cat} className="bg-card border border-border rounded-xl p-5">
+          <div key={cat} className="surface-card p-5">
             <h2 className="text-base font-semibold text-foreground mb-2 uppercase tracking-wider text-muted-foreground">
               {CATEGORY_LABELS[cat] || cat}
             </h2>
@@ -228,7 +228,7 @@ export default function SystemConfig() {
         .map(([cat, settings]) => {
           if (!settings || settings.length === 0) return null;
           return (
-            <div key={cat} className="bg-card border border-border rounded-xl p-5">
+            <div key={cat} className="surface-card p-5">
               <h2 className="text-base font-semibold mb-2 uppercase tracking-wider text-muted-foreground">{CATEGORY_LABELS[cat] || cat}</h2>
               <div className="space-y-0">
                 {settings.map((setting) => (

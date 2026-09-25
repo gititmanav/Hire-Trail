@@ -1,12 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Shield, CheckCircle2, User, Search, Check, type LucideIcon } from "lucide-react";
+import { Shield, CheckCircle2, ChevronDown, User, Search, Check, type LucideIcon } from "lucide-react";
 import toast from "react-hot-toast";
 import { adminAPI } from "../../utils/api";
-import ActionDropdown from "../../components/ActionDropdown/ActionDropdown";
+import Menu, { type MenuItem } from "../../components/ui/Menu.tsx";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal";
 import { useConfirm } from "../../hooks/useConfirm";
 import type { RoleDefinition, AdminUserDetail, Pagination } from "../../types";
-import type { DropdownItem } from "../../components/ActionDropdown/ActionDropdown";
 
 const PERMISSIONS_ROWS = [
   "users.read", "users.write", "users.delete",
@@ -130,18 +129,18 @@ export default function RBACManagement() {
     } catch { toast.error("Export failed"); }
   };
 
-  const getDropdownItems = (user: AdminUserDetail): DropdownItem[] => {
-    const roleItems: DropdownItem[] = roles
+  const getMenuItems = (user: AdminUserDetail): MenuItem[] => {
+    const roleItems: MenuItem[] = roles
       .filter((r) => r.role !== user.role)
       .map((r) => ({
         label: `Make ${r.role.charAt(0).toUpperCase() + r.role.slice(1)}`,
-        onClick: () => handleChangeRole(user, r.role),
+        onSelect: () => handleChangeRole(user, r.role),
       }));
     return [
       ...roleItems,
-      { label: user.suspended ? "Unsuspend" : "Suspend", onClick: () => handleSuspend(user), divider: true },
-      { label: "Soft Delete", onClick: () => handleSoftDelete(user), className: "text-orange-600 dark:text-orange-400" },
-      { label: "Hard Delete", onClick: () => handleHardDelete(user), className: "text-red-600 dark:text-red-400" },
+      { label: user.suspended ? "Unsuspend" : "Suspend", onSelect: () => handleSuspend(user), dividerBefore: true },
+      { label: "Soft Delete", onSelect: () => handleSoftDelete(user), warning: true },
+      { label: "Hard Delete", onSelect: () => handleHardDelete(user), destructive: true },
     ];
   };
 
@@ -170,7 +169,7 @@ export default function RBACManagement() {
             const Icon = roleIcon[role.role] || roleIcon.user;
             const badge = roleBadge[role.role] || roleBadge.user;
             return (
-              <div key={role.role} className="bg-card border border-border rounded-xl p-5">
+              <div key={role.role} className="surface-card p-5">
                 <div className="flex items-center gap-3 mb-2">
                   <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${badge}`}>
                     <Icon width={18} height={18} strokeWidth={2} />
@@ -190,7 +189,7 @@ export default function RBACManagement() {
       </div>
 
       {/* User Management */}
-      <div className="bg-card border border-border rounded-xl p-6">
+      <div className="surface-card p-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <div>
             <h2 className="text-base font-semibold uppercase tracking-wider text-muted-foreground">User Management</h2>
@@ -251,7 +250,17 @@ export default function RBACManagement() {
                     <td className="px-4 py-3 text-muted-foreground">{user.lastLogin ? new Date(user.lastLogin).toLocaleDateString() : "Never"}</td>
                     <td className="px-4 py-3 text-muted-foreground">{user.applicationCount}</td>
                     <td className="px-4 py-3">
-                      <ActionDropdown items={getDropdownItems(user)} align="right" />
+<Menu
+                        ariaLabel={`Actions for ${user.name}`}
+                        align="end"
+                        width={200}
+                        items={getMenuItems(user)}
+                        trigger={
+                          <button type="button" className="btn-secondary text-xs px-3 py-1.5">
+                            Actions <ChevronDown size={12} strokeWidth={2} aria-hidden />
+                          </button>
+                        }
+                      />
                     </td>
                   </tr>
                 );
@@ -275,7 +284,7 @@ export default function RBACManagement() {
       </div>
 
       {/* Permission Matrix */}
-      <div className="bg-card border border-border rounded-xl p-6">
+      <div className="surface-card p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-base font-semibold uppercase tracking-wider text-muted-foreground">Permission Matrix</h2>

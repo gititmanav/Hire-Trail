@@ -1,3 +1,5 @@
+import type { Preferences } from "../utils/preferences.ts";
+
 export type UserRole = "user" | "admin";
 export interface User {
   _id: string; name: string; email: string; role: UserRole;
@@ -17,6 +19,8 @@ export interface User {
   clipboardFormat?: "raw" | "metadata" | "prompt";
   /** Custom instruction used by the "prompt" clipboard format. */
   clipboardPromptTemplate?: string;
+  /** Settings → Personalize (utils/preferences.ts). */
+  preferences?: Preferences;
 }
 export type NotificationType =
   | "rejection_detected"

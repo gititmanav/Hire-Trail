@@ -3,21 +3,29 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
-    --background: 0 0% 100%;
+  /* `.theme-light` / `.theme-dark` give any element a preset's tokens —
+   * Settings → Personalize previews render Light and Dark this way whatever
+   * the page itself is showing. */
+  :root, .theme-light {
+    /* HireTrail's default: charcoal on near-white (1% black), all neutral —
+     * colour is kept for meaning (stages, statuses). */
+    --background: 0 0% 99%;
     --foreground: 0 0% 20%;
-    --card: 0 0% 100%;
+    --card: 0 0% 99%;
     --card-foreground: 0 0% 20%;
-    --popover: 0 0% 100%;
+    --popover: 0 0% 99%;
     --popover-foreground: 0 0% 20%;
-    --primary: 217.2193 91.2195% 59.8039%;
+    --primary: 0 0% 15%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 220 14.2857% 95.8824%;
-    --secondary-foreground: 215 13.7931% 34.1176%;
-    --muted: 210 20% 98.0392%;
-    --muted-foreground: 220 8.9362% 46.0784%;
-    --accent: 204 93.75% 93.7255%;
-    --accent-foreground: 224.4444 64.2857% 32.9412%;
+    /* The accent as text — links, `text-primary`, active icons. Equals the
+     * accent in the presets; a Custom theme solves it to ≥ 4.5:1. */
+    --brand-text: 0 0% 15%;
+    --secondary: 0 0% 94.9%;
+    --secondary-foreground: 0 0% 34%;
+    --muted: 0 0% 97%;
+    --muted-foreground: 0 0% 43%;
+    --accent: 0 0% 94%;
+    --accent-foreground: 0 0% 15%;
     --destructive: 0 84.2365% 60.1961%;
     --destructive-foreground: 0 0% 100%;
     /* Status palette — matches tailwind.config.js semantic colors (success / danger / warning).
@@ -30,40 +38,64 @@
     --warning-foreground: 0 0% 100%;
     --danger: 1 73% 59%;
     --danger-foreground: 0 0% 100%;
-    --border: 220 13.0435% 90.9804%;
-    --input: 220 13.0435% 90.9804%;
-    --ring: 217.2193 91.2195% 59.8039%;
-    --chart-1: 217.2193 91.2195% 59.8039%;
-    --chart-2: 221.2121 83.1933% 53.3333%;
-    --chart-3: 224.2781 76.3265% 48.0392%;
-    --chart-4: 225.931 70.7317% 40.1961%;
-    --chart-5: 224.4444 64.2857% 32.9412%;
-    --sidebar: 210 20% 98.0392%;
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 0 0% 15%;
+    --chart-1: 0 0% 15%;
+    --chart-2: 0 0% 32%;
+    --chart-3: 0 0% 48%;
+    --chart-4: 0 0% 64%;
+    --chart-5: 0 0% 78%;
+    /* The app shell's backdrop — sidebar + header are one surface, and the
+     * main section sits on it as a card (see Layout). */
+    --sidebar: 0 0% 95.1%;
     --sidebar-foreground: 0 0% 20%;
-    --sidebar-primary: 217.2193 91.2195% 59.8039%;
+    --sidebar-primary: 0 0% 15%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 204 93.75% 93.7255%;
-    --sidebar-accent-foreground: 224.4444 64.2857% 32.9412%;
-    --sidebar-border: 220 13.0435% 90.9804%;
-    --sidebar-ring: 217.2193 91.2195% 59.8039%;
+    --sidebar-accent: 0 0% 91%;
+    --sidebar-accent-foreground: 0 0% 15%;
+    --sidebar-border: 0 0% 90%;
+    --sidebar-ring: 0 0% 15%;
+    /* Neutral fill for a selected segment, a hovered menu row, a pill —
+     * visible on the card and on popovers in both themes (`--muted` is too
+     * close to white to read as a state). */
+    --control: 0 0% 94%;
     --radius: 0.375rem;
+    --shadow-panel: 0 1px 2px hsl(0 0% 10% / 0.04), 0 1px 6px -1px hsl(0 0% 10% / 0.05);
+    --shadow-floating: 0 1px 2px hsl(0 0% 10% / 0.04), 0 10px 32px -6px hsl(0 0% 10% / 0.14);
+    /* The selected nav item: a raised pill on the backdrop. */
+    --shadow-pill: 0 0 0 0.5px hsl(0 0% 0% / 0.05), 0 1px 2px hsl(0 0% 0% / 0.06), 0 2px 6px -1px hsl(0 0% 0% / 0.07);
+    /* Resting cards (.card-premium), buttons, inputs. Presets keep the same
+     * values in dark; a Custom theme strengthens + tints them. */
+    --shadow-raised: 0 1px 3px hsl(0 0% 0% / 0.04), 0 1px 2px hsl(0 0% 0% / 0.06);
+    --shadow-raised-hover: 0 4px 12px hsl(0 0% 0% / 0.08), 0 2px 4px hsl(0 0% 0% / 0.04);
+    --shadow-button-hover: 0 3px 8px hsl(0 0% 0% / 0.15);
+    --shadow-xs: 0 1px 2px hsl(0 0% 0% / 0.04);
+    --shadow-xs-hover: 0 2px 4px hsl(0 0% 0% / 0.06);
+    /* Absolutes no theme recolours: paper stays white (toggle knobs, brand
+     * logo plates, resume paper), scrim stays black (dimming behind dialogs). */
+    --paper: 0 0% 100%;
+    --scrim: 0 0% 0%;
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   }
 
-  .dark {
+  .dark, .theme-dark {
     --background: 0 0% 9.0196%;
     --foreground: 0 0% 89.8039%;
     --card: 0 0% 14.902%;
     --card-foreground: 0 0% 89.8039%;
     --popover: 0 0% 14.902%;
     --popover-foreground: 0 0% 89.8039%;
-    --primary: 217.2193 91.2195% 59.8039%;
-    --primary-foreground: 0 0% 100%;
+    /* The mirror of the default: a near-white accent with dark text. */
+    --primary: 0 0% 93%;
+    --primary-foreground: 0 0% 9%;
+    --brand-text: 0 0% 93%;
     --secondary: 0 0% 14.902%;
     --secondary-foreground: 0 0% 89.8039%;
     --muted: 0 0% 12.1569%;
     --muted-foreground: 0 0% 63.9216%;
-    --accent: 224.4444 64.2857% 32.9412%;
-    --accent-foreground: 213.3333 96.9231% 87.2549%;
+    --accent: 0 0% 21%;
+    --accent-foreground: 0 0% 93%;
     --destructive: 0 84.2365% 60.1961%;
     --destructive-foreground: 0 0% 100%;
     --success: 160 65% 45%;
@@ -72,22 +104,60 @@
     --warning-foreground: 0 0% 100%;
     --danger: 1 73% 64%;
     --danger-foreground: 0 0% 100%;
-    --border: 0 0% 25.098%;
-    --input: 0 0% 25.098%;
-    --ring: 217.2193 91.2195% 59.8039%;
-    --chart-1: 213.1169 93.9024% 67.8431%;
-    --chart-2: 217.2193 91.2195% 59.8039%;
-    --chart-3: 221.2121 83.1933% 53.3333%;
-    --chart-4: 224.2781 76.3265% 48.0392%;
-    --chart-5: 225.931 70.7317% 40.1961%;
-    --sidebar: 0 0% 9.0196%;
+    /* Quiet hairlines (Sora's); fields a touch stronger so they stay findable. */
+    --border: 0 0% 18%;
+    --input: 0 0% 22%;
+    --ring: 0 0% 83%;
+    --chart-1: 0 0% 93%;
+    --chart-2: 0 0% 76%;
+    --chart-3: 0 0% 60%;
+    --chart-4: 0 0% 46%;
+    --chart-5: 0 0% 34%;
+    /* A step darker than --background so the main card reads on it. */
+    --sidebar: 0 0% 6.3%;
     --sidebar-foreground: 0 0% 89.8039%;
-    --sidebar-primary: 217.2193 91.2195% 59.8039%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 224.4444 64.2857% 32.9412%;
-    --sidebar-accent-foreground: 213.3333 96.9231% 87.2549%;
-    --sidebar-border: 0 0% 25.098%;
-    --sidebar-ring: 217.2193 91.2195% 59.8039%;
+    --sidebar-primary: 0 0% 93%;
+    --sidebar-primary-foreground: 0 0% 9%;
+    --sidebar-accent: 0 0% 16%;
+    --sidebar-accent-foreground: 0 0% 93%;
+    --sidebar-border: 0 0% 18%;
+    --sidebar-ring: 0 0% 83%;
+    --control: 0 0% 20%;
+    --shadow-panel: 0 1px 2px hsl(0 0% 0% / 0.35), 0 2px 8px -2px hsl(0 0% 0% / 0.4);
+    --shadow-floating: 0 1px 2px hsl(0 0% 0% / 0.4), 0 12px 36px -6px hsl(0 0% 0% / 0.65);
+    --shadow-pill: inset 0 1px 0 hsl(0 0% 100% / 0.05), 0 1px 2px hsl(0 0% 0% / 0.45), 0 1px 4px hsl(0 0% 0% / 0.25);
+  }
+
+  /* Tailwind's colour palette as variables (RGB triplets), plus the status
+   * colours. The presets carry Tailwind's own values, so every `bg-emerald-50`
+   * renders exactly as it always has; a Custom theme rewrites them so tints
+   * sit on its surfaces and text keeps its contrast. The palette isn't
+   * mode-dependent (`dark:` variants pick other shades), so one set serves
+   * light, dark, and the preview scopes. */
+  :root, .theme-light, .theme-dark {
+    --palette-slate-50: 248 250 252; --palette-slate-100: 241 245 249; --palette-slate-200: 226 232 240; --palette-slate-300: 203 213 225; --palette-slate-400: 148 163 184; --palette-slate-500: 100 116 139; --palette-slate-600: 71 85 105; --palette-slate-700: 51 65 85; --palette-slate-800: 30 41 59; --palette-slate-900: 15 23 42; --palette-slate-950: 2 6 23;
+    --palette-gray-50: 249 250 251; --palette-gray-100: 243 244 246; --palette-gray-200: 229 231 235; --palette-gray-300: 209 213 219; --palette-gray-400: 156 163 175; --palette-gray-500: 107 114 128; --palette-gray-600: 75 85 99; --palette-gray-700: 55 65 81; --palette-gray-800: 31 41 55; --palette-gray-900: 17 24 39; --palette-gray-950: 3 7 18;
+    --palette-zinc-50: 250 250 250; --palette-zinc-100: 244 244 245; --palette-zinc-200: 228 228 231; --palette-zinc-300: 212 212 216; --palette-zinc-400: 161 161 170; --palette-zinc-500: 113 113 122; --palette-zinc-600: 82 82 91; --palette-zinc-700: 63 63 70; --palette-zinc-800: 39 39 42; --palette-zinc-900: 24 24 27; --palette-zinc-950: 9 9 11;
+    --palette-neutral-50: 250 250 250; --palette-neutral-100: 245 245 245; --palette-neutral-200: 229 229 229; --palette-neutral-300: 212 212 212; --palette-neutral-400: 163 163 163; --palette-neutral-500: 115 115 115; --palette-neutral-600: 82 82 82; --palette-neutral-700: 64 64 64; --palette-neutral-800: 38 38 38; --palette-neutral-900: 23 23 23; --palette-neutral-950: 10 10 10;
+    --palette-stone-50: 250 250 249; --palette-stone-100: 245 245 244; --palette-stone-200: 231 229 228; --palette-stone-300: 214 211 209; --palette-stone-400: 168 162 158; --palette-stone-500: 120 113 108; --palette-stone-600: 87 83 78; --palette-stone-700: 68 64 60; --palette-stone-800: 41 37 36; --palette-stone-900: 28 25 23; --palette-stone-950: 12 10 9;
+    --palette-red-50: 254 242 242; --palette-red-100: 254 226 226; --palette-red-200: 254 202 202; --palette-red-300: 252 165 165; --palette-red-400: 248 113 113; --palette-red-500: 239 68 68; --palette-red-600: 220 38 38; --palette-red-700: 185 28 28; --palette-red-800: 153 27 27; --palette-red-900: 127 29 29; --palette-red-950: 69 10 10;
+    --palette-orange-50: 255 247 237; --palette-orange-100: 255 237 213; --palette-orange-200: 254 215 170; --palette-orange-300: 253 186 116; --palette-orange-400: 251 146 60; --palette-orange-500: 249 115 22; --palette-orange-600: 234 88 12; --palette-orange-700: 194 65 12; --palette-orange-800: 154 52 18; --palette-orange-900: 124 45 18; --palette-orange-950: 67 20 7;
+    --palette-amber-50: 255 251 235; --palette-amber-100: 254 243 199; --palette-amber-200: 253 230 138; --palette-amber-300: 252 211 77; --palette-amber-400: 251 191 36; --palette-amber-500: 245 158 11; --palette-amber-600: 217 119 6; --palette-amber-700: 180 83 9; --palette-amber-800: 146 64 14; --palette-amber-900: 120 53 15; --palette-amber-950: 69 26 3;
+    --palette-yellow-50: 254 252 232; --palette-yellow-100: 254 249 195; --palette-yellow-200: 254 240 138; --palette-yellow-300: 253 224 71; --palette-yellow-400: 250 204 21; --palette-yellow-500: 234 179 8; --palette-yellow-600: 202 138 4; --palette-yellow-700: 161 98 7; --palette-yellow-800: 133 77 14; --palette-yellow-900: 113 63 18; --palette-yellow-950: 66 32 6;
+    --palette-lime-50: 247 254 231; --palette-lime-100: 236 252 203; --palette-lime-200: 217 249 157; --palette-lime-300: 190 242 100; --palette-lime-400: 163 230 53; --palette-lime-500: 132 204 22; --palette-lime-600: 101 163 13; --palette-lime-700: 77 124 15; --palette-lime-800: 63 98 18; --palette-lime-900: 54 83 20; --palette-lime-950: 26 46 5;
+    --palette-green-50: 240 253 244; --palette-green-100: 220 252 231; --palette-green-200: 187 247 208; --palette-green-300: 134 239 172; --palette-green-400: 74 222 128; --palette-green-500: 34 197 94; --palette-green-600: 22 163 74; --palette-green-700: 21 128 61; --palette-green-800: 22 101 52; --palette-green-900: 20 83 45; --palette-green-950: 5 46 22;
+    --palette-emerald-50: 236 253 245; --palette-emerald-100: 209 250 229; --palette-emerald-200: 167 243 208; --palette-emerald-300: 110 231 183; --palette-emerald-400: 52 211 153; --palette-emerald-500: 16 185 129; --palette-emerald-600: 5 150 105; --palette-emerald-700: 4 120 87; --palette-emerald-800: 6 95 70; --palette-emerald-900: 6 78 59; --palette-emerald-950: 2 44 34;
+    --palette-teal-50: 240 253 250; --palette-teal-100: 204 251 241; --palette-teal-200: 153 246 228; --palette-teal-300: 94 234 212; --palette-teal-400: 45 212 191; --palette-teal-500: 20 184 166; --palette-teal-600: 13 148 136; --palette-teal-700: 15 118 110; --palette-teal-800: 17 94 89; --palette-teal-900: 19 78 74; --palette-teal-950: 4 47 46;
+    --palette-cyan-50: 236 254 255; --palette-cyan-100: 207 250 254; --palette-cyan-200: 165 243 252; --palette-cyan-300: 103 232 249; --palette-cyan-400: 34 211 238; --palette-cyan-500: 6 182 212; --palette-cyan-600: 8 145 178; --palette-cyan-700: 14 116 144; --palette-cyan-800: 21 94 117; --palette-cyan-900: 22 78 99; --palette-cyan-950: 8 51 68;
+    --palette-sky-50: 240 249 255; --palette-sky-100: 224 242 254; --palette-sky-200: 186 230 253; --palette-sky-300: 125 211 252; --palette-sky-400: 56 189 248; --palette-sky-500: 14 165 233; --palette-sky-600: 2 132 199; --palette-sky-700: 3 105 161; --palette-sky-800: 7 89 133; --palette-sky-900: 12 74 110; --palette-sky-950: 8 47 73;
+    --palette-blue-50: 239 246 255; --palette-blue-100: 219 234 254; --palette-blue-200: 191 219 254; --palette-blue-300: 147 197 253; --palette-blue-400: 96 165 250; --palette-blue-500: 59 130 246; --palette-blue-600: 37 99 235; --palette-blue-700: 29 78 216; --palette-blue-800: 30 64 175; --palette-blue-900: 30 58 138; --palette-blue-950: 23 37 84;
+    --palette-indigo-50: 238 242 255; --palette-indigo-100: 224 231 255; --palette-indigo-200: 199 210 254; --palette-indigo-300: 165 180 252; --palette-indigo-400: 129 140 248; --palette-indigo-500: 99 102 241; --palette-indigo-600: 79 70 229; --palette-indigo-700: 67 56 202; --palette-indigo-800: 55 48 163; --palette-indigo-900: 49 46 129; --palette-indigo-950: 30 27 75;
+    --palette-violet-50: 245 243 255; --palette-violet-100: 237 233 254; --palette-violet-200: 221 214 254; --palette-violet-300: 196 181 253; --palette-violet-400: 167 139 250; --palette-violet-500: 139 92 246; --palette-violet-600: 124 58 237; --palette-violet-700: 109 40 217; --palette-violet-800: 91 33 182; --palette-violet-900: 76 29 149; --palette-violet-950: 46 16 101;
+    --palette-purple-50: 250 245 255; --palette-purple-100: 243 232 255; --palette-purple-200: 233 213 255; --palette-purple-300: 216 180 254; --palette-purple-400: 192 132 252; --palette-purple-500: 168 85 247; --palette-purple-600: 147 51 234; --palette-purple-700: 126 34 206; --palette-purple-800: 107 33 168; --palette-purple-900: 88 28 135; --palette-purple-950: 59 7 100;
+    --palette-fuchsia-50: 253 244 255; --palette-fuchsia-100: 250 232 255; --palette-fuchsia-200: 245 208 254; --palette-fuchsia-300: 240 171 252; --palette-fuchsia-400: 232 121 249; --palette-fuchsia-500: 217 70 239; --palette-fuchsia-600: 192 38 211; --palette-fuchsia-700: 162 28 175; --palette-fuchsia-800: 134 25 143; --palette-fuchsia-900: 112 26 117; --palette-fuchsia-950: 74 4 78;
+    --palette-pink-50: 253 242 248; --palette-pink-100: 252 231 243; --palette-pink-200: 251 207 232; --palette-pink-300: 249 168 212; --palette-pink-400: 244 114 182; --palette-pink-500: 236 72 153; --palette-pink-600: 219 39 119; --palette-pink-700: 190 24 93; --palette-pink-800: 157 23 77; --palette-pink-900: 131 24 67; --palette-pink-950: 80 7 36;
+    --palette-rose-50: 255 241 242; --palette-rose-100: 255 228 230; --palette-rose-200: 254 205 211; --palette-rose-300: 253 164 175; --palette-rose-400: 251 113 133; --palette-rose-500: 244 63 94; --palette-rose-600: 225 29 72; --palette-rose-700: 190 18 60; --palette-rose-800: 159 18 57; --palette-rose-900: 136 19 55; --palette-rose-950: 76 5 25;
+    --palette-success: 29 158 117; --palette-success-light: 225 245 238; --palette-warning: 239 159 39; --palette-warning-light: 250 238 218; --palette-danger: 226 75 74; --palette-danger-light: 252 235 235;
   }
 
   * {
@@ -134,12 +204,97 @@
 .animate-in { animation: scale-in 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
 .fade-up { animation: fade-up 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
 
+/* Floating panels (ui/Popover — every dropdown): a quick fade + slight
+ * scale from the trigger side on open, a quicker fade on close. The close
+ * duration must stay ≤ EXIT_MS (utils/motion.ts), when the panel unmounts. */
+@keyframes float-in-down { from { opacity: 0; transform: translateY(-4px) scale(0.98); } to { opacity: 1; transform: none; } }
+@keyframes float-in-up { from { opacity: 0; transform: translateY(4px) scale(0.98); } to { opacity: 1; transform: none; } }
+@keyframes float-out { from { opacity: 1; } to { opacity: 0; transform: scale(0.98); } }
+.float-panel[data-state="open"][data-side="bottom"] { animation: float-in-down 160ms var(--ease-out); }
+.float-panel[data-state="open"][data-side="top"] { animation: float-in-up 160ms var(--ease-out); }
+.float-panel[data-state="closed"] { animation: float-out 120ms ease-in forwards; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) {
+  .float-panel { animation: none !important; }
+}
+
+/* ─── Sidebar collapse / expand ───────────────────────────────────────────
+ * A view transition (Layout.toggleCollapsed): the browser snapshots the shell
+ * before and after the change and animates the snapshots on the compositor,
+ * so the motion stays at display rate however heavy the page is. (A live
+ * width transition re-lays-out and re-rasters the whole main card on every
+ * frame.) The names exist only while toggling (html.vt-shell).
+ *   · sidebar + main card: snapshots keep their natural size, pinned
+ *     top-left, and the moving edge clips them — content is revealed or
+ *     covered, never stretched; old and new crossfade.
+ *   · the card's border is drawn by its transition group, not the snapshots
+ *     (which carry a transparent one), so two borders never crossfade.
+ *   · the header's start cluster slides with the sidebar edge; everything
+ *     else (the backdrop, the header's right side) doesn't move. */
+html.vt-shell .shell-sidebar { view-transition-name: shell-sidebar; }
+html.vt-shell .shell-header-start { view-transition-name: shell-header-start; }
+html.vt-shell .shell-main { view-transition-name: shell-main; border-color: transparent; }
+html.vt-shell::view-transition-old(root),
+html.vt-shell::view-transition-new(root) { animation: none; }
+html.vt-shell::view-transition-group(shell-sidebar),
+html.vt-shell::view-transition-group(shell-header-start),
+html.vt-shell::view-transition-group(shell-main),
+html.vt-shell::view-transition-old(shell-sidebar),
+html.vt-shell::view-transition-new(shell-sidebar),
+html.vt-shell::view-transition-old(shell-main),
+html.vt-shell::view-transition-new(shell-main) {
+  animation-duration: 220ms;
+  animation-timing-function: var(--ease-out);
+}
+html.vt-shell::view-transition-group(shell-sidebar) { overflow: clip; }
+html.vt-shell::view-transition-group(shell-main) {
+  box-sizing: border-box;
+  overflow: clip;
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.75rem;
+  background: hsl(var(--background));
+  box-shadow: var(--shadow-panel);
+}
+html.vt-shell::view-transition-old(shell-sidebar),
+html.vt-shell::view-transition-new(shell-sidebar) {
+  inset: 0 auto auto 0;
+  width: auto;
+  height: auto;
+  object-fit: none;
+  object-position: 0 0;
+}
+/* -1px: the snapshot starts at the card's (transparent) border edge, and the
+ * group's clip starts inside its drawn border — this keeps content aligned. */
+html.vt-shell::view-transition-old(shell-main),
+html.vt-shell::view-transition-new(shell-main) {
+  inset: -1px auto auto -1px;
+  width: auto;
+  height: auto;
+  object-fit: none;
+  object-position: 0 0;
+}
+/* Fallback for browsers without View Transitions: plain transitions. */
+@supports not (view-transition-name: none) {
+  .shell-sidebar { transition: width 200ms var(--ease-out); }
+  .shell-column { transition: margin-left 200ms var(--ease-out); }
+  .shell-fade { transition: opacity 150ms var(--ease-out); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shell-sidebar, .shell-column, .shell-fade { transition: none; }
+}
+
 /* Modal overlay fade (panel uses .animate-in). Kept separate from the panel
  * so the dim layer never scales. */
 @keyframes overlay-in { from { opacity: 0; } to { opacity: 1; } }
 .modal-overlay-in { animation: overlay-in 0.15s ease-out; }
+/* Exit — played on the inert copy useExitAnimation leaves behind as a dialog
+ * unmounts. Must finish within EXIT_MS (utils/motion.ts). */
+@keyframes overlay-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes panel-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(4px) scale(0.97); } }
+.modal-exit { animation: overlay-out 140ms ease-in forwards; }
+.modal-exit > [role="dialog"],
+.modal-exit > [data-modal-panel] { animation: panel-out 140ms ease-in forwards; }
 @media (prefers-reduced-motion: reduce) {
-  .modal-overlay-in, .animate-in, .fade-up { animation: none; }
+  .modal-overlay-in, .animate-in, .fade-up, .modal-exit, .modal-exit > [role="dialog"], .modal-exit > [data-modal-panel] { animation: none; }
 }
 
 /* Per-row stagger on Applications list reflow. Capped to the first ~12 rows
@@ -201,11 +356,18 @@ html.theme-transitioning *::after {
   transition-property: transform, box-shadow;
   transition-duration: 200ms;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06);
+  box-shadow: var(--shadow-raised);
   border: 1px solid hsl(var(--border));
 }
-.card-premium:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04); transform: translateY(-1px); }
+.card-premium:hover { box-shadow: var(--shadow-raised-hover); transform: translateY(-1px); }
 .card-no-lift:hover { transform: none; }
+
+/* A plain card on a page background (Settings, Admin): a quiet hairline and a
+ * soft shadow that lifts it off the page (Sora's). Not for cards inside cards. */
+.surface-card {
+  @apply bg-card border border-border rounded-xl;
+  box-shadow: var(--shadow-panel);
+}
 
 .btn-accent {
   @apply inline-flex items-center gap-1.5 px-4 py-2 text-primary-foreground text-sm font-medium rounded-lg bg-primary;
@@ -213,7 +375,7 @@ html.theme-transitioning *::after {
   transition-duration: 150ms;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
-.btn-accent:hover { filter: brightness(0.9); box-shadow: 0 3px 8px rgba(0,0,0,0.15); transform: translateY(-0.5px); }
+.btn-accent:hover { filter: brightness(0.9); box-shadow: var(--shadow-button-hover); transform: translateY(-0.5px); }
 .btn-accent:active { transform: translateY(0); box-shadow: none; }
 
 .btn-secondary {
@@ -222,9 +384,22 @@ html.theme-transitioning *::after {
   transition-property: transform, box-shadow, filter;
   transition-duration: 150ms;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  box-shadow: var(--shadow-xs);
 }
-.btn-secondary:hover { filter: brightness(0.95); box-shadow: 0 2px 4px rgba(0,0,0,0.06); }
+.btn-secondary:hover { filter: brightness(0.95); box-shadow: var(--shadow-xs-hover); }
+
+/* Resume tags: every tag gets its own hue and one of four tones
+ *  (Resumes.tsx sets --tag-h / --tag-tone). Pastel in light, deep in dark. */
+.tag-chip {
+  background-color: hsl(var(--tag-h) 85% calc(92% - var(--tag-tone) * 4%));
+  color: hsl(var(--tag-h) 62% calc(30% - var(--tag-tone) * 4%));
+  border-color: hsl(var(--tag-h) 55% calc(70% - var(--tag-tone) * 6%));
+}
+.dark .tag-chip {
+  background-color: hsl(var(--tag-h) 40% calc(16% + var(--tag-tone) * 3%));
+  color: hsl(var(--tag-h) 80% calc(84% - var(--tag-tone) * 2%));
+  border-color: hsl(var(--tag-h) 40% calc(30% + var(--tag-tone) * 4%));
+}
 
 .demo-login-btn {
   position: relative;
@@ -257,28 +432,6 @@ html.theme-transitioning *::after {
 @media (prefers-reduced-motion: reduce) {
   .demo-login-btn::before {
     animation: none;
-  }
-}
-
-.glass-header {
-  @apply sticky top-0 z-30 border-b border-border;
-  background: hsla(var(--background) / 0.72); backdrop-filter: blur(16px) saturate(180%); -webkit-backdrop-filter: blur(16px) saturate(180%);
-}
-
-/* Shell panel — clip horizontal overflow on every viewport so negative-margin
- *  "breakout" patterns (sticky filter bars with -mx-4) don't spill past the
- *  viewport. Border + dedicated background are desktop-only because they're
- *  the "sits flush to the sidebar" visual; on mobile the sidebar is off-canvas
- *  so the panel IS the page. */
-.shell-overlap-panel {
-  overflow-x: hidden;
-}
-@media (min-width: 768px) {
-  .shell-overlap-panel {
-    position: relative;
-    z-index: 30;
-    background: hsl(var(--background));
-    border-left: 1px solid hsla(var(--border) / 0.6);
   }
 }
 
@@ -316,7 +469,7 @@ html.theme-transitioning *::after {
   transition-property: transform, box-shadow;
   transition-duration: 150ms;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  box-shadow: var(--shadow-xs);
 }
 
 /* Auth pages: fixed split-tone theme independent from app theme. */
@@ -637,6 +790,18 @@ html.theme-transitioning *::after {
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { @apply bg-transparent; }
 ::-webkit-scrollbar-thumb { @apply bg-muted-foreground/30 rounded-full; }
+
+/* Sidebar navs: the scrollbar appears only while the pointer is over the list,
+ * so the collapsed rail doesn't wear a permanent bar beside its icons. */
+.scroll-quiet::-webkit-scrollbar-thumb { background-color: transparent; }
+.scroll-quiet:hover::-webkit-scrollbar-thumb { background-color: hsl(var(--muted-foreground) / 0.3); }
+
+/* Native surfaces follow the theme: built-in form controls, the text caret,
+ * checkboxes/radios/ranges, and selected text. */
+:root { color-scheme: light; }
+.dark { color-scheme: dark; }
+html { accent-color: hsl(var(--primary)); caret-color: hsl(var(--primary)); }
+::selection { background-color: hsl(var(--primary) / 0.22); }
 
 /* react-grid-layout */
 .react-grid-layout { position: relative; }

@@ -153,7 +153,7 @@ export default function ContentModeration() {
       </div>
 
       {/* Table */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="surface-card overflow-hidden">
         <div className="overflow-x-auto">
           {activeTab === "applications" && (
             <ApplicationsTable data={apps.data} loading={apps.loading} />

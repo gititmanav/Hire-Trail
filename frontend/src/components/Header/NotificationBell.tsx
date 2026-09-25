@@ -6,6 +6,8 @@ import toast from "react-hot-toast";
 import { Bell, X } from "lucide-react";
 import { notificationsAPI } from "../../utils/api.ts";
 import { useRefetchOnFocus } from "../../hooks/useRefetchOnFocus.ts";
+import Popover from "../ui/Popover.tsx";
+import SegmentedControl from "../ui/SegmentedControl.tsx";
 import type { Notification, NotificationType } from "../../types";
 
 const TYPE_LABEL: Record<string, { label: string; tone: string }> = {
@@ -39,7 +41,7 @@ export default function NotificationBell() {
   const [loadingList, setLoadingList] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("current");
-  const rootRef = useRef<HTMLDivElement>(null);
+  const bellRef = useRef<HTMLButtonElement>(null);
 
   const refreshCount = useCallback(async () => {
     try {
@@ -76,21 +78,6 @@ export default function NotificationBell() {
   useEffect(() => {
     if (open) void fetchList(tab);
   }, [open, tab, fetchList]);
-
-  // Click-outside + Escape close
-  useEffect(() => {
-    if (!open) return;
-    const onDocClick = (e: MouseEvent) => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
-    document.addEventListener("mousedown", onDocClick);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDocClick);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
 
   // Confirm / revert / dismiss all "deal with" the notification — it leaves the
   // Current tab (becomes resolved → Past). We drop it from the visible list and
@@ -164,18 +151,21 @@ export default function NotificationBell() {
   };
 
   return (
-    <div className="relative" ref={rootRef}>
+    <>
       <button
+        ref={bellRef}
         type="button"
+        aria-haspopup="dialog"
+        aria-expanded={open}
         onClick={() => setOpen((o) => { if (!o) setTab("current"); return !o; })}
-        className="relative w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-secondary-foreground"
+        className="relative w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-background hover:text-foreground"
         title="Notifications"
         aria-label={unread > 0 ? `${unread} unread notifications` : "Notifications"}
       >
         <Bell size={18} strokeWidth={1.7} />
         {unread > 0 && (
           <span
-            className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center border border-background"
+            className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center border border-sidebar"
             aria-hidden
           >
             {unread > 99 ? "99+" : unread}
@@ -183,126 +173,126 @@ export default function NotificationBell() {
         )}
       </button>
 
-      {open && (
-        <div className="absolute right-0 top-full mt-1.5 w-[360px] max-w-[calc(100vw-24px)] card-premium z-50 animate-in">
-          <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
-            <div className="inline-flex items-center gap-0.5 rounded-lg bg-muted p-0.5">
-              {(["current", "past"] as const).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setTab(t)}
-                  className={`px-2.5 py-1 text-[11px] font-semibold rounded-md capitalize transition-colors ${
-                    tab === t ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {t}
-                </button>
-              ))}
-            </div>
-            {tab === "current" && unread > 0 && (
-              <button onClick={onMarkAllRead} className="text-[11px] text-muted-foreground hover:text-foreground">
-                Mark all as read
-              </button>
-            )}
-          </div>
-
-          {loadingList ? (
-            <div className="px-4 py-8 text-center text-sm text-muted-foreground">Loading…</div>
-          ) : items.length === 0 ? (
-            <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-              {tab === "current" ? (
-                <>
-                  <p>You're all caught up.</p>
-                  <p className="text-[11px] mt-1">Connected-mailbox detections show up here.</p>
-                </>
-              ) : (
-                <>
-                  <p>Nothing in your history yet.</p>
-                  <p className="text-[11px] mt-1">Dealt-with notifications are kept here for reference.</p>
-                </>
-              )}
-            </div>
-          ) : (
-            <ul className="divide-y divide-border max-h-[420px] overflow-y-auto">
-              {items.slice(0, MAX_DISPLAY).map((n) => {
-                const meta = TYPE_LABEL[n.type];
-                const isSuggestion = SUGGESTION_TYPES.includes(n.type);
-                const canRevert = isSuggestion && !n.resolved && !!n.previousStage && !!n.applicationId;
-                const canConfirm = isSuggestion && !n.resolved;
-                return (
-                  <li
-                    key={n._id}
-                    className={`group relative px-4 py-3 hover:bg-muted/40 cursor-pointer ${!n.read ? "bg-primary/5" : ""}`}
-                    onClick={() => onOpenItem(n)}
-                  >
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); void (tab === "past" ? onRemove(n) : onDismiss(n)); }}
-                      disabled={busyId === n._id}
-                      title={tab === "past" ? "Delete" : "Dismiss"}
-                      aria-label={tab === "past" ? "Delete notification" : "Dismiss notification"}
-                      className="absolute top-2 right-2 w-6 h-6 flex items-center justify-center rounded-md text-muted-foreground/60 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-muted hover:text-foreground disabled:opacity-50"
-                    >
-                      <X size={13} strokeWidth={2} />
-                    </button>
-                    <div className="flex items-start gap-2.5">
-                      {!n.read && <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-primary shrink-0" aria-hidden />}
-                      <div className="min-w-0 flex-1 pr-5">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          {meta && (
-                            <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${meta.tone}`}>
-                              {meta.label}
-                            </span>
-                          )}
-                          <p className="text-sm font-medium text-foreground truncate">{n.title}</p>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{n.message}</p>
-                        <p className="text-[10px] text-muted-foreground/70 mt-1">
-                          {new Date(n.createdAt).toLocaleString()}
-                        </p>
-                        {(canConfirm || canRevert) && (
-                          <div className="flex items-center gap-1.5 mt-2" onClick={(e) => e.stopPropagation()}>
-                            {canRevert && (
-                              <button
-                                onClick={() => onRevert(n)}
-                                disabled={busyId === n._id}
-                                className="px-2 py-0.5 text-[11px] font-medium border border-border rounded text-secondary-foreground hover:bg-muted disabled:opacity-50"
-                                title={`Revert to ${n.previousStage}`}
-                              >
-                                Revert
-                              </button>
-                            )}
-                            {canConfirm && (
-                              <button
-                                onClick={() => onConfirm(n)}
-                                disabled={busyId === n._id}
-                                className="px-2 py-0.5 text-[11px] font-medium rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-                              >
-                                Confirm
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-
-          {items.length > 0 && (
-            <div className="px-4 py-2 border-t border-border text-center">
-              <button
-                onClick={() => { setOpen(false); navigate("/notifications"); }}
-                className="text-[11px] text-primary hover:underline"
-              >
-                See all notifications
-              </button>
-            </div>
+      <Popover
+        open={open}
+        onOpenChange={setOpen}
+        anchorRef={bellRef}
+        align="end"
+        width="min(360px, calc(100vw - 16px))"
+        ariaLabel="Notifications"
+        className="flex flex-col"
+      >
+        <div className="flex items-center justify-between gap-3 px-3.5 py-2.5 border-b border-border shrink-0">
+          <SegmentedControl<Tab>
+            ariaLabel="Notifications"
+            size="sm"
+            value={tab}
+            onChange={setTab}
+            segments={[{ value: "current", label: "Current" }, { value: "past", label: "Past" }]}
+          />
+          {tab === "current" && unread > 0 && (
+            <button onClick={onMarkAllRead} className="text-[12px] font-medium text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded px-1">
+              Mark all as read
+            </button>
           )}
         </div>
-      )}
-    </div>
+
+        {loadingList ? (
+          <div className="px-4 py-8 text-center text-sm text-muted-foreground">Loading…</div>
+        ) : items.length === 0 ? (
+          <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+            {tab === "current" ? (
+              <>
+                <p>You're all caught up.</p>
+                <p className="text-[11px] mt-1">Connected-mailbox detections show up here.</p>
+              </>
+            ) : (
+              <>
+                <p>Nothing in your history yet.</p>
+                <p className="text-[11px] mt-1">Dealt-with notifications are kept here for reference.</p>
+              </>
+            )}
+          </div>
+        ) : (
+          <ul className="divide-y divide-border max-h-[420px] min-h-0 overflow-y-auto">
+            {items.slice(0, MAX_DISPLAY).map((n) => {
+              const meta = TYPE_LABEL[n.type];
+              const isSuggestion = SUGGESTION_TYPES.includes(n.type);
+              const canRevert = isSuggestion && !n.resolved && !!n.previousStage && !!n.applicationId;
+              const canConfirm = isSuggestion && !n.resolved;
+              return (
+                <li
+                  key={n._id}
+                  className={`group relative px-4 py-3 cursor-pointer transition-colors ${!n.read ? "bg-primary/5 hover:bg-primary/[0.08]" : "hover:bg-control/60"}`}
+                  onClick={() => onOpenItem(n)}
+                >
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); void (tab === "past" ? onRemove(n) : onDismiss(n)); }}
+                    disabled={busyId === n._id}
+                    title={tab === "past" ? "Delete" : "Dismiss"}
+                    aria-label={tab === "past" ? "Delete notification" : "Dismiss notification"}
+                    className="absolute top-2 right-2 w-6 h-6 flex items-center justify-center rounded-md text-muted-foreground/60 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-control hover:text-foreground disabled:opacity-50"
+                  >
+                    <X size={13} strokeWidth={2} />
+                  </button>
+                  <div className="flex items-start gap-2.5">
+                    {!n.read && <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-primary shrink-0" aria-hidden />}
+                    <div className="min-w-0 flex-1 pr-5">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {meta && (
+                          <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${meta.tone}`}>
+                            {meta.label}
+                          </span>
+                        )}
+                        <p className="text-sm font-medium text-foreground truncate">{n.title}</p>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{n.message}</p>
+                      <p className="text-[10px] text-muted-foreground/70 mt-1">
+                        {new Date(n.createdAt).toLocaleString()}
+                      </p>
+                      {(canConfirm || canRevert) && (
+                        <div className="flex items-center gap-1.5 mt-2" onClick={(e) => e.stopPropagation()}>
+                          {canRevert && (
+                            <button
+                              onClick={() => onRevert(n)}
+                              disabled={busyId === n._id}
+                              className="px-2 py-0.5 text-[11px] font-medium border border-border rounded text-secondary-foreground hover:bg-control disabled:opacity-50"
+                              title={`Revert to ${n.previousStage}`}
+                            >
+                              Revert
+                            </button>
+                          )}
+                          {canConfirm && (
+                            <button
+                              onClick={() => onConfirm(n)}
+                              disabled={busyId === n._id}
+                              className="px-2 py-0.5 text-[11px] font-medium rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                            >
+                              Confirm
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+
+        {items.length > 0 && (
+          <div className="px-4 py-2 border-t border-border text-center shrink-0">
+            <button
+              onClick={() => { setOpen(false); navigate("/notifications"); }}
+              className="text-[12px] font-medium text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded px-1"
+            >
+              See all notifications
+            </button>
+          </div>
+        )}
+      </Popover>
+    </>
   );
 }

@@ -61,7 +61,7 @@ export default function ReviewStep({
       {/* Right: live preview = print template */}
       <div className="lg:sticky lg:top-4 min-w-0">
         <div className="rounded-xl border border-border bg-muted/30 p-3 sm:p-5 overflow-auto" style={{ maxHeight: "calc(100vh - 7rem)" }}>
-          <div className="mx-auto bg-white shadow-sm" style={{ width: 720, maxWidth: "100%" }}>
+          <div className="mx-auto bg-paper shadow-sm" style={{ width: 720, maxWidth: "100%" }}>
             {studio.doc && (
               <ResumeDocumentPreview
                 ref={previewRef}

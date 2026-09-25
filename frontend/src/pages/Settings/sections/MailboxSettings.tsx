@@ -135,7 +135,7 @@ function MailboxRow({
             <button
               disabled={loading || !configured}
               onClick={onConnect}
-              className="px-3 py-1.5 text-xs font-medium text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1.5 text-xs font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
               title={configured ? "" : `${provider} integration is not configured on this server`}
             >
               {loading ? "Connecting…" : `Connect ${provider}`}
@@ -358,7 +358,7 @@ export default function MailboxSettings() {
                   setScanModalDismissed(false);
                   setScanModal(true);
                 }}
-                className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg"
+                className="px-4 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg"
               >
                 Run your first scan
               </button>
@@ -396,7 +396,7 @@ export default function MailboxSettings() {
                     toast.error(err.response?.data?.error || "Could not start the scan.");
                   } finally { setMailboxLoading(null); }
                 }}
-                className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50"
+                className="px-4 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50"
               >
                 {mailboxLoading === "scan" ? "Starting…" : "Scan now"}
               </button>

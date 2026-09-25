@@ -14,7 +14,7 @@ import { useState } from "react";
 import {
   ChevronDown, ChevronUp, Eye, EyeOff, GripVertical, Plus, Trash2,
 } from "lucide-react";
-import ActionDropdown from "../../../components/ActionDropdown/ActionDropdown.tsx";
+import Menu from "../../../components/ui/Menu.tsx";
 import ConfirmModal from "../../../components/ConfirmModal/ConfirmModal.tsx";
 import {
   newId,
@@ -160,15 +160,15 @@ export default function EditorTab({ studio }: { studio: StudioController }) {
         />
       ))}
 
-      <ActionDropdown
-        align="left"
-        menuWidth="w-52"
+      <Menu
+        ariaLabel="Add section"
+        width={208}
         trigger={
-          <button className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2.5 text-sm font-medium border border-dashed border-border rounded-xl text-muted-foreground hover:border-primary/50 hover:text-primary transition-colors">
+          <button type="button" className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2.5 text-sm font-medium border border-dashed border-border rounded-xl text-muted-foreground hover:border-primary/50 hover:text-primary transition-colors">
             <Plus size={15} strokeWidth={2} /> Add section
           </button>
         }
-        items={ADD_SECTION_TYPES.map((t) => ({ label: t.label, onClick: () => addSection(t.type, t.label) }))}
+        items={ADD_SECTION_TYPES.map((t) => ({ label: t.label, onSelect: () => addSection(t.type, t.label) }))}
       />
 
       {pendingDelete && (

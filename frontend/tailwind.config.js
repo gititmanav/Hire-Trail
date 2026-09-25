@@ -1,3 +1,13 @@
+/** Tailwind's palette families, read from CSS variables (App.css) so a
+ *  Custom theme can re-tint them; presets hold Tailwind's exact values. */
+const PALETTE = ["slate", "gray", "zinc", "neutral", "stone", "red", "orange", "amber", "yellow", "lime", "green",
+  "emerald", "teal", "cyan", "sky", "blue", "indigo", "violet", "purple", "fuchsia", "pink", "rose"];
+const SHADES = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950];
+const rgbVar = (name) => `rgb(var(--palette-${name}) / <alpha-value>)`;
+const paletteColors = Object.fromEntries(
+  PALETTE.map((family) => [family, Object.fromEntries(SHADES.map((shade) => [shade, rgbVar(`${family}-${shade}`)]))]),
+);
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
@@ -36,6 +46,9 @@ export default {
           foreground: "hsl(var(--destructive-foreground))",
         },
         border: "hsl(var(--border))",
+        control: "hsl(var(--control))",
+        paper: "hsl(var(--paper))",
+        scrim: "hsl(var(--scrim))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
         chart: {
@@ -55,10 +68,28 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
-        // Status colors (not theme-dependent)
-        success: { DEFAULT: "#1d9e75", light: "#e1f5ee" },
-        warning: { DEFAULT: "#ef9f27", light: "#faeeda" },
-        danger: { DEFAULT: "#e24b4a", light: "#fcebeb" },
+        ...paletteColors,
+        // Status colours (values in App.css; a Custom theme re-tints `light`).
+        success: { DEFAULT: rgbVar("success"), light: rgbVar("success-light") },
+        warning: { DEFAULT: rgbVar("warning"), light: rgbVar("warning-light") },
+        danger: { DEFAULT: rgbVar("danger"), light: rgbVar("danger-light") },
+      },
+      // `text-primary` is the accent *as text* — a Custom theme can pick a
+      // light accent, so text reads `--brand-text` (solved to ≥ 4.5:1) while
+      // fills, borders and rings keep the accent itself.
+      textColor: {
+        primary: { DEFAULT: "hsl(var(--brand-text))", foreground: "hsl(var(--primary-foreground))" },
+      },
+      // Named so they can't collide with colour keys (`shadow-card` would
+      // resolve to a shadow *colour*).
+      boxShadow: {
+        panel: "var(--shadow-panel)",
+        floating: "var(--shadow-floating)",
+        pill: "var(--shadow-pill)",
+      },
+      transitionTimingFunction: {
+        // `ease-smooth` — the app's one motion curve (Tailwind's own ease-out stays as is).
+        smooth: "var(--ease-out)",
       },
       borderRadius: {
         lg: "var(--radius)",

@@ -1,6 +1,7 @@
 import type { EventInput } from "@fullcalendar/core";
 import type { Application, Deadline, Stage } from "../types";
-import { STAGE_CALENDAR_HEX } from "./stageStyles.ts";
+import { STAGE_CALENDAR_COLOR } from "./stageStyles.ts";
+import { cssPalette } from "./palette.ts";
 
 export type CalendarFactor =
   | "application_submitted"
@@ -48,25 +49,25 @@ function dueDateToIsoDay(dueDate: string | Date | undefined | null): string {
   return String(dueDate).slice(0, 10);
 }
 
-const SUBMITTED_CHIP = { backgroundColor: "#475569", borderColor: "#334155" };
+const SUBMITTED_CHIP = { backgroundColor: cssPalette("slate-600"), borderColor: cssPalette("slate-700") };
 
 function deadlineChipColors(d: Deadline): { backgroundColor: string; borderColor: string } {
   if (d.completed) {
-    return { backgroundColor: "#059669", borderColor: "#047857" };
+    return { backgroundColor: cssPalette("emerald-600"), borderColor: cssPalette("emerald-700") };
   }
   const day = dueDateToIsoDay(d.dueDate);
-  if (!day) return { backgroundColor: "#64748b", borderColor: "#475569" };
+  if (!day) return { backgroundColor: cssPalette("slate-500"), borderColor: cssPalette("slate-600") };
   const due = new Date(day + "T12:00:00");
   due.setHours(0, 0, 0, 0);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   if (due.getTime() < today.getTime()) {
-    return { backgroundColor: "#dc2626", borderColor: "#991b1b" };
+    return { backgroundColor: cssPalette("red-600"), borderColor: cssPalette("red-800") };
   }
   if (due.getTime() === today.getTime()) {
-    return { backgroundColor: "#7c3aed", borderColor: "#6d28d9" };
+    return { backgroundColor: cssPalette("violet-600"), borderColor: cssPalette("violet-700") };
   }
-  return { backgroundColor: "#d97706", borderColor: "#b45309" };
+  return { backgroundColor: cssPalette("amber-600"), borderColor: cssPalette("amber-700") };
 }
 
 /** Pick the history entry that represents the application's CURRENT stage —
@@ -129,7 +130,7 @@ export function buildCalendarEvents({ applications, deadlines }: BuildCalendarEv
     // for an unchanged app would just duplicate the dot on the same day.)
     const current = currentStageEntry(app);
     if (current && current.stage !== "Applied") {
-      const { backgroundColor, borderColor } = STAGE_CALENDAR_HEX[current.stage];
+      const { backgroundColor, borderColor } = STAGE_CALENDAR_COLOR[current.stage];
       events.push({
         id: `app-stage-${app._id}-${current.stage}-${isoDay(current.date)}`,
         title: `${current.stage} · ${app.company}`,

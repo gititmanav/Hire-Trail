@@ -108,7 +108,7 @@ export default function AIRewriteTab({
           <button
             onClick={onEditWithAI}
             disabled={rewriting}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50"
           >
             <Sparkles size={15} strokeWidth={2} />
             {rewriting ? "Working…" : "Edit With AI"}

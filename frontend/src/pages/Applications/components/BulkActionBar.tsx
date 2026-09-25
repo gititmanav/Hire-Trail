@@ -19,7 +19,7 @@ function BulkActionBarImpl({ count, archived, onArchive, onUnarchive, onDelete, 
     <div
       role="region"
       aria-label={`${count} application${count === 1 ? "" : "s"} selected`}
-      className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-3 py-2 rounded-xl bg-foreground text-background shadow-2xl ring-1 ring-black/10 animate-in"
+      className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-3 py-2 rounded-xl bg-foreground text-background shadow-2xl ring-1 ring-scrim/10 animate-in"
     >
       <span className="text-sm font-medium tabular-nums">
         {count} selected

@@ -1,7 +1,7 @@
 /** Controls that live in the Applications page header. */
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { NavLink } from "react-router-dom";
-import { CalendarDays, Columns3, LayoutList, Rows3, Search, SquarePen, X, type LucideIcon } from "lucide-react";
+import { CalendarDays, Columns3, LayoutList, Search, SquarePen, X, type LucideIcon } from "lucide-react";
 import Tooltip from "../../../components/ui/Tooltip.tsx";
 
 /* ─── Search ─── */
@@ -76,7 +76,7 @@ export const VIEWS: { key: ViewKey; path: string; label: string; Icon: LucideIco
 
 export function ViewSwitcher({ views, search }: { views: typeof VIEWS; search: string }) {
   return (
-    <nav aria-label="Views" className="inline-flex items-center gap-0.5 p-0.5 rounded-lg border border-border bg-muted/50">
+    <nav aria-label="Views" className="inline-flex items-center gap-0.5 p-0.5 rounded-lg border border-border bg-background">
       {views.map((v) => (
         <Tooltip key={v.key} label={`${v.label} view`} shortcut={v.shortcut}>
           <NavLink
@@ -85,7 +85,7 @@ export function ViewSwitcher({ views, search }: { views: typeof VIEWS; search: s
             aria-label={`${v.label} view`}
             className={({ isActive }) =>
               `w-7 h-7 inline-flex items-center justify-center rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                isActive ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                isActive ? "bg-control text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-control/60"
               }`
             }
           >
@@ -94,27 +94,6 @@ export function ViewSwitcher({ views, search }: { views: typeof VIEWS; search: s
         </Tooltip>
       ))}
     </nav>
-  );
-}
-
-/* ─── List design toggle (development aid — compare Classic vs Table) ─── */
-
-export type ListDesign = "classic" | "table";
-
-export function DesignToggle({ value, onChange }: { value: ListDesign; onChange: (d: ListDesign) => void }) {
-  const next: ListDesign = value === "classic" ? "table" : "classic";
-  return (
-    <Tooltip label={`Switch to the ${next === "table" ? "full-width table" : "classic card"} design`}>
-      <button
-        type="button"
-        onClick={() => onChange(next)}
-        aria-label={`List design: ${value}. Switch to ${next}.`}
-        className="h-8 px-2.5 inline-flex items-center gap-1.5 rounded-lg border border-dashed border-primary/50 text-[12px] font-medium text-primary hover:bg-primary/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <Rows3 size={13} strokeWidth={2} aria-hidden />
-        {value === "classic" ? "Classic" : "Table"}
-      </button>
-    </Tooltip>
   );
 }
 

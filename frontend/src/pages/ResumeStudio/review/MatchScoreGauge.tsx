@@ -3,11 +3,13 @@
  *  Includes an info tooltip explaining what the score measures. */
 import { useEffect, useRef, useState } from "react";
 import { Info } from "lucide-react";
+import HoverCard from "../../../components/ui/HoverCard.tsx";
+import { cssPalette } from "../../../utils/palette.ts";
 
 function label(score: number): { text: string; color: string } {
-  if (score >= 7.5) return { text: "Excellent", color: "#10b981" };
-  if (score >= 5) return { text: "Good", color: "#f59e0b" };
-  return { text: "Fair", color: "#ef4444" };
+  if (score >= 7.5) return { text: "Excellent", color: cssPalette("emerald-500") };
+  if (score >= 5) return { text: "Good", color: cssPalette("amber-500") };
+  return { text: "Fair", color: cssPalette("red-500") };
 }
 
 const R = 46;
@@ -54,12 +56,13 @@ export default function MatchScoreGauge({
     <div className="flex flex-col items-center">
       <div className="relative" style={{ width: size, height: size }}>
         <svg width={size} height={size} viewBox="0 0 110 110" className="-rotate-90">
-          <circle cx="55" cy="55" r={R} fill="none" stroke="hsl(var(--muted))" strokeWidth="9" />
+          {/* Colors via style: presentation attributes don't resolve CSS variables everywhere. */}
+          <circle cx="55" cy="55" r={R} fill="none" strokeWidth="9" style={{ stroke: "hsl(var(--muted))" }} />
           <circle
-            cx="55" cy="55" r={R} fill="none" stroke={color} strokeWidth="9" strokeLinecap="round"
+            cx="55" cy="55" r={R} fill="none" strokeWidth="9" strokeLinecap="round"
             strokeDasharray={CIRC}
             strokeDashoffset={offset}
-            style={{ transition: "stroke-dashoffset 700ms cubic-bezier(0.16,1,0.3,1), stroke 400ms ease" }}
+            style={{ stroke: color, transition: "stroke-dashoffset 700ms cubic-bezier(0.16,1,0.3,1), stroke 400ms ease" }}
           />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
@@ -69,12 +72,20 @@ export default function MatchScoreGauge({
       </div>
       <div className="flex items-center gap-1.5 mt-2">
         <span className="text-sm font-semibold" style={{ color }}>{text}</span>
-        <span className="relative group">
-          <Info size={13} strokeWidth={2} className="text-muted-foreground cursor-help" tabIndex={0} aria-label="What this measures" />
-          <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-56 rounded-lg border border-border bg-card px-3 py-2 text-[11px] leading-relaxed text-foreground shadow-lg opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity z-20">
-            How well this resume matches the target role — keyword coverage, relevance, and the strength of your bullets. Rewrites that add metrics and JD keywords push it up.
-          </span>
-        </span>
+        <HoverCard
+          interactive={false}
+          width={232}
+          ariaLabel="What this measures"
+          content={
+            <p className="px-3 py-2.5 text-[12px] leading-relaxed text-foreground">
+              How well this resume matches the target role — keyword coverage, relevance, and the strength of your bullets. Rewrites that add metrics and JD keywords push it up.
+            </p>
+          }
+        >
+          <button type="button" aria-label="What this measures" className="inline-flex text-muted-foreground cursor-help rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <Info size={13} strokeWidth={2} aria-hidden />
+          </button>
+        </HoverCard>
       </div>
     </div>
   );

@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import { applicationsAPI, contactsAPI } from "../../utils/api.ts";
 import { exportToCSV, parseCSV, downloadTemplate } from "../../utils/csv.ts";
 import type { Stage, Application, Contact } from "../../types";
+import DateInput from "../../components/ui/DateInput.tsx";
 
 const STAGES: Stage[] = ["Applied", "OA", "Interview", "Offer", "Rejected"];
 
@@ -70,8 +71,8 @@ function ExportSection() {
         {type === "applications" && (
           <>
             <div className="grid grid-cols-2 gap-3">
-              <div><label className="block text-sm font-medium text-foreground mb-1.5">From date</label><input type="date" className="input-premium" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} /></div>
-              <div><label className="block text-sm font-medium text-foreground mb-1.5">To date</label><input type="date" className="input-premium" value={dateTo} onChange={(e) => setDateTo(e.target.value)} /></div>
+              <div><label className="block text-sm font-medium text-foreground mb-1.5">From date</label><DateInput ariaLabel="From date" value={dateFrom} onChange={setDateFrom} /></div>
+              <div><label className="block text-sm font-medium text-foreground mb-1.5">To date</label><DateInput ariaLabel="To date" value={dateTo} onChange={setDateTo} /></div>
             </div>
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">Filter by stage <span className="text-muted-foreground font-normal">(optional)</span></label>

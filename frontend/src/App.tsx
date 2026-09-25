@@ -1,7 +1,7 @@
 /**
  * Root router: session bootstrap, protected shell, job-search UI state, theme context.
  */
-import { useState, useEffect, useCallback, useRef, createContext, lazy, Suspense } from "react";
+import { useState, useEffect, useCallback, useRef, createContext, lazy, Suspense, type Dispatch, type SetStateAction } from "react";
 import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { queryClient } from "./utils/queryClient.ts";
 import Layout from "./components/Layout/Layout.tsx";
@@ -98,15 +98,14 @@ const FeedbackInbox       = lazy(() => import("./pages/Admin/FeedbackInbox.tsx")
 const BugReports          = lazy(() => import("./pages/Admin/BugReports.tsx"));
 const Broadcasts          = lazy(() => import("./pages/Admin/Broadcasts.tsx"));
 import { authAPI } from "./utils/api.ts";
-import { useTheme } from "./hooks/useTheme.ts";
+import { ThemeProvider } from "./hooks/useTheme.tsx";
 import { FeatureFlagsProvider, useFeatureFlags } from "./hooks/useFeatureFlags.tsx";
 import type { AxiosError } from "axios";
 import type { User } from "./types";
 import { JobSearchContext, defaultState } from "./hooks/useJobSearchState.ts";
 import type { JobSearchState } from "./hooks/useJobSearchState.ts";
 
-export const ThemeContext = createContext<{ dark: boolean; toggle: (e?: React.MouseEvent) => void; themeId: string; setTheme: (id: string) => void }>({ dark: false, toggle: () => { }, themeId: "default", setTheme: () => {} });
-export const UserContext = createContext<{ user: User | null; setUser: (u: User | null) => void }>({ user: null, setUser: () => {} });
+export const UserContext = createContext<{ user: User | null; setUser: Dispatch<SetStateAction<User | null>> }>({ user: null, setUser: () => {} });
 
 function FeatureRoute({ flag, children }: { flag: string; children: React.ReactNode }) {
   const { isEnabled, loading } = useFeatureFlags();
@@ -138,7 +137,6 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [authActionLoading, setAuthActionLoading] = useState(false);
   const [jobSearchState, setJobSearchState] = useState<JobSearchState>(defaultState);
-  const theme = useTheme(user?._id);
 
   const checkAuth = useCallback(async () => {
     try {
@@ -179,7 +177,7 @@ function App() {
   if (loading) return <div className="spinner" style={{ minHeight: "100vh" }} />;
 
   return (
-    <ThemeContext.Provider value={theme}>
+    <ThemeProvider user={user} setUser={setUser}>
       <UserContext.Provider value={{ user, setUser }}>
       <DemoGateProvider>
       <FeatureFlagsProvider authenticated={!!user}>
@@ -295,7 +293,7 @@ function App() {
       </FeatureFlagsProvider>
       </DemoGateProvider>
       </UserContext.Provider>
-    </ThemeContext.Provider>
+    </ThemeProvider>
   );
 }
 

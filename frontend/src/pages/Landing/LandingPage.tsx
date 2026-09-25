@@ -24,6 +24,7 @@ import toast from "react-hot-toast";
 import AuthModal, { type AuthMode } from "../../components/AuthModal/AuthModal.tsx";
 import { UserContext } from "../../App.tsx";
 import { authAPI } from "../../utils/api.ts";
+import { DEMO_THEME_KEY } from "../../hooks/useTheme.tsx";
 import { LandingAuthCtx, DEMO_EMAIL, DEMO_PASSWORD } from "./context";
 import Nav from "./Nav";
 import HeroBand from "./HeroBand";
@@ -65,10 +66,7 @@ export default function LandingPage() {
     setDemoLoading(true);
     try {
       const u = await authAPI.login(DEMO_EMAIL, DEMO_PASSWORD);
-      try {
-        localStorage.setItem(`hiretrail-theme-id:${u._id}`, "modern-minimal");
-        localStorage.setItem("hiretrail-theme-id", "modern-minimal");
-      } catch { /* localStorage unavailable — fine */ }
+      try { localStorage.removeItem(DEMO_THEME_KEY); } catch { /* localStorage unavailable — fine */ }
       toast.success(`Welcome, ${u.name}!`);
       setUser(u);
     } catch {

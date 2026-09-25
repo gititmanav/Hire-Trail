@@ -118,7 +118,7 @@ export default function MailboxManagement() {
       {/* Provider stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
         {statCards.map((s) => (
-          <div key={s.label} className="bg-card border border-border rounded-xl p-4">
+          <div key={s.label} className="surface-card p-4">
             <p className="text-xs uppercase tracking-wider text-muted-foreground">{s.label}</p>
             <p className={`text-2xl font-bold mt-1 ${s.accent ?? "text-foreground"}`}>{s.value}</p>
             <p className="text-[11px] text-muted-foreground mt-1">{s.hint}</p>
@@ -129,7 +129,7 @@ export default function MailboxManagement() {
       {/* Signal breakdown */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         {signalCards.map((c) => (
-          <div key={c.label} className={`relative overflow-hidden bg-card border border-border rounded-xl p-4`}>
+          <div key={c.label} className={`relative overflow-hidden surface-card p-4`}>
             <div className={`absolute inset-0 bg-gradient-to-br ${c.color} pointer-events-none`} />
             <div className="relative">
               <p className="text-xs uppercase tracking-wider text-muted-foreground">{c.label}</p>
@@ -161,7 +161,7 @@ export default function MailboxManagement() {
       </div>
 
       {/* Table */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="surface-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>

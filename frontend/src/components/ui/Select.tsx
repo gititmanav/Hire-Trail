@@ -1,25 +1,26 @@
 /** Shared select — a real listbox, not a styled <select> and not a menu of
- *  onClick actions. Trigger matches Input height; the popover portals to
- *  <body> with fixed positioning so it never fights a scrollable modal body,
- *  and registers on the shared layer stack so Escape closes it — not the
- *  dialog underneath. Keyboard: arrows/Home/End/Enter/Escape, optional search. */
+ *  onClick actions. The list is a ui/Popover (portaled, layer-aware, animated),
+ *  so it never fights a scrollable modal body and Escape closes it, not the
+ *  dialog underneath. Keyboard: arrows/Home/End/Enter/Escape, optional search.
+ *
+ *  Two looks: "field" (default) matches form inputs and fills its container;
+ *  "pill" is a compact rounded control for settings rows ("Group · Stage"). */
 import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { Check, ChevronDown, Search } from "lucide-react";
-import { pushLayer, popLayer, isTopLayer } from "./layers.ts";
+import Popover, { itemClass } from "./Popover.tsx";
 
 export interface SelectOption {
   value: string;
   label: string;
   /** Small muted second line (e.g. the role under a company name). */
   description?: string;
+  /** Leading mark — a stage dot, a company logo. Also shown in the trigger. */
+  icon?: ReactNode;
 }
-
-interface PopoverPos { top?: number; bottom?: number; left: number; width: number }
 
 export default function Select({
   value, options, onChange, placeholder = "Select…", searchable, searchPlaceholder = "Search…",
-  disabled, id, ariaLabel, renderValue, size = "md",
+  disabled, id, ariaLabel, renderValue, size = "md", variant = "field",
 }: {
   value: string;
   options: SelectOption[];
@@ -34,16 +35,14 @@ export default function Select({
   renderValue?: (selected: SelectOption | undefined) => ReactNode;
   /** "sm" for dense surfaces (filter panels); "md" matches form inputs. */
   size?: "sm" | "md";
+  variant?: "field" | "pill";
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [activeIdx, setActiveIdx] = useState(-1);
-  const [pos, setPos] = useState<PopoverPos | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const popRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
-  const layerRef = useRef<symbol | null>(null);
 
   const selected = options.find((o) => o.value === value);
   const filtered = useMemo(() => {
@@ -52,50 +51,13 @@ export default function Select({
     return options.filter((o) => o.label.toLowerCase().includes(q) || o.description?.toLowerCase().includes(q));
   }, [options, query]);
 
-  // Open lifecycle: layer registration, position, dismiss listeners.
-  useEffect(() => {
-    if (!open) return;
-    const layer = pushLayer("select");
-    layerRef.current = layer;
-
-    const r = triggerRef.current?.getBoundingClientRect();
-    if (r) {
-      const dropUp = r.bottom + 324 > window.innerHeight && r.top > 344;
-      setPos(dropUp
-        ? { bottom: window.innerHeight - r.top + 6, left: r.left, width: r.width }
-        : { top: r.bottom + 6, left: r.left, width: r.width });
-    }
-    setQuery("");
-    if (searchable) requestAnimationFrame(() => searchRef.current?.focus());
-
-    const onDocClick = (e: MouseEvent) => {
-      const t = e.target as Node;
-      if (triggerRef.current?.contains(t) || popRef.current?.contains(t)) return;
-      setOpen(false);
-    };
-    // Any outside scroll (incl. modal body) invalidates the fixed position — close.
-    const onScroll = (e: Event) => {
-      if (popRef.current?.contains(e.target as Node)) return;
-      setOpen(false);
-    };
-    const onResize = () => setOpen(false);
-    document.addEventListener("click", onDocClick);
-    document.addEventListener("scroll", onScroll, true);
-    window.addEventListener("resize", onResize);
-    return () => {
-      popLayer(layer);
-      layerRef.current = null;
-      document.removeEventListener("click", onDocClick);
-      document.removeEventListener("scroll", onScroll, true);
-      window.removeEventListener("resize", onResize);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  const openList = () => { setQuery(""); setOpen(true); };
 
   // Start the keyboard cursor on the selected option each time the list opens/filters.
   useEffect(() => {
     if (!open) return;
-    setActiveIdx(filtered.findIndex((o) => o.value === value));
+    const i = filtered.findIndex((o) => o.value === value);
+    setActiveIdx(query ? 0 : i);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, query]);
 
@@ -108,26 +70,19 @@ export default function Select({
   const commit = (v: string) => {
     onChange(v);
     setOpen(false);
-    triggerRef.current?.focus();
+    triggerRef.current?.focus({ preventScroll: true });
   };
 
-  const onKeyDown = (e: React.KeyboardEvent) => {
-    if (!open) {
-      if (e.key === "Enter" || e.key === " " || e.key === "ArrowDown" || e.key === "ArrowUp") {
-        e.preventDefault();
-        setOpen(true);
-      }
-      return;
+  const onTriggerKeyDown = (e: React.KeyboardEvent) => {
+    if (open) return;
+    if (e.key === "Enter" || e.key === " " || e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      openList();
     }
+  };
+
+  const onListKeyDown = (e: React.KeyboardEvent) => {
     switch (e.key) {
-      case "Escape":
-        e.preventDefault();
-        e.stopPropagation();
-        if (layerRef.current && isTopLayer(layerRef.current)) {
-          setOpen(false);
-          triggerRef.current?.focus();
-        }
-        break;
       case "ArrowDown": e.preventDefault(); setActiveIdx((i) => Math.min(i + 1, filtered.length - 1)); break;
       case "ArrowUp": e.preventDefault(); setActiveIdx((i) => Math.max(i - 1, 0)); break;
       case "Home": e.preventDefault(); setActiveIdx(0); break;
@@ -140,6 +95,11 @@ export default function Select({
     }
   };
 
+  const pill = variant === "pill";
+  const triggerClass = pill
+    ? "max-w-full h-7 pl-3 pr-2 text-[13px] inline-flex items-center gap-1.5 rounded-full bg-control border border-border text-foreground font-medium hover:border-muted-foreground/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+    : `w-full ${size === "sm" ? "h-8 px-2.5 text-[13px]" : "h-10 px-3 text-sm"} flex items-center justify-between gap-2 bg-background border border-border rounded-lg text-left text-foreground transition-shadow hover:border-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-ring/25 focus:border-ring disabled:opacity-50 disabled:cursor-not-allowed`;
+
   return (
     <>
       <button
@@ -150,66 +110,72 @@ export default function Select({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={ariaLabel}
-        onClick={() => setOpen((o) => !o)}
-        onKeyDown={onKeyDown}
-        className={`w-full ${size === "sm" ? "h-8 px-2.5 text-[13px]" : "h-10 px-3 text-sm"} flex items-center justify-between gap-2 bg-background border border-border rounded-lg text-left text-foreground transition-shadow hover:border-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-ring/25 focus:border-ring disabled:opacity-50 disabled:cursor-not-allowed`}
+        onClick={() => (open ? setOpen(false) : openList())}
+        onKeyDown={onTriggerKeyDown}
+        className={triggerClass}
       >
-        <span className={`truncate ${selected ? "" : "text-muted-foreground/60"}`}>
-          {renderValue ? renderValue(selected) : selected?.label ?? placeholder}
+        <span className={`min-w-0 inline-flex items-center gap-2 ${selected ? "" : "text-muted-foreground/60"}`}>
+          {!renderValue && selected?.icon && <span className="shrink-0 inline-flex items-center justify-center">{selected.icon}</span>}
+          <span className="truncate">{renderValue ? renderValue(selected) : selected?.label ?? placeholder}</span>
         </span>
-        <ChevronDown size={15} strokeWidth={1.8} className={`shrink-0 text-muted-foreground transition-transform duration-200 ${open ? "rotate-180" : ""}`} aria-hidden />
+        <ChevronDown size={pill ? 13 : 15} strokeWidth={1.8} className={`shrink-0 text-muted-foreground transition-transform duration-200 ${open ? "rotate-180" : ""}`} aria-hidden />
       </button>
 
-      {open && pos && createPortal(
-        <div
-          ref={popRef}
-          onKeyDown={onKeyDown}
-          style={{ position: "fixed", left: pos.left, width: pos.width, top: pos.top, bottom: pos.bottom }}
-          className="z-[70] bg-popover border border-border rounded-lg shadow-lg overflow-hidden animate-in"
-        >
-          {searchable && (
-            <div className="flex items-center gap-2 px-3 h-9 border-b border-border">
+      <Popover
+        open={open}
+        onOpenChange={setOpen}
+        anchorRef={triggerRef}
+        matchAnchorWidth={!pill}
+        width={pill ? 220 : undefined}
+        align={pill ? "end" : "start"}
+        maxHeight={340}
+        role="listbox"
+        ariaLabel={ariaLabel}
+        initialFocusRef={searchable ? searchRef : listRef}
+        onKeyDown={onListKeyDown}
+        className="flex flex-col"
+      >
+        {searchable && (
+          <div className="px-1.5 pt-1.5 shrink-0">
+            <div className="flex items-center gap-2 h-8 px-2.5 rounded-lg bg-control/60">
               <Search size={13} strokeWidth={2} className="text-muted-foreground shrink-0" aria-hidden />
               <input
                 ref={searchRef}
                 value={query}
-                onChange={(e) => { setQuery(e.target.value); setActiveIdx(0); }}
+                onChange={(e) => setQuery(e.target.value)}
                 placeholder={searchPlaceholder}
                 aria-label={searchPlaceholder}
-                className="w-full bg-transparent text-[13px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none"
+                className="w-full bg-transparent text-[13px] text-foreground placeholder:text-muted-foreground/70 focus:outline-none"
               />
             </div>
-          )}
-          <div ref={listRef} role="listbox" className="max-h-64 overflow-y-auto py-1">
-            {filtered.length === 0 && (
-              <p className="px-3 py-2.5 text-[13px] text-muted-foreground">No matches</p>
-            )}
-            {filtered.map((opt, i) => {
-              const isSelected = opt.value === value;
-              const isActive = i === activeIdx;
-              return (
-                <div
-                  key={opt.value || `__empty-${i}`}
-                  role="option"
-                  aria-selected={isSelected}
-                  onMouseEnter={() => setActiveIdx(i)}
-                  onClick={() => commit(opt.value)}
-                  className={`flex items-center gap-2 px-3 py-2 text-sm cursor-pointer ${
-                    isActive ? "bg-muted" : ""
-                  } ${isSelected ? "font-medium" : ""} text-foreground`}
-                >
-                  <Check size={14} strokeWidth={2.5} className={`shrink-0 text-primary ${isSelected ? "" : "opacity-0"}`} aria-hidden />
-                  <div className="min-w-0">
-                    <p className="truncate leading-5">{opt.label}</p>
-                    {opt.description && <p className="text-xs text-muted-foreground truncate">{opt.description}</p>}
-                  </div>
-                </div>
-              );
-            })}
           </div>
-        </div>,
-        document.body,
-      )}
+        )}
+        <div ref={listRef} tabIndex={-1} className="p-1.5 overflow-y-auto min-h-0 outline-none">
+          {filtered.length === 0 && (
+            <p className="px-2.5 py-2 text-[13px] text-muted-foreground">No matches</p>
+          )}
+          {filtered.map((opt, i) => {
+            const isSelected = opt.value === value;
+            return (
+              <div
+                key={opt.value || `__empty-${i}`}
+                role="option"
+                aria-selected={isSelected}
+                onMouseEnter={() => setActiveIdx(i)}
+                onClick={() => commit(opt.value)}
+                className={`${itemClass({ active: i === activeIdx })} ${isSelected ? "font-medium" : ""}`}
+              >
+                {opt.icon && <span className="min-w-4 shrink-0 inline-flex items-center justify-center">{opt.icon}</span>}
+                <div className="flex-1 min-w-0">
+                  <p className="truncate leading-5">{opt.label}</p>
+                  {opt.description && <p className="text-xs text-muted-foreground truncate font-normal">{opt.description}</p>}
+                </div>
+                <Check size={14} strokeWidth={2.5} className={`shrink-0 text-primary ${isSelected ? "" : "invisible"}`} aria-hidden />
+              </div>
+            );
+          })}
+        </div>
+      </Popover>
     </>
   );
 }

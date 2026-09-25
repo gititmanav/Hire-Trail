@@ -12,8 +12,8 @@ interface Props {
   name: string;
   /** Cached CDN URL (Cloudinary). When empty, the monogram fallback renders. */
   logoUrl?: string;
-  /** Visual size. lg = 56px, md = 40px, sm = 32px, xs = 24px. */
-  size?: "lg" | "md" | "sm" | "xs";
+  /** Visual size. lg = 56px, md = 40px, sm = 32px, xs = 24px, 2xs = 20px (menu rows). */
+  size?: "lg" | "md" | "sm" | "xs" | "2xs";
   /** When true, the image renders raw — no padding, no white tile, no
    *  border. Use when the logo is meant to sit directly on a colored card
    *  surface (Applications row redesign). The monogram fallback still has
@@ -58,7 +58,8 @@ function CompanyLogoImpl({ name, logoUrl, size = "md", bare = false, className =
     size === "lg" ? "w-14 h-14 text-base" :
     size === "md" ? "w-10 h-10 text-sm" :
     size === "sm" ? "w-8 h-8 text-xs" :
-    "w-6 h-6 text-[10px]";
+    size === "xs" ? "w-6 h-6 text-[10px]" :
+    "w-5 h-5 text-[9px]";
   const usableLogo = logoUrl && !failed && !isUnreachableLogoUrl(logoUrl);
 
   if (usableLogo) {
@@ -66,7 +67,7 @@ function CompanyLogoImpl({ name, logoUrl, size = "md", bare = false, className =
     // directly on whatever card surface it's placed on.
     const wrapperCls = bare
       ? `${sizeClass} rounded-lg overflow-hidden shrink-0 ${className}`
-      : `${sizeClass} rounded-lg overflow-hidden bg-white dark:bg-slate-100 border border-border shrink-0 ${className}`;
+      : `${sizeClass} rounded-lg overflow-hidden bg-paper dark:bg-slate-100 border border-border shrink-0 ${className}`;
     const imgCls = bare ? "w-full h-full object-contain" : "w-full h-full object-contain p-0.5";
     return (
       <div className={wrapperCls}>
@@ -86,7 +87,7 @@ function CompanyLogoImpl({ name, logoUrl, size = "md", bare = false, className =
 
   // No brand identity (blank / "Unknown") → neutral company icon, never a "?".
   if (isUnknownName(name)) {
-    const iconSize = size === "lg" ? 24 : size === "md" ? 18 : size === "sm" ? 15 : 12;
+    const iconSize = size === "lg" ? 24 : size === "md" ? 18 : size === "sm" ? 15 : size === "xs" ? 12 : 11;
     return (
       <div
         className={`${sizeClass} rounded-lg flex items-center justify-center bg-muted text-muted-foreground shrink-0 select-none ${className}`}

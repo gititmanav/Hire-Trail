@@ -12,6 +12,7 @@ import type {
   MailerStatus,
   Pagination,
 } from "../../types";
+import { MODAL_EXIT, useExitAnimation } from "../../hooks/useExitAnimation.ts";
 
 const fmt = (d: string | null) => d ? new Date(d).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }) : "—";
 
@@ -28,6 +29,7 @@ interface PrefillState {
 }
 
 export default function Broadcasts() {
+  const pickerExitRef = useExitAnimation(MODAL_EXIT);
   const navigate = useNavigate();
   const location = useLocation();
   const prefill = location.state as PrefillState | null;
@@ -226,7 +228,7 @@ export default function Broadcasts() {
 
       {/* Composer */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="bg-card border border-border rounded-xl p-5 lg:col-span-2 space-y-4">
+        <div className="surface-card p-5 lg:col-span-2 space-y-4">
           <h2 className="text-base font-semibold uppercase tracking-wider text-muted-foreground">Compose</h2>
 
           <div>
@@ -272,7 +274,7 @@ export default function Broadcasts() {
         </div>
 
         {/* Recipients sidebar */}
-        <div className="bg-card border border-border rounded-xl p-5 space-y-4 h-fit">
+        <div className="surface-card p-5 space-y-4 h-fit">
           <h2 className="text-base font-semibold uppercase tracking-wider text-muted-foreground">Recipients</h2>
 
           <div className="inline-flex bg-muted rounded-lg p-1 w-full">
@@ -357,7 +359,7 @@ export default function Broadcasts() {
       )}
 
       {/* History */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="surface-card overflow-hidden">
         <div className="px-5 py-4 border-b border-border flex items-center justify-between">
           <div>
             <h2 className="text-base font-semibold uppercase tracking-wider text-muted-foreground">History</h2>
@@ -418,8 +420,8 @@ export default function Broadcasts() {
 
       {/* User picker modal */}
       {pickerOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setPickerOpen(false)}>
-          <div className="bg-card border border-border rounded-xl w-full max-w-lg max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div ref={pickerExitRef} className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/50 p-4 modal-overlay-in" onClick={() => setPickerOpen(false)}>
+          <div data-modal-panel className="bg-card border border-border rounded-xl w-full max-w-lg max-h-[80vh] flex flex-col animate-in" onClick={(e) => e.stopPropagation()}>
             <div className="px-5 py-4 border-b border-border flex items-center justify-between">
               <h3 className="font-semibold text-foreground">Pick users</h3>
               <button onClick={() => setPickerOpen(false)} className="text-muted-foreground hover:text-foreground">

@@ -163,7 +163,7 @@ export default function ApplicationTailorDrawer({ applicationId, onClose }: { ap
 
   return (
     <div className="fixed inset-0 z-40 flex justify-end" onClick={finishClose}>
-      <div className={`absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-200 motion-reduce:transition-none ${open ? "opacity-100" : "opacity-0"}`} />
+      <div className={`absolute inset-0 bg-scrim/60 backdrop-blur-sm transition-opacity duration-200 motion-reduce:transition-none ${open ? "opacity-100" : "opacity-0"}`} />
       <div
         className={`relative h-full max-w-[100vw] bg-background shadow-2xl flex flex-col border-l border-border transition-transform duration-200 motion-reduce:transition-none ${open ? "translate-x-0" : "translate-x-full"}`}
         style={{ width }}
@@ -182,7 +182,7 @@ export default function ApplicationTailorDrawer({ applicationId, onClose }: { ap
         />
         <div className="sticky top-0 z-10 bg-card border-b border-border px-5 py-3.5 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
-            <span className="inline-flex w-7 h-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-primary text-white">
+            <span className="inline-flex w-7 h-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-primary text-primary-foreground">
               <Sparkles size={15} strokeWidth={2} />
             </span>
             <h2 className="text-base font-semibold text-foreground">Tailor resume to this role</h2>
@@ -208,7 +208,7 @@ export default function ApplicationTailorDrawer({ applicationId, onClose }: { ap
             <div className="pt-20 flex flex-col items-center text-center">
               <h3 className="text-lg font-semibold text-foreground">No job description to analyze</h3>
               <p className="text-sm text-muted-foreground mt-1.5 max-w-sm">Add a job description to this application, or tailor manually in Resume Studio.</p>
-              <Link to="/resume-studio" className="mt-5 inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg">
+              <Link to="/resume-studio" className="mt-5 inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg">
                 Open Resume Studio <ArrowRight size={15} strokeWidth={2} />
               </Link>
             </div>
@@ -218,7 +218,7 @@ export default function ApplicationTailorDrawer({ applicationId, onClose }: { ap
             <div className="pt-20 flex flex-col items-center text-center max-w-sm mx-auto">
               <h3 className="text-lg font-semibold text-foreground">Analysis not run yet</h3>
               <p className="text-sm text-muted-foreground mt-1.5">{errorMsg || "This job hasn't been analyzed yet."}</p>
-              <button onClick={() => void startAnalysis()} className="mt-5 inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-primary hover:bg-primary/90 rounded-lg">
+              <button onClick={() => void startAnalysis()} className="mt-5 inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg">
                 <Sparkles size={15} strokeWidth={2} /> Analyze now
               </button>
             </div>
@@ -234,7 +234,7 @@ export default function ApplicationTailorDrawer({ applicationId, onClose }: { ap
                   <RotateCcw size={14} strokeWidth={2} /> Retry
                 </button>
                 {isKeyIssue(errorMsg) && (
-                  <Link to="/settings/ai" className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-white bg-primary hover:bg-primary/90 rounded-lg">
+                  <Link to="/settings/ai" className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg">
                     <KeyRound size={14} strokeWidth={2} /> Add a key
                   </Link>
                 )}

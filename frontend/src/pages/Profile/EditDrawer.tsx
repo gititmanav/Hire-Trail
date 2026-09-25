@@ -115,7 +115,7 @@ export default function EditDrawer({ section, profile, onClose, onSaved }: Props
   return (
     <div className="fixed inset-0 z-[60] flex justify-end" role="dialog" aria-modal="true" onClick={handleClose}>
       <div
-        className={`absolute inset-0 bg-black/70 transition-opacity duration-300 ${open ? "opacity-100" : "opacity-0"}`}
+        className={`absolute inset-0 bg-scrim/70 transition-opacity duration-300 ${open ? "opacity-100" : "opacity-0"}`}
         aria-hidden="true"
       />
       <aside

@@ -98,7 +98,7 @@ export default function ResumePreview({ fileUrl, name, fileName, onClose }: Prop
         handleClose();
       }}
     >
-      <div className={`absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300 ${open ? "opacity-100" : "opacity-0"}`} />
+      <div className={`absolute inset-0 bg-scrim/60 backdrop-blur-sm transition-opacity duration-300 ${open ? "opacity-100" : "opacity-0"}`} />
       <div
         className={`relative h-full bg-card shadow-2xl flex flex-col transition-transform duration-300 ${open ? "translate-x-0" : "translate-x-full"}`}
         style={{ width: `${sidebarWidth}px`, maxWidth: "calc(100vw - 12px)" }}

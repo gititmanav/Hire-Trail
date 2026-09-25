@@ -54,7 +54,7 @@ export default function ResumeStudio() {
         <p className="text-sm text-muted-foreground mt-1.5 max-w-sm">
           Resume Studio tailors one of your resumes to a job. Open it from a resume in Documents, or set a primary resume there first.
         </p>
-        <Link to="/resumes" className="mt-5 inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg">
+        <Link to="/resumes" className="mt-5 inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg">
           Go to Documents <ArrowRight size={15} strokeWidth={2} />
         </Link>
       </div>
@@ -69,7 +69,7 @@ export default function ResumeStudio() {
           <ArrowLeft size={13} strokeWidth={2} /> Back to Documents
         </Link>
         <div className="flex items-center gap-2">
-          <div className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-primary text-white shadow-sm">
+          <div className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-primary text-primary-foreground shadow-sm">
             <Sparkles size={18} strokeWidth={1.9} />
           </div>
           <h1 className="text-2xl font-bold text-foreground tracking-tight">Resume Studio</h1>

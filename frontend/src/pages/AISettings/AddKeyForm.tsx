@@ -52,7 +52,7 @@ function BrandChip({ id, logoUrl, size = 22 }: { id: string; logoUrl?: string; s
   // Real brand logo (Cloudinary-cached) when we have it; brand-colored monogram otherwise.
   if (logoUrl && !failed) {
     return (
-      <span className="inline-flex items-center justify-center rounded-md overflow-hidden bg-white shrink-0" style={{ width: size, height: size }} aria-hidden>
+      <span className="inline-flex items-center justify-center rounded-md overflow-hidden bg-paper shrink-0" style={{ width: size, height: size }} aria-hidden>
         <img src={logoUrl} alt="" className="w-full h-full object-contain p-0.5" loading="lazy" referrerPolicy="no-referrer" draggable={false} onError={() => setFailed(true)} />
       </span>
     );
@@ -381,7 +381,7 @@ export default function AddKeyForm({
 
       <div className="flex items-center justify-end gap-3">
         {validation.state === "invalid" && <span className="text-[11px] text-muted-foreground">Save anyway? Click again.</span>}
-        <button type="submit" disabled={saving || blocked || !assembledKey || validation.state === "checking"} className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50">
+        <button type="submit" disabled={saving || blocked || !assembledKey || validation.state === "checking"} className="px-4 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50">
           {saving ? "Saving…" : validation.state === "ok" ? "Save key ✓" : validation.state === "invalid" ? "Save anyway (inactive)" : "Save key"}
         </button>
       </div>

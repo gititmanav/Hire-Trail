@@ -5,8 +5,10 @@
  * Includes the OPTIONAL "fit to one page" density toggle: it scales spacing +
  * font sizes down via a multiplier and NEVER deletes content.
  */
-import { Check, ChevronDown } from "lucide-react";
-import ActionDropdown from "../../../components/ActionDropdown/ActionDropdown.tsx";
+import { ChevronDown } from "lucide-react";
+import Menu from "../../../components/ui/Menu.tsx";
+import ColorPicker, { normalizeHex } from "../../../components/ui/ColorPicker.tsx";
+import RangeSlider from "../../../components/ui/Slider.tsx";
 import type { StudioController } from "../useStudioDocument.ts";
 import type {
   ResumeStyle, TemplateId, HeaderAlignment, EducationOrder, SkillsLayout,
@@ -60,7 +62,12 @@ export default function StyleTab({ studio }: { studio: StudioController }) {
                 />
               ))}
             </div>
-            <input type="color" value={st.accentColor} onChange={(e) => set("accentColor", e.target.value)} className="w-8 h-8 rounded-md border border-border bg-transparent cursor-pointer" aria-label="Custom accent color" />
+            <ColorPicker
+              label="Custom accent color"
+              value={normalizeHex(st.accentColor) ?? ACCENT_SWATCHES[0]}
+              onChange={(c) => set("accentColor", c)}
+              onCommit={(c) => set("accentColor", c)}
+            />
           </div>
         </Row>
         <Row label="Font family">
@@ -196,32 +203,24 @@ function Slider({ label, min, max, step, value, suffix, onChange }: { label: str
         <span className="text-sm text-foreground">{label}</span>
         <span className="text-xs text-muted-foreground tabular-nums">{value}{suffix}</span>
       </div>
-      <input
-        type="range" min={min} max={max} step={step} value={value}
-        onChange={(e) => onChange(parseFloat(e.target.value))}
-        className="w-full accent-primary cursor-pointer"
-        aria-label={label}
-      />
+      <RangeSlider label={label} min={min} max={max} step={step} value={value} valueText={`${value}${suffix}`} onChange={onChange} />
     </div>
   );
 }
 
 function Dropdown({ value, options }: { value: string; options: { label: string; active: boolean; onClick: () => void }[] }) {
   return (
-    <ActionDropdown
-      align="right"
-      menuWidth="w-48"
+    <Menu
+      ariaLabel={`Choose — currently ${value}`}
+      align="end"
+      width={192}
       trigger={
-        <button className="inline-flex items-center justify-between gap-2 min-w-[150px] rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground hover:border-muted-foreground/40">
+        <button type="button" className="inline-flex items-center justify-between gap-2 min-w-[150px] rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground hover:border-muted-foreground/40">
           <span className="truncate">{value}</span>
           <ChevronDown size={15} className="text-muted-foreground shrink-0" />
         </button>
       }
-      items={options.map((o) => ({
-        label: o.label,
-        icon: <Check size={14} className={o.active ? "text-primary" : "opacity-0"} />,
-        onClick: o.onClick,
-      }))}
+      items={options.map((o) => ({ label: o.label, checked: o.active, onSelect: o.onClick }))}
     />
   );
 }
@@ -230,7 +229,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
   return (
     <label className="relative inline-flex items-center cursor-pointer">
       <input type="checkbox" className="sr-only peer" checked={checked} onChange={(e) => onChange(e.target.checked)} />
-      <span className="w-11 h-6 bg-muted border border-border rounded-full peer-checked:bg-primary transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:shadow-sm after:transition-transform peer-checked:after:translate-x-5" />
+      <span className="w-11 h-6 bg-muted border border-border rounded-full peer-checked:bg-primary transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-paper after:rounded-full after:h-5 after:w-5 after:shadow-sm after:transition-transform peer-checked:after:translate-x-5 peer-checked:after:bg-primary-foreground" />
     </label>
   );
 }

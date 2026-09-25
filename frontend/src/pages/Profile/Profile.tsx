@@ -295,7 +295,7 @@ export default function Profile() {
                 type="button"
                 onClick={() => fileRef.current?.click()}
                 disabled={uploading}
-                className="mt-2 px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-60"
+                className="mt-2 px-4 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-60"
               >
                 {uploading ? "Parsing…" : "Choose a PDF"}
               </button>

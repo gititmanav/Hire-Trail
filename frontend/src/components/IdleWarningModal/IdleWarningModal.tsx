@@ -14,12 +14,14 @@ import { Clock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { UserContext } from "../../App.tsx";
 import { authAPI } from "../../utils/api.ts";
+import { MODAL_EXIT, useExitAnimation } from "../../hooks/useExitAnimation.ts";
 
 const IDLE_MS = 60 * 60 * 1000; // 60 minutes
 /** Resets the timer no more than once per second even if mousemove is spamming. */
 const COALESCE_MS = 1000;
 
 export default function IdleWarningModal() {
+  const exitRef = useExitAnimation(MODAL_EXIT);
   const { user, setUser } = useContext(UserContext);
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -73,13 +75,15 @@ export default function IdleWarningModal() {
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4"
+      ref={exitRef}
+      className="fixed inset-0 bg-scrim/50 flex items-center justify-center z-[60] p-4 modal-overlay-in"
       role="dialog"
       aria-modal="true"
       aria-labelledby="idle-warning-title"
       onClick={onContinue}
     >
       <div
+        data-modal-panel
         className="bg-card border border-border rounded-2xl w-full max-w-sm shadow-2xl animate-in p-6"
         onClick={(e) => e.stopPropagation()}
       >
@@ -102,7 +106,7 @@ export default function IdleWarningModal() {
             type="button"
             onClick={onContinue}
             autoFocus
-            className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg"
+            className="px-4 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg"
           >
             I&rsquo;m here
           </button>

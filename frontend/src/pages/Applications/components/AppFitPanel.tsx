@@ -18,6 +18,7 @@
 import { memo } from "react";
 import { Check, Sparkle } from "lucide-react";
 import AiPulse from "../../../components/AiIndicator/AiPulse.tsx";
+import { cssPalette } from "../../../utils/palette.ts";
 import type { AppFit, FitStatus } from "../../../types";
 
 type Grade = "A" | "B" | "C" | "D" | "F";
@@ -84,8 +85,8 @@ function FitPanelImpl({ fit, onOpen, hasMasterProfile = true, hasJobDescription 
         if (actionable) { onRun!(); return; }
         onOpen(fit?.sessionId ?? null);
       }}
-      className="w-[200px] shrink-0 text-left text-white flex flex-col gap-2 p-3 border-l border-white/10 cursor-pointer transition-colors hover:bg-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
-      style={{ background: "linear-gradient(160deg, #0f172a 0%, #1e293b 100%)" }}
+      className="w-[200px] shrink-0 text-left text-white flex flex-col gap-2 p-3 border-l border-white/10 cursor-pointer transition-colors hover:bg-neutral-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+      style={{ background: `linear-gradient(160deg, ${cssPalette("neutral-900")} 0%, ${cssPalette("neutral-800")} 100%)` }}
       aria-label={
         status === "succeeded" && fit
           ? `AI fit ${fit.fitGrade} (${fit.fitScore}/5). Click to view analysis.`

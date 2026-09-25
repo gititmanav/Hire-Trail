@@ -4,38 +4,17 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { masterProfileAPI } from "../../../utils/api.ts";
-import { STAGES, STAGE_FILTER_ACTIVE_CLASS, STAGE_FILTER_COUNT_CLASS } from "../../../utils/stageStyles.ts";
 import ResumePreview from "../../../components/ResumePreview/ResumePreview.tsx";
 import ApplicationRow from "../components/ApplicationRow.tsx";
 import CompanyGroupHeader from "../components/CompanyGroupHeader.tsx";
+import Collapse from "../../../components/ui/Collapse.tsx";
 import EmptyState from "../components/EmptyState.tsx";
 import SkeletonRows from "../components/SkeletonRows.tsx";
 import { useApplicationsShell } from "../ApplicationsLayout.tsx";
 import { useApplicationFilters, toListParams, activeFilterCount } from "../data/filters.ts";
 import { useApplicationsPage, useContacts, useReanalyzeMutation, useResumes, useUpcomingDeadlines } from "../data/queries.ts";
 import { useCompanyResolver, useListBehavior, useOpenApplication, useRestoreListScroll } from "./shared.tsx";
-import type { Application, Pagination, Resume, Stage } from "../../../types";
-
-function StageChips({ value, counts, onChange }: { value: Stage | ""; counts?: Record<string, number>; onChange: (s: Stage | "") => void }) {
-  const chip = "inline-flex items-center gap-1 px-3 py-1 text-[13px] font-medium rounded-full border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring";
-  return (
-    <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filter by stage">
-      <button type="button" onClick={() => onChange("")} aria-pressed={value === ""}
-        className={`${chip} ${value === "" ? "bg-muted border-border text-foreground" : "bg-card border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground/40"}`}>
-        All
-      </button>
-      {STAGES.map((s) => (
-        <button key={s} type="button" onClick={() => onChange(value === s ? "" : s)} aria-pressed={value === s}
-          className={`${chip} ${value === s ? `${STAGE_FILTER_ACTIVE_CLASS[s]} shadow-sm` : "bg-card border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground/50"}`}>
-          {s}
-          <span className={`text-[11px] px-1.5 rounded-full tabular-nums ${value === s ? STAGE_FILTER_COUNT_CLASS[s] : "bg-muted text-muted-foreground"}`}>
-            {counts?.[s] ?? 0}
-          </span>
-        </button>
-      ))}
-    </div>
-  );
-}
+import type { Application, Pagination, Resume } from "../../../types";
 
 function PaginationBar({ page, pag, setPage }: { page: number; pag: Pagination; setPage: (p: number) => void }) {
   if (pag.pages <= 1) return null;
@@ -95,7 +74,7 @@ export default function ClassicList() {
   }, [apps, shell.groupByCompany]);
 
   const row = (a: Application, idx: number, stagger = true) => (
-    <div key={a._id} data-row-index={idx} onMouseEnter={() => setFocusedIndex(idx)}>
+    <div key={a._id} data-row-index={idx} onMouseEnter={() => setFocusedIndex(idx)} style={{ scrollMarginTop: "var(--page-header-h, 0px)" }}>
       <ApplicationRow
         app={a}
         company={resolveCompany(a)}
@@ -123,10 +102,8 @@ export default function ClassicList() {
 
   return (
     <div>
-      <StageChips value={filters.stage} counts={data?.stageCounts} onChange={(stage) => setFilters({ stage })} />
-
       {isPending ? (
-        <div className="mt-4"><SkeletonRows count={6} /></div>
+        <SkeletonRows count={6} />
       ) : apps.length === 0 ? (
         <EmptyState
           mode={hasNarrowing || filters.status === "archived" ? "filtered" : "welcome"}
@@ -135,12 +112,12 @@ export default function ClassicList() {
           onClearFilters={() => setFilters({ q: "", stage: "", company: "", resume: "", source: "" })}
         />
       ) : (
-        <div role="list" aria-label="Applications" className="mt-4 space-y-2" key={`${filters.stage}|${filters.q}|${filters.status}|${page}`}>
+        <div role="list" aria-label="Applications" className="space-y-2" key={`${filters.stage}|${filters.q}|${filters.status}|${page}`}>
           {grouped
             ? grouped.map(([company, list]) => {
                 const expanded = expandedGroups.has(company);
                 return (
-                  <div key={company} className="space-y-2">
+                  <div key={company}>
                     <CompanyGroupHeader
                       company={company}
                       apps={list}
@@ -151,11 +128,14 @@ export default function ClassicList() {
                         return next;
                       })}
                     />
-                    {expanded && (
-                      <div className="space-y-2 pl-4 border-l-2 border-border ml-2">
-                        {list.map((a) => row(a, apps.indexOf(a), false))}
+                    {/* Spacing lives inside the collapsing body so it animates with it. */}
+                    <Collapse open={expanded}>
+                      <div className="pt-2">
+                        <div className="space-y-2 pl-4 border-l-2 border-border ml-2">
+                          {expanded && list.map((a) => row(a, apps.indexOf(a), false))}
+                        </div>
                       </div>
-                    )}
+                    </Collapse>
                   </div>
                 );
               })

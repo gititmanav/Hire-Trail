@@ -14,17 +14,18 @@ import CompanyLogo from "../../components/CompanyLogo/CompanyLogo.tsx";
 import type { Company, Application, Resume, Contact, Deadline, Stage, Pagination } from "../../types";
 import { STAGES, STAGE_BADGE_CLASS } from "../../utils/stageStyles.ts";
 import { companyTimeline, summarizeTimeline, compensationSummary, formatMoneyShort } from "../../utils/companyAggregates.ts";
+import { cssPalette } from "../../utils/palette.ts";
 
 /** Per-stage segment color for the status breakdown bar on each company
  *  card. Pulled from the existing stage-tone palette so the bar matches the
  *  Kanban + Applications row chips. */
-const STAGE_BAR_HEX: Record<Stage, string> = {
-  Drafting:  "#94a3b8",
-  Applied:   "#3b82f6",
-  OA:        "#f59e0b",
-  Interview: "#a855f7",
-  Offer:     "#10b981",
-  Rejected:  "#ef4444",
+const STAGE_BAR_COLOR: Record<Stage, string> = {
+  Drafting:  cssPalette("slate-400"),
+  Applied:   cssPalette("blue-500"),
+  OA:        cssPalette("amber-500"),
+  Interview: cssPalette("purple-500"),
+  Offer:     cssPalette("emerald-500"),
+  Rejected:  cssPalette("red-500"),
 };
 
 /** Per-session dedupe of logo-fetch requests so re-renders / pagination
@@ -56,7 +57,7 @@ function SlidePanel({ onClose, width = "w-[420px]", children }: { onClose: () =>
   useEffect(() => { const h = (e: KeyboardEvent) => { if (e.key === "Escape") handleClose(); }; document.addEventListener("keydown", h); return () => document.removeEventListener("keydown", h); }, []);
   return (
     <div className="fixed inset-0 z-40 flex justify-end" onClick={handleClose}>
-      <div className={`absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300 ${open ? "opacity-100" : "opacity-0"}`} />
+      <div className={`absolute inset-0 bg-scrim/60 backdrop-blur-sm transition-opacity duration-300 ${open ? "opacity-100" : "opacity-0"}`} />
       <div className={`relative ${width} h-full bg-card shadow-2xl flex flex-col border-l border-border transition-transform duration-300 ${open ? "translate-x-0" : "translate-x-full"}`} onClick={(e) => e.stopPropagation()}>
         {children}
       </div>
@@ -224,14 +225,14 @@ function CompanyAppsSidebar({ company, onClose, onSelectApp }: {
                   const w = timeline.byStage[s] / Math.max(timeline.total, 1);
                   if (w === 0) return null;
                   return (
-                    <div key={s} className="h-full" style={{ width: `${w * 100}%`, backgroundColor: STAGE_BAR_HEX[s] }} title={`${timeline.byStage[s]} ${s}`} />
+                    <div key={s} className="h-full" style={{ width: `${w * 100}%`, backgroundColor: STAGE_BAR_COLOR[s] }} title={`${timeline.byStage[s]} ${s}`} />
                   );
                 })}
               </div>
               <div className="flex flex-wrap gap-x-2.5 gap-y-1 mt-2 text-[11px] text-muted-foreground">
                 {STAGES.filter((s) => timeline.byStage[s] > 0).map((s) => (
                   <span key={s} className="inline-flex items-center gap-1 tabular-nums">
-                    <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: STAGE_BAR_HEX[s] }} aria-hidden />
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: STAGE_BAR_COLOR[s] }} aria-hidden />
                     {timeline.byStage[s]} {s}
                   </span>
                 ))}
@@ -364,7 +365,7 @@ export default function Companies() {
         <h1 className="text-2xl font-bold text-foreground tracking-tight">Companies</h1>
       </div>
 
-      <div className="sticky top-[49px] z-20 backdrop-blur-sm py-3 -mx-4 md:-mx-6 px-4 md:px-6">
+      <div className="sticky top-0 z-20 backdrop-blur-sm py-3 -mx-4 md:-mx-6 px-4 md:px-6">
         <input className="input-premium max-w-[320px]" placeholder="Search companies..." value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>
 
@@ -429,7 +430,7 @@ export default function Companies() {
                             <div
                               key={s}
                               className="h-full"
-                              style={{ width: `${w * 100}%`, backgroundColor: STAGE_BAR_HEX[s] }}
+                              style={{ width: `${w * 100}%`, backgroundColor: STAGE_BAR_COLOR[s] }}
                               title={`${stageCounts[s]} ${s}`}
                             />
                           );
@@ -438,7 +439,7 @@ export default function Companies() {
                       <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1 text-[10px] text-muted-foreground">
                         {STAGES.filter((s) => stageCounts[s] > 0).map((s) => (
                           <span key={s} className="inline-flex items-center gap-1 tabular-nums">
-                            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: STAGE_BAR_HEX[s] }} aria-hidden />
+                            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: STAGE_BAR_COLOR[s] }} aria-hidden />
                             {stageCounts[s]} {s}
                           </span>
                         ))}

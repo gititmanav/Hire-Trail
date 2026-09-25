@@ -11,6 +11,7 @@ import { useNavigate } from "react-router-dom";
 import { X, ArrowRight } from "lucide-react";
 import toast from "react-hot-toast";
 import { emailAPI } from "../../utils/api.ts";
+import { MODAL_EXIT, useExitAnimation } from "../../hooks/useExitAnimation.ts";
 
 const WINDOWS = [
   {
@@ -44,6 +45,7 @@ export function EmailScanConsentModal({
    *  background task so progress persists across page navigation. */
   onStarted: (info: { scanJobId: string; windowDays: 5 | 10 | 15 }) => void;
 }) {
+  const exitRef = useExitAnimation(MODAL_EXIT);
   const navigate = useNavigate();
   const [windowDays, setWindowDays] = useState<5 | 10 | 15>(10);
   const [consent, setConsent] = useState(false);
@@ -73,13 +75,15 @@ export function EmailScanConsentModal({
 
   return (
     <div
-      className="fixed inset-0 bg-black/55 flex items-center justify-center z-50 p-4"
+      ref={exitRef}
+      className="fixed inset-0 bg-scrim/55 flex items-center justify-center z-50 p-4 modal-overlay-in"
       onClick={() => !submitting && onClose()}
       role="dialog"
       aria-modal="true"
       aria-labelledby="scan-consent-title"
     >
       <div
+        data-modal-panel
         className="bg-card border border-border rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl animate-in"
         onClick={(e) => e.stopPropagation()}
       >
@@ -204,7 +208,7 @@ export function EmailScanConsentModal({
             type="button"
             onClick={start}
             disabled={!consent || submitting}
-            className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+            className="px-4 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
           >
             {submitting ? "Starting…" : "Start scan"}
             {!submitting && (

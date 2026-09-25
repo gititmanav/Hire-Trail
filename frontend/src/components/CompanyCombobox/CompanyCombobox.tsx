@@ -3,10 +3,12 @@
  * the parent receives both the typed name and the matched companyId (if any).
  * If the user submits with a name that doesn't match anything, the parent
  * passes companyId="" and the backend will find-or-create on save.
+ * The suggestion list is the shared ui/Combobox list (↑/↓, Enter, Escape).
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Plus } from "lucide-react";
 import { companiesAPI } from "../../utils/api.ts";
+import { ComboboxList, handleComboboxKey, type ComboboxOption } from "../ui/Combobox.tsx";
 import type { Company } from "../../types";
 
 interface Props {
@@ -29,18 +31,10 @@ export default function CompanyCombobox({
   const [open, setOpen] = useState(false);
   const [results, setResults] = useState<Company[]>([]);
   const [loading, setLoading] = useState(false);
+  const [active, setActive] = useState(-1);
   const wrapRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<number | null>(null);
-
-  // Outside click closes the menu
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [open]);
+  const listId = useId();
 
   // Debounced search whenever the typed name changes and the menu is open
   useEffect(() => {
@@ -60,6 +54,9 @@ export default function CompanyCombobox({
     return () => { if (debounceRef.current) window.clearTimeout(debounceRef.current); };
   }, [name, open]);
 
+  // New results → no stale keyboard cursor.
+  useEffect(() => { setActive(-1); }, [results]);
+
   const exactMatch = results.find((c) => c.name.toLowerCase() === name.trim().toLowerCase());
   const showCreateRow = name.trim().length > 0 && !exactMatch;
 
@@ -67,6 +64,25 @@ export default function CompanyCombobox({
     onChange({ name: c.name, companyId: c._id });
     setOpen(false);
   };
+
+  const options: ComboboxOption[] = loading ? [] : [
+    ...results.map((c) => ({
+      key: c._id,
+      label: c.name,
+      current: companyId === c._id,
+      hint: c.applicationCount ? `${c.applicationCount} app${c.applicationCount === 1 ? "" : "s"}` : undefined,
+      onSelect: () => choose(c),
+    })),
+    ...(showCreateRow ? [{
+      key: "__create",
+      label: `Create "${name.trim()}"`,
+      icon: <Plus size={13} strokeWidth={2} />,
+      tone: "primary" as const,
+      dividerBefore: results.length > 0,
+      onSelect: () => { onChange({ name: name.trim(), companyId: "" }); setOpen(false); },
+    }] : []),
+  ];
+  const status = loading ? "Searching…" : options.length === 0 ? "Type to search" : undefined;
 
   return (
     <div ref={wrapRef} className="relative">
@@ -80,46 +96,29 @@ export default function CompanyCombobox({
           setOpen(true);
         }}
         onFocus={() => setOpen(true)}
+        onKeyDown={(e) => handleComboboxKey(e, {
+          open, setOpen, count: options.length, active, setActive, pick: (i) => options[i]?.onSelect(),
+        })}
         placeholder={placeholder}
         required={required}
         autoComplete="off"
+        role="combobox"
+        aria-expanded={open}
+        aria-controls={listId}
+        aria-autocomplete="list"
+        aria-activedescendant={open && active >= 0 ? `${listId}-opt-${active}` : undefined}
       />
-      {open && (
-        <div className="absolute z-30 left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg max-h-64 overflow-y-auto">
-          {loading && (
-            <div className="px-3 py-2 text-xs text-muted-foreground">Searching...</div>
-          )}
-          {!loading && results.map((c) => (
-            <button
-              key={c._id}
-              type="button"
-              onClick={() => choose(c)}
-              className={`w-full text-left px-3 py-2 text-sm hover:bg-muted flex items-center justify-between ${companyId === c._id ? "text-primary font-medium" : "text-foreground"}`}
-            >
-              <span className="truncate">{c.name}</span>
-              {c.applicationCount ? (
-                <span className="text-[10px] text-muted-foreground ml-2 shrink-0">{c.applicationCount} app{c.applicationCount === 1 ? "" : "s"}</span>
-              ) : null}
-            </button>
-          ))}
-          {!loading && results.length === 0 && !showCreateRow && (
-            <div className="px-3 py-2 text-xs text-muted-foreground">Type to search</div>
-          )}
-          {showCreateRow && (
-            <button
-              type="button"
-              onClick={() => {
-                onChange({ name: name.trim(), companyId: "" });
-                setOpen(false);
-              }}
-              className="w-full text-left px-3 py-2 text-sm text-primary hover:bg-muted border-t border-border flex items-center gap-1.5"
-            >
-              <Plus size={12} strokeWidth={2} />
-              Create "{name.trim()}"
-            </button>
-          )}
-        </div>
-      )}
+      <ComboboxList
+        open={open}
+        onOpenChange={setOpen}
+        anchorRef={wrapRef}
+        options={options}
+        activeIndex={active}
+        onActiveIndexChange={setActive}
+        status={status}
+        ariaLabel="Companies"
+        id={listId}
+      />
     </div>
   );
 }

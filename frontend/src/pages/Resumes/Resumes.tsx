@@ -1,15 +1,12 @@
 /** Resume versions with optional PDF to Cloudinary; usage counts come from the list API. */
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  ChevronRight, Eye, FileText, Pencil, Plus, RefreshCw, Search, Sparkles,
-  Star, StarOff, Trash2, Upload, UserRound, Wand2, X,
-} from "lucide-react";
+import { ChevronDown, ChevronRight, Eye, FileText, Pencil, Plus, RefreshCw, Search, Star, StarOff, Trash2, Upload, UserRound, Wand2, X } from "lucide-react";
 import toast from "react-hot-toast";
 import { resumesAPI, authAPI, masterProfileAPI, pollMasterProfileParse } from "../../utils/api.ts";
 import { Skeleton } from "../../components/Skeleton/Skeleton.tsx";
 import EmptyState from "../../components/EmptyState/EmptyState.tsx";
-import ActionDropdown from "../../components/ActionDropdown/ActionDropdown.tsx";
+import Menu, { type MenuItem } from "../../components/ui/Menu.tsx";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal.tsx";
 import ResumePreview from "../../components/ResumePreview/ResumePreview.tsx";
 import ResumeModal from "../../components/ResumeModal/ResumeModal.tsx";
@@ -105,13 +102,10 @@ function VersionHistoryStrip({ versions }: { versions: ResumeVersion[] | undefin
   );
 }
 
-type TagColor = { bg: string; text: string; border: string };
-
-const DEFAULT_TAG_COLOR: TagColor = {
-  bg: "hsl(210 25% 93%)",
-  text: "hsl(215 18% 32%)",
-  border: "hsl(210 20% 73%)",
-};
+/** A tag's colour: a hue plus one of four tones (`.tag-chip` in App.css
+ *  turns them into light- or dark-scheme shades). `null` = neutral. */
+type TagColor = { hue: number; tone: number } | null;
+const TAG_TONES = 4;
 
 function hashTag(tag: string) {
   const normalized = tag.trim().toLowerCase();
@@ -125,33 +119,22 @@ function hashTag(tag: string) {
 function buildTagColorMap(tags: string[]): Record<string, TagColor> {
   const colorMap: Record<string, TagColor> = {};
   const usedSlots = new Set<string>();
-  const bgLightness = [92, 88, 84, 80];
-  const textLightness = [30, 26, 22, 18];
-  const borderLightness = [70, 64, 58, 52];
 
   tags.forEach((tag) => {
     const seed = hashTag(tag);
-    for (let step = 0; step < 360 * bgLightness.length; step += 1) {
+    colorMap[tag] = null;
+    for (let step = 0; step < 360 * TAG_TONES; step += 1) {
       const hue = (seed + (step * 37)) % 360;
-      const toneIdx = Math.floor(step / 360);
-      const slotKey = `${hue}-${toneIdx}`;
+      const tone = Math.floor(step / 360);
+      const slotKey = `${hue}-${tone}`;
       if (usedSlots.has(slotKey)) continue;
       usedSlots.add(slotKey);
-      colorMap[tag] = {
-        bg: `hsl(${hue} 85% ${bgLightness[toneIdx]}%)`,
-        text: `hsl(${hue} 62% ${textLightness[toneIdx]}%)`,
-        border: `hsl(${hue} 55% ${borderLightness[toneIdx]}%)`,
-      };
+      colorMap[tag] = { hue, tone };
       break;
     }
-    if (!colorMap[tag]) colorMap[tag] = DEFAULT_TAG_COLOR;
   });
 
   return colorMap;
-}
-
-function getTagColor(tag: string, tagColorMap: Record<string, TagColor>) {
-  return tagColorMap[tag] ?? DEFAULT_TAG_COLOR;
 }
 
 function TagChips({ tags, tagColorMap }: { tags: string[] | undefined; tagColorMap: Record<string, TagColor> }) {
@@ -159,9 +142,13 @@ function TagChips({ tags, tagColorMap }: { tags: string[] | undefined; tagColorM
   return (
     <div className="flex flex-wrap gap-1 mt-1.5">
       {tags.map((t, i) => {
-        const c = getTagColor(t, tagColorMap);
+        const c = tagColorMap[t] ?? null;
         return (
-          <span key={i} className="inline-block text-[10px] font-medium px-1.5 py-0.5 rounded border" style={{ backgroundColor: c.bg, color: c.text, borderColor: c.border }}>
+          <span
+            key={i}
+            className={`inline-block text-[10px] font-medium px-1.5 py-0.5 rounded border ${c ? "tag-chip" : "bg-control text-muted-foreground border-border"}`}
+            style={c ? ({ "--tag-h": c.hue, "--tag-tone": c.tone } as CSSProperties) : undefined}
+          >
             {t}
           </span>
         );
@@ -193,13 +180,13 @@ function ResumeTableRow({ r, isPrimary, tagColorMap, selected, onToggleSelect, s
   parseWithAI: (id: string, name?: string) => void; parsingId: string | null;
 }) {
   const isParsing = parsingId === r._id;
-  const menuItems = [
-    ...(r.fileUrl ? [{ label: "Preview PDF", icon: <Eye size={14} strokeWidth={1.6} />, onClick: () => setPreviewResume(r) }] : []),
+  const menuItems: MenuItem[] = [
+    ...(r.fileUrl ? [{ label: "Preview PDF", icon: <Eye size={14} strokeWidth={1.6} />, onSelect: () => setPreviewResume(r) }] : []),
     isPrimary
-      ? { label: "Remove as primary", icon: <StarOff size={14} strokeWidth={1.6} />, onClick: () => setAsPrimary(null) }
-      : { label: "Set as primary", icon: <Star size={14} strokeWidth={1.6} />, onClick: () => setAsPrimary(r._id) },
-    ...(r.fileUrl ? [{ label: isParsing ? "Syncing…" : "Sync to profile", icon: <RefreshCw size={14} strokeWidth={1.6} className={isParsing ? "animate-pulse" : ""} />, onClick: () => !isParsing && parseWithAI(r._id, r.name), disabled: isParsing }] : []),
-    ...(!r.isProtected ? [{ label: "Delete", icon: <Trash2 size={14} strokeWidth={1.6} />, onClick: () => handleDelete(r._id), className: "text-danger", divider: true }] : []),
+      ? { label: "Remove as primary", icon: <StarOff size={14} strokeWidth={1.6} />, onSelect: () => setAsPrimary(null) }
+      : { label: "Set as primary", icon: <Star size={14} strokeWidth={1.6} />, onSelect: () => setAsPrimary(r._id) },
+    ...(r.fileUrl ? [{ label: isParsing ? "Syncing…" : "Sync to profile", icon: <RefreshCw size={14} strokeWidth={1.6} className={isParsing ? "animate-pulse" : ""} />, onSelect: () => { if (!isParsing) parseWithAI(r._id, r.name); }, disabled: isParsing }] : []),
+    ...(!r.isProtected ? [{ label: "Delete", icon: <Trash2 size={14} strokeWidth={1.6} />, onSelect: () => handleDelete(r._id), destructive: true, dividerBefore: true }] : []),
   ];
   return (
     <tr className={`group transition-colors ${selected ? "bg-primary/5" : "hover:bg-muted/40"}`}>
@@ -246,7 +233,17 @@ function ResumeTableRow({ r, isPrimary, tagColorMap, selected, onToggleSelect, s
             <Pencil size={13} strokeWidth={1.8} />Edit
           </button>
           <span className="text-border" aria-hidden>|</span>
-          <ActionDropdown align="right" menuWidth="w-52" triggerLabel="More" triggerClassName="px-2 py-1 text-[13px] font-medium text-primary hover:bg-primary/10 rounded-md" items={menuItems} />
+          <Menu
+            ariaLabel={`More actions for ${r.name}`}
+            align="end"
+            width={208}
+            items={menuItems}
+            trigger={
+              <button type="button" className="inline-flex items-center gap-1 px-2 py-1 text-[13px] font-medium text-primary hover:bg-primary/10 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                More <ChevronDown size={12} strokeWidth={2} aria-hidden />
+              </button>
+            }
+          />
         </div>
       </td>
     </tr>
@@ -602,9 +599,10 @@ export default function Resumes() {
                   <Upload size={15} strokeWidth={1.8} />Upload
                 </button>
                 {allExistingTags.length > 0 && (
-                  <ActionDropdown
-                    align="right"
-                    menuWidth="w-52"
+                  <Menu
+                    ariaLabel="Filter by tag"
+                    align="end"
+                    width={208}
                     searchable={allExistingTags.length > 6}
                     searchPlaceholder="Filter tags…"
                     trigger={
@@ -614,14 +612,15 @@ export default function Resumes() {
                       </button>
                     }
                     items={[
-                      { label: "All tags", onClick: () => setSelectedTag("All"), className: selectedTag === "All" ? "text-primary font-medium" : undefined },
-                      ...allExistingTags.map((t) => ({ label: t, onClick: () => setSelectedTag(t), className: selectedTag === t ? "text-primary font-medium" : undefined })),
+                      { label: "All tags", checked: selectedTag === "All", onSelect: () => setSelectedTag("All") },
+                      ...allExistingTags.map((t) => ({ label: t, checked: selectedTag === t, onSelect: () => setSelectedTag(t) })),
                     ]}
                   />
                 )}
-                <ActionDropdown
-                  align="right"
-                  menuWidth="w-44"
+                <Menu
+                  ariaLabel="Sort resumes"
+                  align="end"
+                  width={184}
                   trigger={
                     <button className="inline-flex items-center justify-between gap-2 h-9 px-3 text-sm border border-border rounded-lg text-foreground hover:border-muted-foreground/40 min-w-[130px]">
                       <span className="truncate">{sortLabel}</span>
@@ -629,9 +628,9 @@ export default function Resumes() {
                     </button>
                   }
                   items={[
-                    { label: "Most recent", onClick: () => setSortBy("recent"), className: sortBy === "recent" ? "text-primary font-medium" : undefined },
-                    { label: "Name A–Z", onClick: () => setSortBy("name"), className: sortBy === "name" ? "text-primary font-medium" : undefined },
-                    { label: "Most used", onClick: () => setSortBy("usage"), className: sortBy === "usage" ? "text-primary font-medium" : undefined },
+                    { label: "Most recent", checked: sortBy === "recent", onSelect: () => setSortBy("recent") },
+                    { label: "Name A–Z", checked: sortBy === "name", onSelect: () => setSortBy("name") },
+                    { label: "Most used", checked: sortBy === "usage", onSelect: () => setSortBy("usage") },
                   ]}
                 />
                 <div className="relative">

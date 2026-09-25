@@ -4,6 +4,9 @@ import { adminAPI } from "../../utils/api";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal";
 import { useConfirm } from "../../hooks/useConfirm";
 import type { Announcement } from "../../types";
+import Select from "../../components/ui/Select.tsx";
+import DateInput from "../../components/ui/DateInput.tsx";
+import { MODAL_EXIT, useExitAnimation } from "../../hooks/useExitAnimation.ts";
 
 const TYPE_STYLES: Record<string, { bg: string; text: string }> = {
   info: {
@@ -47,6 +50,7 @@ const EMPTY_FORM: FormData = {
 };
 
 export default function Announcements() {
+  const formExitRef = useExitAnimation(MODAL_EXIT);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -209,8 +213,8 @@ export default function Announcements() {
 
       {/* Form Modal */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="card-premium w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 space-y-4">
+        <div ref={formExitRef} className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/50 p-4 modal-overlay-in">
+          <div data-modal-panel className="card-premium card-no-lift w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 space-y-4 animate-in">
             <h2 className="text-lg font-semibold text-foreground">
               {editingId ? "Edit Announcement" : "Create Announcement"}
             </h2>
@@ -246,32 +250,21 @@ export default function Announcements() {
                 <label className="block text-sm font-medium text-foreground mb-1">
                   Type
                 </label>
-                <select
+                <Select
+                  ariaLabel="Type"
                   value={form.type}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      type: e.target.value as FormData["type"],
-                    })
-                  }
-                  className="input-premium w-full"
-                >
-                  <option value="info">Info</option>
-                  <option value="warning">Warning</option>
-                  <option value="success">Success</option>
-                </select>
+                  onChange={(v) => setForm({ ...form, type: v as FormData["type"] })}
+                  options={[{ value: "info", label: "Info" }, { value: "warning", label: "Warning" }, { value: "success", label: "Success" }]}
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1">
                   End Date
                 </label>
-                <input
-                  type="date"
+                <DateInput
+                  ariaLabel="End date"
                   value={form.endDate}
-                  onChange={(e) =>
-                    setForm({ ...form, endDate: e.target.value })
-                  }
-                  className="input-premium w-full"
+                  onChange={(endDate) => setForm({ ...form, endDate })}
                 />
               </div>
             </div>
@@ -342,7 +335,7 @@ export default function Announcements() {
 
       {/* Announcements List */}
       {filtered.length === 0 ? (
-        <div className="bg-card border border-border rounded-xl p-12 text-center text-muted-foreground">
+        <div className="surface-card p-12 text-center text-muted-foreground">
           {announcements.length === 0 ? "No announcements yet — create your first one." : "No announcements match this filter."}
         </div>
       ) : (
@@ -357,7 +350,7 @@ export default function Announcements() {
               status === "Expired" ? "bg-muted text-muted-foreground" :
               "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
             return (
-              <div key={a._id} className="bg-card border border-border rounded-xl p-5">
+              <div key={a._id} className="surface-card p-5">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">

@@ -183,7 +183,7 @@ function Column({ stage, apps, resumeById, dwell, ghosts, terminal, onOpen, onTa
           ) : (
             <>
               <span className="text-[13px] font-semibold text-foreground truncate">{stage}</span>
-              <span className="text-[11px] text-muted-foreground ml-auto bg-white/70 dark:bg-black/25 px-2 py-0.5 rounded-full font-semibold tabular-nums shrink-0">{apps.length}</span>
+              <span className="text-[11px] text-muted-foreground ml-auto bg-paper/70 dark:bg-scrim/25 px-2 py-0.5 rounded-full font-semibold tabular-nums shrink-0">{apps.length}</span>
             </>
           )}
         </div>

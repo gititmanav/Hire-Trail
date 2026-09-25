@@ -33,7 +33,7 @@ export function SettingsSection({ title, description, children }: { title: strin
 
 /** A bordered card whose children are divided rows. */
 export function SettingsCard({ children }: { children: ReactNode }) {
-  return <div className="rounded-xl border border-border bg-card divide-y divide-border overflow-hidden">{children}</div>;
+  return <div className="surface-card divide-y divide-border overflow-hidden">{children}</div>;
 }
 
 /** One setting: label + optional description on the left, control on the right.

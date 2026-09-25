@@ -137,7 +137,7 @@ export default function ProfileSettings() {
           </SettingsRow>
           {dirty && (
             <div className="flex justify-end px-5 py-3 bg-muted/30">
-              <button type="submit" disabled={saving} className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50">
+              <button type="submit" disabled={saving} className="px-4 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50">
                 {saving ? "Saving…" : "Save changes"}
               </button>
             </div>
@@ -158,7 +158,7 @@ export default function ProfileSettings() {
               <input type="password" className={fieldCls} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} autoComplete="new-password" minLength={6} required aria-label="New password" />
             </SettingsRow>
             <div className="flex justify-end px-5 py-3 bg-muted/30">
-              <button type="submit" disabled={passwordSaving || !currentPassword || !newPassword} className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50">
+              <button type="submit" disabled={passwordSaving || !currentPassword || !newPassword} className="px-4 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50">
                 {passwordSaving ? "Updating…" : "Update password"}
               </button>
             </div>
@@ -169,7 +169,7 @@ export default function ProfileSettings() {
       {/* Danger zone — GDPR right-to-erasure; required for Google OAuth
        *  verification on gmail.readonly. Demo account is gated. */}
       <SettingsSection title="Danger zone">
-        <div className="rounded-xl border border-red-300/70 dark:border-red-900/60 overflow-hidden">
+        <div className="rounded-xl border border-red-300/70 dark:border-red-900/60 bg-card shadow-panel overflow-hidden">
           <SettingsRow
             title={<span className="text-red-700 dark:text-red-300">Delete account</span>}
             description="Permanently delete your account and all associated data. Gmail / Outlook tokens are revoked at the provider. This cannot be undone."

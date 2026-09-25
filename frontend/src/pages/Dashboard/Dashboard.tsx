@@ -10,7 +10,9 @@ import StageSuggestionsCard from "../../components/StageSuggestionsCard/StageSug
 import { useWidgetLayout, ALL_WIDGETS } from "../../hooks/useWidgetLayout.ts";
 import { useRefetchOnFocus } from "../../hooks/useRefetchOnFocus.ts";
 import WidgetPicker from "../../components/WidgetPicker/WidgetPicker.tsx";
-import ActionDropdown from "../../components/ActionDropdown/ActionDropdown.tsx";
+import Menu from "../../components/ui/Menu.tsx";
+import CompanyLogo from "../../components/CompanyLogo/CompanyLogo.tsx";
+import { useCompanies } from "../Applications/data/queries.ts";
 // Chart-driven widgets bring in chart.js + react-chartjs-2 (the heaviest part
 // of the Dashboard bundle). Lazy each so the Dashboard renders shell-first;
 // widgets stream in as their chunks resolve. Non-chart widgets are lazied too
@@ -27,7 +29,7 @@ const FollowUpWidget          = lazy(() => import("../../components/widgets/Foll
 const MiniCalendarWidget      = lazy(() => import("../../components/widgets/MiniCalendarWidget.tsx"));
 import GuidedTour from "../../components/GuidedTour/GuidedTour.tsx";
 import { SkeletonStats, SkeletonTable } from "../../components/Skeleton/Skeleton.tsx";
-import { STAGES } from "../../utils/stageStyles.ts";
+import { STAGES, STAGE_STRIPE_CLASS } from "../../utils/stageStyles.ts";
 import { buildAnalyticsFromApplications, filterDashboardApplications, getDashboardCompanies, getRecentApplications, getStageCounts } from "../../utils/dashboardInsights.ts";
 import { buildCalendarEvents } from "../../utils/calendarEvents.ts";
 import { computeActivityStreak, computeWeeklyCapacity } from "../../utils/dashboardSignals.ts";
@@ -137,6 +139,9 @@ export default function Dashboard() {
   useRefetchOnFocus(loadData);
 
   const companyOptions = useMemo(() => getDashboardCompanies(apps), [apps]);
+  // Logos for the company filter (shared, cached query — same list Applications uses).
+  const { data: companies = [] } = useCompanies();
+  const logoByName = useMemo(() => new Map(companies.map((c) => [c.name.toLowerCase(), c.logoUrl])), [companies]);
   const stageCounts = useMemo(() => getStageCounts(apps, selectedCompany), [apps, selectedCompany]);
   const filteredApps = useMemo(
     () => filterDashboardApplications(apps, { company: selectedCompany, stage: selectedStage }),
@@ -251,12 +256,11 @@ export default function Dashboard() {
         <div className="flex flex-col gap-3 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-2xl font-bold text-foreground tracking-tight">Dashboard</h1>
-            <ActionDropdown
-              align="left"
-              menuWidth="w-56"
+            <Menu
+              ariaLabel="Company"
+              width={248}
               searchable
-              searchPlaceholder="Search company..."
-              maxVisibleItems={10}
+              searchPlaceholder="Search company…"
               trigger={
                 <button className="btn-secondary h-9 min-w-[210px] justify-between">
                   <span className="truncate text-left">Company: {selectedCompany === "All" ? "All companies" : selectedCompany}</span>
@@ -264,21 +268,18 @@ export default function Dashboard() {
                 </button>
               }
               items={[
-                {
-                  label: "All companies",
-                  onClick: () => setSelectedCompany("All"),
-                  className: selectedCompany === "All" ? "text-primary font-medium" : undefined,
-                },
+                { label: "All companies", checked: selectedCompany === "All", onSelect: () => setSelectedCompany("All") },
                 ...companyOptions.map((company) => ({
                   label: company,
-                  onClick: () => setSelectedCompany(company),
-                  className: selectedCompany === company ? "text-primary font-medium" : undefined,
+                  icon: <CompanyLogo name={company} logoUrl={logoByName.get(company.toLowerCase())} size="2xs" />,
+                  checked: selectedCompany === company,
+                  onSelect: () => setSelectedCompany(company),
                 })),
               ]}
             />
-            <ActionDropdown
-              align="left"
-              menuWidth="w-52"
+            <Menu
+              ariaLabel="Stage"
+              width={220}
               trigger={
                 <button className="btn-secondary h-9 min-w-[190px] justify-between">
                   <span className="truncate text-left">Stage: {selectedStage}</span>
@@ -288,13 +289,15 @@ export default function Dashboard() {
               items={[
                 {
                   label: `All (${selectedCompany === "All" ? apps.length : filteredApps.length})`,
-                  onClick: () => setSelectedStage("All"),
-                  className: selectedStage === "All" ? "text-primary font-medium" : undefined,
+                  icon: <span className="w-2 h-2 rounded-full border border-muted-foreground/60" />,
+                  checked: selectedStage === "All",
+                  onSelect: () => setSelectedStage("All"),
                 },
                 ...STAGES.map((stage) => ({
                   label: `${stage} (${stageCounts[stage]})`,
-                  onClick: () => setSelectedStage(stage),
-                  className: selectedStage === stage ? "text-primary font-medium" : undefined,
+                  icon: <span className={`w-2 h-2 rounded-full ${STAGE_STRIPE_CLASS[stage]}`} />,
+                  checked: selectedStage === stage,
+                  onSelect: () => setSelectedStage(stage),
                 })),
               ]}
             />

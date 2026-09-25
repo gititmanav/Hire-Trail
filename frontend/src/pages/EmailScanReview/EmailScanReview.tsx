@@ -212,7 +212,7 @@ export default function EmailScanReview() {
               type="button"
               disabled={!!bulkLoading}
               onClick={handleBulkImport}
-              className="px-3 py-1.5 text-xs font-medium text-white bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50"
+              className="px-3 py-1.5 text-xs font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50"
             >
               {bulkLoading === "import" ? "Importing…" : `Import all (${pending.length})`}
             </button>
@@ -276,7 +276,7 @@ export default function EmailScanReview() {
           <button
             type="button"
             onClick={handleFinish}
-            className="mt-4 inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg"
+            className="mt-4 inline-flex items-center px-4 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg"
           >
             Done
           </button>
@@ -407,7 +407,7 @@ function CandidateCard({ c, onImport, onSkip, onMerge }: {
         <button
           type="button"
           onClick={onImport}
-          className="px-3 py-1.5 text-xs font-medium text-white bg-primary hover:bg-primary/90 rounded-lg inline-flex items-center gap-1.5"
+          className="px-3 py-1.5 text-xs font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg inline-flex items-center gap-1.5"
         >
           {isFailed ? "Retry import" : "Import"}
           <ArrowRight size={11} strokeWidth={2.5} aria-hidden="true" />
@@ -446,7 +446,7 @@ function EmptyState({ title, body, ctaLabel, ctaHref }: { title: string; body: s
       <p className="text-sm text-muted-foreground mt-1.5 mb-5">{body}</p>
       <Link
         to={ctaHref}
-        className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg"
+        className="inline-flex items-center px-4 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg"
       >
         {ctaLabel}
       </Link>

@@ -79,7 +79,7 @@ export function useDeadlineFollowups() {
                     toast.dismiss(t.id);
                   }
                 }}
-                className="px-2.5 py-1 text-xs font-medium text-white bg-primary hover:bg-primary/90 rounded-md"
+                className="px-2.5 py-1 text-xs font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-md"
               >
                 Mark done
               </button>

@@ -38,7 +38,7 @@ export default function AnnouncementBanner() {
             {a.dismissible && (
               <button
                 onClick={() => dismiss(a._id)}
-                className="shrink-0 p-1 -m-1 rounded hover:bg-black/5 dark:hover:bg-white/10"
+                className="shrink-0 p-1 -m-1 rounded hover:bg-scrim/5 dark:hover:bg-paper/10"
                 aria-label="Dismiss announcement"
                 title="Dismiss"
               >

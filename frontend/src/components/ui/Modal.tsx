@@ -6,11 +6,16 @@
  *  into the panel on mount and returns on close, Tab is trapped, Escape closes
  *  only the top-most modal (nested modals stack), and outside-click only counts
  *  when the press STARTED on the overlay — dragging a text selection out of an
- *  input never dismisses the dialog. */
+ *  input never dismisses the dialog.
+ *
+ *  Motion: the overlay fades and the panel scales in; on close — however the
+ *  dialog is closed — it fades/scales out (useExitAnimation), so every dialog
+ *  animates both ways without its call site doing anything. */
 import { useEffect, useRef, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { pushLayer, popLayer, isTopLayer, layerCount } from "./layers.ts";
+import { MODAL_EXIT, useExitAnimation } from "../../hooks/useExitAnimation.ts";
 
 const SIZES = {
   sm: "max-w-[420px]",
@@ -33,13 +38,14 @@ export function Modal({
 }) {
   const idRef = useRef<symbol | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const exitRef = useExitAnimation(MODAL_EXIT);
   const restoreRef = useRef<HTMLElement | null>(null);
   const pressStartedOnOverlay = useRef(false);
 
   const isTop = () => idRef.current !== null && isTopLayer(idRef.current);
 
   useEffect(() => {
-    const id = pushLayer("modal");
+    const id = pushLayer("modal", () => panelRef.current);
     idRef.current = id;
     restoreRef.current = document.activeElement as HTMLElement | null;
     document.body.style.overflow = "hidden";
@@ -94,7 +100,8 @@ export function Modal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 modal-overlay-in"
+      ref={exitRef}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-scrim/50 modal-overlay-in"
       onMouseDown={(e) => { pressStartedOnOverlay.current = e.target === e.currentTarget; }}
       onMouseUp={(e) => {
         if (pressStartedOnOverlay.current && e.target === e.currentTarget && isTop()) onClose();

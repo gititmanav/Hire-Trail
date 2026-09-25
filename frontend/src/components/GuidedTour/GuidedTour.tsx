@@ -82,7 +82,7 @@ export default function GuidedTour({ user, onComplete }: Props) {
 
   return (
     <div className="fixed inset-0 z-[100]">
-      <div className="absolute inset-0 bg-black/50" onClick={finish} />
+      <div className="absolute inset-0 bg-scrim/50" onClick={finish} />
 
       {rect && (
         <div
@@ -92,7 +92,7 @@ export default function GuidedTour({ user, onComplete }: Props) {
             left: rect.left - padding,
             width: rect.width + padding * 2,
             height: rect.height + padding * 2,
-            boxShadow: "0 0 0 9999px rgba(0,0,0,0.5)",
+            boxShadow: "0 0 0 9999px hsl(var(--scrim) / 0.5)",
           }}
         />
       )}
