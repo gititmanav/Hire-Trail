@@ -4,6 +4,33 @@ Append a dated entry every session: decisions, what was built, what was verified
 
 ---
 
+## 2026-09-25 (evening) — The landing on phones and tablets
+
+Owner: "some animations don't reciprocate in the same way on mobile … code dedicated to the mobile view." Decisions + details: **Revamp.md → "Phones and tablets"** under the landing entry.
+
+### Built
+- **`story/mobile/`** — below 1024px (`useCompactLanding`, `engine/hooks.ts` `useMedia`) the story is `MobileStory`, not the desktop scene shrunk: one pinned stage (100lvh; everything placed inside the top 100svh, measured by a probe), a 360×500 narrow browser window (`Device.tsx`) whose four screens are recomposed for the width (`screens.tsx`: Studio gauge/chips/resume, a posting with the extension's edge tab + panel, the Applications list with group strips + the inbox card + the moving Stripe row, Personalize light/dark), and a caption slot under it. The device follows the hero's words up 1:1 (tilted back) and docks under the header as black turns white; captions hand over one at a time; screens dissolve (the incoming over an opaque outgoing); a touch mark shows each tap; the dive into Dark is the desktop camera maths. Content first in the DOM (headline, then captions), the two layers share one grid cell. Sideways phones: captions beside the device.
+- Shared: `engine/dom.ts` (boxWithin / collect / css / setText / setState / round), `story/HeroCopy.tsx`; the desktop screens export their constants/parts (MATCHED_BEFORE, Glyph, BookmarkIcon, MODES, CUSTOM_PREVIEW, ShellPreview). `StoryScene` is desktop-only now (its phone/tablet branches — window bleed, FOCUS pan, copy padding — removed).
+- **Make it yours**: below 1024px the preview is the narrow Applications list (`MListPreview` + `MiniBar`), docked under the header while the controls scroll beneath (night band behind the header only while stuck); tablets put it beside the controls at full height. Section `overflow-hidden` → `overflow-clip` (hidden broke the sticky).
+- **And everything else**: one scrubbed set of vignettes placed by `.lp-vignettes` (beside the words, or under them) — the phone copy was a React-state swap that popped in. Hand-off is now a dissolve on every screen size.
+- **Compare**: stacked rows below 640px (feature over its three answers, HireTrail's lit); the table no longer needs a sideways scroll from 640px.
+- **Header**: "Log in" on phones; the wordmark hides below 360px. **Browser tint** (`theme-color`) follows the chapter tone.
+- **Sign-in sheet**: a bottom sheet below 640px (slides up/down, 22px top corners); inputs 16px so iOS doesn't zoom.
+- **Founder / Closing** stages 100lvh (a white stage no longer shows a black strip once iOS tucks its toolbars; pins keep 120svh / 45svh); founder sign-off wraps cleanly; closing buttons full-width on phones; "Add to Chrome" only on screens ≥1024px (it can't be installed on phones/tablets).
+
+### Verified (HOW)
+- Gates: frontend `tsc -b` 0; `npm run build` green (LandingPage chunk 143.6 KB / 40.1 KB gzip); `node --test src/utils/theme.test.ts` 8/8. Touched files scanned for unused imports.
+- Browser (dev, `landing.localhost:5175`), screenshots + DOM reads at **390×664** (an iPhone's real small viewport, not the 812 emulator height), **360×612** (Android after browser UI), **768×1024**, **844×390** (sideways), and **1440×900** (desktop regression): hero, rise → dock, every Tailor / Apply / Track step, the dive, the theme dock (stuck state toggles), the vignette dissolve, founder, compare, closing, footer, the sign-in sheet (animation names `auth-sheet-in/out`, 16px inputs, closes on Escape). Caption opacities sampled across a boundary: strictly one at a time with a ~20px gap.
+- NOT verified: a real phone (toolbar collapse → the lvh/svh handling is reasoned, not seen), real frame timing (the pane stayed hidden), Safari/Firefox, a real reduced-motion browser (code paths reviewed).
+
+### Sharp edges
+- **`overflow: hidden` on an ancestor kills `position: sticky`** inside it — use `overflow: clip` to clip overhanging decoration.
+- **Phones: a sticky stage of 100svh leaves a strip of whatever is behind it once the toolbars collapse** — make the stage 100lvh and place its content inside 100svh.
+- Emulated 375×812 is optimistic: a real iPhone's small viewport is ~630–670px tall. Size phone compositions for that.
+- The hidden in-app pane doesn't run `requestAnimationFrame` for `javascript_tool` promises — wait on timers when scripting scroll.
+
+---
+
 ## 2026-09-25 (later) — The new landing, the sign-in sheet, dark public pages, a lighter first paint
 
 Decisions + details: **Revamp.md → "2026-09-25 — Landing page, the sign-in sheet, About / Privacy / Terms"**.

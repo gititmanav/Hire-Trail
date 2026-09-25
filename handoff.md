@@ -1,11 +1,12 @@
 # handoff.md — for the next session
 
-_Last updated: 2026-09-25 (later) — the new landing, the sign-in sheet, dark About / Privacy / Terms, a lighter first paint_
+_Last updated: 2026-09-25 (evening) — the landing rebuilt for phones and tablets (after the new landing, the sign-in sheet, dark About / Privacy / Terms, a lighter first paint)_
 
 ## Current state
 
 - **On `main` (deployed):** the prod-500 fix (5b66f07). Nothing from the revamp is on prod.
-- **On `master` (pushed to `origin/master`, not merged to `main`):** the Applications revamp, the card shell / dropdowns / motion, Personalize + Custom themes, the charcoal default, and this round — the new landing, the sign-in sheet, the dark public pages, and the first-paint split (BUILD_JOURNAL "2026-09-25 (later)").
+- **On `master` (pushed to `origin/master`, not merged to `main`):** the Applications revamp, the card shell / dropdowns / motion, Personalize + Custom themes, the charcoal default, and the new landing, the sign-in sheet, the dark public pages, and the first-paint split (BUILD_JOURNAL "2026-09-25 (later)").
+- **Uncommitted in the working tree (awaiting the owner's go to commit/push):** the phone/tablet landing (BUILD_JOURNAL "2026-09-25 (evening)").
 - **Decision log:** `Revamp.md` — "2026-09-25 — Landing page, the sign-in sheet, About / Privacy / Terms" (+ "Noted, not changed" and "Parked — decide at the end").
 
 ## Ship blockers — land these before `master` goes to `main`
@@ -18,7 +19,7 @@ The landing makes three claims by owner decision; the owner is building what bac
 
 ## Immediate next step
 
-1. **Owner hand-check in a visible browser** (the in-app pane stayed hidden all session, so real frame timing was never seen): scroll the whole landing on a laptop and a real phone — the story (rise, acts, dive), the word list glide, the theme playground; open and close the sign-in sheet; Safari + Firefox. Reduced motion (System Settings → Accessibility) should keep the fades and drop every move.
+1. **Owner hand-check in a visible browser and on a real phone** (the in-app pane stayed hidden, so real frame timing was never seen; phones were emulated): scroll the whole landing on a laptop and on an iPhone + an Android — the story (rise → dock, the three beats, the dive), the theme dock, the word list, the sign-in bottom sheet; scroll far enough for Safari's toolbars to tuck away (no strip under a white chapter); rotate the phone once. Safari + Firefox. Reduced motion should keep the fades and drop every move.
 2. **og:image** — still `Dashboard.png` (old UI). Needs a 1200×630 image of the new page (`frontend/public`, `index.html`).
 3. **Privacy / Terms facts** (wording untouched — owner's text): `hiretrail.vercel.app` → the live domain; the Outlook revocation claim; "all associated data" (ship blocker 3).
 4. Earlier owner calls still open: Dark mirrors charcoal (keep?), "Table" vs "Minimal", tag chips 4.2:1, white on `bg-amber-600` 3.2:1 (Revamp.md → "Noted, not changed").
@@ -29,7 +30,7 @@ The landing makes three claims by owner decision; the owner is building what bac
 - `pages/Landing/LandingPage.tsx` assembles the chapters and owns the sign-in sheet + demo login. Palette/type/choreography CSS = `Landing.css` under `.lp` (not the app theme).
 - Scroll-driven motion = `engine/scroll.ts` (`useScene(ref, "pin" | "view", fn, stageRef)`): one listener, geometry measured on resize, callbacks write styles directly. Header colours come from `data-lp-tone` bands.
 - Pinned lengths are CSS (`--lp-hero/gap/act/zoom`, `.lp-everything`, `.lp-founder`, `.lp-closing`) and the tone bands inside pinned sections are sized from the same numbers — change them together.
-- The story's window (`story/`) is a 1200×760 replica built from the app's own tokens and parts; if the real Board / Studio / extension / Personalize markup changes, update the replica.
+- The story's window (`story/`) is a 1200×760 replica built from the app's own tokens and parts; if the real Board / Studio / extension / Personalize markup changes, update the replica — **and the phone one** (`story/mobile/screens.tsx`, 360-wide; below 1024px `LandingPage` renders `MobileStory` instead of `StoryScene`, and the theme scene uses its list as the preview).
 - Beams = `hero/beams.ts` (a pixel-matched port of the owner's three.js component — keep the maths as is).
 - Visitors: `App.tsx` `LIKELY_SIGNED_IN` (the theme boot cache) → no app shell, no session-check spinner at "/". Don't import the signed-in shell eagerly again.
 
