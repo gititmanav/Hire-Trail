@@ -3,19 +3,25 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>HireTrail — track applications, tailor resumes, sync your inbox</title>
+    <title>HireTrail — Tailor. Apply. Track.</title>
     <meta
       name="description"
-      content="HireTrail is the job-search tracker for serious applicants. Capture postings with one click, auto-update stages from your inbox, and tailor your resume against any JD."
+      content="HireTrail tailors your resume to every posting, saves jobs from six job boards in one click, and catches recruiter replies in your inbox. Free and open source."
     />
     <meta name="theme-color" content="#1a1a1a" />
     <!-- Paint the signed-in user's theme before anything renders, from the
          cache utils/themeDom.ts keeps (same shape as its BootCache). -->
+    <!-- A visitor landing on "/" (no signed-in theme cached) sees the landing,
+         which opens on black: paint black now so nothing flashes white first. -->
+    <style>html.lp-boot, html.lp-boot body { background: #000; }</style>
     <script>
       (function () {
         try {
           var b = JSON.parse(localStorage.getItem("hiretrail-theme-boot") || "null");
-          if (!b) return;
+          if (!b) {
+            if (location.pathname === "/") document.documentElement.classList.add("lp-boot");
+            return;
+          }
           var root = document.documentElement;
           var dark = b.mode === "system" ? window.matchMedia("(prefers-color-scheme: dark)").matches : b.dark;
           if (dark) root.classList.add("dark");
@@ -33,10 +39,10 @@
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="HireTrail" />
     <meta property="og:url" content="https://hiretrail.manavkaneria.me/" />
-    <meta property="og:title" content="HireTrail — track applications, tailor resumes, sync your inbox" />
+    <meta property="og:title" content="HireTrail — Tailor. Apply. Track." />
     <meta
       property="og:description"
-      content="The job-search tracker for serious applicants. Capture postings with one click, auto-update stages from your inbox, and tailor your resume against any JD."
+      content="Tailor your resume to every posting, save jobs from six boards in one click, and catch recruiter replies in your inbox. Free and open source."
     />
     <meta property="og:image" content="https://hiretrail.manavkaneria.me/Dashboard.png" />
     <meta property="og:image:width" content="1200" />
@@ -45,10 +51,10 @@
 
     <!-- Twitter / X -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="HireTrail — track applications, tailor resumes, sync your inbox" />
+    <meta name="twitter:title" content="HireTrail — Tailor. Apply. Track." />
     <meta
       name="twitter:description"
-      content="The job-search tracker for serious applicants. Capture postings with one click, auto-update stages from your inbox, and tailor your resume against any JD."
+      content="Tailor your resume to every posting, save jobs from six boards in one click, and catch recruiter replies in your inbox. Free and open source."
     />
     <meta name="twitter:image" content="https://hiretrail.manavkaneria.me/Dashboard.png" />
     <meta name="twitter:image:alt" content="HireTrail dashboard showing application pipeline" />

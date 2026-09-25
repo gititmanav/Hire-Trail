@@ -4,27 +4,54 @@
 import { useState, useEffect, useCallback, useRef, createContext, lazy, Suspense, type Dispatch, type SetStateAction } from "react";
 import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { queryClient } from "./utils/queryClient.ts";
-import Layout from "./components/Layout/Layout.tsx";
 import ProtectedRoute from "./components/ProtectedRoute/ProtectedRoute.tsx";
-import AdminLayout from "./components/AdminLayout/AdminLayout.tsx";
-import Privacy from "./pages/Legal/Privacy.tsx";
-import Terms from "./pages/Legal/Terms.tsx";
-import About from "./pages/Legal/About.tsx";
-import LandingPage from "./pages/Landing/LandingPage.tsx";
 import { BackgroundTasksProvider } from "./hooks/useBackgroundTasks.tsx";
 import { DemoGateProvider } from "./hooks/useDemoGate.tsx";
 import { AIKeyStatusProvider } from "./hooks/useAIKeyStatus.tsx";
-import AIKeyNudges from "./components/AIKeyNudges/AIKeyNudges.tsx";
 import BackgroundTaskCenter from "./components/BackgroundTaskCenter/BackgroundTaskCenter.tsx";
-import GlobalShortcuts from "./components/GlobalShortcuts/GlobalShortcuts.tsx";
-import IdleWarningModal from "./components/IdleWarningModal/IdleWarningModal.tsx";
-// Code-split heavy / rarely-loaded routes. Keeps the initial chunk small —
-// Dashboard + the Applications shell/List view + the core auth shell are in the main chunk,
-// everything else loads on demand. Suspense fallback shares the existing
-// spinner component for visual consistency.
-import Dashboard from "./pages/Dashboard/Dashboard.tsx";
-import ApplicationsLayout from "./pages/Applications/ApplicationsLayout.tsx";
-import ListView from "./pages/Applications/views/ListView.tsx";
+import { BOOT_KEY } from "./utils/themeDom.ts";
+
+/* The first paint only needs what its audience sees. A browser that was
+ * signed in keeps a theme boot cache (utils/themeDom.ts); without one this is
+ * almost certainly a visitor, and the visitor gets the landing — its own
+ * chunk — without downloading the app. Signed-in browsers fetch the app shell
+ * (Layout, Dashboard, Applications) in parallel with the session check, so it
+ * costs them no wait; visitors fetch it the moment they show intent to sign
+ * in (preloadAppShell). */
+function hasBootCache(): boolean {
+  try { return !!localStorage.getItem(BOOT_KEY); } catch { return false; }
+}
+const LIKELY_SIGNED_IN = hasBootCache();
+
+const loadLanding = () => import("./pages/Landing/LandingPage.tsx");
+const loadLayout = () => import("./components/Layout/Layout.tsx");
+const loadDashboard = () => import("./pages/Dashboard/Dashboard.tsx");
+const loadApplicationsLayout = () => import("./pages/Applications/ApplicationsLayout.tsx");
+const loadListView = () => import("./pages/Applications/views/ListView.tsx");
+
+/** Warm the signed-in shell's chunks (idempotent — the module cache dedupes). */
+export function preloadAppShell(): void {
+  void Promise.all([loadLayout(), loadDashboard(), loadApplicationsLayout(), loadListView()]).catch(() => undefined);
+}
+if (LIKELY_SIGNED_IN) preloadAppShell();
+else void loadLanding().catch(() => undefined);
+
+const LandingPage = lazy(loadLanding);
+// The public pages share the landing's dark palette; each is its own small chunk.
+const Privacy = lazy(() => import("./pages/Legal/Privacy.tsx"));
+const Terms = lazy(() => import("./pages/Legal/Terms.tsx"));
+const About = lazy(() => import("./pages/Legal/About.tsx"));
+/** While a public page's chunk loads: its own dark, never a white flash. */
+const darkFallback = <div className="min-h-screen bg-black" />;
+const Layout = lazy(loadLayout);
+const AdminLayout = lazy(() => import("./components/AdminLayout/AdminLayout.tsx"));
+const Dashboard = lazy(loadDashboard);
+const ApplicationsLayout = lazy(loadApplicationsLayout);
+const ListView = lazy(loadListView);
+// Signed-in only overlays.
+const GlobalShortcuts = lazy(() => import("./components/GlobalShortcuts/GlobalShortcuts.tsx"));
+const IdleWarningModal = lazy(() => import("./components/IdleWarningModal/IdleWarningModal.tsx"));
+const AIKeyNudges = lazy(() => import("./components/AIKeyNudges/AIKeyNudges.tsx"));
 // Factories so we can BOTH lazy-load via React.lazy AND fire the same import
 // from a post-mount warmer to preload chunks the sidebar links to. Idempotent:
 // the underlying module cache means calling the import a second time is free.
@@ -133,6 +160,7 @@ function SettingsIndexRedirect() {
 
 function App() {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [authActionLoading, setAuthActionLoading] = useState(false);
@@ -158,6 +186,11 @@ function App() {
   }, [navigate]);
   useEffect(() => { checkAuth(); }, [checkAuth]);
 
+  // index.html painted black for a likely visitor; a session means the app, not the landing.
+  useEffect(() => {
+    if (user) document.documentElement.classList.remove("lp-boot");
+  }, [user]);
+
   /* Warm code-split chunks for the sidebar nav targets once the user is
    * authenticated. Defers the imports so they don't compete with first paint. */
   useEffect(() => {
@@ -174,7 +207,12 @@ function App() {
     lastUserIdRef.current = userId;
   }, [userId]);
 
-  if (loading) return <div className="spinner" style={{ minHeight: "100vh" }} />;
+  // A visitor at "/" sees the landing straight away rather than a spinner
+  // while the session check runs; if a session turns up after all, the app
+  // replaces it. Everyone else (deep links, signed-in browsers) waits, so a
+  // protected page never bounces to the landing first.
+  const optimisticLanding = !LIKELY_SIGNED_IN && pathname === "/";
+  if (loading && !optimisticLanding) return <div className="spinner" style={{ minHeight: "100vh" }} />;
 
   return (
     <ThemeProvider user={user} setUser={setUser}>
@@ -189,16 +227,16 @@ function App() {
         <Routes>
           {/* Public landing — only shown when signed out. When the user is signed in, this
               route is omitted and the protected "/" further down matches the Dashboard. */}
-          {!user && <Route path="/" element={<LandingPage />} />}
+          {!user && <Route path="/" element={<Suspense fallback={darkFallback}><LandingPage /></Suspense>} />}
 
           {/* Legacy auth routes — auth is now a modal on the landing page.
               When signed out, redirect to /?auth=<mode> so the landing page pops
               the modal in the right mode for anyone who bookmarked /login. */}
           <Route path="/login" element={user ? <Navigate to={user.role === "admin" ? "/admin" : "/"} replace /> : <Navigate to="/?auth=login" replace />} />
           <Route path="/register" element={user ? <Navigate to={user.role === "admin" ? "/admin" : "/"} replace /> : <Navigate to="/?auth=register" replace />} />
-          <Route path="/privacy" element={<Privacy />} />
-          <Route path="/terms" element={<Terms />} />
-          <Route path="/about" element={<About />} />
+          <Route path="/privacy" element={<Suspense fallback={darkFallback}><Privacy /></Suspense>} />
+          <Route path="/terms" element={<Suspense fallback={darkFallback}><Terms /></Suspense>} />
+          <Route path="/about" element={<Suspense fallback={darkFallback}><About /></Suspense>} />
 
           {/* Admin panel — own layout, own sidebar. Demo user is explicitly
               blocked here even if a future seeding bug grants admin role —
@@ -282,11 +320,15 @@ function App() {
         <BackgroundTaskCenter />
         {/* App-wide keyboard shortcuts. Only mounted for authenticated users — */}
         {/* anon visitors on the landing page don't need them. */}
-        {user && <GlobalShortcuts />}
-        {/* Idle warning fires after 60 minutes of no input — soft, non-blocking. */}
-        {user && <IdleWarningModal />}
-        {/* BYOK onboarding modal + one-time no-key warning (header badge lives in Header). */}
-        {user && <AIKeyNudges />}
+        {user && (
+          <Suspense fallback={null}>
+            <GlobalShortcuts />
+            {/* Idle warning fires after 60 minutes of no input — soft, non-blocking. */}
+            <IdleWarningModal />
+            {/* BYOK onboarding modal + one-time no-key warning (header badge lives in Header). */}
+            <AIKeyNudges />
+          </Suspense>
+        )}
       </AIKeyStatusProvider>
       </BackgroundTasksProvider>
       </JobSearchContext.Provider>

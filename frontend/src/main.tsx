@@ -4,7 +4,6 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import { QueryClientProvider } from "@tanstack/react-query";
-import * as Sentry from "@sentry/react";
 import { queryClient } from "./utils/queryClient.ts";
 import App from "./App.tsx";
 import { installGlobalBugReporters } from "./utils/bugReporter.ts";
@@ -28,18 +27,22 @@ window.addEventListener("vite:preloadError", (event) => {
 });
 window.addEventListener("load", () => sessionStorage.removeItem("chunk-reload"));
 
-// Sentry — empty DSN disables sending; init still runs so we don't have to
-// branch the import path. Audit P0 #5: hear about silent UI errors before users do.
+// Sentry — only when a DSN is configured, and loaded as its own chunk so the
+// first paint never waits for it (window errors are also captured by the
+// in-app bug reporters above). Audit P0 #5: hear about silent UI errors
+// before users do.
 const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN as string | undefined;
 if (SENTRY_DSN) {
-  Sentry.init({
-    dsn: SENTRY_DSN,
-    environment: (import.meta.env.VITE_SENTRY_ENVIRONMENT as string | undefined) || import.meta.env.MODE,
-    tracesSampleRate: 0.05,
-    replaysSessionSampleRate: 0,
-    replaysOnErrorSampleRate: 0.1,
-    sendDefaultPii: false,
-  });
+  void import("@sentry/react").then((Sentry) => {
+    Sentry.init({
+      dsn: SENTRY_DSN,
+      environment: (import.meta.env.VITE_SENTRY_ENVIRONMENT as string | undefined) || import.meta.env.MODE,
+      tracesSampleRate: 0.05,
+      replaysSessionSampleRate: 0,
+      replaysOnErrorSampleRate: 0.1,
+      sendDefaultPii: false,
+    });
+  }).catch(() => { /* reporting is best-effort */ });
 }
 
 createRoot(document.getElementById("root")!).render(
