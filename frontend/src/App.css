@@ -387,6 +387,11 @@ html.theme-transitioning *::after {
   box-shadow: var(--shadow-xs);
 }
 .btn-secondary:hover { filter: brightness(0.95); box-shadow: var(--shadow-xs-hover); }
+/* Keyboard focus: the token ring (after :hover so it wins while hovered too). */
+.btn-accent:focus-visible, .btn-secondary:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring));
+}
 
 /* Resume tags: every tag gets its own hue and one of four tones
  *  (Resumes.tsx sets --tag-h / --tag-tone). Pastel in light, deep in dark. */

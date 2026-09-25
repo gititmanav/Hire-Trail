@@ -1,7 +1,7 @@
 import { useState, useEffect, useContext, useCallback, useMemo, lazy, Suspense } from "react";
 import { Responsive, WidthProvider } from "react-grid-layout";
 import { Link } from "react-router-dom";
-import { ChevronDown, Plus, Bookmark, Info, Lock, Unlock, LayoutGrid } from "lucide-react";
+import { Building2, ChevronDown, Plus, Bookmark, Info, Lock, Unlock, LayoutGrid } from "lucide-react";
 import toast from "react-hot-toast";
 import { UserContext } from "../../App.tsx";
 import type { EventInput } from "@fullcalendar/core";
@@ -30,7 +30,7 @@ const MiniCalendarWidget      = lazy(() => import("../../components/widgets/Mini
 import GuidedTour from "../../components/GuidedTour/GuidedTour.tsx";
 import { SkeletonStats, SkeletonTable } from "../../components/Skeleton/Skeleton.tsx";
 import { STAGES, STAGE_STRIPE_CLASS } from "../../utils/stageStyles.ts";
-import { buildAnalyticsFromApplications, filterDashboardApplications, getDashboardCompanies, getRecentApplications, getStageCounts } from "../../utils/dashboardInsights.ts";
+import { buildAnalyticsFromApplications, filterDashboardApplications, getCompanyCounts, getDashboardCompanies, getRecentApplications, getStageCounts } from "../../utils/dashboardInsights.ts";
 import { buildCalendarEvents } from "../../utils/calendarEvents.ts";
 import { computeActivityStreak, computeWeeklyCapacity } from "../../utils/dashboardSignals.ts";
 import StreakCard from "./components/StreakCard.tsx";
@@ -139,6 +139,7 @@ export default function Dashboard() {
   useRefetchOnFocus(loadData);
 
   const companyOptions = useMemo(() => getDashboardCompanies(apps), [apps]);
+  const companyCounts = useMemo(() => getCompanyCounts(apps), [apps]);
   // Logos for the company filter (shared, cached query — same list Applications uses).
   const { data: companies = [] } = useCompanies();
   const logoByName = useMemo(() => new Map(companies.map((c) => [c.name.toLowerCase(), c.logoUrl])), [companies]);
@@ -268,10 +269,17 @@ export default function Dashboard() {
                 </button>
               }
               items={[
-                { label: "All companies", checked: selectedCompany === "All", onSelect: () => setSelectedCompany("All") },
+                {
+                  label: "All companies",
+                  icon: <Building2 size={14} strokeWidth={1.7} />,
+                  hint: <span className="tabular-nums">{apps.length}</span>,
+                  checked: selectedCompany === "All",
+                  onSelect: () => setSelectedCompany("All"),
+                },
                 ...companyOptions.map((company) => ({
                   label: company,
                   icon: <CompanyLogo name={company} logoUrl={logoByName.get(company.toLowerCase())} size="2xs" />,
+                  hint: <span className="tabular-nums">{companyCounts.get(company) ?? 0}</span>,
                   checked: selectedCompany === company,
                   onSelect: () => setSelectedCompany(company),
                 })),
@@ -288,13 +296,15 @@ export default function Dashboard() {
               }
               items={[
                 {
-                  label: `All (${selectedCompany === "All" ? apps.length : filteredApps.length})`,
+                  label: "All stages",
                   icon: <span className="w-2 h-2 rounded-full border border-muted-foreground/60" />,
+                  hint: <span className="tabular-nums">{STAGES.reduce((n, stage) => n + stageCounts[stage], 0)}</span>,
                   checked: selectedStage === "All",
                   onSelect: () => setSelectedStage("All"),
                 },
                 ...STAGES.map((stage) => ({
-                  label: `${stage} (${stageCounts[stage]})`,
+                  label: stage,
+                  hint: <span className="tabular-nums">{stageCounts[stage]}</span>,
                   icon: <span className={`w-2 h-2 rounded-full ${STAGE_STRIPE_CLASS[stage]}`} />,
                   checked: selectedStage === stage,
                   onSelect: () => setSelectedStage(stage),

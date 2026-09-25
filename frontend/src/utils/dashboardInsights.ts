@@ -31,10 +31,20 @@ export function getDashboardCompanies(apps: Application[]): string[] {
   return [...new Set(apps.map((app) => app.company.trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 }
 
+/** Applications per company (names trimmed, as in the company list). */
+export function getCompanyCounts(apps: Application[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const app of apps) {
+    const name = app.company.trim();
+    if (name) counts.set(name, (counts.get(name) ?? 0) + 1);
+  }
+  return counts;
+}
+
 export function filterDashboardApplications(apps: Application[], filters: DashboardFilters): Application[] {
   const { company, stage } = filters;
   return apps.filter((app) => {
-    if (company !== "All" && app.company !== company) return false;
+    if (company !== "All" && app.company.trim() !== company) return false;
     if (stage !== "All" && app.stage !== stage) return false;
     return true;
   });
@@ -96,7 +106,7 @@ export function getRecentApplications(apps: Application[], limit = 8): Applicati
 }
 
 export function getStageCounts(apps: Application[], company: string): Record<Stage, number> {
-  const scoped = company === "All" ? apps : apps.filter((app) => app.company === company);
+  const scoped = company === "All" ? apps : apps.filter((app) => app.company.trim() === company);
   const acc: Record<Stage, number> = { Drafting: 0, Applied: 0, OA: 0, Interview: 0, Offer: 0, Rejected: 0 };
   for (const app of scoped) acc[app.stage] += 1;
   return acc;

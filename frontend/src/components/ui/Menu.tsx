@@ -4,7 +4,8 @@
  *  Items carry icons, hints, checkmarks, section headings and dividers; the
  *  menu can open with a static header (who's signed in) and a search box.
  *  Keyboard: ↑/↓/Home/End move, Enter/Space run, typing filters (searchable),
- *  Escape closes. Items run their action and close the menu. */
+ *  Escape closes. Items run their action and close the menu. The header and
+ *  search stay put; only the items scroll, inside a capped height. */
 import { ReactElement, ReactNode, cloneElement, useEffect, useMemo, useRef, useState, KeyboardEvent } from "react";
 import { Check, Search } from "lucide-react";
 import Popover, { PopoverDivider, PopoverLabel, itemClass } from "./Popover.tsx";
@@ -33,7 +34,7 @@ type Trigger = ReactElement | ((open: boolean) => ReactElement);
 
 export default function Menu({
   trigger, items, align = "start", width = 220, ariaLabel, header, searchable, searchPlaceholder = "Search…",
-  emptyLabel = "No matches", disabled,
+  emptyLabel = "No matches", disabled, maxHeight = 360,
 }: {
   /** One element (or a function of the open state) — receives ref, onClick,
    *  and aria attributes. Must be a DOM element or forward its ref. */
@@ -48,6 +49,8 @@ export default function Menu({
   searchPlaceholder?: string;
   emptyLabel?: string;
   disabled?: boolean;
+  /** Cap on the panel height (the viewport is always a cap too). */
+  maxHeight?: number;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -135,14 +138,17 @@ export default function Menu({
         anchorRef={anchorRef}
         align={align}
         width={width}
+        maxHeight={maxHeight}
         role="menu"
         ariaLabel={ariaLabel}
         initialFocusRef={searchable ? searchRef : listRef}
         onKeyDown={onKeyDown}
+        className="flex flex-col"
+        style={{ overflow: "hidden" }}
       >
-        {header && <div className="px-3.5 pt-3 pb-2.5 border-b border-border">{header}</div>}
+        {header && <div className="shrink-0 px-3.5 pt-3 pb-2.5 border-b border-border">{header}</div>}
         {searchable && (
-          <div className="px-1.5 pt-1.5">
+          <div className="shrink-0 px-1.5 pt-1.5">
             <div className="flex items-center gap-2 h-8 px-2.5 rounded-lg bg-control/60">
               <Search size={13} strokeWidth={2} className="text-muted-foreground shrink-0" aria-hidden />
               <input
@@ -156,7 +162,7 @@ export default function Menu({
             </div>
           </div>
         )}
-        <div ref={listRef} tabIndex={-1} className="p-1.5 outline-none">
+        <div ref={listRef} tabIndex={-1} className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-1.5 outline-none">
           {shown.map(({ item: it, index: i }, pos) => (
             <div key={i}>
               {!q && it.dividerBefore && pos > 0 && <PopoverDivider />}
