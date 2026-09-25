@@ -4,8 +4,8 @@
  * single "Imported" entry on `uploadDate` so historical resumes have *some*
  * timeline to anchor future edits against.
  *
- * Idempotent: only writes when `versions` is empty. Safe to run on every boot,
- * but the server only calls it once and logs the result.
+ * Idempotent: only writes when `versions` is empty. Run once per database by
+ * runBootMigrations; new resumes get their first entry on create (Resume model).
  */
 import { Resume } from "../../models/Resume.js";
 

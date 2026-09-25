@@ -7,7 +7,9 @@
  * deep-links to Settings → Clipboard.
  *
  *  - New users: `ensureClipboardNudge` is called on register.
- *  - Existing users: `seedClipboardNudgeForAll` runs once on server boot.
+ *  - Existing users: `seedClipboardNudgeForAll` runs once per database
+ *    (runBootMigrations). /auth/me also calls `ensureClipboardNudge` for any
+ *    user who hasn't had it, so every signup path is covered after that.
  *
  * Idempotent: guarded by the user's `clipboardNudgeSeeded` flag, which is
  * claimed atomically so concurrent requests can't double-create. Dismiss
@@ -45,7 +47,7 @@ export async function ensureClipboardNudge(
 }
 
 /** Seed the clipboard nudge for every existing user that hasn't got one yet.
- *  Idempotent — safe to run on every boot. */
+ *  Idempotent. */
 export async function seedClipboardNudgeForAll(): Promise<{ created: number }> {
   let created = 0;
   const cursor = User.find({ clipboardNudgeSeeded: { $ne: true } }).select("_id").cursor();

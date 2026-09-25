@@ -7,11 +7,20 @@
  *                                 collapse to a single active key per user (the
  *                                 platform now enforces exactly one active key).
  *
- * Safe to run on every boot — each step only writes when something is missing.
+ * Idempotent — each step only writes when something is missing. Run once per
+ * database by runBootMigrations.
  */
 import { AIProviderConfig } from "../../models/AIProviderConfig.js";
 import { SystemSettings, DEFAULT_SETTINGS } from "../../models/SystemSettings.js";
 import { decrypt } from "../../utils/encryption.js";
+
+/** Ledger name for seedAiSettings. It carries the ai_* keys, so adding a new
+ *  AI setting to DEFAULT_SETTINGS makes this a new migration that seeds it. */
+export const SEED_AI_SETTINGS_MIGRATION = `seed-ai-settings:${DEFAULT_SETTINGS
+  .filter((s) => s.category === "ai")
+  .map((s) => s.key)
+  .sort()
+  .join(",")}`;
 
 export async function seedAiSettings(): Promise<{ created: number }> {
   const aiDefaults = DEFAULT_SETTINGS.filter((s) => s.category === "ai");

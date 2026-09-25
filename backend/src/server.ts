@@ -45,7 +45,8 @@ import { startEmailScanJob } from "./services/emailScanJob.js";
 import { reapStalledScanJobs } from "./services/email/firstScan.js";
 import { backfillResumeVersions } from "./services/migrations/backfillResumeVersions.js";
 import { seedClipboardNudgeForAll } from "./services/migrations/seedClipboardNudge.js";
-import { seedAiSettings, migrateAiProviderConfigs } from "./services/migrations/aiPlatform.js";
+import { seedAiSettings, migrateAiProviderConfigs, SEED_AI_SETTINGS_MIGRATION } from "./services/migrations/aiPlatform.js";
+import { runBootMigrations } from "./services/migrations/runBootMigrations.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -216,34 +217,20 @@ async function start(): Promise<void> {
   // Marks them failed with a retryable error so the user can kick a new scan.
   reapStalledScanJobs().catch((err) => console.error("[firstScan] reaper failed:", err));
 
-  // One-time backfill of resume version timelines so the "edit history" strip
-  // renders on historical resumes. Idempotent — only writes when versions=[].
-  backfillResumeVersions()
-    .then(({ updated }) => {
-      if (updated > 0) console.log(`[migrate] backfilled versions on ${updated} resume(s)`);
-    })
-    .catch((err) => console.error("[migrate] resume versions backfill failed:", err));
-
-  // One-time discovery notification so existing users learn the extension can
-  // copy a JD to the clipboard. Idempotent — guarded by clipboardNudgeSeeded.
-  seedClipboardNudgeForAll()
-    .then(({ created }) => {
-      if (created > 0) console.log(`[migrate] seeded clipboard nudge for ${created} user(s)`);
-    })
-    .catch((err) => console.error("[migrate] clipboard nudge seed failed:", err));
-
-  // AI platform: seed the new ai_* settings + collapse to one active key/user.
-  seedAiSettings()
-    .then(({ created }) => {
-      if (created > 0) console.log(`[migrate] seeded ${created} AI setting(s)`);
-    })
-    .catch((err) => console.error("[migrate] AI settings seed failed:", err));
-  migrateAiProviderConfigs()
-    .then(({ last4Filled, deactivated }) => {
-      if (last4Filled > 0 || deactivated > 0)
-        console.log(`[migrate] AI keys: filled ${last4Filled} last4, deactivated ${deactivated} duplicate-active`);
-    })
-    .catch((err) => console.error("[migrate] AI provider config migration failed:", err));
+  // One-time data migrations. Each runs once per database — the `migrations`
+  // ledger is checked in one read — instead of scanning collections on every
+  // cold start.
+  runBootMigrations([
+    // Resume version timelines, so the "edit history" strip renders on resumes
+    // that predate versions[] (new resumes get an entry on create).
+    { name: "backfill-resume-versions", run: backfillResumeVersions },
+    // Discovery notification telling existing users the extension can copy a
+    // JD to the clipboard (new users get it via /auth/me).
+    { name: "seed-clipboard-nudge", run: seedClipboardNudgeForAll },
+    // AI platform: the ai_* settings rows, and one active key per user.
+    { name: SEED_AI_SETTINGS_MIGRATION, run: seedAiSettings },
+    { name: "migrate-ai-provider-configs", run: migrateAiProviderConfigs },
+  ]).catch((err) => console.error("[migrate] could not read the migrations ledger:", err));
 
   app.listen(env.PORT, () => {
     console.log(`HireTrail server running on port ${env.PORT} [${env.NODE_ENV}]`);

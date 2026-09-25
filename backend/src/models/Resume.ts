@@ -57,4 +57,15 @@ const resumeSchema = new Schema<IResume>(
   { timestamps: true }
 );
 
+// Every resume starts its edit history with one entry, so the history strip
+// always has an anchor. `validate` (not `save`) so insertMany (the demo seed)
+// gets it too. Resumes that predate this got theirs from the one-time
+// backfill-resume-versions migration.
+resumeSchema.pre("validate", function (next) {
+  if (this.isNew && this.versions.length === 0) {
+    this.versions.push({ timestamp: this.uploadDate ?? new Date(), summary: "Created" });
+  }
+  next();
+});
+
 export const Resume = mongoose.model<IResume>("Resume", resumeSchema);
