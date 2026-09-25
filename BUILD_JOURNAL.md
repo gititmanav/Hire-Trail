@@ -4,6 +4,40 @@ Append a dated entry every session: decisions, what was built, what was verified
 
 ---
 
+## 2026-09-25 (later) — The new landing, the sign-in sheet, dark public pages, a lighter first paint
+
+Decisions + details: **Revamp.md → "2026-09-25 — Landing page, the sign-in sheet, About / Privacy / Terms"**.
+
+### Built
+- **Landing** (`pages/Landing/`): one pinned story (hero on WebGL beams → the product window rises as black turns white → Tailor · Apply · Track inside it → Settings → Personalize → dive into the Dark card), "Make it yours" (live theme engine), "And everything else" (spotlit word list + real vignettes), founder line → promises → comparison → FAQ on white, closing + footer on black. `Landing.css` = palette (`.lp`), type, buttons, spotlight, window, choreography CSS, reduced motion. `engine/scroll.ts` + `engine/hooks.ts` (scenes, tone under the header), `engine/Reveal.tsx`.
+- **Beams** (`hero/beams.ts`, `HeroBeams.tsx`): WebGL2 port of the owner's three.js component.
+- **Header**: same layout/motion; colours follow `data-lp-tone`; monochrome mark (`components/BrandMark`).
+- **Sign-in sheet** (`components/AuthModal`): rebuilt on `ui/Modal` (`motion="soft"`, `className`/`overlayClassName` props added) with `ui/Field`/`ui/Button`, dark tokens on `.auth-surface`; soft entrance 380/520 ms, exit 260 ms (`MODAL_SOFT_EXIT`, `SOFT_EXIT_MS`).
+- **Theme carry-over**: `utils/landingTheme.ts` (sessionStorage, intent = signing up); `hooks/useTheme.tsx` adopts it for an account without a theme.
+- **Public pages** (`pages/Legal/`): `LegalLayout` (dark shell, auto contents rail with scroll-spy), `Legal.css`; Privacy/Terms restyled (wording unchanged), About rewritten as an editorial page; `hooks/usePageEntryScroll`.
+- **First paint**: landing, public pages, the signed-in shell (Layout, AdminLayout, Dashboard, Applications, list, signed-in overlays) lazy; `LIKELY_SIGNED_IN` (theme boot cache) decides what to warm; visitors at "/" skip the session-check spinner; `index.html` pre-paints black for them (`lp-boot`); Sentry loads on demand.
+- Shared: `utils/themeSwatches.ts` (Personalize + landing), `ColorPicker` `popoverClassName`.
+- Removed: the old landing (12 files), ≈350 lines of dead `auth-*` CSS, the demo-button sheen.
+
+### Verified (HOW)
+- Gates: backend `tsc --noEmit` 0; frontend `tsc -b` 0; `npm run build` green; `node --test src/utils/theme.test.ts` 8/8.
+- **Bundle** (build output): main JS 889.5 KB / 266.5 KB gzip → **331.0 KB / 111.1 KB gzip**; main CSS 189.5 / 30.3 → 147.1 / 24.0 KB gzip. Visitor = main + landing (112.7 / 33.2 KB gzip). Signed-in browsers load Layout + Dashboard + Applications + list chunks at 54 ms, before `/auth/me` (59 ms); visitors load no app-shell chunk (resource timing).
+- **Beams parity**: the owner's component (three 0.186, R3F 8, drei 9) and the port side by side at 880×800 device px, same time and per-beam offsets: max |Δ| 1/255, mean 0.004–0.006, mean brightness 11.86 vs 11.87 and 21.18 vs 21.18.
+- **Browser (dev, landing.localhost — its own cookie jar)**: every chapter screenshotted at desktop (1301×1025) and phone (375×812); the story's rise / acts / dive, theme tour and controls, word list, founder reveal, closing, footer. Header tone flips at each chapter; anchors land at the top / at `#subprocessors` (104 px under the header); a footer link from 16,008 px down opens Privacy at 0.
+- **Sign-in sheet**: computed animations (overlay 0.38 s, panel 0.52 s + 40 ms; exit copy 0.26 s, removed after); demo login from the landing → app shell + Dashboard, browser tint restored.
+- **Theme carry-over, end to end**: picked "Paper" → "Start with this theme" → sheet shows "Your theme comes with you" → created a throwaway local account (`landing-carryover-test@example.com`) → `/auth/me` returned the Paper theme, the app painted it, the stored pick was cleared → account deleted with the app's own `DELETE /auth/me` (200, then 401).
+- Legal wording: a word diff of old vs new Privacy/Terms shows only the old page chrome changed.
+- NOT verified: real frame timing (the in-app pane stayed hidden — rAF throttled, smooth scroll frozen); Safari/Firefox; a real reduced-motion browser (code paths reviewed, not driven); a real phone (emulation only); cold-start timing on Vercel.
+
+### Sharp edges
+- **Never style one property from both a Tailwind utility and Landing.css/Legal.css on the same element** — the files load in opposite orders in dev and in the build.
+- **The in-app pane when hidden**: screenshots right after a reload/scroll can come back black, rAF-driven scenes lag, `behavior: "smooth"` never advances — read state with JS, not screenshots.
+- Cookies are per host, not per port: use `landing.localhost:<port>` for a signed-out view without signing the main session out (Vite allows `*.localhost`).
+- three.js ≥ r17x adds a direct-light multi-scattering term (`STANDARD` is defined for the extended ShaderMaterial); at roughness 0.3 it's ≈ 1.001 — the port leaves it out.
+- The landing's pinned sections are height-driven (`--lp-*` in Landing.css): tone bands (`data-lp-tone`) in pinned sections are sized to the same numbers — change them together.
+
+---
+
 ## 2026-09-25 — Owner feedback: drag-tracking Custom themes, charcoal default, Sora sidebar/cards
 
 Details: **Revamp.md → "Owner feedback round (2026-09-25)"**.

@@ -274,3 +274,45 @@ Plus `color-scheme`, `<meta name="theme-color">` from `--sidebar`, `accent-color
 - **Soft card shadows, Settings + Admin only:** `.surface-card` (App.css) = card + hairline + `--shadow-panel`; used by SettingsCard, Personalize cards, the AI-settings sections and 45 Admin cards (not modals, not cards inside cards).
 - **Toggles on a light accent:** a switched-on knob is `--primary-foreground` (it vanished white-on-near-white in Dark). Six hand-rolled switches (widget pickers, SystemConfig, AISystemConfig ×2, Resume Studio) got the fix; converting them to `ui/Toggle` is queued.
 
+
+---
+
+## 2026-09-25 — Landing page, the sign-in sheet, About / Privacy / Terms
+
+### Decided (owner)
+- **Direction:** Apple-grade, story-first — not "cards placed around each other". The owner supplied the hero (the "Ethereal Beams" three.js component) and the footer (rounded dark panel, soft top glow, four link columns, content settling in at the very bottom); the header keeps its layout and pill-on-scroll motion.
+- **Colour:** match the hero and footer — black and white with neutral greys; the page itself is monochrome, colour lives inside the product (the app previews carry the app's real tokens). Chapters alternate black · white · black · white · black; the owner's brief: *colour change to white, the background sticks and only the content scrolls, then a component arrives and the scroll zooms into it — its black becomes the page.*
+- **Header** colours follow the chapter underneath; "Sign up free" and the logo go monochrome.
+- **Footer links: real ones only** (no Pricing / Testimonials / Blog / Changelog / Help; social = GitHub, LinkedIn, Email).
+- **Sign-in sheet** redesigned to match; it arrives and leaves *softly* (owner: "it's popping").
+- **Theme carry-over:** a theme built on the landing becomes the new account's theme.
+- **Hero line:** "Tailor. Apply. Track. / Without the spreadsheet."
+- **Mobile:** full scroll animations, fully responsive.
+- **Claims kept by owner decision (owner is building the backing features — see handoff "Ship blockers"):** JSON export, "40+ AI providers", and "account deletion removes everything".
+- **About / Privacy / Terms:** dark, simple, minimalist — done last.
+- "If a new idea is better than what was agreed, build it" (owner, mid-build) — used for: one pinned story instead of separate hero / founder / acts chapters; the dive into the **Personalize → Dark** card as the zoom target; the founder line moved to open the second white chapter.
+
+### What's on the page (top to bottom)
+1. **The story** (`story/StoryScene.tsx`) — one pinned stage. Hero on the beams; the product window peeks from the bottom, rises as black turns white, steps aside for **Tailor** (Resume Studio: the posting's keywords light up, align, bullets rewrite, the 0–10 score climbs 6.4 → 8.7), **Apply** (a job posting with the real extension panel: Detected on this page → Track this job → Tracked!), **Track** (the Board; an inbox review card → Merge with existing → the card glides Applied → Interview; the real "Merged into existing Stripe." toast). Then Settings → Personalize, Dark is selected, the window turns dark and the camera dives into the Dark card until the page is dark.
+2. **Make it yours** (`theme/ThemeScene.tsx`) — the real theme engine (`generateTheme`) painting a live Board from looks, the Personalize swatches, the real ColorPicker and Slider; tours a few looks until the visitor touches it; "Start with this theme".
+3. **And everything else** (`everything/`) — ⌘K, Calendar, Deadlines, Contacts, Import, Your AI as big words gliding past a spotlight, each with a piece of the real app beside it.
+4. **Founder line → Yours. Always. → Why people switch → FAQ** (`trust/`) — back on white.
+5. **Ready when you are + the footer** (`closing/`) — back to black.
+
+### Engineering
+- **Beams without three.js** (`hero/beams.ts`): the same geometry, noise, GGX highlight, ACES tone mapping and grain in raw WebGL2 — pixel-matched against the owner's component rendered with three 0.186 + R3F (max difference 1/255, mean 0.004–0.006, identical mean brightness, two frames). ~5 KB instead of ~200 KB gzipped. Starts after first paint, pauses off-screen / hidden tab / faded out; reduced motion = one still frame; context loss handled; no WebGL2 → a static stand-in.
+- **Scroll engine** (`engine/scroll.ts`): one passive listener, one frame of work, geometry measured on resize only; scenes write styles straight to the DOM. It also reports the chapter tone under the header (`data-lp-tone`, smallest band wins) for the header colours.
+- **The product window** is a fixed 1200×760 design scaled by the scene, built from the app's own tokens and parts (navParts, stageStyles, card-premium, the Board column/card markup, EmailScanReview's CandidateCard, the extension panel, the Personalize ChoiceCard/ShellPreview). Phones show it larger than the screen and pan to each beat.
+- **Speed:** the landing, the public pages and the signed-in shell are separate chunks. A browser without the theme boot cache is almost always a visitor: it gets the landing without the app and **without waiting for the session check**; signed-in browsers fetch the shell in parallel with the check; visitors fetch it on sign-in intent. Sentry loads only when a DSN is configured.
+
+### Found along the way (fixed)
+- **Stylesheet order differs between dev and the build** — `Landing.css` loads before `App.css` in dev (main.tsx imports App before the CSS) and after it in the build (lazy chunk). A Tailwind utility and a Landing.css rule on the *same element* for the same property therefore flip between environments (a mobile layout broke; the legal pages' title rendered near-black). Rule: set such properties in one place only.
+- A "hold" easing on the everything list (each word holding the line) made the scroll feel like it was resisting — replaced by a 1:1 glide with an overlapping hand-off (owner feedback).
+- Public pages opened at the previous page's scroll depth (the document scrolls outside the app shell) — `hooks/usePageEntryScroll` lands them at the top, or at their `#hash`.
+- Old landing claims that were false: Typst one-page PDFs, four AI providers / "GPT-4o", Kanban/Calendar/"AI Tailor" in the sidebar, "flips to Applied automatically" (it asks when you tailored), "All systems operational" (hard-coded), "JSON export" in the old FAQ (kept now by owner decision), "auto-updates when a recruiter replies" (relies on the nightly scan — the page now describes the scan + confirm flow).
+- The old `auth-*` CSS (≈350 lines: split auth pages, showcase, chips, demo-button sheen) was dead.
+
+### Noted, not changed (owner call)
+- **Privacy / Terms wording is unchanged** (restyled only, verified by a word diff). They still say `hiretrail.vercel.app` (the live site is `hiretrail.manavkaneria.me`), claim Outlook tokens are revoked at the provider (only Gmail's are) and that deletion removes "all associated data" (see the ship blockers).
+- The **og:image** is still `Dashboard.png` (the old UI) — needs a new 1200×630 image of the new page.
+- The gateway's public model list has 390 models from 38 model makers today; "40+ providers" needs the provider work the owner is doing.
