@@ -1,56 +1,73 @@
 /**
  * Public landing page — shown at "/" when the user is signed out.
  *
- * Orchestrator: assembles the section components, owns the auth-modal
- * state (open/close + ?auth= deep link + demo login), and provides the
- * `LandingAuthCtx` so nested sections can open the modal or sign in as
- * the demo user without prop drilling.
+ * Orchestrator: assembles the chapters, owns the auth-modal state (open/close,
+ * the ?auth= deep link, the demo login) and provides `LandingAuthCtx` so any
+ * chapter can open the modal or sign in as the demo user.
  *
- * Section order:
- *   1. Nav (sticky, glass-on-scroll)
- *   2. HeroBand (Hero + BoardStrip + FounderBar on shared blue gradient)
- *   3. FeatureShowcase (4 alternating Kanban / Tailor / Gmail / Extension)
- *   4. Comparison ("why visitors switch")
- *   5. Bento (DARK, mouse-tracked glow on cards)
- *   6. PowerUserGrid (⌘K, PDFs, BYOK)
- *   7. StatsStrip (gradient bg + animated counters)
- *   8. FAQ (2-column with sidecar)
- *   9. BigCTA (gradient)
- *  10. Footer (continues CTA gradient into navy)
+ * Chapters (colours alternate black · white · black · white · black):
+ *   1. StoryScene — hero (beams) → Tailor · Apply · Track in one pinned
+ *      product window → the dive into dark
+ *   2. ThemeScene — "Make it yours": the theme engine, live
+ *   3. EverythingScene — the rest of the app, one lit word at a time
+ *   4. FounderScene → Promises → Compare → FAQ — back on white
+ *   5. Closing — back to black: the last ask, then the footer
  */
 import { useContext, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import AuthModal, { type AuthMode } from "../../components/AuthModal/AuthModal.tsx";
-import { UserContext } from "../../App.tsx";
+import { UserContext, preloadAppShell } from "../../App.tsx";
 import { authAPI } from "../../utils/api.ts";
 import { DEMO_THEME_KEY } from "../../hooks/useTheme.tsx";
+import { usePageEntryScroll } from "../../hooks/usePageEntryScroll.ts";
 import { LandingAuthCtx, DEMO_EMAIL, DEMO_PASSWORD } from "./context";
 import Nav from "./Nav";
-import HeroBand from "./HeroBand";
-import TrustPanel from "./TrustPanel";
-import FeatureShowcase from "./FeatureShowcase";
-import Comparison from "./Comparison";
-import Bento from "./Bento";
-import PowerUserGrid from "./PowerUserGrid";
-import FAQ from "./FAQ";
-import BigCTA from "./BigCTA";
-import Footer from "./Footer";
+import StoryScene from "./story/StoryScene.tsx";
+import ThemeScene from "./theme/ThemeScene.tsx";
+import EverythingScene from "./everything/EverythingScene.tsx";
+import FounderScene from "./trust/FounderScene.tsx";
+import Promises from "./trust/Promises.tsx";
+import Compare from "./trust/Compare.tsx";
+import FAQ from "./trust/FAQ.tsx";
+import Closing from "./closing/Closing.tsx";
+import "./Landing.css";
 
 export default function LandingPage() {
   const { setUser } = useContext(UserContext);
   const [params, setParams] = useSearchParams();
   const [authMode, setAuthMode] = useState<AuthMode | null>(null);
   const [demoLoading, setDemoLoading] = useState(false);
+  usePageEntryScroll();
 
   // /login and /register both redirect here with ?auth=login|register so a
   // direct URL still pops the modal instead of dead-ending on the landing.
   useEffect(() => {
     const p = params.get("auth");
-    if (p === "login" || p === "register") setAuthMode(p);
+    if (p === "login" || p === "register") openAuth(p);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params]);
 
-  const openAuth = (mode: AuthMode) => setAuthMode(mode);
+  // While the landing is up, the page's overscroll matches its black ends and
+  // the browser chrome is tinted black; both are put back on the way out.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.add("lp-root");
+    root.classList.remove("lp-boot"); // index.html's pre-paint, now covered by lp-root
+    const meta = document.querySelector('meta[name="theme-color"]');
+    const previous = meta?.getAttribute("content") ?? null;
+    meta?.setAttribute("content", "#000000");
+    return () => {
+      root.classList.remove("lp-root");
+      if (meta && previous !== null) meta.setAttribute("content", previous);
+    };
+  }, []);
+
+  // Showing intent to sign in starts fetching the app, so it's there when they are.
+  const openAuth = (mode: AuthMode) => {
+    preloadAppShell();
+    setAuthMode(mode);
+  };
   const closeAuth = () => {
     setAuthMode(null);
     if (params.has("auth")) {
@@ -59,10 +76,11 @@ export default function LandingPage() {
     }
   };
 
-  /** One-click sign-in as the demo user. Forces light theme so the demo always
-   *  presents the same look — even if the demo account previously toggled dark. */
+  /** One-click sign-in as the demo user. The demo's theme lives on this device
+   *  and resets per visit, so every visitor starts from the same look. */
   const loginDemo = async () => {
     if (demoLoading) return;
+    preloadAppShell();
     setDemoLoading(true);
     try {
       const u = await authAPI.login(DEMO_EMAIL, DEMO_PASSWORD);
@@ -78,34 +96,18 @@ export default function LandingPage() {
 
   return (
     <LandingAuthCtx.Provider value={{ openAuth, loginDemo, demoLoading }}>
-      <div className="bg-white text-gray-900 antialiased selection:bg-blue-100 selection:text-blue-900 min-h-screen">
-        <style>{`
-          @keyframes ht-float {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-6px); }
-          }
-          @keyframes ht-drift {
-            0%, 100% { transform: translate(0, 0) scale(1); }
-            50% { transform: translate(30px, -20px) scale(1.05); }
-          }
-          @keyframes ht-shimmer {
-            0%, 100% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-          }
-        `}</style>
+      <div className="lp min-h-screen">
         <Nav />
         <main>
-          <HeroBand />
-          <div id="features" />
-          <FeatureShowcase />
-          <Comparison />
-          <Bento />
-          <PowerUserGrid />
-          <TrustPanel />
+          <StoryScene />
+          <ThemeScene />
+          <EverythingScene />
+          <FounderScene />
+          <Promises />
+          <Compare />
           <FAQ />
-          <BigCTA />
         </main>
-        <Footer />
+        <Closing />
         <AuthModal
           open={authMode !== null}
           mode={authMode ?? "login"}

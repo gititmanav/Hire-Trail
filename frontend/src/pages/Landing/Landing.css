@@ -1,0 +1,511 @@
+/* Landing — the signed-out marketing page.
+ *
+ * Its own palette on purpose: black and white with neutral greys, so the only
+ * colour on the page is the product itself (the app previews carry the app's
+ * real tokens). Everything is scoped under `.lp` and nothing here leaks into
+ * the app. Scroll-linked motion is written by `engine/scroll.ts` straight to
+ * the DOM; this file owns the looks, the one-shot keyframes and the
+ * reduced-motion fallbacks. */
+
+.lp {
+  /* HSL triplets, like App.css — use as hsl(var(--lp-x)). */
+  --lp-black: 0 0% 0%;
+  --lp-night: 0 0% 3.9%;       /* dark chapters */
+  --lp-coal: 0 0% 7.5%;        /* raised surfaces on dark */
+  --lp-ink: 0 0% 9%;           /* text on white */
+  --lp-paper: 0 0% 100%;
+  --lp-mist: 0 0% 96.5%;       /* quiet light band */
+  --lp-fog-dark: 0 0% 64%;     /* quiet text on dark — 8:1 on black */
+  --lp-fog-light: 0 0% 40%;    /* quiet text on white — 5.7:1 */
+  --lp-dim-dark: 0 0% 42%;     /* resting words on dark (not body text) */
+  --lp-dim-light: 0 0% 78%;    /* resting words on white (not body text) */
+  --lp-line-dark: 0 0% 100% / 0.1;
+  --lp-line-light: 0 0% 0% / 0.08;
+  --lp-ease: cubic-bezier(0.16, 1, 0.3, 1);
+
+  color: hsl(var(--lp-ink));
+  background: hsl(var(--lp-black));
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  /* Decorative layers may overhang the edges; clip (not hidden) keeps
+   * position: sticky working. */
+  overflow-x: clip;
+}
+
+/* The page scrolls the document; while the landing is up, the overscroll
+ * area matches its black ends instead of flashing the app's light canvas. */
+html.lp-root,
+html.lp-root body {
+  background: #000;
+}
+
+.lp ::selection {
+  background: hsl(0 0% 100% / 0.85);
+  color: #000;
+}
+.lp .lp-on-light ::selection,
+.lp .lp-on-light::selection {
+  background: hsl(0 0% 9% / 0.85);
+  color: #fff;
+}
+
+/* The default focus ring; :where() keeps it weaker than an element's own
+ * focus utilities (swatches, the picker) so they never show two rings. */
+.lp :where(:focus-visible) {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+/* ─── Type ─── */
+
+.lp-display {
+  font-size: clamp(2.75rem, 1.15rem + 6.4vw, 6.5rem);
+  line-height: 1.02;
+  letter-spacing: -0.045em;
+  font-weight: 700;
+}
+.lp-h2 {
+  font-size: clamp(2.25rem, 1.1rem + 4.1vw, 4.75rem);
+  line-height: 1.04;
+  letter-spacing: -0.038em;
+  font-weight: 700;
+}
+.lp-h3 {
+  font-size: clamp(1.625rem, 1.05rem + 1.9vw, 2.625rem);
+  line-height: 1.1;
+  letter-spacing: -0.028em;
+  font-weight: 650;
+}
+.lp-lede {
+  font-size: clamp(1.0625rem, 0.95rem + 0.45vw, 1.3125rem);
+  line-height: 1.5;
+  letter-spacing: -0.012em;
+  font-weight: 500;
+}
+.lp-eyebrow {
+  font-size: clamp(1rem, 0.9rem + 0.35vw, 1.25rem);
+  line-height: 1.3;
+  letter-spacing: -0.012em;
+  font-weight: 600;
+}
+.lp-fine {
+  font-size: 0.875rem;
+  line-height: 1.5;
+  letter-spacing: -0.006em;
+}
+
+/* The hero's second line: white fading to grey, like the beams' light. */
+.lp-sheen-text {
+  background: linear-gradient(100deg, #fff 0%, #e5e5e5 38%, #8f8f8f 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ─── Buttons ─── */
+
+.lp-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 3rem;
+  padding: 0 1.5rem;
+  border-radius: 999px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  isolation: isolate;
+  transition: background-color 200ms var(--lp-ease), color 200ms var(--lp-ease),
+    border-color 200ms var(--lp-ease), box-shadow 300ms var(--lp-ease), transform 300ms var(--lp-ease);
+  -webkit-tap-highlight-color: transparent;
+}
+.lp-btn:active { transform: scale(0.98); }
+.lp-btn[disabled] { opacity: 0.6; cursor: wait; }
+.lp-btn--sm { height: 2.25rem; padding: 0 1rem; font-size: 0.875rem; }
+.lp-btn--lg { height: 3.5rem; padding: 0 2rem; font-size: 1.0625rem; }
+
+/* A slow sheen across the button on hover (the hero component's shimmer). */
+.lp-btn::after {
+  content: "";
+  position: absolute;
+  inset: -0.5rem 0;
+  z-index: -1;
+  background: linear-gradient(100deg, transparent 20%, var(--lp-sheen, hsl(0 0% 100% / 0.22)) 50%, transparent 80%);
+  transform: translateX(-120%) skewX(-12deg);
+  transition: transform 1000ms var(--lp-ease);
+  pointer-events: none;
+}
+@media (hover: hover) {
+  .lp-btn:hover::after { transform: translateX(120%) skewX(-12deg); }
+}
+
+/* On dark */
+.lp-btn--solid-dark {
+  background: #fff;
+  color: #000;
+  --lp-sheen: hsl(0 0% 0% / 0.08);
+  box-shadow: 0 0 0 1px hsl(0 0% 100% / 0.1), 0 12px 40px -12px hsl(0 0% 100% / 0.35);
+}
+.lp-btn--solid-dark:hover { background: #ececec; }
+.lp-btn--glass-dark {
+  color: #fff;
+  background: hsl(0 0% 100% / 0.05);
+  border: 1px solid hsl(0 0% 100% / 0.18);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+}
+.lp-btn--glass-dark:hover { background: hsl(0 0% 100% / 0.1); border-color: hsl(0 0% 100% / 0.3); }
+
+/* On light */
+.lp-btn--solid-light {
+  background: hsl(var(--lp-ink));
+  color: #fff;
+  box-shadow: 0 12px 32px -14px hsl(0 0% 0% / 0.45);
+}
+.lp-btn--solid-light:hover { background: #2e2e2e; }
+.lp-btn--glass-light {
+  color: hsl(var(--lp-ink));
+  background: hsl(0 0% 100% / 0.6);
+  border: 1px solid hsl(0 0% 0% / 0.12);
+  --lp-sheen: hsl(0 0% 0% / 0.06);
+}
+.lp-btn--glass-light:hover { background: #fff; border-color: hsl(0 0% 0% / 0.2); }
+
+/* A quiet text link with an arrow that leans in on hover. */
+.lp-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-underline-offset: 4px;
+}
+.lp-link svg { transition: transform 300ms var(--lp-ease); }
+@media (hover: hover) {
+  .lp-link:hover { text-decoration: underline; }
+  .lp-link:hover svg { transform: translateX(3px); }
+}
+
+/* ─── Header ─── */
+
+.lp-nav-shell {
+  transition: max-width 320ms var(--lp-ease), background-color 320ms var(--lp-ease),
+    border-color 320ms var(--lp-ease), box-shadow 320ms var(--lp-ease), color 320ms var(--lp-ease);
+}
+
+/* ─── Spotlight ─── */
+
+/* A cone of light, drawn with gradients (no blur filter — cheap to paint and
+ * composite). Position it with --lp-spot-x / -y (the source), --lp-spot-angle
+ * and --lp-spot-length. It sweeps in once when `.is-on` lands. */
+.lp-spotlight {
+  position: absolute;
+  left: var(--lp-spot-x, 0%);
+  top: var(--lp-spot-y, 0%);
+  width: var(--lp-spot-length, 140vmax);
+  height: var(--lp-spot-width, 46vmax);
+  transform-origin: 0% 50%;
+  transform: translateY(-50%) rotate(var(--lp-spot-angle, 35deg));
+  background:
+    radial-gradient(ellipse 60% 50% at 0% 50%, hsl(0 0% 100% / calc(var(--lp-spot-strength, 1) * 0.16)), transparent 72%),
+    radial-gradient(ellipse 100% 34% at 0% 50%, hsl(0 0% 100% / calc(var(--lp-spot-strength, 1) * 0.1)), transparent 70%);
+  pointer-events: none;
+  opacity: 0;
+}
+.lp-spotlight.is-on {
+  animation: lp-spot-in 2.2s var(--lp-ease) 0.2s forwards;
+}
+@keyframes lp-spot-in {
+  from { opacity: 0; transform: translateY(-50%) rotate(var(--lp-spot-angle, 35deg)) translateX(-12%) scaleX(0.6); }
+  to   { opacity: 1; transform: translateY(-50%) rotate(var(--lp-spot-angle, 35deg)); }
+}
+
+/* The faint grid the spotlight falls on (the spotlight reference). */
+.lp-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, hsl(0 0% 100% / 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, hsl(0 0% 100% / 0.045) 1px, transparent 1px);
+  background-size: 64px 64px;
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, #000 20%, transparent 75%);
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, #000 20%, transparent 75%);
+}
+
+/* ─── Product window ─── */
+
+.lp-window {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 1200px;
+  height: 760px;
+  margin: -380px 0 0 -600px;
+  border-radius: 18px;
+  overflow: hidden;
+  background: hsl(0 0% 99%);
+  transform-origin: 50% 50%;
+  box-shadow:
+    0 0 0 1px hsl(0 0% 0% / 0.08),
+    0 2px 6px hsl(0 0% 0% / 0.06),
+    0 30px 80px -20px hsl(0 0% 0% / 0.35),
+    0 60px 140px -40px hsl(0 0% 0% / 0.3);
+  contain: layout paint;
+}
+/* On black, the window is lit from the beams: a rim of light along its top. */
+.lp-window::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.5), 0 0 0 1px hsl(0 0% 100% / var(--lp-window-rim, 0));
+  pointer-events: none;
+  z-index: 5;
+}
+.lp-window-glow {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 1500px;
+  height: 900px;
+  margin: -450px 0 0 -750px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, hsl(0 0% 100% / 0.16), transparent 70%);
+  pointer-events: none;
+}
+
+/* A screen inside the window (studio, posting, board, settings). Screens
+ * stack and crossfade; each keeps its own layer while it moves. */
+.lp-screen {
+  position: absolute;
+  inset: 44px 0 0 0;
+  opacity: 0;
+  visibility: hidden;
+}
+.lp-screen.is-live { visibility: visible; }
+
+/* The resume's "just changed" highlighter (ResumeStudio.css .rd-changed). */
+.lp-changed {
+  background: linear-gradient(transparent 60%, hsl(142 71% 45% / calc(var(--lp-mark, 0) * 0.28)) 0);
+  border-radius: 2px;
+}
+
+/* ─── The story (hero → Tailor · Apply · Track → the dive) ─── */
+
+.lp-story {
+  --lp-hero: 100vh;
+  --lp-gap: 45vh;
+  --lp-act: 92vh;
+  --lp-zoom: 150vh;
+}
+@supports (height: 1svh) {
+  .lp-story {
+    --lp-hero: 100svh;
+    --lp-gap: 45svh;
+    --lp-act: 92svh;
+    --lp-zoom: 150svh;
+  }
+}
+.lp-act { align-items: center; }
+.lp-act-copy {
+  margin-left: max(24px, 6vw);
+  width: min(440px, 33vw);
+}
+@media (max-width: 1023px) {
+  .lp-story { --lp-act: 96svh; }
+  .lp-act { align-items: flex-start; justify-content: center; }
+  .lp-act-copy { margin: 0; width: auto; max-width: 560px; padding-left: 24px; padding-right: 24px; }
+}
+
+/* Studio: the posting's keywords light up as the gap is found. */
+.lp-kw {
+  background-color: rgb(var(--palette-amber-200) / calc(var(--lp-on, 0) * 0.85));
+  box-shadow: inset 0 -1.5px 0 rgb(var(--palette-amber-500) / calc(var(--lp-on, 0) * 0.9));
+}
+.lp-step { color: hsl(var(--muted-foreground)); }
+.lp-step-dot {
+  background: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
+  box-shadow: inset 0 0 0 1px hsl(var(--border));
+}
+.lp-step[data-state="active"] { background: hsl(var(--control)); color: hsl(var(--foreground)); }
+.lp-step[data-state="active"] .lp-step-dot { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); box-shadow: none; }
+.lp-step[data-state="done"] { color: hsl(var(--foreground)); }
+.lp-step[data-state="done"] .lp-step-dot { background: rgb(var(--palette-emerald-500)); color: #fff; box-shadow: none; }
+
+/* No WebGL2: a still, soft suggestion of the beams. */
+.lp-beams-fallback {
+  background:
+    radial-gradient(ellipse 60% 45% at 30% 20%, hsl(0 0% 100% / 0.1), transparent 70%),
+    repeating-linear-gradient(133deg, #000 0 5%, #151515 8%, #3a3a3a 10.5%, #111 13%, #000 17%);
+}
+
+/* ─── Dark-chapter surfaces ─── */
+
+.lp-panel-dark {
+  background: hsl(0 0% 100% / 0.04);
+  border: 1px solid hsl(0 0% 100% / 0.1);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+  backdrop-filter: blur(24px) saturate(140%);
+}
+
+/* The theme playground's preview recolours smoothly when a swatch is picked;
+ * a drag paints every frame instead (data-live). */
+.lp-themed,
+.lp-themed * {
+  transition: background-color 450ms var(--lp-ease), border-color 450ms var(--lp-ease), color 450ms var(--lp-ease),
+    fill 450ms var(--lp-ease), stroke 450ms var(--lp-ease), box-shadow 450ms var(--lp-ease);
+}
+.lp-themed[data-live],
+.lp-themed[data-live] * {
+  transition: none !important;
+}
+
+/* ─── Footer ─── */
+
+.lp-footer-panel {
+  position: relative;
+  border-radius: 28px 28px 0 0;
+  background: hsl(0 0% 5.5%);
+  border-top: 1px solid hsl(0 0% 100% / 0.06);
+  overflow: hidden;
+}
+.lp-footer-panel::before {
+  /* The soft glow along the panel's top edge (the footer reference). */
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -220px;
+  width: min(1100px, 90vw);
+  height: 440px;
+  transform: translateX(-50%);
+  background: radial-gradient(closest-side, hsl(0 0% 100% / 0.07), transparent 72%);
+  pointer-events: none;
+}
+
+/* ─── One-shot entrances ─── */
+
+.lp-rise {
+  opacity: 0;
+  transform: translateY(18px);
+  animation: lp-rise 900ms var(--lp-ease) forwards;
+  animation-delay: var(--lp-delay, 0ms);
+}
+@keyframes lp-rise {
+  to { opacity: 1; transform: none; }
+}
+
+.lp-fade-in {
+  opacity: 0;
+  animation: lp-fade 1200ms var(--lp-ease) forwards;
+  animation-delay: var(--lp-delay, 0ms);
+}
+@keyframes lp-fade {
+  to { opacity: 1; }
+}
+
+/* ─── Reduced motion ─── */
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-rise,
+  .lp-fade-in { animation: none; opacity: 1; transform: none; }
+  .lp-spotlight.is-on { animation: none; opacity: 1; }
+  .lp-btn,
+  .lp-btn::after,
+  .lp-link svg,
+  .lp-nav-shell { transition-duration: 1ms; }
+  .lp-btn::after { display: none; }
+  .lp-themed,
+  .lp-themed * { transition: none !important; }
+}
+
+/* ─── And everything else ─── */
+
+.lp-everything { height: calc(100vh + 6 * 32vh); }
+@supports (height: 1svh) { .lp-everything { height: calc(100svh + 6 * 32svh); } }
+.lp-everything { --lp-word-size: clamp(3rem, 1.4rem + 6.4vw, 7.25rem); }
+/* Layout lives here, not in utility classes: this file and Tailwind's
+ * utilities load in different orders in dev and in the build. */
+.lp-words-col {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 18%, #000 38%, #000 72%, transparent 96%);
+  mask-image: linear-gradient(to bottom, transparent 18%, #000 38%, #000 72%, transparent 96%);
+}
+.lp-reading-window { position: relative; height: 0; }
+.lp-reading-window > div { position: absolute; left: 0; right: 0; top: calc(-0.55 * var(--lp-word-size)); }
+.lp-word-row { padding-bottom: clamp(1.5rem, 0.8rem + 1.6vw, 2.75rem); }
+.lp-word {
+  font-size: var(--lp-word-size);
+  line-height: 1.02;
+  letter-spacing: -0.05em;
+  font-weight: 700;
+}
+.lp-word-line { margin-top: 0.85rem; max-width: 30rem; min-height: 3em; }
+.lp-reading-light {
+  position: absolute;
+  left: -12%;
+  top: 50%;
+  width: 78%;
+  height: 70%;
+  transform: translateY(-50%);
+  background:
+    radial-gradient(ellipse 58% 32% at 0% 50%, hsl(0 0% 100% / 0.1), transparent 72%),
+    radial-gradient(ellipse 90% 14% at 0% 50%, hsl(0 0% 100% / 0.06), transparent 70%);
+  pointer-events: none;
+}
+@media (max-width: 1023px) {
+  .lp-everything { --lp-word-size: clamp(2.75rem, 1rem + 8vw, 4.5rem); }
+  .lp-words-col {
+    justify-content: flex-start;
+    padding-top: 30svh;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 16%, #000 25%, #000 50%, transparent 60%);
+    mask-image: linear-gradient(to bottom, transparent 16%, #000 25%, #000 50%, transparent 60%);
+  }
+  .lp-reading-light { top: 32%; height: 40%; }
+  .lp-word-line { min-height: 0; font-size: 1rem; }
+}
+
+.lp-ai-glow { box-shadow: 0 0 0 1px hsl(var(--border)), 0 0 28px -6px hsl(0 0% 100% / 0.35); }
+
+/* ─── The founder's line ─── */
+
+/* 120 of pin: the white arrives in the first 14%, the words by 80%. */
+.lp-founder { height: calc(100vh + 120vh); }
+@supports (height: 1svh) { .lp-founder { height: calc(100svh + 120svh); } }
+.lp-founder-line {
+  font-size: clamp(1.75rem, 1.05rem + 2.9vw, 3.5rem);
+  line-height: 1.16;
+  letter-spacing: -0.032em;
+  font-weight: 650;
+  text-wrap: pretty;
+}
+
+/* ─── Reveal (content that rises in once) ─── */
+
+.lp-reveal-wait { opacity: 0; transform: translateY(20px); }
+.lp-reveal-in { animation: lp-reveal 900ms var(--lp-ease) both; }
+@keyframes lp-reveal {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ─── The close ─── */
+
+/* 45 of pin: dark within the first third, the headline rising as it lands —
+ * short, so nothing sits still under a moving scroll. */
+.lp-closing { height: calc(100vh + 45vh); }
+@supports (height: 1svh) { .lp-closing { height: calc(100svh + 45svh); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-reveal-wait { opacity: 1; transform: none; }
+  .lp-reveal-in { animation: none; }
+}

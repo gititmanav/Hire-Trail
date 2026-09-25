@@ -1,0 +1,76 @@
+/* The public pages (About, Privacy, Terms) on the landing's dark palette.
+ * Long-form text: calm grey body, white headings, hairlines between sections. */
+
+/* Set here, not with utilities on the same element: `.lp` (Landing.css)
+ * loads after Tailwind's utilities and would win. */
+.lp-legal { background: hsl(var(--lp-night)); color: #fff; }
+
+.lp-prose {
+  color: hsl(var(--lp-fog-dark));
+  font-size: 16px;
+  line-height: 1.75;
+  letter-spacing: -0.005em;
+}
+.lp-prose > section + section {
+  margin-top: 3rem;
+  padding-top: 3rem;
+  border-top: 1px solid hsl(0 0% 100% / 0.08);
+}
+.lp-prose h2 {
+  color: #fff;
+  font-size: 1.25rem;
+  line-height: 1.35;
+  font-weight: 600;
+  letter-spacing: -0.018em;
+  margin-bottom: 0.9rem;
+}
+.lp-prose section[id] { scroll-margin-top: 104px; }
+.lp-prose p + p,
+.lp-prose p + ul,
+.lp-prose ul + p { margin-top: 0.9rem; }
+.lp-prose ul { list-style: none; padding-left: 0; }
+.lp-prose ul > li { position: relative; padding-left: 1.35rem; }
+.lp-prose ul > li + li { margin-top: 0.65rem; }
+.lp-prose ul > li::before {
+  content: "";
+  position: absolute;
+  left: 0.25rem;
+  top: 0.72em;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: hsl(0 0% 100% / 0.35);
+}
+.lp-prose .font-medium,
+.lp-prose strong { color: #fff; font-weight: 500; }
+/* Plain links only — buttons and pills keep their own look. */
+.lp-prose a:not(.lp-btn):not(.lp-pill) {
+  color: #fff;
+  text-decoration: underline;
+  text-decoration-color: hsl(0 0% 100% / 0.3);
+  text-underline-offset: 3px;
+  transition: text-decoration-color 200ms var(--lp-ease);
+}
+.lp-prose a:not(.lp-btn):not(.lp-pill):hover { text-decoration-color: #fff; }
+.lp-prose .lp-pullquote {
+  margin: 2.5rem 0;
+  color: #fff;
+  font-size: clamp(1.75rem, 1.05rem + 2.3vw, 2.6rem);
+  line-height: 1.18;
+  letter-spacing: -0.03em;
+  font-weight: 600;
+  text-wrap: balance;
+}
+.lp-prose code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85em;
+  color: #fff;
+  background: hsl(0 0% 100% / 0.08);
+  padding: 0.12em 0.42em;
+  border-radius: 6px;
+}
+.lp-prose table { width: 100%; border-collapse: collapse; font-size: 14px; line-height: 1.55; }
+.lp-prose th { color: #fff; font-weight: 500; text-align: left; padding: 0 1rem 0.75rem 0; }
+.lp-prose td { padding: 0.9rem 1rem 0.9rem 0; vertical-align: top; border-top: 1px solid hsl(0 0% 100% / 0.08); }
+.lp-prose td:first-child { color: #fff; font-weight: 500; white-space: nowrap; }
+.lp-prose .lp-note { font-size: 14px; color: hsl(0 0% 100% / 0.45); }

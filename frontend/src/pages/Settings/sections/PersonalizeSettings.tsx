@@ -17,6 +17,7 @@ import Button from "../../../components/ui/Button.tsx";
 import { Input, Textarea } from "../../../components/ui/Field.tsx";
 import { Modal, ModalBody, ModalFooter, ModalHeader } from "../../../components/ui/Modal.tsx";
 import { SettingsCard, SettingsHeader, SettingsRow, SettingsSection } from "../ui.tsx";
+import { ACCENT_SWATCHES, BACKGROUND_SWATCHES } from "../../../utils/themeSwatches.ts";
 
 /* ─── A radio group of cards (arrow keys move the choice, like native radios) ─── */
 
@@ -102,10 +103,6 @@ const THEME_META: Record<ThemeMode, { label: string; Icon: LucideIcon }> = {
   dark: { label: "Dark", Icon: Moon },
   custom: { label: "Custom", Icon: Palette },
 };
-
-/** Starting points — any colour is one step further, in the picker. */
-const ACCENT_SWATCHES = ["#262626", "#3b82f6", "#6366f1", "#8b5cf6", "#ec4899", "#ef4444", "#f97316", "#f59e0b", "#16a34a", "#0d9488", "#0891b2", "#475569"] as const;
-const BACKGROUND_SWATCHES = ["#fcfcfc", "#ffffff", "#faf9f7", "#f5f7fa", "#f7f3ea", "#eef6f0", "#f3f0fa", "#171717", "#0f172a", "#1c1917", "#0b1020", "#1a1423"] as const;
 
 /** Hex text beside a picker — commits on Enter or blur, reverts if invalid. */
 function HexField({ value, onCommit, label }: { value: string; onCommit: (hex: string) => void; label: string }) {

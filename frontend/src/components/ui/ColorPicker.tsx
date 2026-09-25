@@ -68,9 +68,12 @@ interface Props {
   label: string;
   swatches?: readonly string[];
   align?: "start" | "end";
+  /** Extra classes on the panel — e.g. a theme scope when the picker sits on
+   *  a surface themed differently from the page (the panel portals to <body>). */
+  popoverClassName?: string;
 }
 
-export default function ColorPicker({ value, onChange, onCommit, label, swatches, align = "end" }: Props) {
+export default function ColorPicker({ value, onChange, onCommit, label, swatches, align = "end", popoverClassName = "" }: Props) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const squareRef = useRef<HTMLDivElement>(null);
@@ -168,7 +171,7 @@ export default function ColorPicker({ value, onChange, onCommit, label, swatches
         className="w-8 h-8 shrink-0 rounded-lg border border-border shadow-sm transition-transform duration-150 hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         style={{ background: value }}
       />
-      <Popover open={open} onOpenChange={setOpen} anchorRef={triggerRef} align={align} width={248} ariaLabel={label} initialFocusRef={squareRef} className="p-3">
+      <Popover open={open} onOpenChange={setOpen} anchorRef={triggerRef} align={align} width={248} ariaLabel={label} initialFocusRef={squareRef} className={`p-3 ${popoverClassName}`}>
         <div
           ref={squareRef}
           role="slider"
