@@ -4,6 +4,25 @@ Append a dated entry every session: decisions, what was built, what was verified
 
 ---
 
+## 2026-09-25 (night) — Chapter hand-offs: no dead screens between chapters
+
+Owner (on the master preview): after the FAQ the page "appears like it has ended" — a screen of plain white; after the dive and after "Your AI", a screen of black "longer than intuition expects"; and the theme chapter's spotlight showed a hard edge, "like a next page".
+
+**Root cause:** a pinned chapter only starts when its section reaches the top of the screen, so the last screen of the chapter before it (a stage leaving in its final flat colour, or the next stage arriving empty) showed nothing. The spotlight was clipped by the theme section's top edge.
+
+### Built
+- **Hand-offs** (`Landing.css` `.lp-handoff`): the next chapter is pulled up over the previous one's final stretch (`--lp-overlap`) and is see-through there; its own background (`--lp-handoff-bg`) starts where the section before it ends. Theme overlaps the dive by 35svh (its title rises in as the page goes dark); Founder overlaps the word list by 80svh (it pins 20svh after the list lets go, so "Your AI" leaves with the page as the white comes over it); Closing overlaps the FAQ by 40svh (it darkens over the FAQ's last lines as they leave). Founder and Closing stages are transparent now and pass the pointer (`.lp-handoff-pass`); the founder link and the closing buttons opt back in as they appear.
+- **Header tone in an overlap**: hand-off sections use three bands (`.lp-band-before/over/after`, from `--lp-flip` and `--lp-overlap`); the one inside the overlap is always the smallest under the header, so it wins over the previous chapter's band.
+- **Theme spotlight + grid** in `.lp-theme-light`, masked in below the overlap — no lit edge along the section's top.
+
+### Verified (HOW)
+- Gates: frontend `tsc -b` 0; `npm run build` green.
+- Desktop 1440×900, DOM reads at each scroll offset (the pane was hidden: screenshots stale, rAF swapped for a timer in the page for the test): dive end — night 0.63 at 60px before the pin ends with "Make it yours." already rising (y 840 → 780 at pin end → 480 300px later; before, it was off-screen at pin end); word list — "Your AI" lit on the line at the pin end, moves up 1:1, the white starts 180px later and is full by +333px, header flips at +250px (before: white started +900px); FAQ — the closing pins with the FAQ's bottom at 360px and its last question at 138px, dark 0.54 at +70 and 1 at +140, copy clickable from +140, the last FAQ question stays clickable until it's covered.
+- Phone 390×664: geometry (title at 580/664 at the dive's end; founder pins 133px = 20svh after the list; closing pins with the FAQ's bottom at 266px = 40svh) and the header tone, recomputed with the engine's smallest-band rule from the real band rects (flips at the right offsets). The paint code is unchanged from the desktop run.
+- NOT verified: a real visible browser frame of these hand-offs (hidden pane), a real phone.
+
+---
+
 ## 2026-09-25 (evening) — The landing on phones and tablets
 
 Owner: "some animations don't reciprocate in the same way on mobile … code dedicated to the mobile view." Decisions + details: **Revamp.md → "Phones and tablets"** under the landing entry.

@@ -1,11 +1,11 @@
 # handoff.md — for the next session
 
-_Last updated: 2026-09-25 (evening) — the landing rebuilt for phones and tablets (after the new landing, the sign-in sheet, dark About / Privacy / Terms, a lighter first paint)_
+_Last updated: 2026-09-25 (night) — chapter hand-offs on the landing (no dead white/black screens); before that, the landing rebuilt for phones and tablets_
 
 ## Current state
 
 - **On `main` (deployed):** the prod-500 fix (5b66f07). Nothing from the revamp is on prod.
-- **On `master` (pushed to `origin/master`, not merged to `main`):** the Applications revamp, the card shell / dropdowns / motion, Personalize + Custom themes, the charcoal default, the new landing, the sign-in sheet, the dark public pages, the first-paint split (BUILD_JOURNAL "2026-09-25 (later)"), and the phone/tablet landing (BUILD_JOURNAL "2026-09-25 (evening)").
+- **On `master` (pushed to `origin/master`, not merged to `main`):** the Applications revamp, the card shell / dropdowns / motion, Personalize + Custom themes, the charcoal default, the new landing, the sign-in sheet, the dark public pages, the first-paint split (BUILD_JOURNAL "2026-09-25 (later)"), the phone/tablet landing (BUILD_JOURNAL "2026-09-25 (evening)"), and the chapter hand-offs (BUILD_JOURNAL "2026-09-25 (night)").
 - **Decision log:** `Revamp.md` — "2026-09-25 — Landing page, the sign-in sheet, About / Privacy / Terms" (+ "Noted, not changed" and "Parked — decide at the end").
 
 ## Ship blockers — land these before `master` goes to `main`
@@ -29,6 +29,7 @@ The landing makes three claims by owner decision; the owner is building what bac
 - `pages/Landing/LandingPage.tsx` assembles the chapters and owns the sign-in sheet + demo login. Palette/type/choreography CSS = `Landing.css` under `.lp` (not the app theme).
 - Scroll-driven motion = `engine/scroll.ts` (`useScene(ref, "pin" | "view", fn, stageRef)`): one listener, geometry measured on resize, callbacks write styles directly. Header colours come from `data-lp-tone` bands.
 - Pinned lengths are CSS (`--lp-hero/gap/act/zoom`, `.lp-everything`, `.lp-founder`, `.lp-closing`) and the tone bands inside pinned sections are sized from the same numbers — change them together.
+- **Hand-offs** (`.lp-handoff`, `--lp-overlap`): Theme, Founder and Closing are pulled up over the end of the chapter before them and are see-through there. Founder's 80svh assumes the word list's stage is 100svh; Closing's 40svh assumes the FAQ ends in 16vh of padding — change them together. Their tone bands are `.lp-band-before/over/after`.
 - The story's window (`story/`) is a 1200×760 replica built from the app's own tokens and parts; if the real Board / Studio / extension / Personalize markup changes, update the replica — **and the phone one** (`story/mobile/screens.tsx`, 360-wide; below 1024px `LandingPage` renders `MobileStory` instead of `StoryScene`, and the theme scene uses its list as the preview).
 - Beams = `hero/beams.ts` (a pixel-matched port of the owner's three.js component — keep the maths as is).
 - Visitors: `App.tsx` `LIKELY_SIGNED_IN` (the theme boot cache) → no app shell, no session-check spinner at "/". Don't import the signed-in shell eagerly again.

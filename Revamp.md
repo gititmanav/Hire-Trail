@@ -320,6 +320,9 @@ Owner: the desktop animations "don't reciprocate the same way on mobile … code
 - **Compare** stacks below 640px; **the header** shows "Log in" on phones; **the sign-in sheet** is a bottom sheet below 640px; "Add to Chrome" isn't offered below 1024px (the extension installs on a computer); the browser tint follows the chapter.
 - Sized for real viewports: an iPhone's small viewport is ~630–670px tall (not the emulator's 812); pinned stages that change colour are 100lvh with content inside 100svh so collapsing toolbars never reveal a strip.
 
+### Chapter hand-offs (2026-09-25, night)
+Owner: after the FAQ the page looked finished (a screen of white); after the dive and after "Your AI", a screen of black; the theme spotlight's edge looked like "a next page". A pinned chapter only started when its section reached the top, so the previous chapter's last screen was dead. Now each chapter starts while the last one is leaving — pulled up over its final stretch and see-through there — so the next content arrives as the old content leaves, and every colour change is one full-screen fade over the content that's leaving (the FAQ's last lines sink into the dark; "Your AI" leaves as the white comes over it; "Make it yours." rises in as the dive goes dark). The spotlight fades in below the section's top instead of being cut by it.
+
 ### Noted, not changed (owner call)
 - **Privacy / Terms wording is unchanged** (restyled only, verified by a word diff). They still say `hiretrail.vercel.app` (the live site is `hiretrail.manavkaneria.me`), claim Outlook tokens are revoked at the provider (only Gmail's are) and that deletion removes "all associated data" (see the ship blockers).
 - The **og:image** is still `Dashboard.png` (the old UI) — needs a new 1200×630 image of the new page.
