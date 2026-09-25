@@ -16,13 +16,15 @@
  *  attached — the copy is only inserted if the node is really gone by the
  *  next microtask. Skipped for prefers-reduced-motion. */
 import { useCallback, useRef } from "react";
-import { EXIT_MS, prefersReducedMotion } from "../utils/motion.ts";
+import { EXIT_MS, SOFT_EXIT_MS, prefersReducedMotion } from "../utils/motion.ts";
 
 interface ExitOptions {
   /** Class on the ghost's root that plays the exit (App.css `.modal-exit`). */
   exitClass: string;
   /** Entrance-animation classes to strip, so the ghost doesn't replay them. */
   entryClasses?: string[];
+  /** How long the exit plays (ms); the ghost is removed just after. */
+  durationMs?: number;
 }
 
 /** Index path from `root` to `node`, to find the same node inside a clone. */
@@ -44,7 +46,7 @@ function follow(root: Element, path: number[]): Element | null {
   return n;
 }
 
-function leaveGhost(el: HTMLElement, { exitClass, entryClasses = [] }: ExitOptions) {
+function leaveGhost(el: HTMLElement, { exitClass, entryClasses = [], durationMs = EXIT_MS }: ExitOptions) {
   if (prefersReducedMotion()) return;
   const parent = el.parentNode;
   const next = el.nextSibling;
@@ -72,7 +74,7 @@ function leaveGhost(el: HTMLElement, { exitClass, entryClasses = [] }: ExitOptio
       const n = s.path.length ? follow(ghost, s.path) : ghost;
       if (n) { n.scrollTop = s.top; n.scrollLeft = s.left; }
     }
-    window.setTimeout(() => ghost.remove(), EXIT_MS + 60);
+    window.setTimeout(() => ghost.remove(), durationMs + 60);
   });
 }
 
@@ -92,3 +94,5 @@ export function useExitAnimation<T extends HTMLElement = HTMLDivElement>(options
 /** The exit every dialog-shaped overlay uses: backdrop fades, panel
  *  ([role=dialog] or [data-modal-panel]) fades + settles down. */
 export const MODAL_EXIT: ExitOptions = { exitClass: "modal-exit", entryClasses: ["modal-overlay-in", "animate-in"] };
+/** The soft dialog's exit: a slower fade and settle (App.css `.modal-soft-exit`). */
+export const MODAL_SOFT_EXIT: ExitOptions = { exitClass: "modal-soft-exit", entryClasses: ["modal-soft-overlay-in", "modal-soft-panel-in"], durationMs: SOFT_EXIT_MS };

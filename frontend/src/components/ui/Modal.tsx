@@ -15,7 +15,7 @@ import { useEffect, useRef, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { pushLayer, popLayer, isTopLayer, layerCount } from "./layers.ts";
-import { MODAL_EXIT, useExitAnimation } from "../../hooks/useExitAnimation.ts";
+import { MODAL_EXIT, MODAL_SOFT_EXIT, useExitAnimation } from "../../hooks/useExitAnimation.ts";
 
 const SIZES = {
   sm: "max-w-[420px]",
@@ -28,17 +28,24 @@ const FOCUSABLE =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 export function Modal({
-  onClose, size = "md", children, ariaLabel,
+  onClose, size = "md", children, ariaLabel, className = "", overlayClassName = "", motion = "default",
 }: {
   onClose: () => void;
   size?: keyof typeof SIZES;
   children: ReactNode;
   /** Accessible name; falls back to the panel's first heading. */
   ariaLabel?: string;
+  /** Extra classes on the panel — e.g. a theme scope (`theme-dark dark`). */
+  className?: string;
+  /** Extra classes on the overlay — e.g. a backdrop blur. */
+  overlayClassName?: string;
+  /** "soft": a slower, gentler arrival and departure (the sign-in sheet). */
+  motion?: "default" | "soft";
 }) {
   const idRef = useRef<symbol | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const exitRef = useExitAnimation(MODAL_EXIT);
+  const soft = motion === "soft";
+  const exitRef = useExitAnimation(soft ? MODAL_SOFT_EXIT : MODAL_EXIT);
   const restoreRef = useRef<HTMLElement | null>(null);
   const pressStartedOnOverlay = useRef(false);
 
@@ -101,7 +108,7 @@ export function Modal({
   return createPortal(
     <div
       ref={exitRef}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-scrim/50 modal-overlay-in"
+      className={`fixed inset-0 z-50 flex items-center justify-center p-4 bg-scrim/50 ${soft ? "modal-soft-overlay-in" : "modal-overlay-in"} ${overlayClassName}`}
       onMouseDown={(e) => { pressStartedOnOverlay.current = e.target === e.currentTarget; }}
       onMouseUp={(e) => {
         if (pressStartedOnOverlay.current && e.target === e.currentTarget && isTop()) onClose();
@@ -114,7 +121,7 @@ export function Modal({
         aria-modal="true"
         aria-label={ariaLabel}
         tabIndex={-1}
-        className={`w-full ${SIZES[size]} max-h-[88vh] flex flex-col bg-card border border-border rounded-2xl shadow-2xl animate-in outline-none`}
+        className={`w-full ${SIZES[size]} max-h-[88vh] flex flex-col bg-card border border-border rounded-2xl shadow-2xl ${soft ? "modal-soft-panel-in" : "animate-in"} outline-none ${className}`}
         onMouseDown={(e) => e.stopPropagation()}
         onMouseUp={(e) => e.stopPropagation()}
       >

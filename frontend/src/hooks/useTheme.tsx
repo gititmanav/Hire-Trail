@@ -17,10 +17,12 @@
  */
 import { createContext, useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { useLocation } from "react-router-dom";
+import toast from "react-hot-toast";
 import { authAPI } from "../utils/api.ts";
 import { normalizeThemePrefs, type CustomTheme, type ThemeMode, type ThemePrefs } from "../utils/preferences.ts";
 import { seedCustomTheme } from "../utils/theme.ts";
 import { clearBootCache, paintTheme, saveBootCache } from "../utils/themeDom.ts";
+import { takeLandingTheme } from "../utils/landingTheme.ts";
 import type { User } from "../types";
 
 export const DEFAULT_THEME: ThemePrefs = { mode: "light" };
@@ -195,6 +197,18 @@ function useThemeController({ user, setUser, restricted }: {
     const id = user._id;
     setUser((u) => u && { ...u, preferences: { ...u.preferences, theme: adopted } });
     authAPI.updatePreferences({ theme: adopted }).then(() => { saved.current = adopted; forgetLegacy(id); }).catch(() => { /* kept locally; retried next load */ });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, isDemo]);
+
+  // A theme the visitor built on the landing and signed up with (email or
+  // Google) becomes the new account's theme — unless it already has one.
+  // Runs after the legacy adopt above, so a fresh pick wins.
+  useEffect(() => {
+    if (!user || isDemo) return;
+    const carried = takeLandingTheme();
+    if (!carried || user.preferences?.theme) return;
+    commit(carried);
+    toast.success("Your theme is saved to your account.");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, isDemo]);
 
