@@ -26,6 +26,7 @@ import {
 import { STAGE_STRIPE_CLASS } from "../../../utils/stageStyles.ts";
 import { hasJobDescription } from "../../../utils/applicationFields.ts";
 import type { Application, Company, Contact, Deadline, Resume } from "../../../types";
+import { dayDate, dayOf, diffDaysYmd, todayYmd } from "../../../utils/dates.ts";
 
 interface Props {
   app: Application;
@@ -81,7 +82,6 @@ function Chip({
   );
 }
 
-const DAY_MS = 86_400_000;
 
 function ApplicationRowImpl({
   app, company, resume, contact, deadlines,
@@ -98,15 +98,14 @@ function ApplicationRowImpl({
   );
 
   const upcomingDeadline = useMemo(() => {
-    const now = Date.now();
     const list = deadlines
       .filter((d) => d.applicationId === app._id && !d.completed)
-      .map((d) => ({ ...d, due: new Date(d.dueDate).getTime() }))
+      .map((d) => ({ ...d, due: dayDate(d.dueDate)?.getTime() ?? NaN }))
       .filter((d) => !isNaN(d.due));
     list.sort((a, b) => a.due - b.due);
     const next = list[0];
     if (!next) return null;
-    const dueIn = Math.round((next.due - now) / DAY_MS);
+    const dueIn = diffDaysYmd(todayYmd(), dayOf(next.dueDate));
     return { type: next.type, dueIn };
   }, [deadlines, app._id]);
 

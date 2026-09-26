@@ -7,20 +7,19 @@ import { STAGE_STRIPE_CLASS } from "../../../utils/stageStyles.ts";
 import StageMenu from "../components/StageMenu.tsx";
 import { useApplicationDeadlines, useContacts, useResumes } from "../data/queries.ts";
 import type { Application, Resume, Stage } from "../../../types";
+import { dayDate, dayOf, diffDaysYmd, todayYmd } from "../../../utils/dates.ts";
 
 const SOURCE_LABEL: Record<string, string> = { manual: "Added manually", extension: "Browser extension", email: "Inbox scan" };
 const DAY = 86_400_000;
 
 function fmtDate(iso: string, withYear = true): string {
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return "—";
+  const d = dayDate(iso);
+  if (!d) return "—";
   return d.toLocaleDateString("en-US", withYear ? { month: "short", day: "numeric", year: "numeric" } : { month: "short", day: "numeric" });
 }
 
 function relativeDue(iso: string): { text: string; tone: string } {
-  const start = new Date(); start.setHours(0, 0, 0, 0);
-  const due = new Date(iso); due.setHours(0, 0, 0, 0);
-  const days = Math.round((due.getTime() - start.getTime()) / DAY);
+  const days = diffDaysYmd(todayYmd(), dayOf(iso) || todayYmd());
   if (days < 0) return { text: `${-days}d overdue`, tone: "text-red-600 dark:text-red-400" };
   if (days === 0) return { text: "Today", tone: "text-amber-700 dark:text-amber-400" };
   if (days === 1) return { text: "Tomorrow", tone: "text-amber-700 dark:text-amber-400" };

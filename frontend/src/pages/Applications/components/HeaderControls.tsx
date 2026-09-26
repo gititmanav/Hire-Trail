@@ -99,13 +99,13 @@ export function ViewSwitcher({ views, search }: { views: typeof VIEWS; search: s
 
 /* ─── Create ─── */
 
-export function CreateButton({ onClick }: { onClick: () => void }) {
+export function CreateButton({ onClick, label = "New application" }: { onClick: () => void; label?: string }) {
   return (
-    <Tooltip label="New application" shortcut="C">
+    <Tooltip label={label} shortcut="C">
       <button
         type="button"
         onClick={onClick}
-        aria-label="New application"
+        aria-label={label}
         className="w-8 h-8 inline-flex items-center justify-center rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
         <SquarePen size={15} strokeWidth={2} aria-hidden />

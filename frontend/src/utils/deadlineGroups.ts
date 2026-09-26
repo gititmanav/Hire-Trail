@@ -12,6 +12,7 @@
  * can render section headers consistently, but most callers will filter to
  * the non-empty ones. */
 import type { Deadline } from "../types";
+import { dayDate } from "./dates.ts";
 
 export type DeadlineBucket =
   | "overdue"
@@ -60,7 +61,8 @@ export function groupDeadlines(deadlines: Deadline[], now: Date = new Date()): R
       out.completed.push(d);
       continue;
     }
-    const due = startOfDay(new Date(d.dueDate));
+    // The due DAY (a picked day is stored as UTC midnight — utils/dates.ts).
+    const due = dayDate(d.dueDate) ?? startOfDay(new Date(d.dueDate));
     if (due.getTime() < today.getTime()) {
       out.overdue.push(d);
     } else if (due.getTime() === today.getTime()) {
@@ -76,7 +78,7 @@ export function groupDeadlines(deadlines: Deadline[], now: Date = new Date()): R
 
   // Within each bucket, sort by due date ascending so closer items surface first.
   for (const k of BUCKET_ORDER) {
-    out[k].sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+    out[k].sort((a, b) => (dayDate(a.dueDate)?.getTime() ?? 0) - (dayDate(b.dueDate)?.getTime() ?? 0));
   }
 
   return out;

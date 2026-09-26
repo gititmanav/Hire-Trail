@@ -122,6 +122,8 @@ router.put(
     try {
       const user = getUser(req);
       const data = { ...req.body };
+      // The form's "None" is an empty id — standalone, like create treats it.
+      if (data.applicationId === "") data.applicationId = null;
 
       if (data.dueDate) {
         data.dueDate = new Date(data.dueDate);
@@ -146,8 +148,9 @@ router.put(
       const justCompleted = prior.completed === false && deadline.completed === true;
       if (justCompleted && deadline.recurrenceDays > 0) {
         const next = new Date(deadline.dueDate);
-        next.setDate(next.getDate() + deadline.recurrenceDays);
-        await Deadline.create({
+        // UTC arithmetic: a plain day (UTC midnight) stays one on any server.
+        next.setUTCDate(next.getUTCDate() + deadline.recurrenceDays);
+        const spawned = await Deadline.create({
           userId: deadline.userId,
           applicationId: deadline.applicationId,
           type: deadline.type,
@@ -155,6 +158,9 @@ router.put(
           notes: deadline.notes,
           recurrenceDays: deadline.recurrenceDays,
         });
+        // The id lets a client's Undo remove the occurrence it just spawned.
+        res.json({ ...deadline.toObject(), nextOccurrenceId: String(spawned._id) });
+        return;
       }
 
       res.json(deadline);

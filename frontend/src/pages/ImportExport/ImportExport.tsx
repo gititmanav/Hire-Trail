@@ -6,6 +6,7 @@ import { applicationsAPI, contactsAPI } from "../../utils/api.ts";
 import { exportToCSV, parseCSV, downloadTemplate } from "../../utils/csv.ts";
 import type { Stage, Application, Contact } from "../../types";
 import DateInput from "../../components/ui/DateInput.tsx";
+import { dayOf } from "../../utils/dates.ts";
 
 const STAGES: Stage[] = ["Applied", "OA", "Interview", "Offer", "Rejected"];
 
@@ -24,8 +25,9 @@ function ExportSection() {
       if (type === "applications") {
         const res = await applicationsAPI.getAll({ limit: 999 });
         let data = res.data;
-        if (dateFrom) data = data.filter((a) => new Date(a.applicationDate) >= new Date(dateFrom));
-        if (dateTo) data = data.filter((a) => new Date(a.applicationDate) <= new Date(dateTo + "T23:59:59"));
+        // Days compare as YYYY-MM-DD strings (utils/dates.ts).
+        if (dateFrom) data = data.filter((a) => dayOf(a.applicationDate) >= dateFrom);
+        if (dateTo) data = data.filter((a) => dayOf(a.applicationDate) <= dateTo);
         if (stages.length > 0) data = data.filter((a) => stages.includes(a.stage));
         if (data.length === 0) { toast.error("No applications match your filters"); setExporting(false); return; }
         exportToCSV(data, `hiretrail-applications-${new Date().toISOString().split("T")[0]}.csv`);

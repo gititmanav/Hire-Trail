@@ -1,7 +1,7 @@
 /** Small, real-looking pieces of the app for "And everything else" — each
  *  drawn with the app's dark tokens (the chapter is dark). Decorative. */
-import { Building2, CalendarDays, Check, Clock, FileSpreadsheet, FileText, Mail, Search, Sparkles, Users } from "lucide-react";
-import { STAGE_BADGE_CLASS, STAGE_CALENDAR_COLOR } from "../../../utils/stageStyles.ts";
+import { Building2, Check, Clock, FileSpreadsheet, FileText, Mail, Search, Sparkles, Users } from "lucide-react";
+import { STAGE_BADGE_CLASS, STAGE_COLOR } from "../../../utils/stageStyles.ts";
 
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return <div className={`rounded-2xl border border-border bg-card shadow-floating overflow-hidden ${className}`}>{children}</div>;
@@ -40,35 +40,46 @@ export function SearchVignette() {
   );
 }
 
+/** A replica of the real calendar's Week scale (views/calendar): deadlines as
+ *  a type glyph + bold title, records as a stage-colour dot + company. */
 export function CalendarVignette() {
   const days = ["Mon 21", "Tue 22", "Wed 23", "Thu 24", "Fri 25"];
-  const chips: { day: number; top: number; label: string; color: { backgroundColor: string; borderColor: string } }[] = [
-    { day: 0, top: 10, label: "Applied · Linear", color: STAGE_CALENDAR_COLOR.Applied },
-    { day: 1, top: 44, label: "OA due · Airbnb", color: STAGE_CALENDAR_COLOR.OA },
-    { day: 2, top: 10, label: "Follow up · Vercel", color: STAGE_CALENDAR_COLOR.Drafting },
-    { day: 3, top: 26, label: "Interview · Stripe", color: STAGE_CALENDAR_COLOR.Interview },
-    { day: 4, top: 60, label: "Offer · Ramp", color: STAGE_CALENDAR_COLOR.Offer },
+  const items: { day: number; kind: "deadline" | "record"; title: string; meta: string; stage?: keyof typeof STAGE_COLOR; overdue?: boolean }[] = [
+    { day: 0, kind: "record", title: "Linear", meta: "Applied", stage: "Applied" },
+    { day: 0, kind: "record", title: "Figma", meta: "Applied", stage: "Applied" },
+    { day: 1, kind: "deadline", title: "OA due", meta: "Airbnb", overdue: true },
+    { day: 2, kind: "deadline", title: "Follow up", meta: "Vercel" },
+    { day: 2, kind: "record", title: "Notion", meta: "→ OA", stage: "OA" },
+    { day: 3, kind: "record", title: "Stripe", meta: "→ Interview", stage: "Interview" },
+    { day: 3, kind: "deadline", title: "Interview prep", meta: "Stripe" },
+    { day: 4, kind: "record", title: "Ramp", meta: "→ Offer", stage: "Offer" },
   ];
   return (
     <Card>
       <div className="flex items-center justify-between px-4 h-12 border-b border-border">
-        <span className="flex items-center gap-2 text-[13.5px] font-semibold text-foreground"><CalendarDays size={15} strokeWidth={1.8} className="text-muted-foreground" /> September 2026</span>
+        <span className="text-[14px] font-semibold text-foreground">September <span className="font-normal text-muted-foreground">2026</span></span>
         <span className="inline-flex items-center gap-0.5 p-0.5 rounded-lg border border-border text-[11.5px]">
-          <span className="px-2 py-0.5 rounded-md text-muted-foreground">Month</span>
+          <span className="px-2 py-0.5 rounded-md text-muted-foreground">Day</span>
           <span className="px-2 py-0.5 rounded-md bg-control text-foreground">Week</span>
+          <span className="px-2 py-0.5 rounded-md text-muted-foreground">Month</span>
         </span>
       </div>
       <div className="grid grid-cols-5">
         {days.map((d, i) => (
-          <div key={d} className={`relative h-[168px] ${i ? "border-l border-border" : ""}`}>
-            <p className={`px-2.5 pt-2 text-[11px] font-medium ${i === 3 ? "text-foreground" : "text-muted-foreground"}`}>{d}</p>
-            {chips.filter((c) => c.day === i).map((c) => (
-              <span
-                key={c.label}
-                className="absolute left-1.5 right-1.5 rounded-md px-2 py-1.5 text-[10.5px] font-semibold leading-tight text-white border"
-                style={{ top: 26 + c.top, ...c.color }}
-              >
-                {c.label}
+          <div key={d} className={`h-[168px] p-1 ${i ? "border-l border-border/70" : ""}`}>
+            <p className="flex items-center gap-1.5 px-1.5 pt-1 pb-1.5 text-[10.5px] font-medium uppercase tracking-wider text-muted-foreground">
+              {d.split(" ")[0]}
+              <span className={`text-[11px] tabular-nums ${i === 3 ? "inline-grid place-items-center h-[18px] min-w-[18px] px-1 rounded-full bg-primary text-primary-foreground font-semibold" : "text-foreground/80"}`}>{d.split(" ")[1]}</span>
+            </p>
+            {items.filter((c) => c.day === i).map((c) => (
+              <span key={c.title + c.meta} className="flex items-start gap-1.5 px-1.5 py-1 text-[11px] leading-[1.35]">
+                {c.kind === "deadline"
+                  ? <Clock size={11} strokeWidth={2} className={`mt-[2px] shrink-0 ${c.overdue ? "text-destructive" : "text-foreground/55"}`} />
+                  : <span className="mt-[5px] w-1.5 h-1.5 rounded-full shrink-0" style={{ background: STAGE_COLOR[c.stage!] }} />}
+                <span className="min-w-0">
+                  <span className={`block truncate ${c.kind === "deadline" ? `font-semibold ${c.overdue ? "text-destructive" : "text-foreground"}` : "font-medium text-foreground/85"}`}>{c.title}</span>
+                  <span className="block truncate text-[10.5px] text-muted-foreground">{c.meta}</span>
+                </span>
               </span>
             ))}
           </div>

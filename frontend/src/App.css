@@ -197,6 +197,18 @@
 .animate-in { animation: scale-in 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
 .fade-up { animation: fade-up 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
 
+/* Calendar: paging swaps a keyed grid that slides in from the direction of
+ * travel (no out-in — the old grid is simply replaced, so nothing flashes). */
+@keyframes cal-in-next { from { opacity: 0; transform: translateY(14px); } }
+@keyframes cal-in-prev { from { opacity: 0; transform: translateY(-14px); } }
+.cal-in-next { animation: cal-in-next 220ms var(--ease-out); }
+.cal-in-prev { animation: cal-in-prev 220ms var(--ease-out); }
+/* While a calendar drag is live the whole page reads as a drag — the cursor
+ * mustn't flicker back to a pointer over other chips. */
+.cal-dragging, .cal-dragging * { cursor: grabbing !important; user-select: none !important; }
+.cal-drag-denied, .cal-drag-denied * { cursor: not-allowed !important; }
+@media (prefers-reduced-motion: reduce) { .cal-in-next, .cal-in-prev { animation: none; } }
+
 /* Floating panels (ui/Popover — every dropdown): a quick fade + slight
  * scale from the trigger side on open, a quicker fade on close. The close
  * duration must stay ≤ EXIT_MS (utils/motion.ts), when the panel unmounts. */

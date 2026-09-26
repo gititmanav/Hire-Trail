@@ -61,6 +61,12 @@ export function toListParams(f: ApplicationFilters, { withStage = true } = {}): 
 
 /** Filters that narrow the set (search and status excluded — they have their
  *  own always-visible controls). Drives the Filters button badge. */
+/** Anything differs from the defaults (search and status included) — what
+ *  the Filters panel's Reset clears. */
+export function filtersChanged(f: ApplicationFilters): boolean {
+  return !!(f.q.trim() || f.status !== "active" || activeFilterCount(f));
+}
+
 export function activeFilterCount(f: ApplicationFilters): number {
   return [f.stage, f.company, f.resume, f.source].filter(Boolean).length;
 }
@@ -94,9 +100,9 @@ export function useApplicationFilters() {
     });
   }, [setParams]);
 
-  /** Clear the narrowing filters; keeps search and the Active/Archived choice. */
+  /** Back to the defaults: no search, Active, no narrowing filter. */
   const resetFilters = useCallback(() => {
-    setFilters({ stage: "", company: "", resume: "", source: "" });
+    setFilters({ q: "", status: "active", stage: "", company: "", resume: "", source: "" });
   }, [setFilters]);
 
   /** The filter portion of the query string (drops one-shot action params),

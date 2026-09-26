@@ -23,7 +23,7 @@ export function useOpenApplication(orderedIds: string[]) {
   const navigate = useNavigate();
   const location = useLocation();
   const backTo = location.pathname + location.search;
-  return useCallback((app: Application, e?: { metaKey?: boolean; ctrlKey?: boolean }) => {
+  return useCallback((app: Pick<Application, "_id">, e?: { metaKey?: boolean; ctrlKey?: boolean }) => {
     if (e?.metaKey || e?.ctrlKey) {
       window.open(`/applications/${app._id}`, "_blank", "noopener");
       return;
@@ -107,6 +107,10 @@ export function useListBehavior({ apps, archived, onOpen, onEdit }: {
     return next;
   }), []);
   const clear = useCallback(() => setSelected(new Set()), []);
+  /** Pointer and keyboard share one cursor, so J/K carry on from the row under
+   *  the pointer. A row the pointer has left stops being current: the
+   *  highlight, and what Enter / E / X act on, leave with it. */
+  const leaveRow = useCallback((idx: number) => setFocusedIndex((i) => (i === idx ? -1 : i)), []);
 
   usePageShortcuts({
     j: () => setFocusedIndex((i) => Math.min(apps.length - 1, i + 1)),
@@ -170,5 +174,5 @@ export function useListBehavior({ apps, archived, onOpen, onEdit }: {
     </>
   );
 
-  return { focusedIndex, setFocusedIndex, selected, toggle, clear, deleteOne, overlays };
+  return { focusedIndex, setFocusedIndex, leaveRow, selected, toggle, clear, deleteOne, overlays };
 }

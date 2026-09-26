@@ -1,5 +1,6 @@
 import Papa from "papaparse";
 import type { Application, Stage } from "../types";
+import { dayOf, formatDay } from "./dates.ts";
 
 const STAGES: Stage[] = ["Applied", "OA", "Interview", "Offer", "Rejected"];
 
@@ -21,7 +22,7 @@ export function exportToCSV(applications: Application[], filename = "hiretrail-a
     Role: app.role,
     Stage: app.stage,
     "Job URL": app.jobUrl || "",
-    "Application Date": new Date(app.applicationDate).toLocaleDateString("en-US"),
+    "Application Date": formatDay(dayOf(app.applicationDate), {}, "en-US"),
     Notes: app.notes || "",
   }));
 

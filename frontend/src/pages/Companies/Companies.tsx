@@ -12,21 +12,12 @@ import ResumePreview from "../../components/ResumePreview/ResumePreview.tsx";
 import EmptyState from "../../components/EmptyState/EmptyState.tsx";
 import CompanyLogo from "../../components/CompanyLogo/CompanyLogo.tsx";
 import type { Company, Application, Resume, Contact, Deadline, Stage, Pagination } from "../../types";
-import { STAGES, STAGE_BADGE_CLASS } from "../../utils/stageStyles.ts";
+import { STAGES, STAGE_BADGE_CLASS, STAGE_COLOR } from "../../utils/stageStyles.ts";
 import { companyTimeline, summarizeTimeline, compensationSummary, formatMoneyShort } from "../../utils/companyAggregates.ts";
-import { cssPalette } from "../../utils/palette.ts";
+import { dayOf, formatDay } from "../../utils/dates.ts";
 
-/** Per-stage segment color for the status breakdown bar on each company
- *  card. Pulled from the existing stage-tone palette so the bar matches the
- *  Kanban + Applications row chips. */
-const STAGE_BAR_COLOR: Record<Stage, string> = {
-  Drafting:  cssPalette("slate-400"),
-  Applied:   cssPalette("blue-500"),
-  OA:        cssPalette("amber-500"),
-  Interview: cssPalette("purple-500"),
-  Offer:     cssPalette("emerald-500"),
-  Rejected:  cssPalette("red-500"),
-};
+/** Status-bar segments use the one stage colour (utils/stageStyles). */
+const STAGE_BAR_COLOR = STAGE_COLOR;
 
 /** Per-session dedupe of logo-fetch requests so re-renders / pagination
  *  don't re-spam POST /companies/:id/logo. Mirrors the Applications page
@@ -47,7 +38,7 @@ function quickJumpUrls(company: { name: string; website?: string }) {
 }
 
 const badgeCls: Record<Stage, string> = STAGE_BADGE_CLASS;
-const fmt = (d: string) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+const fmt = (d: string) => formatDay(dayOf(d), { month: "short", day: "numeric", year: "numeric" }, "en-US");
 
 /* ─── Slide-in Panel with backdrop ─── */
 function SlidePanel({ onClose, width = "w-[420px]", children }: { onClose: () => void; width?: string; children: ReactNode }) {

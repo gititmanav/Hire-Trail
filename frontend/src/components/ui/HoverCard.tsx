@@ -8,6 +8,7 @@ import Popover from "./Popover.tsx";
 
 export default function HoverCard({
   children, content, align = "start", width = 240, openDelay = 200, closeDelay = 140, interactive = true, ariaLabel,
+  className = "inline-flex", disabled = false, closeOnClick = false,
 }: {
   /** The trigger. */
   children: ReactNode;
@@ -19,6 +20,12 @@ export default function HoverCard({
   /** false = the panel ignores the pointer (pure information). */
   interactive?: boolean;
   ariaLabel?: string;
+  /** Classes for the trigger wrapper (defaults to an inline box). */
+  className?: string;
+  /** Closed and inert (e.g. while the trigger is being dragged). */
+  disabled?: boolean;
+  /** A click on the trigger closes the card (the trigger opens something else). */
+  closeOnClick?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLSpanElement>(null);
@@ -30,15 +37,17 @@ export default function HoverCard({
   };
   const cancel = () => window.clearTimeout(timer.current);
   useEffect(() => () => window.clearTimeout(timer.current), []);
+  useEffect(() => { if (disabled) { window.clearTimeout(timer.current); setOpen(false); } }, [disabled]);
 
   return (
     <>
       <span
         ref={wrapRef}
-        className="inline-flex"
-        onPointerEnter={(e) => { if (e.pointerType === "mouse") schedule(true, openDelay); }}
+        className={className}
+        onPointerEnter={(e) => { if (e.pointerType === "mouse" && !disabled) schedule(true, openDelay); }}
         onPointerLeave={(e) => { if (e.pointerType === "mouse") schedule(false, closeDelay); }}
         onClick={(e) => {
+          if (closeOnClick) { cancel(); setOpen(false); return; }
           // Touch has no hover: a tap toggles.
           if (typeof matchMedia !== "undefined" && matchMedia("(pointer: coarse)").matches) {
             e.preventDefault();
@@ -46,7 +55,7 @@ export default function HoverCard({
             setOpen((o) => !o);
           }
         }}
-        onFocusCapture={(e) => { if ((e.target as HTMLElement).matches(":focus-visible")) schedule(true, 0); }}
+        onFocusCapture={(e) => { if (!disabled && (e.target as HTMLElement).matches(":focus-visible")) schedule(true, 0); }}
         onBlurCapture={() => schedule(false, 0)}
       >
         {children}

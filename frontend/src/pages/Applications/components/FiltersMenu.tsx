@@ -38,14 +38,16 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 export { Row as FilterRow };
 
 export default function FiltersMenu({
-  open, onOpenChange, filters, setFilters, resetFilters,
+  open, onOpenChange, filters, setFilters, onReset, canReset,
   tabCounts, stageCounts, showStage, options, resumes, display, onExport, onShortcuts,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   filters: ApplicationFilters;
   setFilters: (patch: Partial<ApplicationFilters>) => void;
-  resetFilters: () => void;
+  /** Reset everything the panel holds: every filter and this view's display options. */
+  onReset: () => void;
+  canReset: boolean;
   tabCounts?: { active: number; archived: number };
   /** Counts per stage for the current filters (shown in the stage options). */
   stageCounts?: Record<string, number>;
@@ -113,8 +115,8 @@ export default function FiltersMenu({
             action={
               <button
                 type="button"
-                onClick={resetFilters}
-                disabled={active === 0}
+                onClick={onReset}
+                disabled={!canReset}
                 className="text-[12px] font-medium text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-default focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded px-1"
               >
                 Reset

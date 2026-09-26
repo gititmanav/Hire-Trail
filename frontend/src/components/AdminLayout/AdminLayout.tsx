@@ -15,6 +15,8 @@ const SIDEBAR_COLLAPSED_KEY = "hiretrail-admin-sidebar-collapsed";
 
 export default function AdminLayout({ user, onLogout }: Props) {
   const [collapsed, toggleCollapsed] = useShellCollapse(SIDEBAR_COLLAPSED_KEY);
+  // The calendar owns its height (fills the card; the card never scrolls).
+  const fillHeight = useLocation().pathname.startsWith("/admin/calendar");
   const navigate = useNavigate();
   const location = useLocation();
   const scrollRef = useRef<HTMLElement>(null);
@@ -75,9 +77,9 @@ export default function AdminLayout({ user, onLogout }: Props) {
         <main
           ref={scrollRef}
           id={APP_SCROLL_ID}
-          className="shell-main flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-background border rounded-xl shadow-panel mr-2 mb-2"
+          className={`shell-main flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-background border rounded-xl shadow-panel mr-2 mb-2 ${fillHeight ? "flex flex-col" : ""}`}
         >
-          <div className="p-6">
+          <div className={`p-6 ${fillHeight ? "flex-1 min-h-0 flex flex-col" : ""}`}>
             <Outlet />
           </div>
         </main>

@@ -9,6 +9,7 @@ import { AnnouncementsProvider } from "../Announcements/AnnouncementsProvider.ts
 import AnnouncementBanner from "../Announcements/AnnouncementBanner.tsx";
 import { APP_SCROLL_ID } from "../../utils/scrollRoot.ts";
 import { useShellCollapse } from "../../hooks/useShellCollapse.ts";
+import { rememberAppPath } from "../../utils/returnPath.ts";
 import type { User } from "../../types";
 
 interface Props { user: User; onLogout: () => Promise<void>; }
@@ -27,9 +28,14 @@ export default function Layout({ user, onLogout }: Props) {
   // Applications views or stepping J/K through applications must not reset
   // the page or flash the fade.
   const sectionKey = location.pathname.split("/")[1] ?? "";
+  // Views that own their height (the calendar fills the card; the card never scrolls).
+  const fillHeight = location.pathname.startsWith("/applications/calendar");
 
   // Close mobile sidebar on route change
   useEffect(() => { setMobileOpen(false); }, [location.pathname]);
+
+  // Settings' "Back to HireTrail" returns to this page, filters and all.
+  useEffect(() => { rememberAppPath(location.pathname + location.search); }, [location.pathname, location.search]);
 
   // New page → start at the top. Back/forward (POP) is left alone so a list
   // can restore the exact scroll position the user left it at.
@@ -74,10 +80,10 @@ export default function Layout({ user, onLogout }: Props) {
         <main
           ref={scrollRef}
           id={APP_SCROLL_ID}
-          className="shell-main flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-background border-t border-border md:border md:rounded-xl md:shadow-panel md:mr-2 md:mb-2"
+          className={`shell-main flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-background border-t border-border md:border md:rounded-xl md:shadow-panel md:mr-2 md:mb-2 ${fillHeight ? "flex flex-col" : ""}`}
         >
           <AnnouncementBanner />
-          <div key={sectionKey} className={`p-4 md:p-6 ${fullWidth ? "" : "max-w-[1200px]"} mx-auto fade-up`}>
+          <div key={sectionKey} className={`p-4 md:p-6 ${fullWidth ? "" : "max-w-[1200px]"} mx-auto fade-up ${fillHeight ? "w-full flex-1 min-h-0 flex flex-col" : ""}`}>
             <Outlet />
           </div>
         </main>

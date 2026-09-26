@@ -36,7 +36,7 @@ export interface AppFitSummary {
  *  Returns a map keyed by application id (string). Apps with no tailorSessionId
  *  or a missing session are simply absent from the map (frontend renders the
  *  "no fit yet" state). */
-async function loadFitSummaries(
+export async function loadFitSummaries(
   apps: Array<{ _id: unknown; tailorSessionId: unknown }>,
   { withSummary = true }: { withSummary?: boolean } = {},
 ): Promise<Map<string, AppFitSummary>> {
@@ -114,7 +114,7 @@ function archivedMatch(param: unknown): Record<string, unknown> {
 /** Filters shared by the list, board, and filter-options endpoints. Every
  *  value is validated — a stale or hand-edited URL narrows nothing instead of
  *  erroring (or reaching the database as an operator). */
-function listFilters(req: Request, userId: Types.ObjectId): Record<string, unknown> {
+export function listFilters(req: Request, userId: Types.ObjectId): Record<string, unknown> {
   const match: Record<string, unknown> = { userId, ...archivedMatch(req.query.archived) };
   const search = searchRegex(req.query.search);
   if (search) match.$or = [{ company: search }, { role: search }];
@@ -434,9 +434,11 @@ router.put("/:id", validate(updateApplicationSchema), async (req: Request, res: 
     if (data.role !== undefined) existing.role = data.role;
     if (data.jobUrl !== undefined) existing.jobUrl = data.jobUrl;
     if (data.applicationDate !== undefined) {
-      // Accept YYYY-MM-DD (treated as local midnight) or ISO datetime.
+      // YYYY-MM-DD is a picked day: stored as UTC midnight (a "plain day" —
+      // see services/calendar/days.ts), whatever zone the server runs in.
+      // An ISO datetime is a moment and is stored as given.
       const d = /^\d{4}-\d{2}-\d{2}$/.test(data.applicationDate)
-        ? new Date(`${data.applicationDate}T00:00:00`)
+        ? new Date(`${data.applicationDate}T00:00:00.000Z`)
         : new Date(data.applicationDate);
       if (!isNaN(d.getTime())) existing.applicationDate = d;
     }

@@ -1,8 +1,9 @@
 import { Link } from "react-router-dom";
 import type { Application, Stage } from "../../types";
 import { STAGE_BADGE_CLASS } from "../../utils/stageStyles.ts";
+import { dayOf, formatDay } from "../../utils/dates.ts";
 const bc: Record<Stage, string> = STAGE_BADGE_CLASS;
-const fmt = (d: string) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+const fmt = (d: string) => formatDay(dayOf(d), { month: "short", day: "numeric" }, "en-US");
 interface Props { apps: Application[]; }
 export default function RecentAppsWidget({ apps }: Props) {
   if (apps.length === 0) return <div className="h-full flex flex-col items-center justify-center text-muted-foreground"><p className="text-sm mb-2">No applications yet</p><Link to="/applications" className="text-sm text-muted-foreground hover:text-foreground hover:underline">Add one</Link></div>;

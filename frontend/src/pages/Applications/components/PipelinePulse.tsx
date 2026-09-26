@@ -21,7 +21,7 @@ import { useNavigate } from "react-router-dom";
 import { HEALTH_DOT_CLASS } from "../../../utils/applicationHealth.ts";
 import type { AppHealth, NextAction } from "../../../utils/applicationHealth.ts";
 import type { Application, Stage } from "../../../types";
-import { STAGES } from "../../../utils/stageStyles.ts";
+import { STAGE_STRIPE_CLASS } from "../../../utils/stageStyles.ts";
 
 interface Props {
   app: Application;
@@ -30,14 +30,7 @@ interface Props {
   onOpen: () => void;
 }
 
-const STAGE_DOT_COLOR: Record<Stage, string> = {
-  Drafting: "bg-slate-400",
-  Applied: "bg-blue-500",
-  OA: "bg-amber-500",
-  Interview: "bg-purple-500",
-  Offer: "bg-emerald-500",
-  Rejected: "bg-red-500",
-};
+const STAGE_DOT_COLOR = STAGE_STRIPE_CLASS;
 const STAGE_DOT_RING: Record<Stage, string> = {
   Drafting: "ring-slate-300",
   Applied: "ring-blue-300",

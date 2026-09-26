@@ -1,40 +1,19 @@
 /** Deadlines filtered server-side by status tab; linked to applications when set. */
-import { useState, useEffect, useCallback, useMemo, useRef, FormEvent } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
-import {
-  AlertTriangle, Calendar, Check, ClipboardList, Clock, Heart, Mail,
-  Pencil, Plus, RefreshCw, Trash2, Users,
-} from "lucide-react";
+import { AlertTriangle, Check, Clock, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { deadlinesAPI, applicationsAPI } from "../../utils/api.ts";
 import { SkeletonTable } from "../../components/Skeleton/Skeleton.tsx";
 import EmptyState from "../../components/EmptyState/EmptyState.tsx";
 import Menu from "../../components/ui/Menu.tsx";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal.tsx";
-import { Modal, ModalHeader, ModalBody, ModalFooter } from "../../components/ui/Modal.tsx";
-import { Field, Input, Textarea } from "../../components/ui/Field.tsx";
-import Select from "../../components/ui/Select.tsx";
-import DateInput from "../../components/ui/DateInput.tsx";
-import Button from "../../components/ui/Button.tsx";
+import DeadlineFormModal, { DeadlineTypeIcon } from "../../components/DeadlineFormModal/DeadlineFormModal.tsx";
 import { useConfirm } from "../../hooks/useConfirm.ts";
-import { groupDeadlines, BUCKET_LABEL, BUCKET_ORDER, type DeadlineBucket } from "../../utils/deadlineGroups.ts";
+import { groupDeadlines, BUCKET_LABEL, BUCKET_ORDER } from "../../utils/deadlineGroups.ts";
 import CompanyLogo from "../../components/CompanyLogo/CompanyLogo.tsx";
+import { addDaysYmd, dayOf, diffDaysYmd, formatDay, parseYmd, todayYmd } from "../../utils/dates.ts";
 import type { Deadline, Application, DeadlineFormData, Pagination } from "../../types";
-
-/* Type → small icon for the row's leading tile. Falls back to a generic
- * calendar glyph for unknown / "Other" types. Each SVG inherits color so the
- * tile background can be tinted via CSS. */
-function TypeIcon({ type }: { type: string }) {
-  const t = type.toLowerCase();
-  const props = { size: 14, strokeWidth: 1.8, "aria-hidden": true as const };
-  if (t.includes("oa") || t.includes("assessment")) return <ClipboardList {...props} />;
-  if (t.includes("follow"))                          return <Mail {...props} />;
-  if (t.includes("interview"))                       return <Users {...props} />;
-  if (t.includes("offer") || t.includes("decision")) return <Check {...props} />;
-  if (t.includes("thank"))                           return <Heart {...props} />;
-  // Other / unknown → calendar
-  return <Calendar {...props} />;
-}
 
 /** Tile background tint per deadline type. Matches the Applications page
  *  fieldIcons palette so the two pages feel like one design system. */
@@ -48,9 +27,9 @@ function tileToneClass(type: string): string {
   return "bg-muted text-muted-foreground";
 }
 
-const TYPES = ["OA due date", "Follow-up reminder", "Interview prep", "Offer decision", "Thank you note", "Other"];
-const fmt = (d: string) => new Date(d).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
-const daysN = (d: string) => Math.ceil((new Date(d).getTime() - Date.now()) / 86400000);
+const fmt = (d: string) => formatDay(dayOf(d), { weekday: "short", month: "short", day: "numeric" }, "en-US");
+/** Whole calendar days from today to the due day (negative = overdue). */
+const daysN = (d: string) => diffDaysYmd(todayYmd(), dayOf(d) || todayYmd());
 const dueLabel = (d: string) => { const n = daysN(d); return n < 0 ? "Overdue" : n === 0 ? "Today" : n === 1 ? "Tomorrow" : `${n} days`; };
 const dueCls = (d: string, done: boolean) => {
   if (done) return "bg-success-light text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300";
@@ -61,88 +40,6 @@ const dueCls = (d: string, done: boolean) => {
   return "bg-muted text-muted-foreground";
 };
 const btnIcon = "w-9 h-9 flex items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted";
-
-function DeadlineFormModal({ deadline: dl, applications: apps, onSave, onClose }: { deadline: Deadline | null; applications: Application[]; onSave: (d: DeadlineFormData) => Promise<void>; onClose: () => void }) {
-  const [form, setForm] = useState<DeadlineFormData>({ applicationId: dl?.applicationId || "", type: dl?.type || "", dueDate: dl?.dueDate ? new Date(dl.dueDate).toISOString().split("T")[0] : "", notes: dl?.notes || "", recurrenceDays: dl?.recurrenceDays || 0 });
-  const [saving, setSaving] = useState(false);
-
-  return (
-    <Modal onClose={onClose} size="md" ariaLabel={dl ? "Edit deadline" : "New deadline"}>
-      <ModalHeader
-        title={dl ? "Edit deadline" : "New deadline"}
-        description="A dated to-do — interviews, assessments, follow-ups."
-        onClose={onClose}
-      />
-      <form
-        className="flex flex-col min-h-0"
-        onSubmit={(e: FormEvent) => {
-          e.preventDefault();
-          if (!form.type) return toast.error("Please select a deadline type");
-          if (!form.dueDate) return toast.error("Please pick a due date");
-          setSaving(true);
-          onSave(form).catch(() => setSaving(false));
-        }}
-      >
-        <ModalBody className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Type" required>
-              <Select
-                value={form.type}
-                onChange={(v) => setForm({ ...form, type: v })}
-                ariaLabel="Deadline type"
-                placeholder="Select a type"
-                options={TYPES.map((t) => ({ value: t, label: t }))}
-              />
-            </Field>
-            <Field label="Due date" required>
-              <DateInput
-                value={form.dueDate}
-                onChange={(v) => setForm({ ...form, dueDate: v })}
-                required
-                ariaLabel="Due date"
-              />
-            </Field>
-          </div>
-          <Field label="Application" hint="Optional — link this deadline to an application.">
-            <Select
-              value={form.applicationId || ""}
-              onChange={(v) => setForm({ ...form, applicationId: v })}
-              ariaLabel="Application"
-              placeholder="None"
-              searchable
-              searchPlaceholder="Search applications…"
-              options={[
-                { value: "", label: "None" },
-                ...apps.map((a) => ({ value: a._id, label: a.company, description: a.role })),
-              ]}
-            />
-          </Field>
-          {/* Recurrence cadence — "Follow up every 2 weeks until response." When
-           *  non-zero, the backend spawns the next occurrence automatically when
-           *  this one is completed. Leave at 0 (default) for a one-off. */}
-          <Field label="Repeat every (days)" hint="When marked complete, the next occurrence is created automatically. 0 = one-off.">
-            <Input
-              type="number"
-              min={0}
-              max={365}
-              value={form.recurrenceDays ?? 0}
-              onChange={(e) => setForm({ ...form, recurrenceDays: Math.max(0, Math.min(365, parseInt(e.target.value || "0", 10) || 0)) })}
-              placeholder="0 = one-off"
-              className="sm:w-40"
-            />
-          </Field>
-          <Field label="Notes">
-            <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Prep topics, links, who you're meeting…" />
-          </Field>
-        </ModalBody>
-        <ModalFooter>
-          <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button type="submit" variant="primary" loading={saving}>{dl ? "Save changes" : "Add deadline"}</Button>
-        </ModalFooter>
-      </form>
-    </Modal>
-  );
-}
 
 function PaginationBar({ page, pag, setPage }: { page: number; pag: Pagination; setPage: (p: number) => void }) {
   if (pag.pages <= 1) return null;
@@ -243,17 +140,12 @@ export default function Deadlines() {
    * picker. The new dueDate is computed from the *current* dueDate so chains
    * of snoozes don't collapse onto a single day. */
   const computeSnoozeDate = useCallback((d: Deadline, kind: "1d" | "3d" | "nextMon"): string => {
-    const base = new Date(d.dueDate);
-    base.setHours(12, 0, 0, 0); // noon to dodge timezone edge cases
-    if (kind === "1d") base.setDate(base.getDate() + 1);
-    else if (kind === "3d") base.setDate(base.getDate() + 3);
-    else {
-      // Next Monday — if base is already Monday, advance to following Monday.
-      const day = base.getDay(); // 0=Sun..6=Sat
-      const delta = day === 1 ? 7 : (8 - day) % 7 || 7;
-      base.setDate(base.getDate() + delta);
-    }
-    return base.toISOString();
+    const base = dayOf(d.dueDate) || todayYmd();
+    if (kind === "1d") return addDaysYmd(base, 1);
+    if (kind === "3d") return addDaysYmd(base, 3);
+    // Next Monday — if base is already Monday, advance to the following one.
+    const day = parseYmd(base)!.getDay(); // 0=Sun..6=Sat
+    return addDaysYmd(base, day === 1 ? 7 : (8 - day) % 7 || 7);
   }, []);
 
   const snooze = useCallback(async (d: Deadline, kind: "1d" | "3d" | "nextMon") => {
@@ -376,7 +268,7 @@ export default function Deadlines() {
                     {/* Type tile — icon + colored background. Matches the
                      *  Applications page's leading logo tile visually. */}
                     <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${tileToneClass(d.type)}`} aria-hidden>
-                      <TypeIcon type={d.type} />
+                      <DeadlineTypeIcon type={d.type} />
                     </div>
                     {/* Linked-application monogram so the row immediately tells
                      *  the user which job this deadline belongs to. Skipped for

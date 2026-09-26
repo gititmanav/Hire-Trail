@@ -16,9 +16,10 @@ import type {
   StorageStats, RoleDefinition, SeedResult, Notification,
   AdminGmailUser, AdminGmailStats, AdminNotificationItem, AdminNotificationStats,
   AdminMailboxUser, AdminMailboxStats, MailboxProvider,
-  BroadcastEmailItem, BroadcastRecipientType, MailerStatus,
+  BroadcastEmailItem, BroadcastRecipientType, MailerStatus, Stage,
 } from "../types";
 import type { Preferences } from "./preferences.ts";
+import type { CalendarEvent } from "./calendarGrid.ts";
 
 declare module "axios" {
   interface AxiosRequestConfig {
@@ -160,6 +161,47 @@ export const applicationsAPI = {
   unarchive: (id: string) => api.put<Application>(`/applications/${id}/unarchive`).then((r) => r.data),
 };
 
+/* ─── Calendar (GET /api/calendar) ─── */
+
+export interface CalendarParams extends Omit<ApplicationListParams, "page" | "limit" | "sort" | "order" | "fields"> {
+  from: string;
+  to: string;
+  /** The viewer's IANA zone — moments (extension saves, stage moves) land on its local day. */
+  tz: string;
+}
+
+/** One application as the calendar's hover card needs it. */
+export interface CalendarApp {
+  _id: string;
+  company: string;
+  role: string;
+  stage: Stage;
+  stageSince: string;
+  applied: string;
+  location: string;
+  salary: string;
+  jobType: string;
+  resumeId: string | null;
+  companyId: string | null;
+  archived: boolean;
+  fit: { grade: string; score: number } | null;
+  nextDeadline: { id: string; type: string; date: string } | null;
+}
+
+export interface CalendarResponse {
+  from: string;
+  to: string;
+  today: string;
+  /** Range events + every open overdue deadline + open recurring deadlines. */
+  events: CalendarEvent[];
+  applications: Record<string, CalendarApp>;
+}
+
+export const calendarAPI = {
+  get: (params: CalendarParams, config?: { quiet?: boolean; signal?: AbortSignal }) =>
+    api.get<CalendarResponse>("/calendar", { params, ...config }).then((r) => r.data),
+};
+
 export const resumesAPI = {
   getAll: () => api.get<Resume[]>("/resumes").then((r) => r.data),
   getOne: (id: string) => api.get<Resume>(`/resumes/${id}`).then((r) => r.data),
@@ -248,7 +290,7 @@ export const deadlinesAPI = {
   },
   getOne: (id: string) => api.get<Deadline>(`/deadlines/${id}`).then((r) => r.data),
   create: (data: DeadlineFormData) => api.post<Deadline>("/deadlines", data).then((r) => r.data),
-  update: (id: string, data: Partial<DeadlineFormData & { completed: boolean }>) => api.put<Deadline>(`/deadlines/${id}`, data).then((r) => r.data),
+  update: (id: string, data: Partial<DeadlineFormData & { completed: boolean }>) => api.put<Deadline & { nextOccurrenceId?: string }>(`/deadlines/${id}`, data).then((r) => r.data),
   delete: (id: string) => api.delete(`/deadlines/${id}`).then((r) => r.data),
 };
 

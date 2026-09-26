@@ -30,6 +30,7 @@ import { useMoveStage } from "../data/useMoveStage.ts";
 import { useOpenApplication } from "./shared.tsx";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Application, Stage } from "../../../types";
+import { dayOf, formatDay } from "../../../utils/dates.ts";
 
 const STAGES: Stage[] = ["Drafting", "Applied", "OA", "Interview", "Offer", "Rejected"];
 
@@ -43,7 +44,7 @@ const COLUMN: Record<Stage, { head: string; border: string; body: string }> = {
   Offer: { head: "bg-emerald-50 dark:bg-emerald-900/20", border: "border-emerald-200/60 dark:border-emerald-800/40", body: "bg-emerald-50/30 dark:bg-emerald-950/20" },
   Rejected: { head: "bg-red-50 dark:bg-red-900/20", border: "border-red-200/60 dark:border-red-800/40", body: "bg-red-50/30 dark:bg-red-950/20" },
 };
-const fmt = (d: string) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+const fmt = (d: string) => formatDay(dayOf(d), { month: "short", day: "numeric" }, "en-US");
 
 const STUCK_DAYS = 30;
 const STUCK_MIN = 3;

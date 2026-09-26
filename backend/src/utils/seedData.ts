@@ -3,7 +3,7 @@
  * Creates demo user with applications, resumes, contacts, deadlines, and companies.
  */
 import { User } from "../models/User.js";
-import { Application, STAGES, Stage } from "../models/Application.js";
+import { Application, Stage } from "../models/Application.js";
 import { Resume } from "../models/Resume.js";
 import { Contact } from "../models/Contact.js";
 import { Deadline } from "../models/Deadline.js";
@@ -148,26 +148,22 @@ export interface SeedResult {
 
 /* ------------------------- Demo date window -------------------------
  *
- * The demo data is anchored to a fixed 2026 window so the seeded apps,
- * contacts, and deadlines look "live" for whoever is poking at the app.
+ * The demo rolls with the calendar, so whoever pokes at it sees a live search
+ * whenever an admin last pressed "Run seed":
  *
- *   - applicationDate / stage history / contact.lastContactDate / resume.uploadDate:
- *       Jan 1 2026 → "today" (capped at DEMO_WINDOW_END so a future re-seed
- *       doesn't push dates past July 31).
- *   - deadline.dueDate:
- *       Jan 1 2026 → Jul 31 2026 (so a mix of overdue + upcoming surfaces in
- *       the Deadlines page and Dashboard widgets).
- *
- * If the current date falls outside this window we clamp — the demo dataset
- * is meant to look healthy regardless of when an admin presses "Run seed". */
-const DEMO_WINDOW_START = new Date("2026-01-01");
-const DEMO_WINDOW_END   = new Date("2026-07-31T23:59:59.999Z");
+ *   - applicationDate / stage history / contact.lastContactDate:
+ *       the last ~8 months → today (nothing dated in the future);
+ *   - resume.uploadDate: the first two months of that window;
+ *   - deadline.dueDate: 60 days ago → 45 days ahead, as picked days (UTC
+ *     midnight, like the deadline form stores them) — a mix of overdue,
+ *     due-today and upcoming work, a few of them repeating. */
+const DAY_MS = 86_400_000;
+const DEMO_HISTORY_DAYS = 240;
 
-function demoNow(): Date {
-  const now = new Date();
-  if (now < DEMO_WINDOW_START) return DEMO_WINDOW_START;
-  if (now > DEMO_WINDOW_END)   return DEMO_WINDOW_END;
-  return now;
+/** A random calendar day in [start, end], stored the way a picked day is. */
+function randomPlainDay(start: Date, end: Date): Date {
+  const t = randomDate(start, end).getTime();
+  return new Date(Math.floor(t / DAY_MS) * DAY_MS);
 }
 
 /** Create demo user + synthetic data. Does NOT clear existing data first. */
@@ -200,14 +196,17 @@ export async function runSeed(): Promise<SeedResult> {
     companyMap.set(c.name, company._id);
   }
 
-  // Resumes — uploaded across early 2026 so the "Added" date column looks recent.
-  const resumeUploadEnd = new Date("2026-03-01");
+  const today = new Date();
+  const windowStart = new Date(today.getTime() - DEMO_HISTORY_DAYS * DAY_MS);
+
+  // Resumes — uploaded early in the window so the "Added" column looks lived-in.
+  const resumeUploadEnd = new Date(windowStart.getTime() + 60 * DAY_MS);
   const resumeDocs = RESUME_NAMES.map((name, i) => ({
     userId,
     name,
     targetRole: RESUME_ROLES[i] || "General",
     fileName: `${name.toLowerCase().replace(/ /g, "_")}.pdf`,
-    uploadDate: randomDate(DEMO_WINDOW_START, resumeUploadEnd),
+    uploadDate: randomDate(windowStart, resumeUploadEnd),
   }));
   const resumes = await Resume.insertMany(resumeDocs);
 
@@ -224,30 +223,32 @@ export async function runSeed(): Promise<SeedResult> {
       $setOnInsert: {
         userId,
         name: PROTECTED_DEMO_RESUME.name,
-        uploadDate: randomDate(DEMO_WINDOW_START, resumeUploadEnd),
+        uploadDate: randomDate(windowStart, resumeUploadEnd),
       },
     },
     { upsert: true, new: true }
   );
   const resumeIds = [...resumes.map((r) => r._id), protectedResume._id];
 
-  // Applications — spread from Jan 1 to "today" so nothing is dated in the future.
-  // Stage-progression timestamps below also clamp to "today" so an Offer that
-  // was applied-for last week doesn't get a "stage Offer date" in July.
-  const today = demoNow();
-  const startDate = DEMO_WINDOW_START;
+  // Applications — spread across the window up to "today" so nothing is dated in
+  // the future. Stage-progression timestamps below also clamp to "today" so an
+  // Offer applied for last week doesn't get a stage date next month.
+  const startDate = windowStart;
   const endDate = today;
-  const clampStage = (d: Date): Date => (d > today ? today : d);
+  // A stage move that would land after today is squeezed into the time the
+  // application has actually had (never piled onto today itself).
+  const clampStage = (d: Date, appDate: Date, days: number): Date =>
+    d <= today ? d : new Date(appDate.getTime() + (today.getTime() - appDate.getTime()) * Math.min(0.95, days / 40));
   const appDocs = [];
   for (let i = 0; i < 650; i++) {
     const stage = weightedStage();
     const companyData = randomItem(COMPANIES);
     const appDate = randomDate(startDate, endDate);
     const stageHistory: { stage: Stage; date: Date }[] = [{ stage: "Applied", date: appDate }];
-    if (["OA", "Interview", "Offer"].includes(stage)) stageHistory.push({ stage: "OA", date: clampStage(new Date(appDate.getTime() + 7 * 86400000)) });
-    if (["Interview", "Offer"].includes(stage)) stageHistory.push({ stage: "Interview", date: clampStage(new Date(appDate.getTime() + 21 * 86400000)) });
-    if (stage === "Offer") stageHistory.push({ stage: "Offer", date: clampStage(new Date(appDate.getTime() + 35 * 86400000)) });
-    if (stage === "Rejected") stageHistory.push({ stage: "Rejected", date: clampStage(new Date(appDate.getTime() + (Math.floor(Math.random() * 30) + 3) * 86400000)) });
+    if (["OA", "Interview", "Offer"].includes(stage)) stageHistory.push({ stage: "OA", date: clampStage(new Date(appDate.getTime() + 7 * 86400000), appDate, 7) });
+    if (["Interview", "Offer"].includes(stage)) stageHistory.push({ stage: "Interview", date: clampStage(new Date(appDate.getTime() + 21 * 86400000), appDate, 21) });
+    if (stage === "Offer") stageHistory.push({ stage: "Offer", date: clampStage(new Date(appDate.getTime() + 35 * 86400000), appDate, 35) });
+    if (stage === "Rejected") { const days = Math.floor(Math.random() * 30) + 3; stageHistory.push({ stage: "Rejected", date: clampStage(new Date(appDate.getTime() + days * 86400000), appDate, days) }); }
     appDocs.push({
       userId,
       company: companyData.name,
@@ -331,7 +332,7 @@ export async function runSeed(): Promise<SeedResult> {
       role: randomItem(CONTACT_ROLES_LIST),
       linkedinUrl: `https://linkedin.com/in/person-${1000 + i}`,
       connectionSource: randomItem(CONNECTION_SOURCES),
-      lastContactDate: randomDate(DEMO_WINDOW_START, today),
+      lastContactDate: randomDate(windowStart, today),
       notes: Math.random() > 0.5 ? "Great conversation, will follow up next week" : "",
     });
   }
@@ -341,7 +342,7 @@ export async function runSeed(): Promise<SeedResult> {
   const appIds = (await Application.find({ userId }).select("_id").lean()).map((a) => a._id);
   const deadlineDocs = [];
   for (let i = 0; i < 180; i++) {
-    const dueDate = randomDate(DEMO_WINDOW_START, DEMO_WINDOW_END);
+    const dueDate = randomPlainDay(new Date(today.getTime() - 60 * DAY_MS), new Date(today.getTime() + 45 * DAY_MS));
     // Past deadlines are more likely to be completed; future deadlines stay open.
     // Keeps the Deadlines page realistic: overdue items are mostly checked off,
     // and the user has a visible upcoming workload.
@@ -350,6 +351,8 @@ export async function runSeed(): Promise<SeedResult> {
       userId, applicationId: Math.random() > 0.3 ? randomItem(appIds) : null,
       type: randomItem(DEADLINE_TYPES), dueDate,
       completed,
+      // A few follow-ups repeat, so the calendar shows its repeat projections.
+      recurrenceDays: i % 30 === 0 ? 7 : i % 45 === 1 ? 14 : 0,
       notes: Math.random() > 0.5 ? "Check email for details" : "",
     });
   }

@@ -58,7 +58,7 @@ export default function ClassicList() {
   const ids = useMemo(() => apps.map((a) => a._id), [apps]);
   const open = useOpenApplication(ids);
   const resolveCompany = useCompanyResolver(apps);
-  const { focusedIndex, setFocusedIndex, selected, toggle, deleteOne, overlays } = useListBehavior({
+  const { focusedIndex, setFocusedIndex, leaveRow, selected, toggle, deleteOne, overlays } = useListBehavior({
     apps, archived: filters.status === "archived", onOpen: (a) => open(a), onEdit: shell.openEdit,
   });
   useRestoreListScroll(!isPending);
@@ -74,7 +74,7 @@ export default function ClassicList() {
   }, [apps, shell.groupByCompany]);
 
   const row = (a: Application, idx: number, stagger = true) => (
-    <div key={a._id} data-row-index={idx} onMouseEnter={() => setFocusedIndex(idx)} style={{ scrollMarginTop: "var(--page-header-h, 0px)" }}>
+    <div key={a._id} data-row-index={idx} onMouseEnter={() => setFocusedIndex(idx)} onMouseLeave={() => leaveRow(idx)} style={{ scrollMarginTop: "var(--page-header-h, 0px)" }}>
       <ApplicationRow
         app={a}
         company={resolveCompany(a)}

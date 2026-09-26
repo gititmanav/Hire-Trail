@@ -7,6 +7,7 @@
 import { useMemo, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { navTone } from "../../components/Sidebar/navParts.tsx";
+import { appReturnPath } from "../../utils/returnPath.ts";
 import {
   ArrowLeft, ClipboardList, Mail, Palette, Search, Sparkles, User as UserIcon,
   type LucideIcon,
@@ -66,7 +67,7 @@ export default function SettingsLayout() {
         <div className="px-2 pt-3">
           <button
             type="button"
-            onClick={() => navigate("/")}
+            onClick={() => navigate(appReturnPath())}
             className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground transition-colors duration-150"
           >
             <ArrowLeft size={15} strokeWidth={1.8} />

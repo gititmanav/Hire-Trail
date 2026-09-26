@@ -56,14 +56,13 @@ const AIKeyNudges = lazy(() => import("./components/AIKeyNudges/AIKeyNudges.tsx"
 // from a post-mount warmer to preload chunks the sidebar links to. Idempotent:
 // the underlying module cache means calling the import a second time is free.
 const loadBoardView = () => import("./pages/Applications/views/BoardView.tsx");
-const loadCalendarView = () => import("./pages/Applications/views/CalendarView.tsx");
+const loadCalendarView = () => import("./pages/Applications/views/calendar/CalendarView.tsx");
 const loadApplicationDetail = () => import("./pages/Applications/ApplicationDetailPage.tsx");
 const loadJobSearch = () => import("./pages/JobSearch/JobSearch.tsx");
 const loadResumes   = () => import("./pages/Resumes/Resumes.tsx");
 const loadContacts  = () => import("./pages/Contacts/Contacts.tsx");
 const loadCompanies = () => import("./pages/Companies/Companies.tsx");
 const loadDeadlines = () => import("./pages/Deadlines/Deadlines.tsx");
-const loadCalendar  = () => import("./pages/Calendar/Calendar.tsx");
 const loadImport    = () => import("./pages/ImportExport/ImportExport.tsx");
 const loadProfile   = () => import("./pages/Profile/Profile.tsx");
 const loadSettingsLayout = () => import("./pages/Settings/SettingsLayout.tsx");
@@ -80,7 +79,6 @@ const Resumes      = lazy(loadResumes);
 const Contacts     = lazy(loadContacts);
 const Companies    = lazy(loadCompanies);
 const Deadlines    = lazy(loadDeadlines);
-const CalendarPage = lazy(loadCalendar);
 const ImportExport = lazy(loadImport);
 const Profile      = lazy(loadProfile);
 const SettingsLayout = lazy(loadSettingsLayout);
@@ -108,6 +106,7 @@ function preloadSidebarRoutes(): void {
 // Admin routes — lazy-loaded so non-admin users don't ship the admin bundle.
 // Each route is its own chunk; vite collocates small ones automatically.
 const AdminDashboard      = lazy(() => import("./pages/Admin/AdminDashboard.tsx"));
+const AdminCalendar       = lazy(() => import("./pages/Admin/AdminCalendar.tsx"));
 const AuditLogs           = lazy(() => import("./pages/Admin/AuditLogs.tsx"));
 const ContentModeration   = lazy(() => import("./pages/Admin/ContentModeration.tsx"));
 const StorageManagement   = lazy(() => import("./pages/Admin/StorageManagement.tsx"));
@@ -263,7 +262,7 @@ function App() {
             <Route path="/admin/feedback" element={<FeedbackInbox />} />
             <Route path="/admin/bugs" element={<BugReports />} />
             <Route path="/admin/broadcasts" element={<Broadcasts />} />
-            <Route path="/admin/calendar" element={<CalendarPage />} />
+            <Route path="/admin/calendar" element={<AdminCalendar />} />
           </Route>
 
           {/* Main app layout */}

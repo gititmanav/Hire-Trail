@@ -11,6 +11,7 @@ import { Search } from "lucide-react";
 import { applicationsAPI, companiesAPI, contactsAPI, deadlinesAPI } from "../../utils/api.ts";
 import type { Application, Company, Contact, Deadline } from "../../types";
 import { MODAL_EXIT, useExitAnimation } from "../../hooks/useExitAnimation.ts";
+import { dayOf, formatDay } from "../../utils/dates.ts";
 
 type ResultKind = "application" | "company" | "contact" | "deadline";
 
@@ -93,7 +94,7 @@ export default function GlobalSearch() {
           kind: "application",
           id: a._id,
           title: `${a.role} · ${a.company}`,
-          subtitle: `${a.stage} · ${new Date(a.applicationDate).toLocaleDateString()}`,
+          subtitle: `${a.stage} · ${formatDay(dayOf(a.applicationDate), {})}`,
           route: `/applications?focus=${a._id}`,
         }));
 
@@ -118,7 +119,7 @@ export default function GlobalSearch() {
           kind: "deadline",
           id: d._id,
           title: d.notes || d.type,
-          subtitle: `Due ${new Date(d.dueDate).toLocaleDateString()}`,
+          subtitle: `Due ${formatDay(dayOf(d.dueDate), {})}`,
           route: `/deadlines?focus=${d._id}`,
         }));
 

@@ -69,6 +69,11 @@ const deadlineSchema = new Schema<IDeadline>(
 );
 
 deadlineSchema.index({ userId: 1, dueDate: 1 });
-deadlineSchema.index({ userId: 1, completed: 1 });
+// Open deadlines by due date — the calendar's range / overdue / recurring
+// reads and the Deadlines tabs. Prefix-compatible with the old
+// {userId, completed} index it replaces (drop that one in Atlas by hand).
+deadlineSchema.index({ userId: 1, completed: 1, dueDate: 1 });
+// "Next deadline" per application (calendar hover card, follow-up prompts).
+deadlineSchema.index({ userId: 1, applicationId: 1, completed: 1, dueDate: 1 });
 
 export const Deadline = mongoose.model<IDeadline>("Deadline", deadlineSchema);

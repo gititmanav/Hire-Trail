@@ -235,6 +235,8 @@ const applicationSchema = new Schema<IApplication>(
 // Compound indexes for common queries
 applicationSchema.index({ userId: 1, stage: 1 });
 applicationSchema.index({ userId: 1, applicationDate: -1 });
+// Calendar: applications that entered a stage inside a date range.
+applicationSchema.index({ userId: 1, "stageHistory.date": 1 });
 applicationSchema.index({ userId: 1, resumeId: 1 });
 // Serves the list's default query (tab + newest first) straight from the index;
 // its {userId, archived} prefix also covers every tab-only lookup.

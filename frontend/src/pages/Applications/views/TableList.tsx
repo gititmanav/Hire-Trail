@@ -25,6 +25,7 @@ import { useMoveStage } from "../data/useMoveStage.ts";
 import { useCompanyResolver, useListBehavior, useOpenApplication, useRestoreListScroll } from "./shared.tsx";
 import { COLUMNS, type ColumnDef, type ColumnId } from "./table/columns.ts";
 import type { Application, Company, Deadline, Resume, Stage } from "../../../types";
+import { dayDate, dayOf, diffDaysYmd, todayYmd } from "../../../utils/dates.ts";
 
 const GRADE_TONE: Record<string, string> = {
   A: "text-emerald-700 bg-emerald-50 ring-emerald-200 dark:text-emerald-300 dark:bg-emerald-900/30 dark:ring-emerald-800/60",
@@ -38,7 +39,7 @@ const SOURCE_LABEL: Record<string, string> = { manual: "Manual", extension: "Ext
 
 const thisYear = new Date().getFullYear();
 function shortDate(iso: string): string {
-  const d = new Date(iso);
+  const d = dayDate(iso) ?? new Date(NaN);
   if (isNaN(d.getTime())) return "—";
   return d.toLocaleDateString("en-US", d.getFullYear() === thisYear ? { month: "short", day: "numeric" } : { month: "short", day: "numeric", year: "numeric" });
 }
@@ -63,11 +64,12 @@ interface RowProps {
   onOpen: (app: Application, e: React.MouseEvent) => void;
   onToggle: (id: string) => void;
   onFocus: (index: number) => void;
+  onLeave: (index: number) => void;
   onMove: (app: Application, stage: Stage) => void;
 }
 
 const TableRow = memo(function TableRow({
-  app, index, columns, template, company, resume, deadline, focused, selected, selectionActive, onOpen, onToggle, onFocus, onMove,
+  app, index, columns, template, company, resume, deadline, focused, selected, selectionActive, onOpen, onToggle, onFocus, onLeave, onMove,
 }: RowProps) {
   const health = computeAppHealth(app);
   // Colour is reserved for real dates: a deadline due within 3 days is amber,
@@ -75,8 +77,8 @@ const TableRow = memo(function TableRow({
   // rows carry one, colouring them all would say nothing.
   const next: { text: string; tone: string } | null = deadline
     ? (() => {
-        const ms = new Date(deadline.dueDate).getTime() - Date.now();
-        const tone = ms < 0 ? "text-red-600 dark:text-red-400" : ms < 3 * 86_400_000 ? "text-amber-700 dark:text-amber-400" : "text-foreground/85";
+        const days = diffDaysYmd(todayYmd(), dayOf(deadline.dueDate) || todayYmd());
+        const tone = days < 0 ? "text-red-600 dark:text-red-400" : days < 3 ? "text-amber-700 dark:text-amber-400" : "text-foreground/85";
         return { text: `${deadline.type} · ${shortDate(deadline.dueDate)}`, tone };
       })()
     : (() => {
@@ -150,6 +152,7 @@ const TableRow = memo(function TableRow({
       aria-selected={selected}
       tabIndex={focused ? 0 : -1}
       onMouseEnter={() => onFocus(index)}
+      onMouseLeave={() => onLeave(index)}
       onClick={(e) => {
         // Portaled menus bubble through React; only clicks physically inside
         // the row open it.
@@ -317,7 +320,7 @@ export default function TableList() {
   const orderedIds = useMemo(() => visible.map((a) => a._id), [visible]);
   const open = useOpenApplication(orderedIds);
   const resolveCompany = useCompanyResolver(visible);
-  const { focusedIndex, setFocusedIndex, selected, toggle, overlays } = useListBehavior({
+  const { focusedIndex, setFocusedIndex, leaveRow, selected, toggle, overlays } = useListBehavior({
     apps: visible, archived: filters.status === "archived", onOpen: (a) => open(a), onEdit: shell.openEdit,
   });
   useRestoreListScroll(!isPending);
@@ -329,7 +332,7 @@ export default function TableList() {
     for (const d of deadlines) {
       if (!d.applicationId || d.completed) continue;
       const cur = m.get(d.applicationId);
-      if (!cur || new Date(d.dueDate) < new Date(cur.dueDate)) m.set(d.applicationId, d);
+      if (!cur || dayOf(d.dueDate) < dayOf(cur.dueDate)) m.set(d.applicationId, d);
     }
     return m;
   }, [deadlines]);
@@ -394,6 +397,7 @@ export default function TableList() {
                         onOpen={open}
                         onToggle={toggle}
                         onFocus={setFocusedIndex}
+                        onLeave={leaveRow}
                         onMove={moveStage}
                       />
                     );

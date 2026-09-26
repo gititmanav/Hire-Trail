@@ -14,17 +14,11 @@ import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { ChevronLeft, Check, ArrowRight, Mail } from "lucide-react";
 import { emailAPI, type ScanCandidate, type ScanJob } from "../../utils/api.ts";
+import { STAGE_TONE_CLASS } from "../../utils/stageStyles.ts";
 
 const POLL_MS = 3500;
 
-const STAGE_TONE: Record<ScanCandidate["inferredStage"], { bg: string; text: string; border: string }> = {
-  Drafting:  { bg: "bg-slate-100 dark:bg-slate-800",     text: "text-slate-700 dark:text-slate-200",   border: "border-slate-200 dark:border-slate-700" },
-  Applied:   { bg: "bg-blue-50 dark:bg-blue-950/40",     text: "text-blue-700 dark:text-blue-300",     border: "border-blue-200 dark:border-blue-900" },
-  OA:        { bg: "bg-amber-50 dark:bg-amber-950/40",   text: "text-amber-700 dark:text-amber-300",   border: "border-amber-200 dark:border-amber-900" },
-  Interview: { bg: "bg-violet-50 dark:bg-violet-950/40", text: "text-violet-700 dark:text-violet-300", border: "border-violet-200 dark:border-violet-900" },
-  Offer:     { bg: "bg-emerald-50 dark:bg-emerald-950/40", text: "text-emerald-700 dark:text-emerald-300", border: "border-emerald-200 dark:border-emerald-900" },
-  Rejected:  { bg: "bg-rose-50 dark:bg-rose-950/40",     text: "text-rose-700 dark:text-rose-300",     border: "border-rose-200 dark:border-rose-900" },
-};
+const STAGE_TONE = STAGE_TONE_CLASS;
 
 const CONFIDENCE_LABEL: Record<ScanCandidate["confidence"], string> = {
   low: "Low confidence",

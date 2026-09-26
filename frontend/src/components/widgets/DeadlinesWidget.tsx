@@ -1,6 +1,8 @@
 import { Link } from "react-router-dom";
 import type { Deadline } from "../../types";
-const dn = (d: string) => Math.ceil((new Date(d).getTime() - Date.now()) / 86400000);
+import { dayOf, diffDaysYmd, todayYmd } from "../../utils/dates.ts";
+/** Whole days from today to the due day (utils/dates.ts — no timezone shifts). */
+const dn = (d: string) => diffDaysYmd(todayYmd(), dayOf(d) || todayYmd());
 const dl = (d: string) => { const n = dn(d); return n === 0 ? "Today" : n === 1 ? "Tomorrow" : `${n}d`; };
 const dc = (d: string) => { const n = dn(d); if (n < 0) return "text-danger font-bold"; if (n <= 2) return "text-warning font-bold"; if (n <= 7) return "text-amber-700 dark:text-amber-300 font-medium"; return "text-muted-foreground"; };
 interface Props { deadlines: Deadline[]; }

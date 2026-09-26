@@ -4,7 +4,6 @@ import { Link } from "react-router-dom";
 import { Building2, ChevronDown, Plus, Bookmark, Info, Lock, Unlock, LayoutGrid } from "lucide-react";
 import toast from "react-hot-toast";
 import { UserContext } from "../../App.tsx";
-import type { EventInput } from "@fullcalendar/core";
 import { applicationsAPI, authAPI, contactsAPI, deadlinesAPI, resumesAPI } from "../../utils/api.ts";
 import StageSuggestionsCard from "../../components/StageSuggestionsCard/StageSuggestionsCard.tsx";
 import { useWidgetLayout, ALL_WIDGETS } from "../../hooks/useWidgetLayout.ts";
@@ -26,12 +25,12 @@ const ResumePerformanceWidget = lazy(() => import("../../components/widgets/Resu
 const RecentAppsWidget        = lazy(() => import("../../components/widgets/RecentAppsWidget.tsx"));
 const DeadlinesWidget         = lazy(() => import("../../components/widgets/DeadlinesWidget.tsx"));
 const FollowUpWidget          = lazy(() => import("../../components/widgets/FollowUpWidget.tsx"));
-const MiniCalendarWidget      = lazy(() => import("../../components/widgets/MiniCalendarWidget.tsx"));
+const DashboardCalendarCard   = lazy(() => import("../../components/widgets/DashboardCalendarCard.tsx"));
 import GuidedTour from "../../components/GuidedTour/GuidedTour.tsx";
 import { SkeletonStats, SkeletonTable } from "../../components/Skeleton/Skeleton.tsx";
 import { STAGES, STAGE_STRIPE_CLASS } from "../../utils/stageStyles.ts";
 import { buildAnalyticsFromApplications, filterDashboardApplications, getCompanyCounts, getDashboardCompanies, getRecentApplications, getStageCounts } from "../../utils/dashboardInsights.ts";
-import { buildCalendarEvents } from "../../utils/calendarEvents.ts";
+import { dayOf, todayYmd } from "../../utils/dates.ts";
 import { computeActivityStreak, computeWeeklyCapacity } from "../../utils/dashboardSignals.ts";
 import StreakCard from "./components/StreakCard.tsx";
 import WeeklyCapacityCard from "./components/WeeklyCapacityCard.tsx";
@@ -57,7 +56,6 @@ export default function Dashboard() {
   const [archiving, setArchiving] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState("All");
   const [selectedStage, setSelectedStage] = useState<Stage | "All">("All");
-  const [calendarEvents, setCalendarEvents] = useState<EventInput[]>([]);
 
   const handleTourComplete = useCallback(async () => {
     try {
@@ -116,21 +114,11 @@ export default function Dashboard() {
       });
       setStaleApps(stale);
 
-      // Compare dates as YYYY-MM-DD strings to avoid timezone shifts
-      const todayStr = new Date().toLocaleDateString("en-CA"); // "YYYY-MM-DD" format
+      // Due days as YYYY-MM-DD strings (utils/dates.ts) — no timezone shifts.
+      const todayStr = todayYmd();
       setDeadlines(
-        dlAll.filter((d) => {
-          if (d.completed) return false;
-          const dueStr = d.dueDate.slice(0, 10); // "YYYY-MM-DD" from ISO string
-          return dueStr >= todayStr;
-        })
-          .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()).slice(0, 8)
-      );
-      setCalendarEvents(
-        buildCalendarEvents({
-          applications: allApps,
-          deadlines: dlAll as Deadline[],
-        })
+        dlAll.filter((d) => !d.completed && dayOf(d.dueDate) >= todayStr)
+          .sort((a, b) => (dayOf(a.dueDate) < dayOf(b.dueDate) ? -1 : dayOf(a.dueDate) > dayOf(b.dueDate) ? 1 : 0)).slice(0, 8)
       );
     } catch { /* swallow */ } finally { setLoading(false); }
   }, []);
@@ -199,7 +187,7 @@ export default function Dashboard() {
       case "recent-apps": return <RecentAppsWidget apps={filteredRecentApps} />;
       case "deadlines": return <DeadlinesWidget deadlines={deadlines} />;
       case "follow-ups": return <FollowUpWidget contacts={followUpContacts} onFollowUp={handleFollowUp} onSnooze={handleSnooze} />;
-      case "mini-calendar": return <MiniCalendarWidget events={calendarEvents} />;
+      case "mini-calendar": return <DashboardCalendarCard />;
       default: return null;
     }
   };

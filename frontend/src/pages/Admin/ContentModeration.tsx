@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import toast from "react-hot-toast";
 import { adminAPI } from "../../utils/api";
 import type { Application, Contact, Deadline, Resume, Pagination } from "../../types";
+import { STAGE_BADGE_CLASS } from "../../utils/stageStyles.ts";
+import { dayOf, formatDay } from "../../utils/dates.ts";
 
 type Tab = "applications" | "contacts" | "deadlines" | "resumes";
 
@@ -14,13 +16,7 @@ const tabs: { key: Tab; label: string }[] = [
   { key: "resumes", label: "Resumes" },
 ];
 
-const stageBadge: Record<string, string> = {
-  Applied: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
-  OA: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300",
-  Interview: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
-  Offer: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
-  Rejected: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
-};
+const stageBadge: Record<string, string> = STAGE_BADGE_CLASS;
 
 interface TabState<T> {
   data: T[];
@@ -233,7 +229,7 @@ function ApplicationsTable({ data, loading }: { data: WithUser<Application>[]; l
             <td className="px-4 py-3 text-muted-foreground">{a.location || "—"}</td>
             <td className="px-4 py-3 text-muted-foreground">{a.salary || "—"}</td>
             <td className="px-4 py-3 text-muted-foreground">{a.jobType || "—"}</td>
-            <td className="px-4 py-3 text-muted-foreground">{new Date(a.applicationDate).toLocaleDateString()}</td>
+            <td className="px-4 py-3 text-muted-foreground">{formatDay(dayOf(a.applicationDate), {})}</td>
           </tr>
         ))}
       </tbody>
@@ -294,7 +290,7 @@ function DeadlinesTable({ data, loading }: { data: WithUser<Deadline>[]; loading
           <tr key={d._id} className="border-b border-border hover:bg-muted">
             <td className="px-4 py-3 text-foreground">{d.userId?.name || "Unknown"}</td>
             <td className="px-4 py-3 text-secondary-foreground">{d.type}</td>
-            <td className="px-4 py-3 text-muted-foreground">{new Date(d.dueDate).toLocaleDateString()}</td>
+            <td className="px-4 py-3 text-muted-foreground">{formatDay(dayOf(d.dueDate), {})}</td>
             <td className="px-4 py-3">
               <span
                 className={`text-xs font-medium px-2 py-0.5 rounded-full ${

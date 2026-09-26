@@ -8,6 +8,7 @@
  * Interview last week is healthy, not stale.
  */
 import type { Application, Contact, Deadline, Stage } from "../types";
+import { dayDate } from "./dates.ts";
 
 export type HealthTone = "fresh" | "warm" | "cooling" | "stale" | "neutral";
 
@@ -53,7 +54,7 @@ export function lastStageChangeDate(app: Application): Date {
     const last = app.stageHistory[app.stageHistory.length - 1];
     if (last?.date) return new Date(last.date);
   }
-  return new Date(app.applicationDate);
+  return dayDate(app.applicationDate) ?? new Date(app.applicationDate);
 }
 
 export function daysSinceLastStageChange(app: Application, now: Date = new Date()): number {
@@ -127,7 +128,7 @@ export function suggestNextAction(app: Application, ctx: NextActionContext = {})
   const days = daysSinceLastStageChange(app, now);
   const upcomingDeadlines = (ctx.deadlines ?? [])
     .filter((d) => d.applicationId === app._id && !d.completed)
-    .map((d) => ({ ...d, due: new Date(d.dueDate) }))
+    .map((d) => ({ ...d, due: dayDate(d.dueDate) ?? new Date(NaN) }))
     .filter((d) => !isNaN(d.due.getTime()))
     .sort((a, b) => a.due.getTime() - b.due.getTime());
 

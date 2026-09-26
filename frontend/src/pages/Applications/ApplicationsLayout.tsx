@@ -32,10 +32,11 @@ import ShortcutsModal from "./components/ShortcutsModal.tsx";
 import ApplicationTailorDrawer from "./ApplicationTailorDrawer.tsx";
 import ImportModal from "../../components/ImportModal/ImportModal.tsx";
 import { useQueryClient } from "@tanstack/react-query";
-import { useApplicationFilters, toListParams } from "./data/filters.ts";
+import { useApplicationFilters, toListParams, filtersChanged } from "./data/filters.ts";
 import { useAllApplications, useApplicationsPage, useFilterOptions, useResumes } from "./data/queries.ts";
 import { OPTIONAL_COLUMNS, type ColumnId, type TableGrouping } from "./views/table/columns.ts";
 import type { Application } from "../../types";
+import { DEFAULT_SHOW, isCalendarShow, type CalendarShow } from "./views/calendar/data.ts";
 
 export type Density = "comfortable" | "compact";
 
@@ -50,6 +51,10 @@ export interface ApplicationsShell {
   openTailor: (applicationId: string) => void;
   openShortcuts: () => void;
   openImport: () => void;
+  /** Calendar: which kinds of event show (Display options). */
+  calendarShow: CalendarShow;
+  /** Calendar: what "create" does there (a new deadline on the focused day). */
+  registerCalendarCreate: (fn: (() => void) | null) => void;
 }
 
 export function useApplicationsShell() {
@@ -75,6 +80,7 @@ export default function ApplicationsLayout() {
   const [density, setDensity] = usePersistentState<Density>("hiretrail-apps-density", "comfortable", oneOf(["comfortable", "compact"] as const));
   const [groupByCompany, setGroupByCompany] = usePersistentState<boolean>("hiretrail-apps-group-by-company-v2", false, isBoolean);
   const [tableGrouping, setTableGrouping] = usePersistentState<TableGrouping>("hiretrail-apps-table-grouping", "stage", oneOf(["stage", "company", "none"] as const));
+  const [calendarShow, setCalendarShow] = usePersistentState<CalendarShow>("hiretrail-cal-show", DEFAULT_SHOW, isCalendarShow);
   const [hiddenColumns, setHiddenColumns] = usePersistentState<ColumnId[]>(
     "hiretrail-apps-table-hidden-columns", [],
     (v): v is ColumnId[] => Array.isArray(v) && v.every((c) => OPTIONAL_COLUMNS.some((o) => o.id === c)),
@@ -94,6 +100,13 @@ export default function ApplicationsLayout() {
   const openTailor = useCallback((id: string) => setTailorAppId(id), []);
   const openShortcuts = useCallback(() => setShortcutsOpen(true), []);
   const openImport = useCallback(() => setImportOpen(true), []);
+  // In the Calendar view "create" means a new deadline; the view registers how.
+  const calendarCreate = useRef<(() => void) | null>(null);
+  const registerCalendarCreate = useCallback((fn: (() => void) | null) => { calendarCreate.current = fn; }, []);
+  const create = useCallback(() => {
+    if (view === "calendar" && calendarCreate.current) calendarCreate.current();
+    else openCreate();
+  }, [view, openCreate]);
 
   /* ─── Data for the header + Filters panel (shares the active view's cache) ─── */
   const listParams = useMemo(() => toListParams(filters), [filters]);
@@ -144,8 +157,8 @@ export default function ApplicationsLayout() {
   const views = VIEWS.filter((v) => v.key !== "board" || isEnabled("feature_kanban"));
   usePageShortcuts({
     "/": () => searchRef.current?.focus(),
-    f: () => { if (view === "calendar") return false; setFiltersOpen(true); },
-    c: () => openCreate(),
+    f: () => setFiltersOpen(true),
+    c: () => create(),
     ...Object.fromEntries(views.map((v) => [v.shortcut, () => navigate({ pathname: v.path, search: filterSearch })])),
   });
 
@@ -161,9 +174,50 @@ export default function ApplicationsLayout() {
     }
   };
 
+  /* ─── Reset: every filter + the current view's display options ─── */
+  const displayChanged =
+    view === "calendar" ? !(calendarShow.deadline && calendarShow.applied && calendarShow.stage)
+    : view === "list" && design === "classic" ? density !== "comfortable" || groupByCompany
+    : view === "list" ? tableGrouping !== "stage" || hiddenColumns.length > 0
+    : false;
+  const canReset = filtersChanged(filters) || displayChanged;
+  const resetAll = () => {
+    resetFilters();
+    if (view === "calendar") setCalendarShow(DEFAULT_SHOW);
+    else if (view === "list" && design === "classic") { setDensity("comfortable"); setGroupByCompany(false); }
+    else if (view === "list") { setTableGrouping("stage"); setHiddenColumns([]); }
+  };
+
   /* ─── Display options per view ─── */
   let display: React.ReactNode = null;
-  if (view === "list" && design === "classic") {
+  if (view === "calendar") {
+    const kinds: { key: keyof CalendarShow; label: string }[] = [
+      { key: "deadline", label: "Deadlines" }, { key: "applied", label: "Applied" }, { key: "stage", label: "Stage changes" },
+    ];
+    display = (
+      <div className="px-2.5 pt-1.5 pb-1">
+        <span className="block text-[13px] text-foreground mb-2">Show</span>
+        <div className="flex flex-wrap gap-1.5">
+          {kinds.map((k) => {
+            const on = calendarShow[k.key];
+            return (
+              <button
+                key={k.key}
+                type="button"
+                aria-pressed={on}
+                onClick={() => setCalendarShow({ ...calendarShow, [k.key]: !on })}
+                className={`h-7 px-2.5 rounded-full text-[12px] font-medium border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                  on ? "bg-control border-border text-foreground" : "border-dashed border-border text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {k.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  } else if (view === "list" && design === "classic") {
     display = (
       <>
         <FilterRow label="Density">
@@ -210,45 +264,48 @@ export default function ApplicationsLayout() {
   const context: ApplicationsShell = {
     design, density, groupByCompany, tableGrouping, hiddenColumns,
     openCreate, openEdit, openTailor, openShortcuts, openImport,
+    calendarShow, registerCalendarCreate,
   };
 
   // Classic keeps its original 1200px column; every other view uses the width.
   const constrained = view === "list" && design === "classic";
 
+  // The calendar owns its height: the page never scrolls, the grid fills the card.
+  const rootClass = constrained ? "max-w-[1200px] mx-auto" : view === "calendar" ? "flex-1 min-h-[560px] flex flex-col" : "";
+
   return (
-    <div className={constrained ? "max-w-[1200px] mx-auto" : ""}>
+    <div className={rootClass}>
       <PageHeader
         title="Applications"
         meta={meta}
         actions={
           <>
-            {view !== "calendar" && <SearchField ref={searchRef} value={filters.q} onChange={(q) => setFilters({ q })} />}
+            <SearchField ref={searchRef} value={filters.q} onChange={(q) => setFilters({ q })} />
             <ViewSwitcher views={views} search={filterSearch} />
-            {view !== "calendar" && (
-              <FiltersMenu
-                open={filtersOpen}
-                onOpenChange={setFiltersOpen}
-                filters={filters}
-                setFilters={setFilters}
-                resetFilters={resetFilters}
-                tabCounts={tabCounts}
-                stageCounts={stageCounts}
-                showStage={view === "list"}
-                options={filterOptions}
-                resumes={resumes}
-                display={display}
-                onExport={handleExport}
-                onShortcuts={openShortcuts}
-              />
-            )}
-            <CreateButton onClick={openCreate} />
+            <FiltersMenu
+              open={filtersOpen}
+              onOpenChange={setFiltersOpen}
+              filters={filters}
+              setFilters={setFilters}
+              onReset={resetAll}
+              canReset={canReset}
+              tabCounts={tabCounts}
+              stageCounts={stageCounts}
+              showStage={view !== "board"}
+              options={filterOptions}
+              resumes={resumes}
+              display={display}
+              onExport={handleExport}
+              onShortcuts={openShortcuts}
+            />
+            <CreateButton onClick={create} label={view === "calendar" ? "New deadline" : "New application"} />
           </>
         }
       />
 
       {/* Board/Calendar are their own chunks — keep the header on screen while
           one loads, with a quiet view-shaped placeholder. */}
-      <Suspense fallback={<div className="h-[60vh] rounded-xl border border-border bg-card/60 animate-pulse" aria-label="Loading view" />}>
+      <Suspense fallback={<div className={`${view === "calendar" ? "flex-1" : "h-[60vh]"} rounded-xl border border-border bg-card/60 animate-pulse`} aria-label="Loading view" />}>
         <Outlet context={context} />
       </Suspense>
 

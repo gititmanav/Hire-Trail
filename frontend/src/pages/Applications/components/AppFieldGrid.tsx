@@ -11,6 +11,7 @@
 import { memo } from "react";
 import { Icons } from "./fieldIcons.tsx";
 import type { Application, Contact, Deadline, Resume } from "../../../types";
+import { dayDate, dayOf, diffDaysYmd, todayYmd } from "../../../utils/dates.ts";
 
 interface Props {
   app: Application;
@@ -20,7 +21,6 @@ interface Props {
 }
 
 const NONE = "None";
-const DAY_MS = 86_400_000;
 
 function Cell({ icon, label, value, valueClass = "" }: {
   icon: React.ReactNode;
@@ -54,15 +54,14 @@ function Cell({ icon, label, value, valueClass = "" }: {
 function AppFieldGridImpl({ app, resume, contact, deadlines }: Props) {
   // Next-upcoming deadline for this app (closest unfinished due date).
   const next = (() => {
-    const now = Date.now();
     const list = deadlines
       .filter((d) => d.applicationId === app._id && !d.completed)
-      .map((d) => ({ ...d, due: new Date(d.dueDate).getTime() }))
+      .map((d) => ({ ...d, due: dayDate(d.dueDate)?.getTime() ?? NaN }))
       .filter((d) => !isNaN(d.due));
     list.sort((a, b) => a.due - b.due);
     const n = list[0];
     if (!n) return null;
-    const dueIn = Math.round((n.due - now) / DAY_MS);
+    const dueIn = diffDaysYmd(todayYmd(), dayOf(n.dueDate));
     return { type: n.type, dueIn };
   })();
 
