@@ -4,6 +4,15 @@ Append a dated entry every session: decisions, what was built, what was verified
 
 ---
 
+## 2026-09-26 (later) — Table columns: reorderable dropdown
+
+Owner: Columns should be a dropdown of checkboxes with a drag handle, reorderable, Table only. Details: **Revamp.md → "2026-09-26 (later) — Table columns"**.
+- **Built:** `views/table/ColumnsMenu.tsx` (dnd-kit sortable rows, row = checkbox), `ui/Checkbox` (`CheckboxMark`), `columnOrder` + `tableColumns()` in `columns.ts` — the user's order is now the fit priority (slots at 560 / 700 / 860 … px), Reset restores it.
+- **Verified:** real mouse drag Source → top reorders the table and persists; unchecking Fit frees its slot for Applied; Reset restores the default; Classic untouched. `tsc -b`, build green.
+- **Sharp edge:** a width-driven table with user ordering needs position-based thresholds, not per-column ones — otherwise a column moved to the front still disappears first.
+
+---
+
 ## 2026-09-26 — Calendar revamp: our own calendar, the libraries gone
 
 Owner: plan approved with changes (records as a stage dot + company with an application hover card, no side panels, Day · Week · Month like Sora, the title opens a days/months/years mini calendar), then "start and finish everything". Mid-session owner reports: a Table row stayed highlighted after the pointer left; Settings' "Back to HireTrail" always went to the Dashboard. Decisions + details: **Revamp.md → "2026-09-26 — Calendar revamp"**.

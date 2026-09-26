@@ -403,3 +403,18 @@ Owner: after the FAQ the page looked finished (a screen of white); after the div
 - The old `{userId, completed}` Deadline index stays in Atlas until dropped by hand (Mongoose doesn't drop indexes).
 - The rolling demo window reaches prod only when an admin presses "Run seed".
 - Applications past the 1,000-document cap were never on the old calendar either; the new one is range-bounded and has no cap.
+
+## 2026-09-26 (later) — Table columns: a reorderable dropdown
+
+### Decided (owner)
+- Display → Columns (Table design only — Classic unchanged) becomes a dropdown of checkboxes: a drag handle on the left, the column's name, the checkbox on the right; dragging reorders the table's columns.
+
+### Built
+- `views/table/ColumnsMenu.tsx`: a pill ("7 of 8") opening a `ui/Popover`; rows sort with dnd-kit (4px pointer threshold; keyboard: Space lifts, arrows move, Space drops); the row is the checkbox (`role="checkbox"`), drawn by the new `ui/Checkbox` `CheckboxMark` (no native checkbox).
+- `views/table/columns.ts`: `columnOrder` (saved per device, `hiretrail-apps-table-column-order`, normalised so future columns append) and `tableColumns(order, hidden, width)`. **The user's order is the fit priority**: the 1st optional column fits from 560px, the 2nd from 700px, … — before, each column had its own fixed threshold, so hiding a column never let the next one in and a column moved to the front would still vanish first on a narrow screen. Role and Stage always come first.
+- Filters → Reset (Table) also restores the default order.
+
+### Verified
+- Demo account, Table at 1440×900: the dropdown lists the 8 optional columns with handles and checkboxes; unchecking Fit removes it and Applied takes its slot ("7 of 8"); a real mouse drag of Source to the top → the table shows Source right after Stage with its cells aligned, order saved; Reset → default order, all shown; Classic's Display options show only Density and Group by company. Gates green.
+- Not verified: keyboard reordering with real keys (synthetic keys can't drive dnd-kit's keyboard sensor — same as the Board).
+

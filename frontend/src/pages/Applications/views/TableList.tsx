@@ -23,7 +23,7 @@ import { useApplicationFilters, toListParams, activeFilterCount } from "../data/
 import { useAllApplications, useResumes, useUpcomingDeadlines } from "../data/queries.ts";
 import { useMoveStage } from "../data/useMoveStage.ts";
 import { useCompanyResolver, useListBehavior, useOpenApplication, useRestoreListScroll } from "./shared.tsx";
-import { COLUMNS, type ColumnDef, type ColumnId } from "./table/columns.ts";
+import { COLUMNS, tableColumns, type ColumnDef, type ColumnId } from "./table/columns.ts";
 import type { Application, Company, Deadline, Resume, Stage } from "../../../types";
 import { dayDate, dayOf, diffDaysYmd, todayYmd } from "../../../utils/dates.ts";
 
@@ -284,8 +284,8 @@ export default function TableList() {
     return () => ro.disconnect();
   }, []);
   const columns = useMemo(
-    () => COLUMNS.filter((c) => !c.optional || (!shell.hiddenColumns.includes(c.id) && fitWidth >= c.minWidth)),
-    [shell.hiddenColumns, fitWidth],
+    () => tableColumns(shell.columnOrder, shell.hiddenColumns, fitWidth),
+    [shell.columnOrder, shell.hiddenColumns, fitWidth],
   );
   const template = columns.map((c) => c.track).join(" ");
 

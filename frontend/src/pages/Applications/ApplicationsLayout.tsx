@@ -34,7 +34,8 @@ import ImportModal from "../../components/ImportModal/ImportModal.tsx";
 import { useQueryClient } from "@tanstack/react-query";
 import { useApplicationFilters, toListParams, filtersChanged } from "./data/filters.ts";
 import { useAllApplications, useApplicationsPage, useFilterOptions, useResumes } from "./data/queries.ts";
-import { OPTIONAL_COLUMNS, type ColumnId, type TableGrouping } from "./views/table/columns.ts";
+import { DEFAULT_COLUMN_ORDER, OPTIONAL_COLUMNS, isColumnOrder, type ColumnId, type TableGrouping } from "./views/table/columns.ts";
+import ColumnsMenu from "./views/table/ColumnsMenu.tsx";
 import type { Application } from "../../types";
 import { DEFAULT_SHOW, isCalendarShow, type CalendarShow } from "./views/calendar/data.ts";
 
@@ -46,6 +47,8 @@ export interface ApplicationsShell {
   groupByCompany: boolean;
   tableGrouping: TableGrouping;
   hiddenColumns: ColumnId[];
+  /** Table: the optional columns' order (also their fit priority). */
+  columnOrder: ColumnId[];
   openCreate: () => void;
   openEdit: (app: Application) => void;
   openTailor: (applicationId: string) => void;
@@ -80,6 +83,7 @@ export default function ApplicationsLayout() {
   const [density, setDensity] = usePersistentState<Density>("hiretrail-apps-density", "comfortable", oneOf(["comfortable", "compact"] as const));
   const [groupByCompany, setGroupByCompany] = usePersistentState<boolean>("hiretrail-apps-group-by-company-v2", false, isBoolean);
   const [tableGrouping, setTableGrouping] = usePersistentState<TableGrouping>("hiretrail-apps-table-grouping", "stage", oneOf(["stage", "company", "none"] as const));
+  const [columnOrder, setColumnOrder] = usePersistentState<ColumnId[]>("hiretrail-apps-table-column-order", DEFAULT_COLUMN_ORDER, isColumnOrder);
   const [calendarShow, setCalendarShow] = usePersistentState<CalendarShow>("hiretrail-cal-show", DEFAULT_SHOW, isCalendarShow);
   const [hiddenColumns, setHiddenColumns] = usePersistentState<ColumnId[]>(
     "hiretrail-apps-table-hidden-columns", [],
@@ -178,14 +182,14 @@ export default function ApplicationsLayout() {
   const displayChanged =
     view === "calendar" ? !(calendarShow.deadline && calendarShow.applied && calendarShow.stage)
     : view === "list" && design === "classic" ? density !== "comfortable" || groupByCompany
-    : view === "list" ? tableGrouping !== "stage" || hiddenColumns.length > 0
+    : view === "list" ? tableGrouping !== "stage" || hiddenColumns.length > 0 || columnOrder.join() !== DEFAULT_COLUMN_ORDER.join()
     : false;
   const canReset = filtersChanged(filters) || displayChanged;
   const resetAll = () => {
     resetFilters();
     if (view === "calendar") setCalendarShow(DEFAULT_SHOW);
     else if (view === "list" && design === "classic") { setDensity("comfortable"); setGroupByCompany(false); }
-    else if (view === "list") { setTableGrouping("stage"); setHiddenColumns([]); }
+    else if (view === "list") { setTableGrouping("stage"); setHiddenColumns([]); setColumnOrder(DEFAULT_COLUMN_ORDER); }
   };
 
   /* ─── Display options per view ─── */
@@ -236,33 +240,15 @@ export default function ApplicationsLayout() {
           <SegmentedControl<TableGrouping> ariaLabel="Group by" size="sm" value={tableGrouping} onChange={setTableGrouping}
             segments={[{ value: "stage", label: "Stage" }, { value: "company", label: "Company" }, { value: "none", label: "None" }]} />
         </FilterRow>
-        <div className="px-2.5 pt-1.5 pb-1">
-          <span className="block text-[13px] text-foreground mb-2">Columns</span>
-          <div className="flex flex-wrap gap-1.5">
-            {OPTIONAL_COLUMNS.map((c) => {
-              const shown = !hiddenColumns.includes(c.id);
-              return (
-                <button
-                  key={c.id}
-                  type="button"
-                  aria-pressed={shown}
-                  onClick={() => setHiddenColumns(shown ? [...hiddenColumns, c.id] : hiddenColumns.filter((h) => h !== c.id))}
-                  className={`h-7 px-2.5 rounded-full text-[12px] font-medium border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                    shown ? "bg-control border-border text-foreground" : "border-dashed border-border text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {c.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        <FilterRow label="Columns">
+          <ColumnsMenu order={columnOrder} hidden={hiddenColumns} onOrderChange={setColumnOrder} onHiddenChange={setHiddenColumns} />
+        </FilterRow>
       </>
     );
   }
 
   const context: ApplicationsShell = {
-    design, density, groupByCompany, tableGrouping, hiddenColumns,
+    design, density, groupByCompany, tableGrouping, hiddenColumns, columnOrder,
     openCreate, openEdit, openTailor, openShortcuts, openImport,
     calendarShow, registerCalendarCreate,
   };
