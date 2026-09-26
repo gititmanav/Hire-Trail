@@ -303,6 +303,8 @@ Plus `color-scheme`, `<meta name="theme-color">` from `--sidebar`, `accent-color
 - **Beams without three.js** (`hero/beams.ts`): the same geometry, noise, GGX highlight, ACES tone mapping and grain in raw WebGL2 — pixel-matched against the owner's component rendered with three 0.186 + R3F (max difference 1/255, mean 0.004–0.006, identical mean brightness, two frames). ~5 KB instead of ~200 KB gzipped. Starts after first paint, pauses off-screen / hidden tab / faded out; reduced motion = one still frame; context loss handled; no WebGL2 → a static stand-in.
 - **Scroll engine** (`engine/scroll.ts`): one passive listener, one frame of work, geometry measured on resize only; scenes write styles straight to the DOM. It also reports the chapter tone under the header (`data-lp-tone`, smallest band wins) for the header colours.
 - **The product window** is a fixed 1200×760 design scaled by the scene, built from the app's own tokens and parts (navParts, stageStyles, card-premium, the Board column/card markup, EmailScanReview's CandidateCard, the extension panel, the Personalize ChoiceCard/ShellPreview). Desktop only (≥1024px) — phones and tablets get their own story (below).
+- **Phones and tablets** (`story/mobile/`): `useCompactLanding` (`engine/hooks.ts` `useMedia`, `max-width: 1023px`, right on the first render) swaps `StoryScene` for `MobileStory`; the theme preview switches to the phone list the same way. `engine/dom.ts` holds the DOM helpers both stories share (boxWithin, collect, css, setText, setState). The phone screens reuse the desktop screens' constants and parts (keywords, bullets, gauge, extension glyphs, Personalize cards).
+- **Hand-offs** (`Landing.css` `.lp-handoff`): Theme, Founder and Closing are pulled up over the end of the chapter before them (`--lp-overlap`: 35svh, 80svh, 40svh) and are see-through there; their background (`--lp-handoff-bg`) begins where that section ends. Founder and Closing let the pointer through (`.lp-handoff-pass`) and their controls opt back in. Their header-tone bands (`.lp-band-before/over/after`) keep the band inside the overlap the smallest, so it wins.
 - **Speed:** the landing, the public pages and the signed-in shell are separate chunks. A browser without the theme boot cache is almost always a visitor: it gets the landing without the app and **without waiting for the session check**; signed-in browsers fetch the shell in parallel with the check; visitors fetch it on sign-in intent. Sentry loads only when a DSN is configured.
 
 ### Found along the way (fixed)
@@ -311,6 +313,9 @@ Plus `color-scheme`, `<meta name="theme-color">` from `--sidebar`, `accent-color
 - Public pages opened at the previous page's scroll depth (the document scrolls outside the app shell) — `hooks/usePageEntryScroll` lands them at the top, or at their `#hash`.
 - Old landing claims that were false: Typst one-page PDFs, four AI providers / "GPT-4o", Kanban/Calendar/"AI Tailor" in the sidebar, "flips to Applied automatically" (it asks when you tailored), "All systems operational" (hard-coded), "JSON export" in the old FAQ (kept now by owner decision), "auto-updates when a recruiter replies" (relies on the nightly scan — the page now describes the scan + confirm flow).
 - The old `auth-*` CSS (≈350 lines: split auth pages, showcase, chips, demo-button sheen) was dead.
+- **`overflow: hidden` on the theme section silently disabled `position: sticky`** inside it (the phone preview wouldn't dock) — now `overflow: clip`, which clips the same way without making a scroll container.
+- **A pinned stage of 100svh leaves a strip once a phone's toolbars tuck away** — on the white Founder and Closing stages that strip was the page's black. Colour-changing stages are 100lvh with their content inside 100svh.
+- The phone copy of "And everything else" swapped its app piece by React state (a pop, and a re-render per word) — now the same scroll-scrubbed set as desktop.
 
 ### Phones and tablets (2026-09-25, evening)
 Owner: the desktop animations "don't reciprocate the same way on mobile … code dedicated to the mobile view." Below 1024px the landing is recomposed, not shrunk:
@@ -327,3 +332,74 @@ Owner: after the FAQ the page looked finished (a screen of white); after the div
 - **Privacy / Terms wording is unchanged** (restyled only, verified by a word diff). They still say `hiretrail.vercel.app` (the live site is `hiretrail.manavkaneria.me`), claim Outlook tokens are revoked at the provider (only Gmail's are) and that deletion removes "all associated data" (see the ship blockers).
 - The **og:image** is still `Dashboard.png` (the old UI) — needs a new 1200×630 image of the new page.
 - The gateway's public model list has 390 models from 38 model makers today; "40+ providers" needs the provider work the owner is doing.
+- **Not yet seen for real:** the phone story on a real phone (Safari's toolbars collapsing, rotation), and the chapter hand-offs in a visible browser — both were checked by emulation and DOM measurement only (handoff "Immediate next step").
+- **Crossing 1024px mid-visit** (rotating a large tablet, resizing a window) swaps the desktop and phone stories; the page keeps its scroll offset, but the two stories have different lengths, so it lands at a different beat. A landscape iPad (1024px and up) gets the desktop story — not checked at that size.
+
+## 2026-09-25 (late) — Dashboard filter menus
+
+### Decided (owner)
+- The Dashboard's Company dropdown must be "appropriate" for a long list (owner screenshot: 50+ companies filling the screen, no search or "All companies" in view).
+
+### Built (5a08f5c)
+- **Menu (shared, every menu):** the header and search box stay pinned and only the items scroll, inside a 360px cap (`maxHeight` prop; the viewport is still a cap). Before, the whole panel scrolled, so the search box and first option left the view, and the panel grew to the bottom of the screen.
+- **Dashboard filters:** each company and stage shows its count on the right (`getCompanyCounts` in `utils/dashboardInsights.ts`); "All companies" has an icon so it lines up with the logos; "All stages" counts within the chosen company.
+- **Shared buttons:** `.btn-secondary` / `.btn-accent` show the token focus ring on keyboard focus (the browser's orange default outline showed after a keyboard pick).
+
+### Found along the way (fixed)
+- Company filtering compared untrimmed names while the list shows trimmed ones — a company saved with a stray space filtered to nothing and its stage counts were wrong. Both compare trimmed now.
+
+### Verified
+- Local demo account (650 apps, 51 companies): panel 360px with the list scrolling inside; typing "sp" → SpaceX 17 / Spotify 15; Enter applies it (Dashboard shows 17); Stage menu shows counts for the chosen company. Gates + theme tests green.
+
+
+---
+
+## 2026-09-26 — Calendar revamp (the Applications page's Calendar view)
+
+### Audit (before)
+- **Backend / DB:** the view fetched up to 1,000 **full** application documents (JDs included) plus every open deadline, then rebuilt everything after each edit (drag, add, complete, delete all refetched the lot). Deadline list calls ran 3 unused counts. Stored dates are of two kinds — picked days (UTC midnight) and moments (extension saves, stage moves) — and the app read them inconsistently: the grid took the UTC date, the Deadlines page / Upcoming list / List took local time, so US users saw form-picked deadlines a day early outside the calendar and evening saves a day late on it.
+- **Frontend:** `calc(100dvh - 108px)` predated the card shell (grid overflowed ~72px, the page scrolled); three columns cut chips to "Ap…"; mini calendar + Upcoming + Today panels duplicated the grid; Week/Day were empty hour grids (every event is all-day); its own Filters (native checkboxes) instead of the shared URL filters; violet meant both "due today" and "Other deadlines"; its own keydown listener (`g d` switched to Day, Escape fired under dialogs); `window.confirm()` for delete; "Open in Applications" went to `/applications`, not the application; deadlines on Offer/Rejected applications lost their company and fell out of company filters. ~530 KB of calendar libraries (react-big-calendar + FullCalendar just for the Dashboard mini widget).
+
+### Decided (owner, 2026-09-26)
+1. **Deadlines first, plus the record of the search** — applied dates and stage entries, Offer and Rejected included.
+2. **Records as `[stage dot] Company`**, hovering one opens the application card (role, company, location, pay, resume, fit, next deadline, **people at the company**); **everything in the card is clickable** → the application page (people → their contact).
+3. **No side panels from now on** (Sora-style page: the grid gets the width).
+4. **Day · Week · Month** with a sliding-pill switcher (Sora). Engineering recommendation accepted: Day is a list (no time grid) and does the Agenda's job; no separate Agenda.
+5. **The title opens the mini calendar** — a popover on "September 2026" (or the week/day label) with days, months and years, so any date is a few clicks away.
+6. Shared URL Filters; one shared day helper app-wide; move the demo seed window forward.
+7. Engineering calls accepted without objection: one chip per company (no "12 applications" roll-up); a record's dot is the application's **current** stage; `GET /api/calendar` endpoint (not client derivation); week start by locale; create (`c` / the header button) = **new deadline** in Calendar view; the old "dev toggle" no longer exists, so the new calendar replaced the old one directly on `master` (nothing ships until `master` → `main`).
+
+### Built
+**Backend**
+- `GET /api/calendar?from&to&tz&<filters>` (`routes/calendar.ts`, `services/calendar/buildCalendar.ts`): applied + current-stage events and open deadlines for the range, plus every open overdue deadline and recurring source, plus a per-application summary for the hover card (company, role, stage + since, applied, location, salary, resume, fit, next deadline). Linked deadlines follow their application's filters; standalone ones show on the Active tab with no narrowing filter (search matches their type/notes). Validated range (≤ 100 days), safe `tz`. 33 ms / 91 KB for a month on the 650-app demo (was 1,000 full docs).
+- `services/calendar/days.ts`: the server's day rule (UTC midnight = picked day → UTC date; else the viewer's local date).
+- Indexes: `Deadline {userId, completed, dueDate}` (replaces `{userId, completed}`) and `{userId, applicationId, completed, dueDate}`; `Application {userId, "stageHistory.date"}`.
+- `PUT /deadlines/:id` returns `nextOccurrenceId` when completing a recurring deadline spawns the next one (Undo removes it); the spawn steps in UTC days. A picked applied date (`YYYY-MM-DD`) is stored as UTC midnight on any server (was server-local midnight — right on Vercel only by accident).
+- Demo seed: a rolling window (applications over the last ~8 months, deadlines −60…+45 days as picked days, a few repeating); stage moves that would land after today are spread across the application's real age instead of piling onto today.
+
+**Frontend**
+- `utils/dates.ts` (the only day↔Date conversions: `parseYmd`, `formatYmd`, `dayOf`, `addDaysYmd`, `diffDaysYmd`, week helpers, locale week start) and `utils/calendarGrid.ts` (6×7 month grids, rank order, measured overflow, repeat ghosts, drag rules, anchor carry) — both pure, tested under several time zones.
+- `ui/MonthGrid` (the one month grid) and `ui/CalendarPicker` (days → months → years, full keyboard). `DateInput` is rebuilt on the picker (same value contract; now follows the locale week start and drills to months/years).
+- The Calendar (`views/calendar/`): Month (measured "N more" → day peek over the cell; hover ＋; double-click to add; roving keyboard focus), Week (seven columns, two-line chips, no overflow), Day (a list; today pins every overdue deadline first; complete / reschedule / ⋯ on the row; a week strip on phones). Chips: deadlines = type glyph + **type** · company (overdue = destructive, the one urgency signal); records = stage dot + company (stage entries add "→ Interview"); repeat ghosts dashed at 45%. Hover card (above); clicking a deadline opens its popover (complete + Undo, reschedule, edit, open application, delete with the one light confirm); clicking a record opens the application (J/K and Back work). Pointer-events drag (4 px threshold; the preview is the truth; Esc cancels; an applied date can't move into the future; stage entries and ghosts don't drag). Optimistic edits with Undo and rollback. Paging slides the keyed grid (no out-in, reduced-motion safe); neighbours prefetched; first load is a calendar-shaped skeleton. The anchor lives in the URL (`?d=`); the scale is remembered. Phones: Month is dots (deadlines a dash, records a dot — Rejected is red too), a tap opens Day.
+- Shell: the shared search + Filters now apply in Calendar view (Stage included); Display options → **Show: Deadlines · Applied · Stage changes**. `Layout`/`AdminLayout` let the calendar own its height (no page scroll). `/admin/calendar` = `pages/Admin/AdminCalendar.tsx`.
+- Dashboard: the FullCalendar mini widget → `widgets/DashboardCalendarCard` (MonthGrid; hover a day for its list; ‹ Today › pages the card only).
+- Shared deadline dialog (`components/DeadlineFormModal`) for the Deadlines page and the calendar; `DeadlineTypeIcon` (offer decision is a handshake, not a check that reads as "done").
+- `SegmentedControl` has the sliding pill everywhere (measured; off under reduced motion). `HoverCard` gained `className` / `disabled` / `closeOnClick`.
+- One stage colour: `STAGE_COLOR` (500 shade, CSS value), `STAGE_TONE_CLASS` (the inbox-scan badges); Companies, PipelinePulse, EmailScanReview, EmailScanFlowModal and Admin moderation now read `utils/stageStyles` (Interview was violet in the scan screens and yellow in Admin; Drafting slate-400 in two places). `STAGE_CALENDAR_COLOR` deleted.
+- Day reads moved onto `dayOf`: Deadlines page (dates, "N days", snooze now sends picked days), deadline buckets, Table/Classic rows, detail rail, health/next-action, global search, Dashboard widgets, Board card, Companies, Admin moderation, CSV export, the Import/Export date filter.
+- Landing: the "And everything else" calendar vignette redrawn in the new chip language (it's a replica of the real UI).
+- **Removed:** react-big-calendar (+ types), all six `@fullcalendar/*`, date-fns, `pages/Calendar/` (incl. the 1,067-line CSS), `utils/calendarEvents.ts`, `utils/calendarRbc.ts`, `MiniCalendarWidget.*`, the CLAUDE.md "+N more" exception.
+
+### Found along the way (fixed)
+- **Table/Classic rows kept the last-hovered row highlighted** after the pointer left (owner report): hover moved the J/K cursor and nothing cleared it. Leaving a row now clears the cursor if it's still on that row (`useListBehavior.leaveRow`), so what's highlighted is what Enter/E/X act on.
+- **Settings → "Back to HireTrail" always went to the Dashboard** (owner report). The app shell remembers the last page (path + filters, per tab — `utils/returnPath.ts`) and Back returns there, also after the Gmail OAuth round-trip.
+- **Filters → Reset didn't reset everything** (owner report): it only cleared stage / company / resume / source, and stayed disabled when only search, Archived or a display option was changed (e.g. every Show chip off). Reset now restores every filter (search and Status too) and the current view's display options, and is enabled whenever anything differs from the defaults.
+- **Unlinking a deadline from its application 400'd** ("Invalid applicationId") on the Deadlines page too — the form's "None" is `""`; update now treats it as standalone, like create.
+- PRODUCT_AUDIT #9 (drag of a completed deadline "moves" it until refetch) is gone: completed deadlines aren't on the calendar and every move is optimistic with rollback.
+
+### Noted, not changed
+- **Deadlines page tabs are still bucketed on the server by instants** (`dueDate >= now`): a picked day counts as "overdue" from 00:00 UTC on its own due day (7 pm the evening before in Chicago). The fix needs the viewer's zone on `GET /deadlines` — do it with the Deadlines page revamp.
+- Analytics (`dashboardInsights`, `stageStats`, `companyAggregates`) still bucket applied dates with Date math — a picked day can land in the neighbouring week for US users. Low impact; with the Dashboard revamp.
+- The old `{userId, completed}` Deadline index stays in Atlas until dropped by hand (Mongoose doesn't drop indexes).
+- The rolling demo window reaches prod only when an admin presses "Run seed".
+- Applications past the 1,000-document cap were never on the old calendar either; the new one is range-bounded and has no cap.

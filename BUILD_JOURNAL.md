@@ -4,6 +4,44 @@ Append a dated entry every session: decisions, what was built, what was verified
 
 ---
 
+## 2026-09-26 — Calendar revamp: our own calendar, the libraries gone
+
+Owner: plan approved with changes (records as a stage dot + company with an application hover card, no side panels, Day · Week · Month like Sora, the title opens a days/months/years mini calendar), then "start and finish everything". Mid-session owner reports: a Table row stayed highlighted after the pointer left; Settings' "Back to HireTrail" always went to the Dashboard. Decisions + details: **Revamp.md → "2026-09-26 — Calendar revamp"**.
+
+### Built
+- Backend: `GET /api/calendar` (+ `services/calendar/days.ts`, 3 indexes), `nextOccurrenceId` on a recurring completion, picked applied dates stored as UTC midnight, empty `applicationId` = standalone on update, rolling demo seed window.
+- Frontend: `utils/dates.ts`, `utils/calendarGrid.ts` (+ tests), `ui/MonthGrid`, `ui/CalendarPicker`, `DateInput` on the picker, `views/calendar/*` (Month · Week · Day, hover card, deadline popover, day peek, title picker, pointer drag, optimistic mutations + Undo), shared Filters + Show options in Calendar view, fill-height shells, `pages/Admin/AdminCalendar`, `widgets/DashboardCalendarCard`, shared `DeadlineFormModal` + `DeadlineTypeIcon`, sliding `SegmentedControl`, one stage-colour source, day reads app-wide on `dayOf`, landing calendar vignette redrawn.
+- Removed react-big-calendar, `@types/react-big-calendar`, six `@fullcalendar/*`, date-fns, `pages/Calendar/`, `calendarEvents.ts`, `calendarRbc.ts`, `MiniCalendarWidget.*`.
+- Fixes: row highlight clears on pointer leave (`leaveRow`); "Back to HireTrail" returns to the last page (`utils/returnPath.ts`); Filters → Reset restores every filter (search + Status included) and the view's display options (`filtersChanged`, `resetAll`) — verified on Calendar (URL `?company=Stripe&status=archived&q=eng` + all Show chips off → clean URL, empty search, Active, chips on, Reset disabled again) and Table (grouping + hidden column restored).
+
+### Verified (HOW)
+- Gates: backend `tsc --noEmit` 0; frontend `tsc -b` 0; `npm run build` green. Tests: `dates.test.ts` + `calendarGrid.test.ts` 18/18 under Asia/Kolkata, America/Los_Angeles, Pacific/Auckland, America/Chicago, UTC (6-row invariant for every month 2024–2030 × every week start, rank order, overflow maths, ghost projection incl. Feb 29, drag rules, DST weeks); `theme.test.ts` 8/8; `*.test.mjs` 42/42. Touched files scanned for unused imports.
+- **Bundle** (build output): calendar code 530.7 KB / 159 KB gzip (Calendar 253.8/80.2 + its CSS 37.6/6.7 + MiniCalendarWidget 228.7/68.4 + helpers) → **70.4 KB / 23 KB gzip** (CalendarView 44.7/12.9, DateInput incl. picker + MonthGrid 13.5/4.8, DashboardCalendarCard 5.3/2.0, data 3.2/1.4, dates 2.0/1.0, AdminCalendar 1.6/0.9). Main JS 331.0 → 331.5 KB; main CSS 149.4 → 154.3 KB (25.3 KB gzip).
+- API (local, demo 650 apps): a month = 33 ms / 91 KB; `company=Stripe` narrows to Stripe; reversed range → 400.
+- Browser, demo account (read) + `dev@hiretrail.local` (writes, on `dev.localhost` so the demo session stayed), 1280×820 unless noted: month fills the card (scrollHeight = clientHeight at 1280 and 1920); hover card (Stripe: role, stage + days, applied, resume, fit, 2 contacts, Open application); record click → `/applications/:id`, Escape → back to `?d=2026-08-01`; "N more" peek opens over its cell with all 7 rows; deadline popover (overdue text, 5 actions); title picker Sep 2026 → months → 2016–2027 → 2027 → Mar → 15 → calendar on March 2027; Week (7 columns, 65 chips) and Day (Overdue 21 pinned, row actions); scale toggle carries the anchor; hover ＋ → dialog prefilled Sep 29 → created (API: `2026-09-29T00:00:00.000Z`, repeat 7, linked) → chip + ghost on Oct 6; **real mouse drag** Sep 29 → Oct 1 persisted (API) with the ghost following to Oct 8, no popover opened; popover Reschedule → Oct 2 → Undo → Oct 1 (API); Esc mid-drag → preview on Oct 7 + target highlight, then back on Oct 1, nothing saved; applied date dragged onto a future day → not-allowed cursor, red tint, not saved; onto Sep 22 → saved as a picked day; Week-view drag Sep 23 → Sep 25 persisted; complete a recurring deadline → gone instantly, server spawned Oct 8, Undo reopened it and deleted the spawn (API); delete → ConfirmModal → gone (API); Edit → notes saved; keyboard ← → T W D M, `c` → New deadline today, `1` → List; three fast ← → June (built on the latest anchor); roving grid focus (one tab stop, arrows, PageDown pages to October, Enter on an empty day → New deadline); Filters → Company = Stripe narrows the calendar, Show → Applied off hides applied chips, both survive reload; `/calendar` → `/applications/calendar`; `/admin/calendar` with the Admin chip; Dashboard card (hover Tue Sep 22 lists its 8 items; paging makes exactly one `/api/calendar` request). Dark preset, a Custom theme (mid-tone red) and 375 px (dots-only month, Week hidden, tap → Day with week strip) screenshotted. Zero console errors in a fresh tab across Month → peek → popover → Week → Day → paging → picker. Row-highlight fix: hover → highlighted, pointer away → none, J/J still highlights row 1. Back-to-HireTrail: Board `?company=Adobe` → Settings → Back → `/applications/board?company=Adobe`.
+- Dev test data cleaned up (deadlines deleted, the application's applied date restored to `2026-07-10T01:06:45.385Z`); the dev account's theme restored to Light. Local demo data re-seeded with the rolling window.
+- NOT verified: drag feel and the paging slide with real frames (the pane is hidden — rAF and ResizeObserver callbacks don't run there, so the live re-measure on window resize was only proven by reload); real keyboard (synthetic key events); Safari/Firefox; a real reduced-motion browser (guarded in CSS/JS, reviewed); a real phone.
+
+### Sharp edges
+- **A hidden page gets no ResizeObserver callbacks** (they run in rendering steps) — in the hidden pane a resized calendar keeps its old slot count until reload. Not a product bug.
+- **Stored dates are two kinds** — picked days (UTC midnight) and moments. `dayOf` / `dayIn` decide by "is it exactly UTC midnight?"; keep writing picked days as `YYYY-MM-DD` so they stay that way.
+- React's `onPointerEnter` listens via `pointerover` — dispatching a native `pointerenter` in a test does nothing; drive hovers with a real pointer.
+- Undo toasts last 6 s — scripted checks must click Undo in the same step as the action.
+- `tsx watch` restarts on a backend edit and drops the in-memory dev session (the app lands on the landing) — sign back in.
+
+---
+
+## 2026-09-25 (late) — Dashboard filter menus
+
+Details: **Revamp.md → "2026-09-25 (late) — Dashboard filter menus"** (5a08f5c).
+
+- **Built:** `ui/Menu` pins header + search and scrolls only the items inside a 360px cap (`maxHeight`); Dashboard Company/Stage filters show per-item counts (`getCompanyCounts`); token focus ring on `.btn-secondary` / `.btn-accent`.
+- **Fixed:** company filter + stage counts compared untrimmed names against the trimmed list.
+- **Verified:** local demo account (650 apps, 51 companies) — capped panel, search "sp" → SpaceX/Spotify, Enter applies (17 apps); gates + theme tests green.
+- **Sharp edge:** a Popover panel is `overflow-auto` — anything that must stay put (search, header) needs the panel as a flex column with only the list scrolling.
+
+---
+
 ## 2026-09-25 (night) — Chapter hand-offs: no dead screens between chapters
 
 Owner (on the master preview): after the FAQ the page "appears like it has ended" — a screen of plain white; after the dive and after "Your AI", a screen of black "longer than intuition expects"; and the theme chapter's spotlight showed a hard edge, "like a next page".
