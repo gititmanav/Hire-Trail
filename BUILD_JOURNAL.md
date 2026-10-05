@@ -4,6 +4,36 @@ Append a dated entry every session: decisions, what was built, what was verified
 
 ---
 
+## 2026-10-04 — Landing round 3: an audit, a font, and the moves between hero and footer
+
+Owner: audit the landing by code and visuals, research the best sites, "apply your brains in between" (hero and footer stay); "if something you decided looks cheap now, rethink it". Approved all eight proposed moves, one shipped font, no signature (the MK monogram instead). Decisions: **Revamp.md → "Landing round 3"**.
+
+### Built
+- **Font** — Inter (variable: weights 400–700, optical sizes 14–32 = the display cut at headline sizes), Latin subset, self-hosted (`frontend/public/fonts/inter-landing.woff2`, 39.6 KB, + `Inter-LICENSE.txt`, SIL OFL), `@font-face` "Inter Landing" + an Arial fallback sized to Inter's metrics (no shift on swap). `index.html` preloads it for likely visitors on `/`, `/about`, `/privacy`, `/terms`. Product previews keep the app's system font (`.lp-window`, `.lp-device`, `.lp-vignettes`, `.lp-app`). Display tracking retuned for Inter (−0.045 → −0.032em, etc.).
+- **Hero exit** — each hero line (`data-lp-line`) blurs, lifts and fades just before the rising window's top edge reaches it, lowest first (measured per line, relative to its resting gap). `.lp-rise` now fills `backwards` only so scroll styles can take the element after the entrance. Glass buttons lost their backdrop-filter (they sat inside fading copy). Hero gets `lg:pt-16`; the window's peek sits under the last line on short screens (630px was colliding with the header).
+- **The dive → "the card becomes the page"** (`story/CardMorph.tsx`): the window recentres, opens Personalize (still light), the pointer/tap picks Dark, the Dark card's preview lifts (shadow, +8%) and grows by layout — never a zoom — across the white page until the page is black; the window falls back behind it. Same on phones. Header flips when the card passes under it.
+- **Tailor streams** — the rewritten bullets stream in word by word (`StreamWords`, `dom.ts streamWords`), the old line fades first, the "changed" mark lands when a bullet is done; longer stretch per bullet.
+- **⌘K** — two keycaps (`.lp-key`, lucide Command + "K") press as the word reaches the reading line; the search vignette types "stri" and its results arrive. The list starts half a step short so ⌘K arrives like the others. The vignettes are bigger on desktop (`zoom: 1.18`, owner).
+- **Progress** — Tailor · Apply · Track hairlines under the window (desktop), three segments under the header (phones).
+- **Theme wipe** — a picked look/swatch (and each tour step) spreads over the preview as a circle from the control that picked it (`.lp-wipe`, clip-path); drags repaint at once; the old 450 ms colour transitions are gone.
+- **Light motif** — `engine/Sweep.tsx`: a soft sweep inks headings from a ghost, line after line (CSS `animation-timeline: view()` + a registered `--lp-sweep`; Firefox / reduced motion = plain ink). Driven from the scene on pinned stages: the founder sentence (replaces the word-by-word reveal; MK monogram avatar; pin 120 → 90svh) and "Ready when you are." The hero's beams return softly behind the closing (a second `HeroBeams`, paused off-screen/faded).
+- **White chapter** — promise receipts in mono (`gmail.readonly`, `Mail.Read`; "10 services, each named"; `Settings → Profile → Delete account`; `MIT`, `gititmanav/Hire-Trail`), two-tone ledes (acts, theme, closing), balanced h2 wraps, keylines before Compare and FAQ, Compare rows rise in a stagger, still grain on the dark glows (`.lp-grain`).
+- **Defects fixed** — theme preview's address bar said /resume-studio (BrowserBar takes `url`); the phone theme dock's header band failed after a fling (observer thresholds 0 and 1); act window margins balanced (right = copy's left, ≥56 px gap); the empty black above the footer (the footer is a hand-off now); hero facts contrast (white/45 → /55).
+- **og:image** — a 1200×630 capture of the new hero (`frontend/public/og.jpg`, 103 KB); meta tags updated.
+
+### Verified (HOW)
+- Gates: frontend `tsc -b` 0; `npm run build` green (LandingPage 151.9 KB / 43.1 KB gzip, was 143.6 / 40.1; + the font); `node --test src/utils/theme.test.ts` 8/8; built CSS keeps `@property`, `animation-timeline`, `zoom`, `color-mix`; touched files scanned for unused imports.
+- Visuals: the in-app pane was hidden, so frames came from **headless Chrome over the DevTools protocol** (a scratch script: viewport, scroll, settle 5 rAF, `Page.captureScreenshot`; contact sheets as HTML) at 1440×900, 1280×650, 1200×630 and 390×664 (mobile emulation, DPR 2): the hero → rise (no line over the window), streaming, the stepper, the dive sequence (8 frames, both sizes), the theme wipe mid-animation, ⌘K press + typing, the sweep mid-reveal, receipts, keylines, closing + beams, footer hand-off.
+- NOT verified: real frame timing / feel in a visible browser; a real phone; Safari (the sweep runs on Safari 26+ timelines — not seen); Firefox (sweep falls back to plain ink — not seen); Windows/Android rendering of the font.
+
+### Sharp edges
+- **The hidden in-app pane** gives stale or black frames and stalls rAF. Headless Chrome (`--headless=new`, CDP over Node's built-in WebSocket) renders real frames; clip coordinates are page coordinates (add scrollY).
+- **Never fade/blur an ancestor of a backdrop-filter element** — the hero's glass button was inside the fading copy; the glass buttons no longer use backdrop-filter.
+- `.lp-rise` must not use a `forwards` fill on anything scroll code styles afterwards (CSS animations beat inline styles while they fill).
+- Text on a pinned stage doesn't move through the viewport, so `animation-timeline: view()` can't drive it — use `<Sweep driven>` and set `--lp-sweep` from the scene.
+
+---
+
 ## 2026-09-26 (later) — Table columns: reorderable dropdown
 
 Owner: Columns should be a dropdown of checkboxes with a drag handle, reorderable, Table only. Details: **Revamp.md → "2026-09-26 (later) — Table columns"**.

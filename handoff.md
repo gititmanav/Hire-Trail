@@ -1,6 +1,6 @@
 # handoff.md — for the next session
 
-_Last updated: 2026-09-26 — Calendar revamp (our own calendar; react-big-calendar + FullCalendar + date-fns removed); fixes for the sticky row highlight and Settings' Back button_
+_Last updated: 2026-10-04 — landing round 3 (Inter, the card-becomes-the-page dive, the light sweep, streaming / ⌘K / theme wipe, progress, receipts, hand-off footer, og:image), on master._
 
 ## Current state
 
@@ -9,6 +9,7 @@ _Last updated: 2026-09-26 — Calendar revamp (our own calendar; react-big-calen
 - **Decision log:** `Revamp.md` — "2026-09-25 — Landing page, the sign-in sheet, About / Privacy / Terms" (+ "Noted, not changed" and "Parked — decide at the end").
 - **On `master` (pushed, 2026-09-26):** the Calendar revamp, the row-highlight fix, the Back-to-HireTrail fix and the full Filters Reset — BUILD_JOURNAL "2026-09-26", Revamp.md "2026-09-26 — Calendar revamp".
 - **Also on `master`:** long menus scroll inside a 360px panel with the search pinned (shared `ui/Menu`); Dashboard Company/Stage filters show counts (5a08f5c — Revamp.md "2026-09-25 (late) — Dashboard filter menus").
+- **Also on `master` (pushed):** landing round 3 — BUILD_JOURNAL "2026-10-04", Revamp.md "2026-10-04 — Landing round 3".
 
 ## Ship blockers — land these before `master` goes to `main`
 
@@ -23,7 +24,7 @@ The landing makes three claims by owner decision; the owner is building what bac
 0. **Owner hand-check of the calendar** in a visible browser (the pane was hidden, so no real frames were seen): drag a deadline between days in Month and Week (feel, the grab cursor, the target tint), the paging slide (‹ › and ← →), the day peek opening over its cell, hover cards, the title's mini calendar (days → months → years), real keyboard shortcuts (← → T D W M, `c`, and arrows/PageUp/PageDown/Enter inside the grid), and a window resize re-measuring how many chips fit.
 
 1. **Owner hand-check in a visible browser and on a real phone** (the in-app pane stayed hidden, so real frame timing was never seen; phones were emulated): scroll the whole landing on a laptop and on an iPhone + an Android — the story (rise → dock, the three beats, the dive), the theme dock, the word list, the sign-in bottom sheet; scroll far enough for Safari's toolbars to tuck away (no strip under a white chapter); rotate the phone once. Safari + Firefox. Reduced motion should keep the fades and drop every move.
-2. **og:image** — still `Dashboard.png` (old UI). Needs a 1200×630 image of the new page (`frontend/public`, `index.html`).
+2. **Landing round 3 in a real browser** — Chrome, Safari 26+ (the headings' sweep runs on scroll timelines), Firefox (sweep falls back to plain ink), Windows/Android (the Inter font); the dive (pick Dark → lift → grow), ⌘K, the theme wipe, the founder sweep, the closing beams, and the footer rising over the last ask. Frames so far came from headless Chrome only. If the share image needs refreshing after copy changes, `frontend/public/og.jpg` is a 1200×630 capture of the hero.
 3. **Privacy / Terms facts** (wording untouched — owner's text): `hiretrail.vercel.app` → the live domain; the Outlook revocation claim; "all associated data" (ship blocker 3).
 4. Earlier owner calls still open: Dark mirrors charcoal (keep?), "Table" vs "Minimal", tag chips 4.2:1, white on `bg-amber-600` 3.2:1 (Revamp.md → "Noted, not changed").
 5. Queued engineering: the six hand-rolled switches → `ui/Toggle`; the other hand-rolled overlays → `ui/Modal`; `GET /deadlines` status tabs need the viewer's zone (a picked day counts as overdue from 00:00 UTC on its due day — with the Deadlines revamp); analytics bucket applied dates with Date math (Dashboard revamp); drop the old `{userId, completed}` Deadline index in Atlas; press Admin → "Run seed" on prod after deploy so the demo gets the rolling window.
@@ -35,7 +36,8 @@ The landing makes three claims by owner decision; the owner is building what bac
 - Pinned lengths are CSS (`--lp-hero/gap/act/zoom`, `.lp-everything`, `.lp-founder`, `.lp-closing`) and the tone bands inside pinned sections are sized from the same numbers — change them together.
 - **Hand-offs** (`.lp-handoff`, `--lp-overlap`): Theme, Founder and Closing are pulled up over the end of the chapter before them and are see-through there. Founder's 80svh assumes the word list's stage is 100svh; Closing's 40svh assumes the FAQ ends in 16vh of padding — change them together. Their tone bands are `.lp-band-before/over/after`.
 - The story's window (`story/`) is a 1200×760 replica built from the app's own tokens and parts; if the real Board / Studio / extension / Personalize markup changes, update the replica — **and the phone one** (`story/mobile/screens.tsx`, 360-wide; below 1024px `LandingPage` renders `MobileStory` instead of `StoryScene`, and the theme scene uses its list as the preview).
-- Beams = `hero/beams.ts` (a pixel-matched port of the owner's three.js component — keep the maths as is).
+- Beams = `hero/beams.ts` (a pixel-matched port of the owner's three.js component — keep the maths as is). A second instance runs behind the closing ask.
+- **Round 3 pieces:** the font (`public/fonts/inter-landing.woff2`, "Inter Landing" in Landing.css; previews keep the system font); `story/CardMorph.tsx` (the dive's end, both stories); `engine/Sweep.tsx` (headings on `view()` timelines; `driven` on pinned stages); `dom.ts streamWords` (Tailor); the theme wipe (`ThemeScene` `paint`, `.lp-wipe`); the ⌘K keys (`.lp-key`) and the search's `data-lp="query"/"result"`; promise receipts — keep them true to the code (scopes in `gmailService.ts`/`outlookService.ts`, services in `Privacy.tsx`, Settings → Profile, LICENSE).
 - Visitors: `App.tsx` `LIKELY_SIGNED_IN` (the theme boot cache) → no app shell, no session-check spinner at "/". Don't import the signed-in shell eagerly again.
 
 ## How the calendar works (short)

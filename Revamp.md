@@ -418,3 +418,23 @@ Owner: after the FAQ the page looked finished (a screen of white); after the div
 - Demo account, Table at 1440×900: the dropdown lists the 8 optional columns with handles and checkboxes; unchecking Fit removes it and Applied takes its slot ("7 of 8"); a real mouse drag of Source to the top → the table shows Source right after Stage with its cells aligned, order saved; Reset → default order, all shown; Classic's Display options show only Density and Group by company. Gates green.
 - Not verified: keyboard reordering with real keys (synthetic keys can't drive dnd-kit's keyboard sensor — same as the Board).
 
+## 2026-10-04 — Landing round 3: between the hero and the footer
+
+### Decided (owner)
+- Audit the landing (code + visuals), research the best sites (21st.dev, three.js, Apple, Linear, Stripe, Vercel, Raycast…), and improve everything between the hero and the footer — the hero and footer stay. "If something you decided looks cheap now, rethink it."
+- All eight proposed moves approved; **one shipped font for the landing** (not the system font); **no signature** — the MK monogram may be used.
+- Mid-build: the hero's buttons must clear before the rising window reaches them ("blur off and vanish a little early"); the "And everything else" cards a little bigger.
+
+### What changed, and why
+- **Font: Inter (variable, optical sizes)** — the page's tracking was tuned for SF and looked different on Windows/Android; Inter's display cut keeps the same voice everywhere. Self-hosted, Latin subset, 39.6 KB, preloaded only for likely visitors. Product previews keep the app's own system font (they are the app).
+- **The dive became "the card becomes the page"** — the zoom magnified the UI into blurry blobs and ended on dark-on-dark nobody could read. Now (rethought mid-build): the window comes back to centre, opens Personalize in light, the pointer picks Dark, the Dark card lifts and grows across the white page by layout (sharp at every size) until the page is black. It is the owner's original brief, literally: a component arrives and its black becomes the page.
+- **Light as the one motif** — a soft sweep inks the headings from a ghost (scroll-timeline, no JS; plain ink where unsupported), the founder line (replacing the word-by-word reveal — research flagged it as today's most recognisable template effect) and the closing headline; the hero's beams come back behind "Ready when you are." so the page ends in its opening light.
+- **Product-true moments** — Tailor's rewrite streams in word by word like generated text; ⌘K is two keys that press and a search that types; the theme recolours with a circle from the control you touched.
+- **Orientation** — Tailor · Apply · Track progress (under the window; segments on phones).
+- **The white chapter** — receipts under each promise (the exact Gmail/Outlook scopes, the named services, the delete path, the licence — all true to the code), two-tone ledes, balanced wraps, keylines instead of empty bands, a staggered comparison, a shorter founder pin.
+- **Defects fixed** — the hero lines drawn over the rising window; the hero colliding with the header on short laptops (630–650 px); unbalanced act margins; the theme preview's wrong address; the phone dock's header band after a fling; the dead black above the footer; the facts line's contrast; the old og:image.
+- **Considered and left out** — the comparison's "light pass" down the HireTrail column (on white it read as a gimmick, not light); stacking promise cards (they hold still under the scroll); smooth-scroll libraries (they make content trail the scroll — the "page resisting" feeling).
+
+### Noted, not changed
+- Real-browser feel (Safari's scroll timelines, Firefox's plain-ink fallback, Windows/Android font rendering) and a real phone are still to be seen — the pane was hidden; frames came from headless Chrome.
+- The three owner-held claims are unchanged (handoff "Ship blockers"); the "Gone when you say" receipt shows the real delete path, but the deletion itself is still incomplete.
