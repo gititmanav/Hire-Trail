@@ -7,8 +7,9 @@
  *  under the header as black turns to white. Then Tailor · Apply · Track play
  *  inside it while their captions hand over in the slot below — a phone has
  *  no room for copy beside a window, and copy scrolling over it would cover
- *  what it describes. Last, Settings → Personalize turns dark and the camera
- *  dives into the Dark card until the page is dark.
+ *  what it describes. Last, the device comes to the centre and opens
+ *  Personalize, a tap picks Dark, and the Dark card lifts out and grows into
+ *  the page (CardMorph).
  *
  *  The stage is 100lvh tall and everything on it is placed inside the top
  *  100svh, so it fills the screen whether the browser's toolbars are showing
@@ -19,11 +20,12 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, type CSSProperties } from "react";
 import { useReducedMotion, useScene } from "../../engine/hooks.ts";
 import { clamp01, easeIn, easeInOut, easeOut, lerp, range, remeasure } from "../../engine/scroll.ts";
-import { boxWithin, center, collect, css, round, setState, setText, type Box, type Els } from "../../engine/dom.ts";
+import { boxWithin, center, collect, css, round, setState, setText, streamWords, type Box, type Els } from "../../engine/dom.ts";
 import HeroBeams, { type HeroBeamsHandle } from "../../hero/HeroBeams.tsx";
 import HeroCopy from "../HeroCopy.tsx";
 import { GAUGE_CIRC, STUDIO_BULLETS } from "../StudioScreen.tsx";
 import MobileDevice, { DEVICE_H, DEVICE_W, M_SCREEN_URL, M_SCREENS, type MScreenName } from "./Device.tsx";
+import CardMorph, { paintMorph } from "../CardMorph.tsx";
 import { M_ROW_H } from "./screens.tsx";
 
 const CAPTIONS = [
@@ -55,10 +57,12 @@ interface Metrics {
   /** The always-visible height (100svh) and the stage's (100lvh). */
   vh: number;
   stageH: number;
-  /** Where the device sits once docked: centre x, top, scale. */
+  /** Where the device sits once docked: centre x, top, scale — and its
+   *  scale centred on the screen, for the ending. */
   cx: number;
   top: number;
   s: number;
+  sCenter: number;
   /** Its top edge in the hero, and the scroll at which it docks. */
   peekTop: number;
   dock: number;
@@ -89,6 +93,8 @@ export default function MobileStory() {
   const beamsWrapRef = useRef<HTMLDivElement>(null);
   const glowRef = useRef<HTMLDivElement>(null);
   const nightRef = useRef<HTMLDivElement>(null);
+  const morphRef = useRef<HTMLDivElement>(null);
+  const progressRef = useRef<HTMLDivElement>(null);
   const heroBlockRef = useRef<HTMLDivElement>(null);
   const heroCopyRef = useRef<HTMLDivElement>(null);
   const spacerRef = useRef<HTMLDivElement>(null);
@@ -97,6 +103,7 @@ export default function MobileStory() {
   const toneRefs = useRef<(HTMLDivElement | null)[]>([]);
   const els = useRef<Els>({});
   const urls = useRef<HTMLElement[]>([]);
+  const bulletWords = useRef<HTMLElement[][]>([]);
   const metrics = useRef<Metrics | null>(null);
   const lastPx = useRef(0);
   const reduced = useReducedMotion();
@@ -108,6 +115,7 @@ export default function MobileStory() {
     if (!device) return;
     els.current = collect(device);
     urls.current = Array.from(device.querySelectorAll<HTMLElement>('[data-lp="m-url"]'));
+    bulletWords.current = STUDIO_BULLETS.map((_, i) => Array.from(els.current[`m-b${i}-new`]?.querySelectorAll<HTMLElement>("[data-lp-word]") ?? []));
   }, []);
 
   const measure = useCallback(() => {
@@ -131,6 +139,7 @@ export default function MobileStory() {
     const s = Math.max(0.3, Math.min((areaRight - areaLeft) / DEVICE_W, (areaBottom - areaTop) / DEVICE_H, MAX_SCALE));
     const top = areaTop + Math.max(0, (areaBottom - areaTop - DEVICE_H * s) / 2);
     const cx = (areaLeft + areaRight) / 2;
+    const sCenter = Math.max(0.3, Math.min((vw - 32) / DEVICE_W, (vh - 2 * HEADER_CLEAR) / DEVICE_H, MAX_SCALE));
 
     // The device waits just under the hero's words (or low on the screen when
     // they are short), then rises with them.
@@ -159,19 +168,19 @@ export default function MobileStory() {
     const slotInterview = (e["m-slot-interview"]?.offsetTop ?? 0) + (M_ROW_H - (applied?.offsetHeight ?? M_ROW_H));
 
     metrics.current = {
-      vw, vh, stageH, cx, top, s, peekTop, dock, copyBottom, w0, w1, beats, beatLen, diveLen,
+      vw, vh, stageH, cx, top, s, sCenter, peekTop, dock, copyBottom, w0, w1, beats, beatLen, diveLen,
       tab: boxWithin(e["m-ext-tab"], device),
       track: boxWithin(e["m-ext-track"], device),
       merge: boxWithin(e["m-merge-btn"], device),
-      zoomTarget: boxWithin(e["m-zoom-target"], device),
+      zoomTarget: boxWithin(e["m-zoom-target"]?.parentElement, device),
       reviewH, slotApplied, slotInterview,
     };
 
     // Header tone: dark over the hero, light once the page is mostly white,
-    // dark again as the dive turns it night.
+    // dark again once the growing card passes under the header.
     const [dark1, light, dark2] = toneRefs.current;
     const lightFrom = (w0 + w1) / 2;
-    const flip = beats[3] + diveLen * 0.27;
+    const flip = beats[3] + diveLen * 0.72;
     const total = end + stageH;
     css(dark1, { top: "0px", height: `${round(lightFrom, 1)}px` });
     css(light, { top: `${round(lightFrom, 1)}px`, height: `${round(Math.max(0, flip - lightFrom), 1)}px` });
@@ -195,9 +204,15 @@ export default function MobileStory() {
     const a3 = beat(2);
     const z = range(px, beats[3], beats[3] + m.diveLen);
 
-    /* Page colour: black → white as the device docks, white → night on the dive. */
+    /* The ending (z): the device centres and opens Personalize, a tap picks
+       Dark, and the Dark card lifts out and grows into the page. */
+    const pickUp = still ? 0 : easeOut(range(z, 0.27, 0.38));
+    const dive = still ? 0 : range(z, 0.37, 0.86);
+
+    /* Page colour: black → white as the device docks; night once the card
+       covers it. */
     const white = range(px, m.w0, m.w1);
-    const toNight = easeInOut(range(z, 0.2, 0.34));
+    const toNight = still ? easeInOut(range(z, 0.5, 0.95)) : range(dive, 0.95, 1);
     const level = Math.round(lerp(lerp(0, 255, white), 10, toNight));
     css(stage, { backgroundColor: `rgb(${level}, ${level}, ${level})` });
 
@@ -221,35 +236,40 @@ export default function MobileStory() {
     }
     let X = m.cx;
     let Y = top + (DEVICE_H * s) / 2;
-
-    /* The dive: the Dark card's centre travels to mid-screen as the camera zooms in. */
-    const dive = range(z, 0.34, 0.96);
-    let k = 1;
-    if (!still && dive > 0) {
-      const c = center(m.zoomTarget);
-      const ox = c.x - DEVICE_W / 2;
-      const oy = c.y - DEVICE_H / 2;
-      const cover = Math.max(vw / (m.zoomTarget.w * s), m.stageH / (m.zoomTarget.h * s)) * 1.18;
-      k = Math.exp(Math.log(cover) * easeIn(dive));
-      const travel = easeInOut(clamp01(dive * 1.6));
-      const tx = lerp(X + ox * s, vw / 2, travel);
-      const ty = lerp(Y + oy * s, vh / 2, travel);
-      X = tx - ox * s * k;
-      Y = ty - oy * s * k;
+    if (!still) {
+      // After Track (its caption gone), the device comes to the middle of the
+      // screen; the card it hands the page to grows from there. Then it
+      // falls back behind the card.
+      const recenter = easeInOut(range(z, 0, 0.16));
+      s = lerp(s, m.sCenter, recenter);
+      X = lerp(X, vw / 2, recenter);
+      Y = lerp(Y, vh / 2, recenter);
+      s *= 1 - 0.06 * easeInOut(range(dive, 0, 0.6));
     }
     const tx = round(X - vw / 2, 1);
     const ty = round(Y - DEVICE_H / 2, 1);
     css(device, {
-      transform: `translate3d(${tx}px, ${ty}px, 0) perspective(1600px) rotateX(${round(tilt, 2)}deg) scale(${round(s * k, 4)})`,
-      willChange: px < m.dock * 1.2 || dive > 0 ? "transform" : "auto",
+      transform: `translate3d(${tx}px, ${ty}px, 0) perspective(1600px) rotateX(${round(tilt, 2)}deg) scale(${round(s, 4)})`,
+      willChange: px < m.dock * 1.2 || z > 0 ? "transform" : "auto",
       // Reduced motion: no rise — the device appears as the page turns white.
-      opacity: still ? round(white) : 1,
+      // The ending: it dims as the card is picked up and fades behind it.
+      opacity: still ? round(white) : round((1 - 0.3 * pickUp) * (1 - range(dive, 0.1, 0.5))),
     });
     css(glowRef.current, {
       transform: `translate3d(${tx}px, ${ty}px, 0) scale(${round(s, 4)})`,
       opacity: round(1 - white),
     });
-    css(nightRef.current, { opacity: round(still ? range(z, 0.5, 0.95) : range(z, 0.84, 1)) });
+    const t = m.zoomTarget;
+    paintMorph(
+      morphRef.current,
+      { x: X + (t.x - DEVICE_W / 2) * s, y: Y + (t.y - DEVICE_H / 2) * s, w: t.w * s, h: t.h * s },
+      { x: 0, y: 0, w: vw, h: m.stageH },
+      s,
+      dive,
+      pickUp,
+    );
+    css(e["m-zoom-target"]?.parentElement, { visibility: pickUp > 0 ? "hidden" : "" });
+    css(nightRef.current, { opacity: round(still ? range(z, 0.5, 0.95) : 0) });
 
     /* Screens: each dissolves in over the one before it, which stays opaque
        until it's covered — the frame never shows through a half-faded pair. */
@@ -259,8 +279,8 @@ export default function MobileStory() {
       studio: 1,
       apply: across(beats[1]),
       track: across(beats[2]),
-      settings: range(z, 0, 0.1),
-      settingsDark: range(z, 0.18, 0.26),
+      settings: range(z, 0.02, 0.12),
+      settingsPick: range(z, 0.23, 0.26),
     };
     const visible = {} as Record<MScreenName, number>;
     let front: MScreenName = "studio";
@@ -274,9 +294,7 @@ export default function MobileStory() {
       el.classList.toggle("is-live", o > 0.001);
       css(el, { opacity: round(o) });
     });
-    const toDark = into.settingsDark;
     for (const u of urls.current) setText(u, M_SCREEN_URL[front]);
-    css(e["m-bar-dark"], { opacity: round(toDark) });
 
     /* Tailor — see the gap (the missing keywords glow), align (they're
        chosen), review (the bullets rewrite and the score climbs). */
@@ -289,12 +307,13 @@ export default function MobileStory() {
       css(e[`m-chip-${i}-on`], { opacity: round(on) });
     });
     STUDIO_BULLETS.forEach((_, i) => {
-      const r = easeOut(range(a1, 0.52 + i * 0.08, 0.6 + i * 0.08));
-      css(e[`m-b${i}-old`], { opacity: round(1 - r) });
-      css(e[`m-b${i}-new`], { opacity: round(r) });
-      css(e[`m-b${i}-mark`], { "--lp-mark": round(r) });
+      const r = range(a1, 0.5 + i * 0.12, 0.68 + i * 0.12);
+      css(e[`m-b${i}-old`], { opacity: round(1 - range(r, 0, 0.14)) });
+      css(e[`m-b${i}-new`], { opacity: r > 0 ? 1 : 0 });
+      streamWords(bulletWords.current[i] ?? [], range(r, 0.14, 1));
+      css(e[`m-b${i}-mark`], { "--lp-mark": round(range(r, 0.88, 1)) });
     });
-    const score = lerp(6.4, 8.7, easeInOut(range(a1, 0.54, 0.84)));
+    const score = lerp(6.4, 8.7, easeInOut(range(a1, 0.54, 0.92)));
     const excellent = score >= 7.5;
     const scoreColor = excellent ? "rgb(var(--palette-emerald-500))" : "rgb(var(--palette-amber-500))";
     css(e["m-gauge-ring"], { strokeDashoffset: round(GAUGE_CIRC * (1 - score / 10), 2), stroke: scoreColor });
@@ -349,7 +368,7 @@ export default function MobileStory() {
     const toast = easeOut(range(a3, 0.8, 0.86)) * (1 - range(a3, 0.95, 1));
     css(e["m-toast"], { opacity: round(toast), transform: `translate3d(-50%, ${round((1 - toast) * -8, 1)}px, 0)` });
 
-    /* The touch mark: on the tab, on Track, on Merge. */
+    /* The touch mark: on the tab, on Track, on Merge, on Dark. */
     let touch = 0;
     let press = false;
     let at = center(m.tab);
@@ -364,11 +383,26 @@ export default function MobileStory() {
       at = center(m.merge);
       touch = range(a3, 0.22, 0.28) * (1 - range(a3, 0.42, 0.48));
       press = a3 > 0.34 && a3 < 0.4;
+    } else if (z > 0.12 && z < 0.3) {
+      at = center(m.zoomTarget);
+      touch = range(z, 0.13, 0.17) * (1 - range(z, 0.25, 0.29));
+      press = z > 0.2 && z < 0.24;
     }
     css(e["m-touch"], {
       opacity: round(still ? 0 : touch),
       transform: `translate3d(${round(at.x, 1)}px, ${round(at.y, 1)}px, 0) translate(-50%, -50%) scale(${press ? 0.82 : 1})`,
     });
+
+    /* Where you are: three segments under the header, each filling with its
+       beat — there from the dock until the ending begins. */
+    const progress = progressRef.current;
+    if (progress) {
+      const beatsDone = [a1, a2, a3];
+      css(progress, { opacity: round(range(px, m.dock - vh * 0.04, m.dock + vh * 0.08) * (1 - range(z, 0, 0.06))) });
+      Array.from(progress.children).forEach((seg, i) => {
+        css((seg as HTMLElement).firstElementChild as HTMLElement, { transform: `scaleX(${round(beatsDone[i])})` });
+      });
+    }
 
     /* Captions: each rises into the slot as its beat begins and lifts away
        just before the next one arrives — one at a time, never overlapping. */
@@ -429,6 +463,10 @@ export default function MobileStory() {
           </div>
           <div ref={glowRef} className="lp-device-glow" />
           <MobileDevice ref={deviceRef} />
+          <CardMorph ref={morphRef} />
+          <div ref={progressRef} className="lp-mprogress" aria-hidden style={{ opacity: 0 }}>
+            {[0, 1, 2].map((i) => <span key={i}><i /></span>)}
+          </div>
           <div className="lp-mcaptions lp-on-light">
             {CAPTIONS.map((c, i) => (
               <div key={c.eyebrow} ref={(el) => { captionRefs.current[i] = el; }} className="lp-mcaption" style={{ opacity: 0 }}>

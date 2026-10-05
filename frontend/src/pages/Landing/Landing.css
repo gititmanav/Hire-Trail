@@ -7,6 +7,26 @@
  * the DOM; this file owns the looks, the one-shot keyframes and the
  * reduced-motion fallbacks. */
 
+/* The landing's one font: Inter (variable, weights 400–700, optical sizes
+ * 14–32 — the display cut at headline sizes), subset to Latin, self-hosted
+ * (public/fonts, SIL OFL). index.html preloads it for visitors. The fallback
+ * is Arial sized to Inter's metrics, so the swap doesn't shift the page. */
+@font-face {
+  font-family: "Inter Landing";
+  src: url("/fonts/inter-landing.woff2") format("woff2");
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Inter Landing Fallback";
+  src: local("Arial");
+  ascent-override: 90.49%;
+  descent-override: 22.56%;
+  line-gap-override: 0%;
+  size-adjust: 107.06%;
+}
+
 .lp {
   /* HSL triplets, like App.css — use as hsl(var(--lp-x)). */
   --lp-black: 0 0% 0%;
@@ -25,12 +45,22 @@
 
   color: hsl(var(--lp-ink));
   background: hsl(var(--lp-black));
+  font-family: "Inter Landing", "Inter Landing Fallback", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-optical-sizing: auto;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
   /* Decorative layers may overhang the edges; clip (not hidden) keeps
    * position: sticky working. */
   overflow-x: clip;
+}
+
+/* The product previews are the app, and the app speaks the system font. */
+.lp-window,
+.lp-device,
+.lp-vignettes,
+.lp-app {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 /* The page scrolls the document; while the landing is up, the overscroll
@@ -63,19 +93,20 @@ html.lp-root body {
 .lp-display {
   font-size: clamp(2.75rem, 1.15rem + 6.4vw, 6.5rem);
   line-height: 1.02;
-  letter-spacing: -0.045em;
+  letter-spacing: -0.032em;
   font-weight: 700;
 }
 .lp-h2 {
+  text-wrap: balance;
   font-size: clamp(2.25rem, 1.1rem + 4.1vw, 4.75rem);
   line-height: 1.04;
-  letter-spacing: -0.038em;
+  letter-spacing: -0.028em;
   font-weight: 700;
 }
 .lp-h3 {
   font-size: clamp(1.625rem, 1.05rem + 1.9vw, 2.625rem);
   line-height: 1.1;
-  letter-spacing: -0.028em;
+  letter-spacing: -0.02em;
   font-weight: 650;
 }
 .lp-lede {
@@ -102,6 +133,51 @@ html.lp-root body {
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+}
+
+/* ─── The sweep (engine/Sweep.tsx) ─── */
+
+/* A registered number, so the view timeline can animate it; 1 = inked, which
+ * is also what shows wherever the sweep doesn't run. */
+@property --lp-sweep {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 1;
+}
+.lp-sweep {
+  color: transparent;
+  background-image: linear-gradient(100deg, var(--lp-sweep-ink) 0 40%, var(--lp-sweep-edge) 50%, var(--lp-sweep-ghost) 60% 100%);
+  background-size: 300% 100%;
+  background-position: calc((1 - var(--lp-sweep)) * 100%) 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+.lp-sweep--dark {
+  --lp-sweep-ink: #fff;
+  --lp-sweep-edge: hsl(0 0% 100% / 0.72);
+  --lp-sweep-ghost: hsl(0 0% 100% / 0.16);
+}
+.lp-sweep--light {
+  --lp-sweep-ink: hsl(var(--lp-ink));
+  --lp-sweep-edge: hsl(var(--lp-ink) / 0.5);
+  --lp-sweep-ghost: hsl(var(--lp-ink) / 0.13);
+}
+@keyframes lp-sweep {
+  from { --lp-sweep: 0; }
+  to { --lp-sweep: 1; }
+}
+@supports (animation-timeline: view()) {
+  .lp-sweep-view {
+    animation: lp-sweep linear both;
+    animation-timeline: view();
+    animation-range: entry 25% cover 48%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lp-sweep-view { animation: none; }
+}
+@media (forced-colors: active) {
+  .lp-sweep { color: CanvasText; background: none; }
 }
 
 /* ─── Buttons ─── */
@@ -153,12 +229,13 @@ html.lp-root body {
   box-shadow: 0 0 0 1px hsl(0 0% 100% / 0.1), 0 12px 40px -12px hsl(0 0% 100% / 0.35);
 }
 .lp-btn--solid-dark:hover { background: #ececec; }
+/* No backdrop blur: on near-black it shows almost nothing, and these sit
+ * inside copy that fades as you scroll (never fade an ancestor of a
+ * backdrop-filter element). */
 .lp-btn--glass-dark {
   color: #fff;
-  background: hsl(0 0% 100% / 0.05);
+  background: hsl(0 0% 100% / 0.07);
   border: 1px solid hsl(0 0% 100% / 0.18);
-  -webkit-backdrop-filter: blur(20px);
-  backdrop-filter: blur(20px);
 }
 .lp-btn--glass-dark:hover { background: hsl(0 0% 100% / 0.1); border-color: hsl(0 0% 100% / 0.3); }
 
@@ -437,7 +514,7 @@ html.lp-root body {
 .lp-mcaption-title {
   font-size: clamp(1.5rem, 1.1rem + 1.8vw, 2.5rem);
   line-height: 1.08;
-  letter-spacing: -0.032em;
+  letter-spacing: -0.026em;
   font-weight: 700;
 }
 .lp-mcaption-lede {
@@ -458,6 +535,97 @@ html.lp-root body {
 @media (orientation: landscape) and (max-height: 560px) {
   .lp-mcaptions { left: 50%; padding: 72px 32px 20px 12px; align-items: center; text-align: left; }
   .lp-mcaption-lede { margin-inline: 0; }
+}
+
+/* The dive's end (story/CardMorph): the Dark card grows into the page. Its
+ * geometry is written per frame; these are its parts (ShellPreview's). */
+.lp-morph {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 6;
+  overflow: hidden;
+  background: hsl(var(--sidebar));
+  box-shadow:
+    inset 0 0 0 1px hsl(var(--border) / var(--lp-morph-parts, 1)),
+    0 calc(var(--lp-morph-shadow, 0) * 22px) calc(var(--lp-morph-shadow, 0) * 50px) -10px hsl(0 0% 0% / calc(var(--lp-morph-shadow, 0) * 0.45));
+  transform-origin: 50% 50%;
+  pointer-events: none;
+}
+.lp-morph-panel {
+  position: absolute;
+  left: var(--lp-morph-sidebar, 26%);
+  top: var(--lp-morph-inset);
+  right: var(--lp-morph-inset);
+  bottom: var(--lp-morph-inset);
+  border-radius: var(--lp-morph-r);
+  background: hsl(var(--background));
+  box-shadow: inset 0 0 0 1px hsl(var(--border));
+  opacity: var(--lp-morph-parts, 1);
+}
+.lp-morph-dot {
+  position: absolute;
+  right: var(--lp-morph-inset);
+  bottom: var(--lp-morph-inset);
+  width: var(--lp-morph-dot);
+  height: var(--lp-morph-dot);
+  border-radius: 50%;
+  background: hsl(var(--primary));
+}
+.lp-morph::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: hsl(var(--lp-night));
+  opacity: var(--lp-morph-night, 0);
+}
+
+/* Tailor · Apply · Track: where you are in the story (desktop), under the
+ * window (placed by StoryScene); each hairline fills with its act. */
+.lp-acts-progress {
+  position: absolute;
+  display: flex;
+  gap: 28px;
+  pointer-events: none;
+}
+.lp-acts-step {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.006em;
+  color: hsl(var(--lp-fog-light));
+  transition: color 300ms var(--lp-ease);
+}
+.lp-acts-step[data-state="active"] { color: hsl(var(--lp-ink)); }
+.lp-acts-bar,
+.lp-mprogress > span {
+  display: block;
+  height: 2px;
+  border-radius: 1px;
+  overflow: hidden;
+  background: hsl(0 0% 0% / 0.1);
+}
+.lp-acts-bar { width: 64px; }
+.lp-acts-bar > i,
+.lp-mprogress > span > i {
+  display: block;
+  height: 100%;
+  background: hsl(var(--lp-ink));
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+}
+/* The phone story's three segments, under the header. */
+.lp-mprogress {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  top: 64px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  pointer-events: none;
 }
 
 /* Studio: the posting's keywords light up as the gap is found. */
@@ -492,16 +660,14 @@ html.lp-root body {
   backdrop-filter: blur(24px) saturate(140%);
 }
 
-/* The theme playground's preview recolours smoothly when a swatch is picked;
- * a drag paints every frame instead (data-live). */
-.lp-themed,
-.lp-themed * {
-  transition: background-color 450ms var(--lp-ease), border-color 450ms var(--lp-ease), color 450ms var(--lp-ease),
-    fill 450ms var(--lp-ease), stroke 450ms var(--lp-ease), box-shadow 450ms var(--lp-ease);
+/* The theme playground: a picked look spreads over the preview as a circle
+ * from the control that picked it (ThemeScene). */
+.lp-wipe {
+  clip-path: circle(var(--lp-wipe-r) at var(--lp-wipe-x) var(--lp-wipe-y));
+  animation: lp-wipe 760ms var(--lp-ease) both;
 }
-.lp-themed[data-live],
-.lp-themed[data-live] * {
-  transition: none !important;
+@keyframes lp-wipe {
+  from { clip-path: circle(0px at var(--lp-wipe-x) var(--lp-wipe-y)); }
 }
 
 /* Below 1024px the theme preview docks under the header while the controls
@@ -543,8 +709,18 @@ html.lp-root body {
 
 /* ─── Footer ─── */
 
+/* A hand-off: it rises over the closing stage's empty lower part while the
+ * last ask is still on screen. The panel takes the pointer back. */
+.lp-footer { --lp-overlap: 24vh; --lp-handoff-bg: hsl(var(--lp-night)); }
+@supports (height: 1svh) { .lp-footer { --lp-overlap: 24svh; } }
+@media (max-width: 639px) {
+  .lp-footer { --lp-overlap: 12vh; }
+  @supports (height: 1svh) { .lp-footer { --lp-overlap: 12svh; } }
+}
+
 .lp-footer-panel {
   position: relative;
+  pointer-events: auto;
   border-radius: 28px 28px 0 0;
   background: hsl(0 0% 5.5%);
   border-top: 1px solid hsl(0 0% 100% / 0.06);
@@ -565,14 +741,15 @@ html.lp-root body {
 
 /* ─── One-shot entrances ─── */
 
+/* Holds its first frame only through the delay (`backwards`) and lets go
+ * once it has played, so scroll-driven styles can take over the same
+ * element afterwards (the hero's lines). */
 .lp-rise {
-  opacity: 0;
-  transform: translateY(18px);
-  animation: lp-rise 900ms var(--lp-ease) forwards;
+  animation: lp-rise 900ms var(--lp-ease) backwards;
   animation-delay: var(--lp-delay, 0ms);
 }
 @keyframes lp-rise {
-  to { opacity: 1; transform: none; }
+  from { opacity: 0; transform: translateY(18px); }
 }
 
 .lp-fade-in {
@@ -587,7 +764,7 @@ html.lp-root body {
 /* ─── Reduced motion ─── */
 
 @media (prefers-reduced-motion: reduce) {
-  .lp-rise,
+  .lp-rise { animation: none; }
   .lp-fade-in { animation: none; opacity: 1; transform: none; }
   .lp-spotlight.is-on { animation: none; opacity: 1; }
   .lp-btn,
@@ -595,8 +772,7 @@ html.lp-root body {
   .lp-link svg,
   .lp-nav-shell { transition-duration: 1ms; }
   .lp-btn::after { display: none; }
-  .lp-themed,
-  .lp-themed * { transition: none !important; }
+  .lp-wipe { animation: none; }
 }
 
 /* ─── And everything else ─── */
@@ -619,13 +795,39 @@ html.lp-root body {
 .lp-word {
   font-size: var(--lp-word-size);
   line-height: 1.02;
-  letter-spacing: -0.05em;
+  letter-spacing: -0.036em;
   font-weight: 700;
 }
+/* ⌘K as two keys (the lit word's colour is their glyph's, and tints the
+ * caps); --lp-press takes them down. */
+.lp-keys { display: inline-flex; gap: 0.14em; vertical-align: top; padding-bottom: 0.06em; }
+.lp-key {
+  display: inline-grid;
+  place-items: center;
+  width: 1em;
+  height: 0.94em;
+  border-radius: 0.2em;
+  font: inherit;
+  background: linear-gradient(180deg, color-mix(in srgb, currentColor 16%, hsl(0 0% 9%)), color-mix(in srgb, currentColor 5%, hsl(0 0% 5%)));
+  box-shadow:
+    inset 0 0.012em 0 hsl(0 0% 100% / 0.16),
+    inset 0 -0.03em 0 hsl(0 0% 0% / 0.45),
+    0 0 0 0.008em hsl(0 0% 100% / 0.08),
+    0 calc((1 - var(--lp-press, 0)) * 0.06em) 0 hsl(0 0% 2%),
+    0 calc(0.06em + (1 - var(--lp-press, 0)) * 0.08em) 0.18em hsl(0 0% 0% / 0.6);
+  transform: translateY(calc(var(--lp-press, 0) * 0.05em));
+}
+.lp-key-glyph { width: 0.46em; height: 0.46em; }
+.lp-key-letter { font-size: 0.5em; font-weight: 600; letter-spacing: 0; line-height: 1; }
 .lp-word-line { margin-top: 0.85rem; max-width: 30rem; min-height: 3em; }
 /* The pieces of the app: beside the words (the grid's second column), or
  * under them on narrower screens — bottom-aligned in a slot above the fold. */
 .lp-vignettes { position: relative; display: flex; align-items: center; }
+/* Beside the words there's room: the pieces read a size larger (zoom keeps
+ * them sharp, unlike a scale). */
+@media (min-width: 1024px) {
+  .lp-vignettes { zoom: 1.18; }
+}
 .lp-reading-light {
   position: absolute;
   left: -12%;
@@ -700,25 +902,66 @@ html.lp-root body {
   mask-image: linear-gradient(to bottom, transparent var(--lp-overlap), #000 calc(var(--lp-overlap) + 30vh));
 }
 
+/* A promise's receipt: the checkable fact, in mono (trust/Promises). */
+.lp-receipt {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 9px;
+  border-radius: 7px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  letter-spacing: -0.01em;
+  color: hsl(var(--lp-ink) / 0.78);
+  background: hsl(0 0% 0% / 0.035);
+  box-shadow: inset 0 0 0 1px hsl(0 0% 0% / 0.07);
+}
+
+/* Between white sections: a hairline, not a tall empty band. */
+.lp-keyline { height: 1px; margin-bottom: 8vh; background: hsl(0 0% 0% / 0.08); }
+
+/* Rows that come in one after another once their block is revealed
+ * (engine/Reveal) — the comparison's rows. */
+.lp-reveal-in .lp-rows > * {
+  animation: lp-row-in 700ms var(--lp-ease) both;
+  animation-delay: calc(140ms + var(--i, 0) * 60ms);
+}
+@keyframes lp-row-in {
+  from { opacity: 0; transform: translateY(8px); }
+}
+
+/* A still film grain over dark glows, so their gradients never band —
+ * above the element's background, under its content. */
+.lp-grain { isolation: isolate; }
+.lp-grain::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
 /* ─── The founder's line ─── */
 
-/* 120 of pin: the white arrives in the first 14%, the words by 80%. It
- * pins 20 after the word list lets go (the list's stage is 100svh), so the
- * last word leaves with the page before the white comes over it. */
+/* 90 of pin: the white arrives in the first 14%, the sentence is inked by
+ * 80%. It pins 20 after the word list lets go (the list's stage is 100svh),
+ * so the last word leaves with the page before the white comes over it. */
 .lp-founder {
-  height: calc(100vh + 120vh);
+  height: calc(100vh + 90vh);
   --lp-overlap: 80vh;
-  --lp-flip: 8.5vh;
+  --lp-flip: 6.5vh;
   --lp-handoff-bg: hsl(var(--lp-night));
 }
-/* The stage is 100lvh (see FounderScene); the pin itself stays 120svh. */
+/* The stage is 100lvh (see FounderScene); the pin itself stays 90svh. */
 @supports (height: 1svh) {
-  .lp-founder { height: calc(100lvh + 120svh); --lp-overlap: 80svh; --lp-flip: 8.5svh; }
+  .lp-founder { height: calc(100lvh + 90svh); --lp-overlap: 80svh; --lp-flip: 6.5svh; }
 }
 .lp-founder-line {
   font-size: clamp(1.75rem, 1.05rem + 2.9vw, 3.5rem);
   line-height: 1.16;
-  letter-spacing: -0.032em;
+  letter-spacing: -0.024em;
   font-weight: 650;
   text-wrap: pretty;
 }
@@ -750,5 +993,6 @@ html.lp-root body {
 
 @media (prefers-reduced-motion: reduce) {
   .lp-reveal-wait { opacity: 1; transform: none; }
-  .lp-reveal-in { animation: none; }
+  .lp-reveal-in,
+  .lp-reveal-in .lp-rows > * { animation: none; }
 }

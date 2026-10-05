@@ -12,14 +12,26 @@
     <!-- Paint the signed-in user's theme before anything renders, from the
          cache utils/themeDom.ts keeps (same shape as its BootCache). -->
     <!-- A visitor landing on "/" (no signed-in theme cached) sees the landing,
-         which opens on black: paint black now so nothing flashes white first. -->
+         which opens on black: paint black now so nothing flashes white first.
+         Visitors on the public pages also start fetching the landing's font
+         (pages/Landing/font.css) now, so the headline doesn't swap faces. -->
     <style>html.lp-boot, html.lp-boot body { background: #000; }</style>
     <script>
       (function () {
         try {
           var b = JSON.parse(localStorage.getItem("hiretrail-theme-boot") || "null");
           if (!b) {
-            if (location.pathname === "/") document.documentElement.classList.add("lp-boot");
+            var path = location.pathname;
+            if (path === "/") document.documentElement.classList.add("lp-boot");
+            if (path === "/" || path === "/about" || path === "/privacy" || path === "/terms") {
+              var font = document.createElement("link");
+              font.rel = "preload";
+              font.as = "font";
+              font.type = "font/woff2";
+              font.crossOrigin = "anonymous";
+              font.href = "/fonts/inter-landing.woff2";
+              document.head.appendChild(font);
+            }
             return;
           }
           var root = document.documentElement;
@@ -44,10 +56,10 @@
       property="og:description"
       content="Tailor your resume to every posting, save jobs from six boards in one click, and catch recruiter replies in your inbox. Free and open source."
     />
-    <meta property="og:image" content="https://hiretrail.manavkaneria.me/Dashboard.png" />
+    <meta property="og:image" content="https://hiretrail.manavkaneria.me/og.jpg" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="HireTrail dashboard showing application pipeline" />
+    <meta property="og:image:alt" content="HireTrail — Tailor. Apply. Track. Without the spreadsheet." />
 
     <!-- Twitter / X -->
     <meta name="twitter:card" content="summary_large_image" />
@@ -56,8 +68,8 @@
       name="twitter:description"
       content="Tailor your resume to every posting, save jobs from six boards in one click, and catch recruiter replies in your inbox. Free and open source."
     />
-    <meta name="twitter:image" content="https://hiretrail.manavkaneria.me/Dashboard.png" />
-    <meta name="twitter:image:alt" content="HireTrail dashboard showing application pipeline" />
+    <meta name="twitter:image" content="https://hiretrail.manavkaneria.me/og.jpg" />
+    <meta name="twitter:image:alt" content="HireTrail — Tailor. Apply. Track. Without the spreadsheet." />
   </head>
   <body>
     <div id="root"></div>

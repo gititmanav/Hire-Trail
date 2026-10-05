@@ -3,6 +3,7 @@ import { useState, type ReactNode } from "react";
 import { Plus } from "lucide-react";
 import Collapse from "../../../components/ui/Collapse.tsx";
 import Reveal from "../engine/Reveal.tsx";
+import Sweep from "../engine/Sweep.tsx";
 
 const FAQS: { q: string; a: ReactNode }[] = [
   {
@@ -60,10 +61,11 @@ function Item({ q, a, id }: { q: string; a: ReactNode; id: string }) {
 export default function FAQ() {
   return (
     <section id="faq" className="relative bg-white lp-on-light scroll-mt-20" data-lp-tone="light" aria-labelledby="lp-faq-title">
-      <div className="max-w-[1180px] mx-auto px-6 pt-[8vh] pb-[16vh] grid lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] gap-10 lg:gap-16">
+      <div className="max-w-[1180px] mx-auto px-6"><div className="lp-keyline" aria-hidden /></div>
+      <div className="max-w-[1180px] mx-auto px-6 pb-[16vh] grid lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] gap-10 lg:gap-16">
         <Reveal>
           <p className="lp-eyebrow text-[hsl(var(--lp-fog-light))]">FAQ</p>
-          <h2 id="lp-faq-title" className="lp-h2 mt-2 text-[hsl(var(--lp-ink))]">Questions, answered.</h2>
+          <h2 id="lp-faq-title" className="lp-h2 mt-2 text-[hsl(var(--lp-ink))]"><Sweep tone="light">Questions, answered.</Sweep></h2>
         </Reveal>
         <Reveal delay={80} className="border-b border-black/[0.09]">
           {FAQS.map((f, i) => <Item key={f.q} q={f.q} a={f.a} id={`lp-faq-${i}`} />)}

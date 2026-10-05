@@ -1,31 +1,41 @@
-/** "Yours. Always." — the four promises, each linked to where you can check it. */
+/** "Yours. Always." — the four promises, each with its receipt (the fact you
+ *  can check, set in mono: the exact permission, the named services, the
+ *  menu path, the licence) and a link to where it's written down. Keep the
+ *  receipts true to the code: backend/src/services/gmailService.ts +
+ *  outlookService.ts (scopes), pages/Legal/Privacy.tsx (services),
+ *  Settings → Profile (delete), LICENSE. */
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { GITHUB_URL } from "../parts.tsx";
 import Reveal from "../engine/Reveal.tsx";
+import Sweep from "../engine/Sweep.tsx";
 
-const PROMISES: { title: string; body: string; href: string; external?: boolean; cta: string }[] = [
+const PROMISES: { title: string; body: string; proof: string[]; href: string; external?: boolean; cta: string }[] = [
   {
     title: "Read-only inbox.",
     body: "HireTrail can read your job emails — never send, edit or delete them. Disconnect whenever you like.",
+    proof: ["gmail.readonly", "Mail.Read"],
     href: "/privacy",
     cta: "How we use it",
   },
   {
     title: "Never sold.",
     body: "Your data isn’t sold or shared. The few services HireTrail runs on are named in the privacy policy.",
+    proof: ["10 services, each named"],
     href: "/privacy#subprocessors",
     cta: "See the list",
   },
   {
     title: "Gone when you say.",
     body: "Delete your account from Settings and everything goes with it, immediately.",
+    proof: ["Settings → Profile → Delete account"],
     href: "/privacy",
     cta: "Read the policy",
   },
   {
     title: "Open source.",
     body: "Every line of HireTrail is public on GitHub. Read it, run it, improve it.",
+    proof: ["MIT", "gititmanav/Hire-Trail"],
     href: GITHUB_URL,
     external: true,
     cta: "Read the code",
@@ -38,7 +48,7 @@ export default function Promises() {
       <div className="max-w-[1180px] mx-auto px-6 pt-[14vh] pb-[12vh]">
         <Reveal>
           <p className="lp-eyebrow text-[hsl(var(--lp-fog-light))]">Privacy</p>
-          <h2 id="lp-promises-title" className="lp-h2 mt-2 text-[hsl(var(--lp-ink))]">Yours. Always.</h2>
+          <h2 id="lp-promises-title" className="lp-h2 mt-2 text-[hsl(var(--lp-ink))]"><Sweep tone="light">Yours. Always.</Sweep></h2>
           <p className="lp-lede mt-5 max-w-[560px] text-[hsl(var(--lp-fog-light))]">Four promises — and where to check each one.</p>
         </Reveal>
         <div className="mt-14 grid sm:grid-cols-2 gap-x-12 gap-y-12">
@@ -52,6 +62,9 @@ export default function Promises() {
               <Reveal key={p.title} delay={i * 70} className="border-t border-black/[0.09] pt-7">
                 <h3 className="lp-h3 text-[hsl(var(--lp-ink))]">{p.title}</h3>
                 <p className="mt-3 text-[17px] leading-relaxed text-[hsl(var(--lp-fog-light))] max-w-[440px]">{p.body}</p>
+                <p className="mt-4 flex flex-wrap gap-1.5">
+                  {p.proof.map((fact) => <code key={fact} className="lp-receipt">{fact}</code>)}
+                </p>
                 {p.external ? (
                   <a href={p.href} target="_blank" rel="noreferrer noopener">{link}</a>
                 ) : (

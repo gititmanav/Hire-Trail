@@ -2,11 +2,18 @@
  *  you scroll; the word on the reading line is lit by a spotlight, its line of
  *  copy fades in beneath it and a piece of the real app appears beside it (on
  *  a phone, beneath it — the same scrubbed hand-off, placed by Landing.css).
- *  Reduced motion: the list doesn't travel — the lit word simply changes. */
+ *  The first word is the shortcut itself: two keys that go down as it reaches
+ *  the line, and the search beside it types. Reduced motion: the list doesn't
+ *  travel — the lit word simply changes. */
 import { useCallback, useLayoutEffect, useRef } from "react";
+import { Command } from "lucide-react";
 import { useReducedMotion, useScene } from "../engine/hooks.ts";
-import { clamp01, range } from "../engine/scroll.ts";
+import { clamp01, lerp, range } from "../engine/scroll.ts";
+import { css, setText } from "../engine/dom.ts";
 import { AIVignette, CalendarVignette, ContactsVignette, DeadlinesVignette, ImportVignette, SearchVignette } from "./Vignettes.tsx";
+
+/** The search the ⌘K vignette types as the keys go down. */
+const QUERY = "stri";
 
 const ITEMS = [
   { word: "⌘K", line: "Find any application, company, contact or deadline in a keystroke.", Vignette: SearchVignette },
@@ -24,6 +31,8 @@ export default function EverythingScene() {
   const wordRefs = useRef<(HTMLParagraphElement | null)[]>([]);
   const lineRefs = useRef<(HTMLParagraphElement | null)[]>([]);
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const keysRef = useRef<HTMLSpanElement>(null);
+  const searchParts = useRef<{ query: HTMLElement | null; results: HTMLElement[] }>({ query: null, results: [] });
   /** Each row's top within the list — rows differ when a line wraps. */
   const rowTops = useRef<number[]>([]);
   const reduced = useReducedMotion();
@@ -34,6 +43,11 @@ export default function EverythingScene() {
     const list = listRef.current;
     if (!list) return;
     rowTops.current = Array.from(list.children, (row) => (row as HTMLElement).offsetTop);
+    const search = cardRefs.current[0];
+    searchParts.current = {
+      query: search?.querySelector<HTMLElement>('[data-lp="query"]') ?? null,
+      results: Array.from(search?.querySelectorAll<HTMLElement>('[data-lp="result"]') ?? []),
+    };
   }, []);
 
   useLayoutEffect(() => {
@@ -45,19 +59,28 @@ export default function EverythingScene() {
 
   const paint = useCallback((p: number) => {
     // A position along the list: 0 → the first word on the line, n-1 → the
-    // last. The list glides with the scroll, 1:1 — never holding still under
-    // a moving scroll (that reads as the page resisting).
-    const pos = clamp01(p) * (ITEMS.length - 1);
+    // last. It starts a little short of the first word, so ⌘K arrives on the
+    // line like the others. The list glides with the scroll, 1:1 — never
+    // holding still under a moving scroll (that reads as the page resisting).
+    const last = ITEMS.length - 1;
+    const pos = lerp(-0.45, last, clamp01(p));
     const still = reducedRef.current;
-    const current = Math.round(pos);
+    const current = Math.min(last, Math.max(0, Math.round(pos)));
     if (listRef.current) {
       const tops = rowTops.current;
       const at = still ? current : pos;
-      const i = Math.min(tops.length - 1, Math.floor(at));
-      const next = Math.min(tops.length - 1, i + 1);
-      const y = (tops[i] ?? 0) + ((tops[next] ?? 0) - (tops[i] ?? 0)) * (at - i);
+      const i = Math.max(0, Math.min(tops.length - 2, Math.floor(at)));
+      const y = (tops[i] ?? 0) + ((tops[i + 1] ?? 0) - (tops[i] ?? 0)) * (at - i);
       listRef.current.style.transform = `translate3d(0, ${-Math.round(y * 10) / 10}px, 0)`;
     }
+
+    // ⌘K: the keys go down as the word reaches the line and come back up as
+    // it leaves; meanwhile the search types and its results come in.
+    const press = still ? 1 : range(pos, -0.14, -0.03) * (1 - range(pos, 0.32, 0.44));
+    css(keysRef.current, { "--lp-press": Math.round(press * 1000) / 1000 });
+    const { query, results } = searchParts.current;
+    setText(query, QUERY.slice(0, still ? QUERY.length : Math.round(range(pos, -0.03, 0.2) * QUERY.length)));
+    results.forEach((row, j) => css(row, { opacity: still ? 1 : Math.round(range(pos, 0.08 + j * 0.04, 0.18 + j * 0.04) * 1000) / 1000 }));
     // Distance of each word from the reading line, in steps.
     const dist = (i: number) => (still ? (i === current ? 0 : 1) : Math.abs(pos - i));
     wordRefs.current.forEach((el, i) => {
@@ -75,7 +98,6 @@ export default function EverythingScene() {
     // The pieces of the app hand over at the midpoint: the next one dissolves
     // in over this one, which holds until it's mostly covered — never empty,
     // and never two half-faded pieces showing through each other.
-    const last = ITEMS.length - 1;
     cardRefs.current.forEach((el, i) => {
       if (!el) return;
       const o = still
@@ -104,7 +126,15 @@ export default function EverythingScene() {
                 {ITEMS.map((item, i) => (
                   <div key={item.word} className="lp-word-row">
                     <p ref={(el) => { wordRefs.current[i] = el; }} className="lp-word" style={{ color: i === 0 ? "#fff" : "rgb(56,56,56)" }}>
-                      {item.word}
+                      {item.word === "⌘K" ? (
+                        <>
+                          <span className="sr-only">Command K</span>
+                          <span ref={keysRef} className="lp-keys" aria-hidden>
+                            <kbd className="lp-key"><Command className="lp-key-glyph" strokeWidth={2.2} /></kbd>
+                            <kbd className="lp-key"><span className="lp-key-letter">K</span></kbd>
+                          </span>
+                        </>
+                      ) : item.word}
                     </p>
                     <p ref={(el) => { lineRefs.current[i] = el; }} className="lp-word-line lp-lede text-[hsl(var(--lp-fog-dark))]" style={{ opacity: i === 0 ? 1 : 0 }}>
                       {item.line}

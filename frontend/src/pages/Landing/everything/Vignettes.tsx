@@ -18,12 +18,12 @@ export function SearchVignette() {
     <Card>
       <div className="flex items-center gap-2.5 px-4 h-12 border-b border-border">
         <Search size={15} strokeWidth={2} className="text-muted-foreground" />
-        <span className="text-[14px] text-foreground">stri<span className="inline-block w-[1.5px] h-4 -mb-0.5 ml-px bg-foreground animate-pulse motion-reduce:animate-none" /></span>
+        <span className="text-[14px] text-foreground"><span data-lp="query">stri</span><span className="inline-block w-[1.5px] h-4 -mb-0.5 ml-px bg-foreground animate-pulse motion-reduce:animate-none" /></span>
         <kbd className="ml-auto text-[10.5px] font-mono text-muted-foreground border border-border rounded px-1.5 py-0.5">esc</kbd>
       </div>
       <div className="p-1.5">
         {rows.map((r) => (
-          <div key={r.title} className={`flex items-center gap-3 h-11 px-3 rounded-lg ${r.active ? "bg-control" : ""}`}>
+          <div key={r.title} data-lp="result" className={`flex items-center gap-3 h-11 px-3 rounded-lg ${r.active ? "bg-control" : ""}`}>
             <r.Icon size={15} strokeWidth={1.8} className="text-muted-foreground shrink-0" />
             <span className="flex-1 min-w-0">
               <span className="block text-[13px] font-medium text-foreground truncate">{r.title}</span>

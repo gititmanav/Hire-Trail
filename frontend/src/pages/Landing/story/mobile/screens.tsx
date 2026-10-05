@@ -8,7 +8,7 @@
 import { ArrowLeft, Check, ChevronRight, Copy, Lock, Mail, Plus, Search, Sparkles } from "lucide-react";
 import { STAGE_STRIPE_CLASS } from "../../../../utils/stageStyles.ts";
 import { HEALTH_DOT_CLASS } from "../../../../utils/applicationHealth.ts";
-import { GAUGE_CIRC, GAUGE_R, MATCHED_BEFORE, STUDIO_BULLETS, STUDIO_KEYWORDS } from "../StudioScreen.tsx";
+import { GAUGE_CIRC, GAUGE_R, MATCHED_BEFORE, STUDIO_BULLETS, STUDIO_KEYWORDS, StreamWords } from "../StudioScreen.tsx";
 import { BookmarkIcon, Glyph } from "../PostingScreen.tsx";
 import { CUSTOM_PREVIEW, MODES, ShellPreview } from "../SettingsScreen.tsx";
 
@@ -117,7 +117,7 @@ export function MStudio() {
                 <span className="grid">
                   <span data-lp={`m-b${i}-old`} className="[grid-area:1/1]">{b.before}</span>
                   <span data-lp={`m-b${i}-new`} className="[grid-area:1/1]" style={{ opacity: 0 }}>
-                    <span data-lp={`m-b${i}-mark`} className="lp-changed">{b.after}</span>
+                    <span data-lp={`m-b${i}-mark`} className="lp-changed"><StreamWords text={b.after} /></span>
                   </span>
                 </span>
               </li>

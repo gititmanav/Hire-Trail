@@ -4,6 +4,7 @@
  *  that scrolls sideways. */
 import { Check, Minus } from "lucide-react";
 import Reveal from "../engine/Reveal.tsx";
+import Sweep from "../engine/Sweep.tsx";
 
 type Cell = true | false | string;
 const COLUMNS = ["A spreadsheet", "A typical tracker", "HireTrail"] as const;
@@ -25,10 +26,11 @@ function Value({ v, strong }: { v: Cell; strong?: boolean }) {
 export default function Compare() {
   return (
     <section id="compare" className="relative bg-white lp-on-light scroll-mt-20" data-lp-tone="light" aria-labelledby="lp-compare-title">
-      <div className="max-w-[1180px] mx-auto px-6 pt-[10vh] pb-[12vh]">
+      <div className="max-w-[1180px] mx-auto px-6 pb-[12vh]">
+        <div className="lp-keyline" aria-hidden />
         <Reveal>
           <p className="lp-eyebrow text-[hsl(var(--lp-fog-light))]">Compare</p>
-          <h2 id="lp-compare-title" className="lp-h2 mt-2 text-[hsl(var(--lp-ink))]">Why people switch.</h2>
+          <h2 id="lp-compare-title" className="lp-h2 mt-2 text-[hsl(var(--lp-ink))]"><Sweep tone="light">Why people switch.</Sweep></h2>
         </Reveal>
         {/* Phones: each feature over its three answers, HireTrail's in a lit column. */}
         <Reveal delay={80} className="sm:hidden mt-10">
@@ -37,9 +39,9 @@ export default function Compare() {
             <span>{COLUMNS[1]}</span>
             <span className="-mx-2.5 px-2.5 font-semibold text-[hsl(var(--lp-ink))]">{COLUMNS[2]}</span>
           </div>
-          <dl>
-            {ROWS.map((r) => (
-              <div key={r.label} className="border-t border-black/[0.08] pt-4 pb-4">
+          <dl className="lp-rows">
+            {ROWS.map((r, i) => (
+              <div key={r.label} className="border-t border-black/[0.08] pt-4 pb-4" style={{ ["--i" as string]: i }}>
                 <dt className="text-[15px] font-medium leading-snug text-[hsl(var(--lp-ink))]">{r.label}</dt>
                 <dd className="mt-2.5 grid grid-cols-3 gap-3 items-center text-[14px] leading-snug">
                   <span><span className="sr-only">{COLUMNS[0]}: </span><Value v={r.sheet} /></span>
@@ -61,9 +63,9 @@ export default function Compare() {
                 <th scope="col" className="w-[24%] pb-4 pl-5 font-semibold text-[13px] text-[hsl(var(--lp-ink))] rounded-t-2xl bg-[hsl(var(--lp-mist))] pt-4">{COLUMNS[2]}</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="lp-rows">
               {ROWS.map((r, i) => (
-                <tr key={r.label} className="border-t border-black/[0.08]">
+                <tr key={r.label} className="border-t border-black/[0.08]" style={{ ["--i" as string]: i }}>
                   <th scope="row" className="py-5 pr-4 text-left font-medium text-[hsl(var(--lp-ink))]">{r.label}</th>
                   <td className="py-5 pr-4"><Value v={r.sheet} /></td>
                   <td className="py-5 pr-4"><Value v={r.tracker} /></td>

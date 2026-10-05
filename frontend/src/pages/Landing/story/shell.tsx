@@ -12,7 +12,7 @@ import { GroupLabel, ICON_ROW, navTone } from "../../../components/Sidebar/navPa
 
 /* ─── Browser bar ─── */
 
-export function BrowserBar({ dark }: { dark?: boolean }) {
+export function BrowserBar({ dark, url = "hiretrail.manavkaneria.me/resume-studio" }: { dark?: boolean; url?: string }) {
   return (
     <div
       data-lp="bar"
@@ -32,7 +32,7 @@ export function BrowserBar({ dark }: { dark?: boolean }) {
       <div className="flex-1 flex justify-center">
         <div className={`flex items-center gap-2 h-7 min-w-[420px] max-w-[520px] px-3 rounded-lg text-[12.5px] ${dark ? "bg-white/[0.07] text-white/70" : "bg-black/[0.045] text-black/60"}`}>
           <Lock size={11} strokeWidth={2.2} className="shrink-0 opacity-60" />
-          <span data-lp="url" className="flex-1 text-center truncate tracking-[-0.01em]">hiretrail.manavkaneria.me/resume-studio</span>
+          <span data-lp="url" className="flex-1 text-center truncate tracking-[-0.01em]">{url}</span>
           <RotateCw size={11} strokeWidth={2.2} className="shrink-0 opacity-50" />
         </div>
       </div>

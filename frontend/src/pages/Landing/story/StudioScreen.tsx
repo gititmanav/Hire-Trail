@@ -25,6 +25,19 @@ export const STUDIO_BULLETS = [
   },
 ] as const;
 
+/** A rewritten bullet, one span per word, so the story can stream it in
+ *  (engine/dom.ts `streamWords`). The words hold their final layout from the
+ *  start — nothing reflows as they appear. */
+export function StreamWords({ text }: { text: string }) {
+  return (
+    <>
+      {text.split(" ").map((word, i) => (
+        <span key={i} data-lp-word style={{ opacity: 0 }}>{i ? ` ${word}` : word}</span>
+      ))}
+    </>
+  );
+}
+
 /** The gauge's geometry — MatchScoreGauge's ring (r 46, stroke 9). */
 export const GAUGE_R = 46;
 export const GAUGE_CIRC = 2 * Math.PI * GAUGE_R;
@@ -118,7 +131,7 @@ export default function StudioScreen() {
                     <span className="grid">
                       <span data-lp={`b${i}-old`} className="[grid-area:1/1]">{b.before}</span>
                       <span data-lp={`b${i}-new`} className="[grid-area:1/1]" style={{ opacity: 0 }}>
-                        <span data-lp={`b${i}-mark`} className="lp-changed">{b.after}</span>
+                        <span data-lp={`b${i}-mark`} className="lp-changed"><StreamWords text={b.after} /></span>
                       </span>
                     </span>
                   </li>

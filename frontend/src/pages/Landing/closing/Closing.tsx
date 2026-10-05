@@ -1,13 +1,18 @@
 /** The close: the page goes back to black (pinned, so the whole screen
  *  fades — never a hard edge — starting while the FAQ's last lines are
- *  still leaving: a hand-off, Landing.css), one last ask under a spotlight,
- *  then the footer, whose content settles into place as the page reaches
- *  its end. */
+ *  still leaving: a hand-off, Landing.css), one last ask in the hero's own
+ *  light — its beams come back, softly, so the page ends where it began —
+ *  then the footer — rising over the last ask's empty lower half (another
+ *  hand-off) — whose content settles into place as the page reaches its
+ *  end. */
 import { useRef } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, Mail } from "lucide-react";
 import { useReducedMotion, useScene } from "../engine/hooks.ts";
 import { easeInOut, easeOut, range, scrollToElement } from "../engine/scroll.ts";
+import { css } from "../engine/dom.ts";
+import Sweep from "../engine/Sweep.tsx";
+import HeroBeams, { type HeroBeamsHandle } from "../hero/HeroBeams.tsx";
 import { useDemoLogin, useOpenAuth } from "../context.ts";
 import { BrandMark, CHROME_STORE_URL, CONTACT_EMAIL, GITHUB_URL, GithubMark, LINKEDIN_URL, LinkedinMark } from "../parts.tsx";
 
@@ -18,7 +23,9 @@ function CallToAction() {
   const stageRef = useRef<HTMLDivElement>(null);
   const darkRef = useRef<HTMLDivElement>(null);
   const copyRef = useRef<HTMLDivElement>(null);
-  const spotRef = useRef<HTMLDivElement>(null);
+  const beamsWrapRef = useRef<HTMLDivElement>(null);
+  const beamsRef = useRef<HeroBeamsHandle>(null);
+  const sweepRef = useRef<HTMLSpanElement>(null);
   const reduced = useReducedMotion();
   const reducedRef = useRef(reduced);
   reducedRef.current = reduced;
@@ -33,7 +40,11 @@ function CallToAction() {
       // Not clickable until it's there.
       copyRef.current.style.pointerEvents = copy > 0.5 ? "auto" : "none";
     }
-    if (spotRef.current) spotRef.current.style.opacity = easeOut(range(p, 0.34, 0.92)).toFixed(3);
+    // The beams return as the headline arrives, softer than in the hero.
+    const light = easeOut(range(p, 0.28, 0.9));
+    css(beamsWrapRef.current, { opacity: (light * 0.6).toFixed(3) });
+    beamsRef.current?.setActive(light > 0.001);
+    css(sweepRef.current, { "--lp-sweep": range(p, 0.3, 0.82).toFixed(4) });
   }, stageRef);
 
   return (
@@ -46,15 +57,15 @@ function CallToAction() {
           white; 100lvh so it still fills the screen once a phone's toolbars
           tuck away. */}
       <div ref={stageRef} className="sticky top-0 h-screen h-lvh overflow-hidden">
-        <div ref={darkRef} className="absolute inset-0 bg-[hsl(var(--lp-night))]" style={{ opacity: 0 }}>
-          <div className="lp-grid opacity-70" />
-          <div ref={spotRef} className="absolute inset-0" style={{ opacity: 0 }}>
-            <div className="lp-spotlight" style={{ opacity: 1, ["--lp-spot-x" as string]: "-4%", ["--lp-spot-y" as string]: "-8%", ["--lp-spot-angle" as string]: "36deg", ["--lp-spot-strength" as string]: "1" }} />
+        <div ref={darkRef} className="lp-grain absolute inset-0 bg-[hsl(var(--lp-night))]" style={{ opacity: 0 }}>
+          <div ref={beamsWrapRef} className="absolute inset-0" style={{ opacity: 0 }}>
+            <HeroBeams ref={beamsRef} />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/60" />
           </div>
         </div>
         <div ref={copyRef} className="relative h-full flex flex-col items-center justify-center text-center px-6 text-white" style={{ opacity: 0 }}>
-          <h2 id="lp-closing-title" className="lp-display max-w-[900px]">Ready when you are.</h2>
-          <p className="lp-lede mt-6 max-w-[560px] text-[hsl(var(--lp-fog-dark))]">Free and open source. Set up in a minute — your next application can be the first one HireTrail tracks.</p>
+          <h2 id="lp-closing-title" className="lp-display max-w-[1200px] text-balance"><Sweep ref={sweepRef} tone="dark" driven>Ready when you are.</Sweep></h2>
+          <p className="lp-lede mt-6 max-w-[560px] text-[hsl(var(--lp-fog-dark))]"><span className="text-white">Free and open source.</span> Set up in a minute — your next application can be the first one HireTrail tracks.</p>
           <div className="mt-10 flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto max-w-[340px] sm:max-w-none">
             <button type="button" onClick={() => openAuth("register")} className="lp-btn lp-btn--lg lp-btn--solid-dark w-full sm:w-auto">
               Create your account <ArrowRight size={17} strokeWidth={2.2} />
@@ -109,8 +120,8 @@ function Footer() {
   const col = (i: number) => (el: HTMLElement | null) => { parts.current[i] = el; };
 
   return (
-    <footer ref={footerRef} className="relative bg-[hsl(var(--lp-night))] text-white pt-24 px-3 sm:px-4" data-lp-tone="dark">
-      <div className="lp-footer-panel max-w-[1400px] mx-auto px-8 sm:px-12 pt-16 pb-12">
+    <footer ref={footerRef} className="lp-footer lp-handoff lp-handoff-pass relative text-white pt-24 px-3 sm:px-4" data-lp-tone="dark">
+      <div className="lp-footer-panel lp-grain max-w-[1400px] mx-auto px-8 sm:px-12 pt-16 pb-12">
         <div ref={col(0)} className="relative">
           <BrandMark size={44} tone="dark" />
           <p className="mt-4 text-[15px] text-white/55">© {new Date().getFullYear()} HireTrail. Built by Manav Kaneria.</p>

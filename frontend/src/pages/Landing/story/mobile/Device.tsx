@@ -7,7 +7,7 @@ import { MApply, MiniBar, MPersonalize, MStudio, MTrack } from "./screens.tsx";
 export const DEVICE_W = 360;
 export const DEVICE_H = 500;
 
-export const M_SCREENS = ["studio", "apply", "track", "settings", "settingsDark"] as const;
+export const M_SCREENS = ["studio", "apply", "track", "settings", "settingsPick"] as const;
 export type MScreenName = (typeof M_SCREENS)[number];
 
 export const M_SCREEN_URL: Record<MScreenName, string> = {
@@ -15,7 +15,7 @@ export const M_SCREEN_URL: Record<MScreenName, string> = {
   apply: "boards.greenhouse.io/stripe/jobs",
   track: "hiretrail.manavkaneria.me/applications",
   settings: "hiretrail.manavkaneria.me/settings",
-  settingsDark: "hiretrail.manavkaneria.me/settings",
+  settingsPick: "hiretrail.manavkaneria.me/settings",
 };
 
 const MobileDevice = forwardRef<HTMLDivElement>(function MobileDevice(_, ref) {
@@ -38,9 +38,8 @@ const MobileDevice = forwardRef<HTMLDivElement>(function MobileDevice(_, ref) {
       <div data-lp="m-screen-apply" className="lp-screen theme-light"><MApply /></div>
       <div data-lp="m-screen-track" className="lp-screen theme-light"><MTrack /></div>
       <div data-lp="m-screen-settings" className="lp-screen theme-light"><MPersonalize selected="light" /></div>
-      <div data-lp="m-screen-settingsDark" className="lp-screen theme-dark dark"><MPersonalize selected="dark" /></div>
+      <div data-lp="m-screen-settingsPick" className="lp-screen theme-light"><MPersonalize selected="dark" /></div>
       <MiniBar url={M_SCREEN_URL.studio} />
-      <div data-lp="m-bar-dark" className="absolute inset-x-0 top-0" style={{ opacity: 0 }}><MiniBar url={M_SCREEN_URL.studio} dark /></div>
       <span data-lp="m-touch" className="lp-touch" style={{ opacity: 0 }} />
     </div>
   );

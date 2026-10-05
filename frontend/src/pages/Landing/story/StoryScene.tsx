@@ -4,8 +4,8 @@
  *  The stage (beams, the product window, the page colour) stays put while the
  *  copy scrolls over it: the hero, then Tailor · Apply · Track. The window
  *  rises out of the hero as black turns to white, holds while each act plays
- *  inside it, then opens Settings → Personalize, turns dark, and the camera
- *  dives into the Dark theme card until the page is dark.
+ *  inside it, then opens Settings → Personalize and turns dark, and the Dark
+ *  theme card lifts out and grows into the page (CardMorph).
  *
  *  Everything moves from one scroll callback (`paint`) that writes styles to
  *  marked elements — no React state per frame. Reduced motion keeps the
@@ -18,8 +18,9 @@ import HeroBeams, { type HeroBeamsHandle } from "../hero/HeroBeams.tsx";
 import ProductWindow, { SCREEN_URL, SCREENS, WINDOW_H, WINDOW_W, type ScreenName } from "./ProductWindow.tsx";
 import { GAUGE_CIRC, STUDIO_BULLETS, STUDIO_KEYWORDS } from "./StudioScreen.tsx";
 import { BOARDS, CHROME_STORE_URL } from "../parts.tsx";
-import { boxWithin, center, collect, css, round, setState, setText, type Box, type Els } from "../engine/dom.ts";
+import { boxWithin, center, collect, css, round, setState, setText, streamWords, type Box, type Els } from "../engine/dom.ts";
 import HeroCopy from "./HeroCopy.tsx";
+import CardMorph, { paintMorph } from "./CardMorph.tsx";
 
 /* ─── Geometry, measured on layout (never per frame) ─── */
 
@@ -46,15 +47,24 @@ interface Metrics {
   slotInterview: Box;
   zoomTarget: Box;
   cardH: number;
+  /** Each hero line's bottom edge (in the section's layout), and the gaps to
+   *  the window's top edge at which it starts and finishes clearing. */
+  lines: { bottom: number; from: number; to: number }[];
 }
 
 /* ─── Copy ─── */
+
+/** The lead phrase of a two-tone lede, in ink. */
+function Lead({ children }: { children: React.ReactNode }) {
+  return <span className="text-[hsl(var(--lp-ink))]">{children}</span>;
+}
 
 function ActCopy({ id, eyebrow, title, lede, points, children, actRef }: {
   id?: string;
   eyebrow: string;
   title: string;
-  lede: string;
+  /** Two-tone: the lead phrase in ink (a <Lead>), the rest in grey. */
+  lede: React.ReactNode;
   points?: string[];
   children?: React.ReactNode;
   actRef: (el: HTMLDivElement | null) => void;
@@ -91,6 +101,8 @@ export default function StoryScene() {
   const beamsWrapRef = useRef<HTMLDivElement>(null);
   const glowRef = useRef<HTMLDivElement>(null);
   const nightRef = useRef<HTMLDivElement>(null);
+  const morphRef = useRef<HTMLDivElement>(null);
+  const progressRef = useRef<HTMLDivElement>(null);
   const heroCopyRef = useRef<HTMLDivElement>(null);
   const heroBlockRef = useRef<HTMLDivElement>(null);
   const zoomBlockRef = useRef<HTMLDivElement>(null);
@@ -99,6 +111,8 @@ export default function StoryScene() {
   const toneRefs = useRef<(HTMLDivElement | null)[]>([]);
   const els = useRef<Els>({});
   const urls = useRef<HTMLElement[]>([]);
+  const heroLines = useRef<HTMLElement[]>([]);
+  const bulletWords = useRef<HTMLElement[][]>([]);
   const metrics = useRef<Metrics | null>(null);
   const lastPx = useRef(0);
   const reduced = useReducedMotion();
@@ -111,6 +125,8 @@ export default function StoryScene() {
     if (!win) return;
     els.current = collect(win);
     urls.current = Array.from(win.querySelectorAll<HTMLElement>('[data-lp="url"]'));
+    heroLines.current = Array.from(heroCopyRef.current?.querySelectorAll<HTMLElement>("[data-lp-line]") ?? []);
+    bulletWords.current = STUDIO_BULLETS.map((_, i) => Array.from(els.current[`b${i}-new`]?.querySelectorAll<HTMLElement>("[data-lp-word]") ?? []));
   }, []);
 
   const measure = useCallback(() => {
@@ -131,15 +147,24 @@ export default function StoryScene() {
     const zoom = { top: zb.top + contentTop, h: zb.h };
     const end = section.offsetHeight - vh;
 
-    // Centred after the rise, then beside the copy.
+    // Centred after the rise, then beside the copy — its right margin the
+    // copy's left margin (.lp-act-copy), at least 56px clear of the copy.
+    const copyLeft = Math.max(24, vw * 0.06);
+    const copyW = Math.min(440, vw * 0.33);
     const sCenter = Math.min((0.84 * vw) / WINDOW_W, (0.72 * vh) / WINDOW_H);
-    const sAct = Math.min((0.54 * vw) / WINDOW_W, (0.7 * vh) / WINDOW_H);
-    const xAct = vw * 0.215;
+    const sAct = Math.min((0.54 * vw) / WINDOW_W, (0.7 * vh) / WINDOW_H, (vw - 2 * copyLeft - copyW - 56) / WINDOW_W);
+    const xAct = vw / 2 - copyLeft - (WINDOW_W * sAct) / 2;
     const yAct = 0;
     const yCenter = vh * 0.035;
     const sPeek = sCenter * 0.9;
-    // The window's top edge sits at ~82% of the viewport in the hero.
-    const yPeek = vh * 0.82 + (WINDOW_H * sPeek) / 2 - vh / 2;
+    // The window's top edge sits at ~82% of the viewport in the hero — or,
+    // on a short screen, just under the hero's last line, never behind it.
+    const lineBottoms = heroLines.current.map((el) => {
+      const b = boxWithin(el, section);
+      return b.y + b.h;
+    });
+    const peekTop = Math.max(vh * 0.82, Math.max(0, ...lineBottoms) + 40);
+    const yPeek = peekTop + (WINDOW_H * sPeek) / 2 - vh / 2;
 
     const e = els.current;
     const board = e.board;
@@ -156,17 +181,33 @@ export default function StoryScene() {
       merge: boxWithin(e["merge-btn"], win),
       slotApplied,
       slotInterview,
-      zoomTarget: boxWithin(e["zoom-target"], win),
+      zoomTarget: boxWithin(e["zoom-target"]?.parentElement, win),
       cardH,
+      // A line starts clearing when the window comes within 260px — or, if
+      // it rests closer than that, only once the window moves at all.
+      lines: lineBottoms.map((bottom) => {
+        const rest = peekTop - bottom;
+        const from = Math.min(260, rest);
+        return { bottom, from, to: Math.min(40, from - 140) };
+      }),
     };
 
     // The moving card is as wide as its slot.
     css(e.flyer, { width: `${slotApplied.w}px` });
 
+    // The act progress sits under the window, on its left edge — clear of the
+    // copy, which scrolls through the left column.
+    css(progressRef.current, {
+      left: `${round(vw / 2 + xAct - (WINDOW_W * sAct) / 2, 1)}px`,
+      top: `${round(vh / 2 + yAct + (WINDOW_H * sAct) / 2 + 28, 1)}px`,
+    });
+
     // Header tone: dark over the hero, light over the acts, dark once the dive covers the page.
     const [dark1, light, dark2] = toneRefs.current;
     const lightFrom = hero * 0.55;
-    const flip = zoom.top - vh * 0.5 + (zoom.h - vh * 0.5) * 0.3;
+    // …the dive's z ≈ 0.72: when the growing card's top edge passes under the header.
+    const zStart = zoom.top - vh * 0.5;
+    const flip = zStart + (end - zStart) * 0.72;
     css(dark1, { top: "0px", height: `${lightFrom}px` });
     css(light, { top: `${lightFrom}px`, height: `${Math.max(0, flip - lightFrom)}px` });
     css(dark2, { top: `${flip}px`, height: `${Math.max(0, section.offsetHeight - flip)}px` });
@@ -181,7 +222,7 @@ export default function StoryScene() {
     if (!m || !win || !stage) return;
     const e = els.current;
     const still = reducedRef.current;
-    const { vh, hero } = m;
+    const { vw, vh, hero } = m;
 
     // Act progress: 0 when an act's block top reaches mid-viewport, 1 when its bottom does.
     const act = (i: number) => range(px, m.acts[i].top - vh * 0.5, m.acts[i].top + m.acts[i].h - vh * 0.5);
@@ -190,9 +231,16 @@ export default function StoryScene() {
     const a3 = act(2);
     const z = range(px, m.zoom.top - vh * 0.5, m.end);
 
-    /* Page colour: black → white as the window rises, white → night on the dive. */
+    /* The dive (z): Personalize opens, the pointer picks Dark, the Dark card
+       lifts out of the window and grows across the white page until the page
+       is dark (CardMorph). */
+    const pickUp = still ? 0 : easeOut(range(z, 0.27, 0.38));
+    const dive = still ? 0 : range(z, 0.37, 0.86);
+
+    /* Page colour: black → white as the window rises; night once the card
+       covers it (under the card, so the change is never seen). */
     const white = range(px, hero * 0.28, hero * 0.92);
-    const toNight = easeInOut(range(z, 0.24, 0.36));
+    const toNight = still ? easeInOut(range(z, 0.5, 0.95)) : range(dive, 0.95, 1);
     const level = Math.round(lerp(lerp(0, 255, white), 10, toNight));
     css(stage, { backgroundColor: `rgb(${level}, ${level}, ${level})` });
 
@@ -203,13 +251,9 @@ export default function StoryScene() {
     css(glowRef.current, { opacity: round(1 - range(px, hero * 0.3, hero * 0.9)) });
     css(win, { "--lp-window-rim": round(0.22 * (1 - white)) });
 
-    /* Hero copy drifts up slower than the page and fades. */
-    if (heroCopyRef.current) {
-      css(heroCopyRef.current, {
-        opacity: round(1 - range(px, hero * 0.06, hero * 0.5)),
-        transform: still ? "none" : `translate3d(0, ${round(px * 0.28, 1)}px, 0)`,
-      });
-    }
+    /* Hero copy drifts up slower than the page. */
+    const drift = still ? 0 : px * 0.28;
+    css(heroCopyRef.current, { transform: still ? "none" : `translate3d(0, ${round(drift, 1)}px, 0)` });
 
     /* Window pose. The window steps aside for the copy. */
     const slideT = range(px, hero * 0.98, hero * 0.98 + vh * 0.42);
@@ -231,33 +275,52 @@ export default function StoryScene() {
       x = lerp(0, m.xAct, slide);
       y = lerp(yRise, m.yAct, slide);
       tilt = lerp(24, 0, easeOut(range(px, 0, hero * 0.9)));
+      // After Track, the window comes back to the centre to open Personalize —
+      // the card it hands the page to grows from the middle of the screen.
+      const recenter = easeInOut(range(z, 0, 0.16));
+      x = lerp(x, 0, recenter);
+      y = lerp(y, m.yCenter, recenter);
+      s = lerp(s, m.sCenter, recenter);
     }
 
-    /* The dive: the Dark card's centre travels to mid-screen as the camera zooms in. */
-    const dive = range(z, 0.36, 0.96);
-    let k = 1;
-    if (!still && dive > 0) {
-      const t = m.zoomTarget;
-      const c = center(t);
-      const cx = c.x - WINDOW_W / 2;
-      const cy = c.y - WINDOW_H / 2;
-      const cover = Math.max(m.vw / (t.w * s), m.vh / (t.h * s)) * 1.18;
-      k = Math.exp(Math.log(cover) * easeIn(dive));
-      const travel = easeInOut(clamp01(dive * 1.6));
-      const dx = (x + cx * s) * (1 - travel);
-      const dy = (y + cy * s) * (1 - travel);
-      x = dx - cx * s * k;
-      y = dy - cy * s * k;
-    }
+    // The window falls back behind the growing card.
+    s *= 1 - 0.06 * easeInOut(range(dive, 0, 0.6));
+    /* The hero's lines fade as the page turns white, and each one clears —
+       a blur and a lift — just before the rising window reaches it, the
+       lowest first, so nothing is ever drawn over the window. */
+    const copyFade = 1 - range(px, hero * 0.06, hero * 0.5);
+    const windowTop = vh / 2 + y - (WINDOW_H * s) / 2;
+    heroLines.current.forEach((el, i) => {
+      const line = m.lines[i];
+      const gap = windowTop - (line.bottom - px + drift);
+      const clear = still || !line ? 0 : easeIn(clamp01((line.from - gap) / (line.from - line.to)));
+      css(el, {
+        opacity: round(Math.min(copyFade, 1 - clear)),
+        filter: clear > 0.001 ? `blur(${round(clear * 10, 2)}px)` : "",
+        transform: clear > 0.001 ? `translate3d(0, ${round(clear * -16, 1)}px, 0)` : "",
+      });
+    });
+
     css(win, {
-      transform: `translate3d(${round(x, 1)}px, ${round(y, 1)}px, 0) perspective(2200px) rotateX(${round(tilt, 2)}deg) scale(${round(s * k, 4)})`,
+      transform: `translate3d(${round(x, 1)}px, ${round(y, 1)}px, 0) perspective(2200px) rotateX(${round(tilt, 2)}deg) scale(${round(s, 4)})`,
       willChange: px > 0 && (px < hero * 1.5 || dive > 0) ? "transform" : "auto",
-      // Reduced motion: no rise — the window simply appears once the hero copy has gone.
-      opacity: still ? round(range(px, hero * 0.45, hero * 0.85)) : 1,
+      // Reduced motion: no rise — the window simply appears once the hero copy
+      // has gone. The dive: it fades behind the growing card.
+      opacity: still ? round(range(px, hero * 0.45, hero * 0.85)) : round((1 - 0.3 * pickUp) * (1 - range(dive, 0.1, 0.5))),
     });
     // The light the window is lit from sits under it.
     css(glowRef.current, { transform: `translate3d(${round(x, 1)}px, ${round(y, 1)}px, 0) scale(${round(s, 4)})` });
-    css(nightRef.current, { opacity: round(still ? range(z, 0.5, 0.95) : range(z, 0.82, 1)) });
+    const t = m.zoomTarget;
+    paintMorph(
+      morphRef.current,
+      { x: vw / 2 + x + (t.x - WINDOW_W / 2) * s, y: vh / 2 + y + (t.y - WINDOW_H / 2) * s, w: t.w * s, h: t.h * s },
+      { x: 0, y: 0, w: vw, h: vh },
+      s,
+      dive,
+      pickUp,
+    );
+    css(e["zoom-target"]?.parentElement, { visibility: pickUp > 0 ? "hidden" : "" });
+    css(nightRef.current, { opacity: round(still ? range(z, 0.5, 0.95) : 0) });
 
     /* Screens: crossfade across each act boundary. */
     const edge = (i: number) => m.acts[i].top - vh * 0.5;
@@ -265,14 +328,14 @@ export default function StoryScene() {
     const across = (at: number) => range(px, at - fade, at + fade);
     const toPosting = across(edge(1));
     const toBoard = across(edge(2));
-    const toSettings = range(z, 0.04, 0.2);
-    const toDark = range(z, 0.22, 0.34);
+    const toSettings = range(z, 0.02, 0.12);
+    const toPick = range(z, 0.23, 0.26);
     const visible: Record<ScreenName, number> = {
       studio: 1 - toPosting,
       posting: toPosting * (1 - toBoard),
       board: toBoard * (1 - toSettings),
-      settings: toSettings * (1 - toDark),
-      settingsDark: toDark,
+      settings: toSettings * (1 - toPick),
+      settingsPick: toPick,
     };
     let top: ScreenName = "studio";
     for (const name of SCREENS) {
@@ -284,7 +347,6 @@ export default function StoryScene() {
       css(el, { opacity: round(o) });
     }
     for (const u of urls.current) setText(u, SCREEN_URL[top]);
-    css(e["bar-dark"], { opacity: round(toDark) });
 
     /* Act 1 — Studio. */
     STUDIO_KEYWORDS.forEach((_, i) => css(e[`kw-${i}`], { "--lp-on": round(range(a1, 0.12 + i * 0.045, 0.18 + i * 0.045)) }));
@@ -295,13 +357,16 @@ export default function StoryScene() {
       css(e[`chip-${i}-on`], { opacity: round(on) });
       css(e[`chip-${i}-off`], { opacity: round(1 - on) });
     });
+    // Each bullet: the old line fades, then the rewrite streams in word by
+    // word and is marked as changed once it's written.
     STUDIO_BULLETS.forEach((_, i) => {
-      const r = easeOut(range(a1, 0.54 + i * 0.085, 0.63 + i * 0.085));
-      css(e[`b${i}-old`], { opacity: round(1 - r) });
-      css(e[`b${i}-new`], { opacity: round(r) });
-      css(e[`b${i}-mark`], { "--lp-mark": round(r) });
+      const r = range(a1, 0.5 + i * 0.12, 0.68 + i * 0.12);
+      css(e[`b${i}-old`], { opacity: round(1 - range(r, 0, 0.14)) });
+      css(e[`b${i}-new`], { opacity: r > 0 ? 1 : 0 });
+      streamWords(bulletWords.current[i] ?? [], range(r, 0.14, 1));
+      css(e[`b${i}-mark`], { "--lp-mark": round(range(r, 0.88, 1)) });
     });
-    const score = lerp(6.4, 8.7, easeInOut(range(a1, 0.56, 0.84)));
+    const score = lerp(6.4, 8.7, easeInOut(range(a1, 0.56, 0.92)));
     const excellent = score >= 7.5;
     const scoreColor = excellent ? "rgb(var(--palette-emerald-500))" : "rgb(var(--palette-amber-500))";
     css(e["gauge-ring"], { strokeDashoffset: round(GAUGE_CIRC * (1 - score / 10), 2), stroke: scoreColor });
@@ -354,7 +419,7 @@ export default function StoryScene() {
     const toast = easeOut(range(a3, 0.8, 0.86)) * (1 - range(a3, 0.95, 1));
     css(e.toast, { opacity: round(toast), transform: `translate3d(-50%, ${round((1 - toast) * -8, 1)}px, 0)` });
 
-    /* The pointer: to the tab, the Track row, then the Merge button. */
+    /* The pointer: to the tab, the Track row, the Merge button, then Dark. */
     const pointer = e.cursor;
     if (pointer) {
       let px2 = 0;
@@ -364,6 +429,7 @@ export default function StoryScene() {
       const tab = center(m.tab);
       const track = center(m.track);
       const merge = center(m.merge);
+      const dark = center(m.zoomTarget);
       if (!still && a2 > 0.12 && a2 < 0.9 && visible.posting > 0.5) {
         const startX = 700;
         const startY = 560;
@@ -381,10 +447,30 @@ export default function StoryScene() {
         py2 = lerp(startY, merge.y, toMerge);
         show = range(a3, 0.2, 0.26) * (1 - range(a3, 0.52, 0.6));
         press = a3 > 0.42 && a3 < 0.46 ? 1 : 0;
+      } else if (!still && z > 0.07 && z < 0.34) {
+        const toDark = easeInOut(range(z, 0.1, 0.21));
+        px2 = lerp(720, dark.x, toDark);
+        py2 = lerp(620, dark.y, toDark);
+        show = range(z, 0.07, 0.11) * (1 - range(z, 0.27, 0.32));
+        press = z > 0.21 && z < 0.25 ? 1 : 0;
       }
       css(pointer, {
         opacity: round(show),
         transform: `translate3d(${round(px2 - 4, 1)}px, ${round(py2 - 3, 1)}px, 0) scale(${press ? 0.86 : 1})`,
+      });
+    }
+
+    /* Where you are: Tailor · Apply · Track under the window, each hairline
+       filling with its act — there once the window has stepped aside, gone
+       as the dive begins. */
+    const progress = progressRef.current;
+    if (progress) {
+      const acts = [a1, a2, a3];
+      css(progress, { opacity: round(range(slideT, 0.5, 1) * (1 - range(z, 0, 0.06))) });
+      Array.from(progress.children).forEach((step, i) => {
+        const done = acts[i];
+        setState(step as HTMLElement, done >= 1 ? "done" : done > 0 ? "active" : "todo");
+        css((step as HTMLElement).querySelector<HTMLElement>("i"), { transform: `scaleX(${round(done)})` });
       });
     }
 
@@ -437,6 +523,15 @@ export default function StoryScene() {
         </div>
         <div ref={glowRef} className="lp-window-glow" />
         <ProductWindow ref={windowRef} />
+        <CardMorph ref={morphRef} />
+        <div ref={progressRef} className="lp-acts-progress" aria-hidden style={{ opacity: 0 }}>
+          {["Tailor", "Apply", "Track"].map((label) => (
+            <span key={label} className="lp-acts-step" data-state="todo">
+              {label}
+              <span className="lp-acts-bar"><i /></span>
+            </span>
+          ))}
+        </div>
         <div ref={nightRef} className="absolute inset-0 bg-[hsl(var(--lp-night))] pointer-events-none" style={{ opacity: 0 }} />
       </div>
 
@@ -449,7 +544,7 @@ export default function StoryScene() {
             actRef={setCopy(0)}
             eyebrow="Tailor"
             title="A resume that fits every job."
-            lede="Paste a job description. HireTrail finds what the role asks for, then rewrites your bullets in its language — from your real experience."
+            lede={<><Lead>Paste a job description.</Lead> HireTrail finds what the role asks for, then rewrites your bullets in its language — from your real experience.</>}
             points={["Never invents an employer, a title or a date.", "A match score out of ten — the same answer every time.", "The preview is the PDF you send."]}
           />
         </div>
@@ -458,7 +553,7 @@ export default function StoryScene() {
             actRef={setCopy(1)}
             eyebrow="Apply"
             title="One click on six job boards."
-            lede="The extension saves the job with the company and role already filled in. Hit Apply, and HireTrail tracks it for you."
+            lede={<><Lead>The extension saves the job with the company and role already filled in.</Lead> Hit Apply, and HireTrail tracks it for you.</>}
           >
             <div className="mt-7 flex flex-wrap items-center gap-x-5 gap-y-3">
               {BOARDS.map((b) => (
@@ -478,7 +573,7 @@ export default function StoryScene() {
             actRef={setCopy(2)}
             eyebrow="Track"
             title="Replies move the board."
-            lede="Scan your Gmail and HireTrail finds the interview invites, offers and rejections, and matches each one to its application. Confirm, and the card moves."
+            lede={<>Scan your Gmail and HireTrail finds the interview invites, offers and rejections, and matches each one to its application. <Lead>Confirm, and the card moves.</Lead></>}
             points={["Read-only access — it can never send, edit or delete an email.", "List, Board or Calendar: one pipeline, three ways."]}
           />
         </div>

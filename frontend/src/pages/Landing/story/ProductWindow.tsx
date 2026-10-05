@@ -1,7 +1,7 @@
 /** The one product window the story follows, drawn at a fixed design size
  *  (1200 × 760) and scaled by the scene: a browser bar over five stacked
- *  screens (Studio, a job posting, the Board, Settings light and dark) and a
- *  pointer that clicks through them. Decorative: hidden from assistive tech
+ *  screens (Studio, a job posting, the Board, Personalize before and after
+ *  Dark is picked) and a pointer that clicks through them. Decorative: hidden from assistive tech
  *  and inert (the page's real content is the copy beside it). */
 import { forwardRef, useEffect, useRef } from "react";
 import { BrowserBar } from "./shell.tsx";
@@ -13,7 +13,7 @@ import SettingsScreen from "./SettingsScreen.tsx";
 export const WINDOW_W = 1200;
 export const WINDOW_H = 760;
 
-export const SCREENS = ["studio", "posting", "board", "settings", "settingsDark"] as const;
+export const SCREENS = ["studio", "posting", "board", "settings", "settingsPick"] as const;
 export type ScreenName = (typeof SCREENS)[number];
 
 export const SCREEN_URL: Record<ScreenName, string> = {
@@ -21,7 +21,7 @@ export const SCREEN_URL: Record<ScreenName, string> = {
   posting: "boards.greenhouse.io/stripe/jobs/senior-frontend-engineer",
   board: "hiretrail.manavkaneria.me/applications/board",
   settings: "hiretrail.manavkaneria.me/settings/personalize",
-  settingsDark: "hiretrail.manavkaneria.me/settings/personalize",
+  settingsPick: "hiretrail.manavkaneria.me/settings/personalize",
 };
 
 function Pointer() {
@@ -54,9 +54,8 @@ const ProductWindow = forwardRef<HTMLDivElement>(function ProductWindow(_, ref) 
       <div data-lp="screen-posting" className="lp-screen theme-light"><PostingScreen /></div>
       <div data-lp="screen-board" className="lp-screen theme-light"><BoardScreen /></div>
       <div data-lp="screen-settings" className="lp-screen theme-light"><SettingsScreen selected="light" /></div>
-      <div data-lp="screen-settingsDark" className="lp-screen theme-dark dark"><SettingsScreen selected="dark" /></div>
+      <div data-lp="screen-settingsPick" className="lp-screen theme-light"><SettingsScreen selected="dark" /></div>
       <div className="theme-light"><BrowserBar /></div>
-      <div data-lp="bar-dark" className="absolute inset-x-0 top-0" style={{ opacity: 0 }}><BrowserBar dark /></div>
       <Pointer />
     </div>
   );

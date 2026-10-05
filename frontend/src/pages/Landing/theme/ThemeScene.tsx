@@ -6,12 +6,14 @@
  *  live Board preview from a background, an accent and a contrast — through
  *  the app's own picker, swatches and slider. A few looks to start from; it
  *  tours them on its own until the visitor takes over (never under reduced
- *  motion). Whatever they settle on is offered to their new account.
+ *  motion). Whatever they settle on is offered to their new account. A
+ *  picked look or swatch spreads over the preview as a circle from the
+ *  control you touched (the tour's from its look); drags repaint at once.
  *
  *  Below 1024px the preview is the phone story's narrow Applications list,
  *  docked under the header while the controls scroll beneath it — so every
  *  change stays in view (two columns on a tablet). */
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 import { ArrowRight, RotateCcw } from "lucide-react";
 import { generateTheme, hexToLch, lchToHex, DEFAULT_CONTRAST } from "../../../utils/theme.ts";
 import type { CustomTheme, ThemePrefs } from "../../../utils/preferences.ts";
@@ -26,6 +28,7 @@ import { DEVICE_H, DEVICE_W } from "../story/mobile/Device.tsx";
 import { MiniBar, MListPreview, M_PREVIEW_H } from "../story/mobile/screens.tsx";
 import { useOpenAuth } from "../context.ts";
 import { useCompactLanding, useMedia, useReducedMotion } from "../engine/hooks.ts";
+import Sweep from "../engine/Sweep.tsx";
 
 interface Look { name: string; base: string; accent: string }
 const LOOKS: Look[] = [
@@ -53,7 +56,7 @@ function toPrefs(p: Pick): ThemePrefs {
   return { mode: "custom", custom: toCustom(p) };
 }
 
-function Swatch({ color, selected, onClick, label, size = 22 }: { color: string; selected: boolean; onClick: () => void; label: string; size?: number }) {
+function Swatch({ color, selected, onClick, label, size = 22 }: { color: string; selected: boolean; onClick: (e: MouseEvent<HTMLButtonElement>) => void; label: string; size?: number }) {
   return (
     <button
       type="button"
@@ -68,6 +71,28 @@ function Swatch({ color, selected, onClick, label, size = 22 }: { color: string;
   );
 }
 
+/** The preview's contents, painted with one pick's tokens. */
+function ThemedApp({ pick, compact }: { pick: Pick; compact: boolean }) {
+  const theme = useMemo(() => generateTheme(toCustom(pick)), [pick]);
+  return (
+    <div className={`absolute inset-0 ${theme.isDark ? "dark" : ""}`} style={theme.tokens as unknown as CSSProperties}>
+      {compact ? (
+        <>
+          <div className="absolute inset-0 top-8"><MListPreview /></div>
+          <MiniBar url="hiretrail.manavkaneria.me/applications" dark={theme.isDark} />
+        </>
+      ) : (
+        <>
+          <div className="absolute inset-0 top-11"><BoardScreen still /></div>
+          <BrowserBar dark={theme.isDark} url="hiretrail.manavkaneria.me/applications/board" />
+        </>
+      )}
+    </div>
+  );
+}
+
+interface Wipe { to: Pick; x: number; y: number; r: number; id: number }
+
 export default function ThemeScene() {
   const openAuth = useOpenAuth();
   const reduced = useReducedMotion();
@@ -76,9 +101,14 @@ export default function ThemeScene() {
   const beside = useMedia("(min-width: 768px)");
   const designW = compact ? DEVICE_W : WINDOW_W;
   const designH = compact ? (beside ? DEVICE_H : M_PREVIEW_H) : WINDOW_H;
+  // `pick` is the choice; `shown` is what the preview has finished painting —
+  // a wipe carries it from one to the other.
   const [pick, setPick] = useState<Pick>(() => fromLook(LOOKS[0]));
-  const [live, setLive] = useState(false);
+  const [shown, setShown] = useState<Pick>(pick);
+  const [wipe, setWipe] = useState<Wipe | null>(null);
   const [touched, setTouched] = useState(false);
+  const appRef = useRef<HTMLDivElement | null>(null);
+  const lookRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const sectionRef = useRef<HTMLElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
   const dockRef = useRef<HTMLDivElement>(null);
@@ -86,8 +116,6 @@ export default function ThemeScene() {
   const [inView, setInView] = useState(false);
   const [spotOn, setSpotOn] = useState(false);
 
-  const theme = useMemo(() => generateTheme(toCustom(pick)), [pick]);
-  const previewStyle = theme.tokens as unknown as CSSProperties;
 
   // The preview is the app at its design size, scaled to the column.
   useEffect(() => {
@@ -99,14 +127,16 @@ export default function ThemeScene() {
   }, [designW]);
 
   // The docked preview hides what scrolls behind the header — only while it's
-  // stuck there (in the flow, a band above it would cover the copy).
+  // stuck there (in the flow, a band above it would cover the copy). Watched
+  // at 0 and 1: a fling or a jump can land it stuck without it ever having
+  // been fully in view.
   useEffect(() => {
     const el = dockRef.current;
     if (!compact || !el) return;
     const top = parseFloat(getComputedStyle(el).top) || 0;
     const io = new IntersectionObserver(([entry]) => {
       el.toggleAttribute("data-stuck", entry.intersectionRatio < 1 && entry.boundingClientRect.top <= top + 1);
-    }, { rootMargin: `${-(top + 1)}px 0px 0px 0px`, threshold: [1] });
+    }, { rootMargin: `${-(top + 1)}px 0px 0px 0px`, threshold: [0, 1] });
     io.observe(el);
     return () => io.disconnect();
   }, [compact]);
@@ -122,6 +152,43 @@ export default function ThemeScene() {
     return () => io.disconnect();
   }, []);
 
+  // Remember what the visitor chose (not what the tour showed).
+  useEffect(() => {
+    if (touched) saveLandingTheme(toPrefs(pick));
+  }, [pick, touched]);
+
+  /** Paint `next` — as a circle spreading from `from` (a control outside
+   *  the preview, in design px of the preview) when there's one to spread
+   *  from, else at once. A wipe in flight finishes first. */
+  const paint = (next: Pick, from?: HTMLElement | null) => {
+    setPick(next);
+    const app = appRef.current;
+    if (reduced || !from || !app) {
+      setShown(next);
+      setWipe(null);
+      return;
+    }
+    setShown(pick);
+    const box = app.getBoundingClientRect();
+    const r = from.getBoundingClientRect();
+    const unit = box.width / designW;
+    const x = (r.left + r.width / 2 - box.left) / unit;
+    const y = (r.top + r.height / 2 - box.top) / unit;
+    const reach = Math.max(Math.hypot(x, y), Math.hypot(designW - x, y), Math.hypot(x, designH - y), Math.hypot(designW - x, designH - y));
+    setWipe({ to: next, x, y, r: reach, id: performance.now() });
+  };
+  // The tour's timer outlives renders; it always calls the current paint.
+  const paintRef = useRef(paint);
+  paintRef.current = paint;
+  const choose = (next: Pick, from?: HTMLElement | null) => {
+    setTouched(true);
+    paint(next, from);
+  };
+  const drag = (next: Pick) => {
+    setTouched(true);
+    paint(next);
+  };
+
   // A short tour of the looks while it's watched, until the visitor takes over.
   const tourStep = useRef(0);
   useEffect(() => {
@@ -129,27 +196,11 @@ export default function ThemeScene() {
     const id = window.setInterval(() => {
       const i = TOUR[tourStep.current];
       tourStep.current += 1;
-      setPick(fromLook(LOOKS[i]));
+      paintRef.current(fromLook(LOOKS[i]), lookRefs.current[i]);
       if (tourStep.current >= TOUR.length) window.clearInterval(id);
     }, TOUR_STEP_MS);
     return () => window.clearInterval(id);
   }, [inView, touched, reduced]);
-
-  // Remember what the visitor chose (not what the tour showed).
-  useEffect(() => {
-    if (touched) saveLandingTheme(toPrefs(pick));
-  }, [pick, touched]);
-
-  const choose = (next: Pick) => {
-    setTouched(true);
-    setLive(false);
-    setPick(next);
-  };
-  const drag = (next: Pick) => {
-    setTouched(true);
-    setLive(true);
-    setPick(next);
-  };
 
   const lookIndex = LOOKS.findIndex((l) => l.base === pick.base && l.accent === pick.accent);
   const baseHex = lchToHex(hexToLch(pick.base));
@@ -157,19 +208,19 @@ export default function ThemeScene() {
 
   return (
     <section ref={sectionRef} className="lp-theme lp-handoff relative text-white overflow-clip" data-lp-tone="dark" aria-labelledby="lp-theme-title">
-      <div className="lp-theme-light" aria-hidden>
+      <div className="lp-theme-light lp-grain" aria-hidden>
         <div className="lp-grid opacity-60" />
         <div
           className={`lp-spotlight ${spotOn ? "is-on" : ""}`}
           style={{ ["--lp-spot-x" as string]: "-6%", ["--lp-spot-y" as string]: "var(--lp-overlap)", ["--lp-spot-angle" as string]: "30deg", ["--lp-spot-strength" as string]: "0.9" }}
         />
       </div>
-      <div className="relative max-w-[1320px] mx-auto px-6 pt-[18vh] pb-[16vh]">
+      <div className="relative max-w-[1320px] mx-auto px-6 pt-[18vh] pb-[10vh]">
         <div className="max-w-[720px]">
           <p className="lp-eyebrow text-[hsl(var(--lp-fog-dark))]">Personalize</p>
-          <h2 id="lp-theme-title" className="lp-h2 mt-2">Make it yours.</h2>
+          <h2 id="lp-theme-title" className="lp-h2 mt-2"><Sweep tone="dark">Make it yours.</Sweep></h2>
           <p className="lp-lede mt-5 text-[hsl(var(--lp-fog-dark))] max-w-[560px] text-pretty">
-            Monochrome by default. Any colour you like. Pick a background and an accent — every shade is checked for readability as you go.
+            <span className="text-white">Monochrome by default. Any colour you like.</span> Pick a background and an accent — every shade is checked for readability as you go.
           </p>
         </div>
 
@@ -178,24 +229,28 @@ export default function ThemeScene() {
           <div ref={dockRef} className={compact ? "lp-theme-dock" : undefined}>
             <div ref={frameRef} className="relative w-full" style={{ height: designH * scale }}>
               <div
-                className={`absolute left-0 top-0 origin-top-left overflow-hidden shadow-[0_0_0_1px_rgb(255_255_255/0.08),0_40px_120px_-30px_rgb(0_0_0/0.9)] ${compact ? "rounded-[16px]" : "rounded-[18px]"}`}
+                className={`lp-app absolute left-0 top-0 origin-top-left overflow-hidden shadow-[0_0_0_1px_rgb(255_255_255/0.08),0_40px_120px_-30px_rgb(0_0_0/0.9)] ${compact ? "rounded-[16px]" : "rounded-[18px]"}`}
                 style={{ width: designW, height: designH, transform: `scale(${scale})` }}
                 aria-hidden
-                ref={(n) => n?.setAttribute("inert", "")}
+                ref={(n) => {
+                  appRef.current = n;
+                  n?.setAttribute("inert", "");
+                }}
               >
-                <div className={`lp-themed absolute inset-0 ${theme.isDark ? "dark" : ""}`} style={previewStyle} data-live={live ? "" : undefined}>
-                  {compact ? (
-                    <>
-                      <div className="absolute inset-0 top-8"><MListPreview /></div>
-                      <MiniBar url="hiretrail.manavkaneria.me/applications" dark={theme.isDark} />
-                    </>
-                  ) : (
-                    <>
-                      <div className="absolute inset-0 top-11"><BoardScreen still /></div>
-                      <BrowserBar dark={theme.isDark} />
-                    </>
-                  )}
-                </div>
+                <ThemedApp pick={shown} compact={compact} />
+                {wipe && (
+                  <div
+                    key={wipe.id}
+                    className="lp-wipe absolute inset-0"
+                    style={{ ["--lp-wipe-x" as string]: `${wipe.x}px`, ["--lp-wipe-y" as string]: `${wipe.y}px`, ["--lp-wipe-r" as string]: `${wipe.r}px` }}
+                    onAnimationEnd={() => {
+                      setShown(wipe.to);
+                      setWipe(null);
+                    }}
+                  >
+                    <ThemedApp pick={wipe.to} compact={compact} />
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -207,8 +262,9 @@ export default function ThemeScene() {
               {LOOKS.map((look, i) => (
                 <button
                   key={look.name}
+                  ref={(el) => { lookRefs.current[i] = el; }}
                   type="button"
-                  onClick={() => choose(fromLook(look))}
+                  onClick={(e) => choose(fromLook(look), e.currentTarget)}
                   aria-pressed={i === lookIndex}
                   className="group flex flex-col items-center gap-1.5 rounded-lg focus-visible:outline-none"
                 >
@@ -236,7 +292,7 @@ export default function ThemeScene() {
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2.5">
                   {ACCENT_SWATCHES.map((c) => (
-                    <Swatch key={c} color={c} label={`Accent ${c}`} selected={pick.accent === c} onClick={() => choose({ ...pick, accent: c })} />
+                    <Swatch key={c} color={c} label={`Accent ${c}`} selected={pick.accent === c} onClick={(e) => choose({ ...pick, accent: c }, e.currentTarget)} />
                   ))}
                 </div>
               </div>
@@ -254,7 +310,7 @@ export default function ThemeScene() {
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2.5">
                   {BACKGROUND_SWATCHES.map((c) => (
-                    <Swatch key={c} color={c} label={`Background ${c}`} selected={pick.base === c} onClick={() => choose({ ...pick, base: c })} />
+                    <Swatch key={c} color={c} label={`Background ${c}`} selected={pick.base === c} onClick={(e) => choose({ ...pick, base: c }, e.currentTarget)} />
                   ))}
                 </div>
               </div>
@@ -290,7 +346,7 @@ export default function ThemeScene() {
                 <p className="text-[12px] leading-snug text-white/50">It&rsquo;ll be waiting in your new account.</p>
                 <button
                   type="button"
-                  onClick={() => choose(fromLook(LOOKS[5]))}
+                  onClick={(e) => choose(fromLook(LOOKS[5]), e.currentTarget)}
                   className="inline-flex items-center gap-1 text-[12px] font-medium text-white/60 hover:text-white rounded"
                 >
                   <RotateCcw size={12} strokeWidth={2} /> Default

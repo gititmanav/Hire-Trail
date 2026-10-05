@@ -1,6 +1,7 @@
 /** The bridge out of the story: Settings → Personalize with its four theme
- *  cards (PersonalizeSettings' ChoiceCard + ShellPreview). The story selects
- *  Dark, the window turns dark, and the camera dives into the Dark card. */
+ *  cards (PersonalizeSettings' ChoiceCard + ShellPreview). The story picks
+ *  Dark, and the Dark card's preview lifts out and grows into the page
+ *  (CardMorph). */
 import type { CSSProperties } from "react";
 import { Check, Monitor, Moon, Palette, Sun, type LucideIcon } from "lucide-react";
 import { SettingsShell } from "./shell.tsx";

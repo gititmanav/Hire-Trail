@@ -20,6 +20,13 @@ export function boxWithin(el: HTMLElement | null | undefined, root: HTMLElement)
 
 export const center = (b: Box) => ({ x: b.x + b.w / 2, y: b.y + b.h / 2 });
 
+export const lerpBox = (a: Box, b: Box, t: number): Box => ({
+  x: a.x + (b.x - a.x) * t,
+  y: a.y + (b.y - a.y) * t,
+  w: a.w + (b.w - a.w) * t,
+  h: a.h + (b.h - a.h) * t,
+});
+
 export type Els = Record<string, HTMLElement>;
 
 /** Every `[data-lp]` inside `root`, by name (the first of each name). */
@@ -50,3 +57,13 @@ export function setState(el: HTMLElement | null | undefined, state: string) {
 }
 
 export const round = (v: number, d = 3) => Math.round(v * 10 ** d) / 10 ** d;
+
+/** Words appearing in order as `t` goes 0 → 1 — each fades in over about a
+ *  word and a half, so the line streams in like generated text. */
+export function streamWords(words: HTMLElement[], t: number) {
+  const n = words.length;
+  words.forEach((w, j) => {
+    const o = (t * (n + 1.5) - j) / 1.5;
+    css(w, { opacity: round(o < 0 ? 0 : o > 1 ? 1 : o) });
+  });
+}
