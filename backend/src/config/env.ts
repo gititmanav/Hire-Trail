@@ -36,16 +36,6 @@ const envSchema = z
     MICROSOFT_TENANT_ID: z.string().default("common"),
     OUTLOOK_REDIRECT_URI: z.string().default("http://localhost:5050/api/email/outlook/callback"),
     ENCRYPTION_KEY: z.string().default("0000000000000000000000000000000000000000000000000000000000000000"),
-    // AI provider default keys (BYOK overrides per-user)
-    ANTHROPIC_API_KEY: z.string().default(""),
-    OPENAI_API_KEY: z.string().default(""),
-    GOOGLE_GENERATIVE_AI_API_KEY: z.string().default(""),
-    OPENROUTER_API_KEY: z.string().default(""),
-    /** Vercel AI Gateway API key. When set, all model calls route through the
-     *  gateway (provider/model) and BYOK keys are forwarded per-request via
-     *  providerOptions.gateway.byok. When empty, the resolver falls back to the
-     *  per-provider SDKs using the keys above so local dev keeps working. */
-    AI_GATEWAY_API_KEY: z.string().default(""),
     /** Gotenberg HTML→PDF service base URL (Cloud Run, scale-to-zero). Empty
      *  disables the HTML resume renderer (POST /api/resumes/render-pdf). */
     GOTENBERG_URL: z.string().default(""),

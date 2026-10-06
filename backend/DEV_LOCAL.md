@@ -29,8 +29,9 @@ npm run db:stop:local
 `npm run db:seed` recreates the dev user with fresh data and resets the admin's
 password and role; `npm run db:seed -- --admin-only` resets just the admin.
 
-## AI Gateway
-`AI_GATEWAY_API_KEY` in `.env` enables all gateway providers/models + BYOK. In
-production, set the same var in the Vercel project env (BYOK needs AI Gateway
-credits). Without it, only the 4 direct providers (OpenAI/Anthropic/Google/
-OpenRouter) work.
+## AI
+Provider keys live in the database, not in env: sign in as the local admin and add
+a platform key in Admin → AI → Map (a free Google AI Studio key is the easiest), or
+add your own in Settings → AI as the dev user. `ENCRYPTION_KEY` encrypts them. To
+test the AI layer without a key, use the AI SDK's mock model (`MockLanguageModelV3`)
+against this local DB.

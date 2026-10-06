@@ -31,7 +31,7 @@ npm run dev:frontend # :5173  → open this
 
 - **Never point a dev server at a production database.** `backend/.env.local` (gitignored, loaded before `.env`) is how you keep `MONGO_URI` local. See [backend/DEV_LOCAL.md](backend/DEV_LOCAL.md).
 - No Docker? `cd backend && npm run db:up:local` (native `mongod`, data in `backend/.localdb/`).
-- For AI features, set `AI_GATEWAY_API_KEY` (full provider catalog) or a single direct key like `GOOGLE_GENERATIVE_AI_API_KEY` (free Gemini tier). See the README's [AI configuration](README.md#ai-configuration).
+- For AI features, set `ENCRYPTION_KEY`, sign in as the local admin and add a platform key in Admin → AI (a free Google AI Studio key works). See the README's [AI configuration](README.md#ai-configuration). Tests of the AI layer use the AI SDK's mock model — never real keys in scripts.
 
 ## 2. Project architecture
 
@@ -47,10 +47,11 @@ extension/ Chrome MV3 (content / background / popup)
 ```
 
 **Key invariants — please respect these:**
-- **All AI calls go through the central runner** `backend/src/services/ai/run.ts` (`runGenerateObject` / `runGenerateText`). It handles provider/model resolution, BYOK forwarding, caching, retry, rate-limit, quota, and **usage metering**. Never call the AI SDK directly from a route/service — bypassing the runner means a call won't be metered or rate-limited.
-- **The match score stays deterministic.** `services/resume/score.ts` is a pure function (powers before/after). It is separate from the AI fit score (1–5). Don't make it call an LLM.
-- **No fabrication in AI prompts.** Resume rewrites must never invent employers, titles, dates, metrics, or skills (see `services/ai/rewrite.ts`). Facts are not sent to the model for rewriting.
-- **The provider catalog is dynamic.** Providers/models come from the live gateway catalog (`services/ai/gatewayModels.ts` + `catalog.ts`) — you usually don't hardcode a new provider. Curated metadata (labels, get-key URLs, credential shape) lives in `catalog.ts`.
+- **All AI calls go through the one door** — `runAiObject` / `runAiText` in `backend/src/services/ai/gateway.ts` (lane → route → cache → budget hold → the call with a deadline → settle → key health). Never import a provider SDK anywhere else; a call around the door isn't policed, budgeted or metered. Long work is an AI job (`services/ai/jobs.ts`).
+- **Registry first.** A feature is an entry in `services/ai/registry.ts` (tier, time budget, lanes, data class, prompt version) — bump `promptVersion` when a prompt or schema changes.
+- **The match score stays deterministic.** `services/resume/score.ts` is a pure function, and it is the only score — the fit check computes it from the AI's requirements; the AI's read is words. Don't make it call an LLM.
+- **No fabrication.** Resume rewrites are proposals the person accepts; one that adds a number the resume doesn't have is dropped (`numbersAreGrounded`, `services/ai/features/`). Posting, resume and email text is fenced as data in every prompt.
+- **Providers are a curated list** (`services/ai/providers.ts`, one adapter each); model ids are never trusted from memory — they're checked against each key's live model list (`models.ts`).
 - **Studio preview = the PDF.** The live preview's HTML+CSS is what Gotenberg renders, so changes to one must keep the other faithful.
 
 ## 3. Coding conventions

@@ -19,9 +19,9 @@ Most job trackers are either too simple (a spreadsheet replacement) or too rigid
 
 - **One canonical career profile → tailored resumes per role.** A single Master Profile feeds an AI-first **Resume Studio** that reads a JD, finds the real gap, and rewrites your bullets (STAR, quantified, never fabricated) with a live WYSIWYG preview and a pixel-faithful PDF.
 - **Tailor right from an application.** A broad, Jobright-style **tailoring drawer** opens over any application — the per-app fit score *is* step 1, so it jumps straight to "Align."
-- **Bring any model.** BYOK through the **Vercel AI Gateway**: 40+ providers (OpenAI, Anthropic, Google, Amazon Bedrock, Mistral, Groq, DeepSeek, xAI, Perplexity, Cohere, …) and hundreds of models, with per-user encrypted keys and transparent **usage metering**.
-- **Auto-status from your inbox.** Gmail + Outlook scanning detects interviews, offers, follow-ups, and rejections, with one-click confirm/revert.
-- **A full admin platform** — users, RBAC, audit logs, broadcasts, feedback inbox, analytics, mailbox controls.
+- **Your AI, your way.** Built-in AI that's free within a monthly allowance — or your own key from 8 providers (Google Gemini, Anthropic, OpenAI, xAI, DeepSeek, Mistral, Groq, OpenRouter), or your own Claude Code over MCP. You choose per feature on an AI map.
+- **Inbox review.** A Gmail scan finds application emails — interviews, assessments, offers, rejections — and lines them up for you to review. Nothing changes until you accept it.
+- **A lean admin** — users, AI policy and budget, broadcasts, feedback, bug reports, audit logs.
 
 ## Screenshots
 
@@ -48,25 +48,26 @@ HireTrail's tailoring is **one engine, two shells**, both over a single editable
 - **Resume Studio** (`/resume-studio`) — the manual entry point. A 3-step flow:
   1. **See the gap** — the LLM reads the JD, strips posting noise (applicant counts, "Easy Apply", boilerplate), and returns the real requirement keywords, matched/missing skills, and a per-section read. A **deterministic 0–10 match score** + coverage ring are computed against your document so the number never lies.
   2. **Align** — choose which sections/keywords to weave in (only what you genuinely have).
-  3. **Review** — AI rewrites in **STAR**, quantified only where your real results support it (**strict no-fabrication** — employers, titles, dates, and metrics are never invented). Live preview = the print template; **Download** renders a pixel-faithful PDF via Gotenberg.
+  3. **Review** — AI rewrites in **STAR** arrive as **proposals** you accept per change (or all); a rewrite that adds a number your resume doesn't have is dropped (**strict no-fabrication** — employers, titles, dates and metrics are never invented). Live preview = the print template; **Download** renders a pixel-faithful PDF via Gotenberg.
 - **Application tailoring drawer** — a broad drawer over any application that reuses the exact Studio flow. Because the per-application **fit score is step 1**, the drawer opens at "Align." Each application tailors its **own variant** (so roles never clobber each other), with fail-in-place AI states (Retry / "Add a key", never a stuck spinner).
 - **Master Profile** — one canonical career history (Personal · Experience · Projects · Education · Skills · Certifications) that seeds every resume and the extension.
 
-### AI platform (BYOK via the Vercel AI Gateway)
-- **40+ providers, hundreds of models** — the provider/model catalog is fetched live from the gateway, so new models appear without a code change. Browse and search models per provider in **Settings → AI & Models**.
-- **Bring your own key** — per-user keys encrypted at rest (AES-GCM). Single-key shapes (most providers) and multi-field credentials (Bedrock `accessKeyId/secretAccessKey/region`, Azure, Vertex) are handled. Exactly one key active at a time.
-- **Admin default + quota** — admins can set a platform default provider/model (or use gateway system credits) and a per-user monthly token quota for default-key users.
-- **Usage metering** — every LLM call (parsing, fit analysis, rewrites, …) is metered: per-operation tokens, call counts, and **estimated cost using live gateway pricing**. Visible in Settings → AI & Models.
-- **Reliability** — one central runner with content-hash caching, retry/backoff, per-user rate limit, and quota enforcement. AI runs through the gateway when `AI_GATEWAY_API_KEY` is set; otherwise the four direct-SDK providers (OpenAI/Anthropic/Google/OpenRouter) still work for local dev.
+### AI platform — three lanes, one door
+- **Lanes, per feature:** **Included** (HireTrail's platform keys, paid by HireTrail within a budget), **My key** (the person's own provider key), **My assistant** (their own Claude Code or other MCP client, on their subscription), or **Off**. People move features on an **AI map** in **Settings → AI**; admins set the rules in **Admin → AI**.
+- **8 providers, direct** — Google Gemini, Anthropic, OpenAI, xAI, DeepSeek, Mistral, Groq and OpenRouter through their own AI SDK adapters. Each key lists its live models; keys are encrypted at rest (AES-GCM), tested before they're saved, and carry a health check.
+- **Admin control** — a master switch with a pause message, lanes on/off, per-feature rules (on/off, allowed lanes, a lane everyone is put on, the default, Included runs per month), a monthly budget and per-person allowance, and per-user overrides. Every change is audit-logged.
+- **Metered** — every call, refusal and failure is a ledger row (feature, lane, model, tokens, cost); Included spend is reserved before a call and settled after, so parallel calls can't overshoot the budget.
+- **Long work is a job** — saved and resumable: steps with a deadline that continue themselves, revived when anyone checks on them. No worker server.
+- **MCP** — `/api/mcp` (stateless Streamable HTTP) with personal tokens: Claude Code can read your search, track and update jobs, and run the features you put in the My assistant lane.
+- **The match score is one number** — a deterministic 0–10 score; the AI's read is words (strengths, gaps, what to change).
 
-### Inbox auto-status (Gmail + Outlook)
-- Source-agnostic pipeline: pre-filter → dedupe → LLM classify → application match → stage update + notification.
-- Signals: `interview_detected`, `offer_detected`, `follow_up_detected`, `rejection_detected`. **Confirm / revert** on every auto-applied change. Nightly cron (`0 1 * * *`) per connected mailbox.
+### Inbox review (Gmail)
+- Settings → Connectors → Gmail (read-only scope). A scan reads recent application emails and every result lands in a **review queue** — import it, merge it into an existing application, or skip it. Nothing changes in your tracker until you accept it. (Outlook is hidden until it joins the queue.)
 
 ### Analytics, feedback & admin
-- Draggable/resizable dashboard widgets; pipeline funnel, conversion rates, resume metrics, AI provider mix, mailbox adoption; CSV import/export; theme-aware charts.
+- Draggable/resizable dashboard widgets; pipeline funnel, conversion rates, resume metrics; CSV import/export; theme-aware charts.
 - In-app feedback widget + an Admin Feedback Inbox.
-- Admin platform: Dashboard KPIs, User Management + bulk email, Broadcasts, Mailbox Management, Notification Center, Platform Analytics, Audit Logs, Email Templates, Announcements, Invites, Backups, Seed Data, System Config, **AI System Config** (default provider/model + quota), Storage, Content Moderation, RBAC — with feature flags for progressive rollout.
+- Admin: Dashboard, Users, Announcements, Broadcasts, Notifications, Mailboxes, Feedback, Bug reports, **AI** (Map · Rules · Spend), Settings (maintenance mode, feature switches, reset the demo) and Audit logs.
 
 ### Browser extension (Chrome, Manifest V3)
 - One-click job tracking from LinkedIn, Indeed, Greenhouse, Lever, Glassdoor, and Workday; smart page scraping; auto-track on apply.
@@ -80,12 +81,12 @@ HireTrail's tailoring is **one engine, two shells**, both over a single editable
 | Frontend | React 18, TypeScript, Vite, Tailwind CSS, React Router |
 | Backend | Express (ESM), TypeScript, Mongoose, Zod |
 | Auth | Passport Local + Google OAuth 2.0, sessions (connect-mongo), extension JWT |
-| AI | **Vercel AI Gateway** (`@ai-sdk/gateway`) for BYOK to 40+ providers; per-provider SDKs (`@ai-sdk/{anthropic,openai,google}`, `@openrouter/...`) as a direct fallback; Zod structured output |
+| AI | AI SDK v6 (`ai`) with one adapter per provider (`@ai-sdk/{google,anthropic,openai,xai,deepseek,mistral,groq}`, `@openrouter/ai-sdk-provider`); Zod structured output; MCP server (`@modelcontextprotocol/sdk`) |
 | PDF | **Gotenberg** (Chromium HTML→PDF) for pixel-faithful resume export |
 | Mail | nodemailer over SMTP (broadcasts); Gmail API + Microsoft Graph (`@azure/msal-node`) for inbox scanning |
 | Storage | MongoDB (Mongoose), Cloudinary (resume PDFs) |
 | UI/Charts | react-grid-layout, @dnd-kit, Chart.js, react-chartjs-2 |
-| Security | Helmet CSP, rate limiting, httpOnly cookies, CORS allowlist, AES-GCM for BYOK keys |
+| Security | Helmet CSP, rate limiting, httpOnly cookies, CORS allowlist, AES-GCM for AI keys and mailbox tokens |
 
 ## Repository layout
 
@@ -94,7 +95,8 @@ Hire-Trail/
 ├── backend/              # Express API, AI platform, jobs, admin services
 │   ├── src/
 │   │   ├── routes/       # REST endpoints (ai, admin/ai, resumes, tailor, applications, …)
-│   │   ├── services/ai/  # gateway resolver, central runner, catalog, usage, pricing, rewrite, tailor
+│   │   ├── services/ai/  # the AI layer: registry, provider adapters, routing, gateway (the one door), ledger, jobs, features/
+│   │   ├── services/mcp/ # the MCP server and personal tokens
 │   │   ├── services/resume/  # ResumeDocument engine: document, score, suggestions, keywords, html
 │   │   ├── services/pdf/ # Gotenberg HTML→PDF
 │   │   ├── models/       # Mongoose models
@@ -113,7 +115,7 @@ Hire-Trail/
 ### Prerequisites
 - **Node.js 18+**
 - **A local MongoDB** — Docker (recommended) or a native `mongod`. (You can also point at MongoDB Atlas, but prefer a local DB for dev.)
-- Optional integrations: an **AI Gateway key** (for the full provider catalog), Google OAuth, Cloudinary, Gotenberg (PDF export), Gmail/Outlook.
+- Optional integrations: an AI provider key (added in the app — see [AI configuration](#ai-configuration)), Google OAuth, Cloudinary, Gotenberg (PDF export), Gmail.
 
 ### 1) Install
 ```bash
@@ -131,13 +133,13 @@ Minimum to boot: `SESSION_SECRET` (any string locally) and `MONGO_URI`. For loca
 ```bash
 echo 'MONGO_URI=mongodb://127.0.0.1:27017/hiretrail_dev' > backend/.env.local
 ```
-For the full AI catalog, set `AI_GATEWAY_API_KEY` (see [AI configuration](#ai-configuration)). See the [environment reference](#environment-reference) for everything else.
+AI keys aren't environment variables — they're added in the app (see [AI configuration](#ai-configuration)). See the [environment reference](#environment-reference) for everything else.
 
 ### 3) Start the local database
 ```bash
 npm run db:up      # Docker: starts mongo:7 as "hiretrail-dev-db" on :27017 (persistent volume)
-npm run db:seed    # seeds a dev user + master profile + resume + sample application
-# → login dev@hiretrail.local / devpass123
+npm run db:seed    # seeds a dev user + master profile + resume + sample application, and a local admin
+# → login dev@hiretrail.local / devpass123 (a normal user) or admin@hiretrail.local / devpass123 (admin)
 ```
 No Docker? Use the native fallback: `cd backend && npm run db:up:local` (data in `backend/.localdb/`), then `npm run db:seed`. Full details in **[backend/DEV_LOCAL.md](backend/DEV_LOCAL.md)**.
 
@@ -149,9 +151,11 @@ npm run dev:frontend    # Vite on :5173, proxies /api → :5050
 Open **http://localhost:5173** and sign in with the seeded account.
 
 ## AI configuration
-- **`AI_GATEWAY_API_KEY`** (recommended) routes every call through the Vercel AI Gateway and unlocks **all 40+ providers + every model** with per-user BYOK. Create a key in the Vercel dashboard → AI Gateway (BYOK requires AI Gateway credits — see [Vercel docs](https://vercel.com/docs/ai-gateway/authentication-and-byok/byok)).
-- **Without the gateway**, the four direct-SDK providers still work if their env keys are set: `GOOGLE_GENERATIVE_AI_API_KEY` (free Gemini tier — easiest), `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `OPENROUTER_API_KEY`.
-- Users add their own keys in **Settings → AI & Models**; admins set the platform default + quota in **Admin → AI**.
+- Set `ENCRYPTION_KEY` (64 hex chars) — every stored AI key and mailbox token is encrypted under it.
+- **Included AI:** sign in as an admin → **Admin → AI → Map** → add a platform key (any of the 8 providers; a free Google AI Studio key is the easiest start). Set the budget and rules under **Rules** and **Spend**.
+- **Your own key:** **Settings → AI → Your keys**, then move features onto it on the map.
+- **Your assistant:** **Settings → AI → Your assistant** → Connect Claude Code (a personal MCP token).
+- Developing the AI layer? Test with the AI SDK's mock model (`MockLanguageModelV3`) against the local DB — never real keys in scripts.
 
 ## Environment reference
 
@@ -160,13 +164,13 @@ Open **http://localhost:5173** and sign in with the seeded account.
 
 **Required:** `MONGO_URI`, `SESSION_SECRET`, `CLIENT_URL` (must match the frontend origin).
 
-**AI:** `AI_GATEWAY_API_KEY` (gateway BYOK), or one of `GOOGLE_GENERATIVE_AI_API_KEY` / `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `OPENROUTER_API_KEY`; `ENCRYPTION_KEY` (64-char hex, encrypts stored BYOK keys).
+**AI:** `ENCRYPTION_KEY` (64-char hex; encrypts stored AI keys and mailbox tokens — never change it without re-encrypting). Long AI jobs: `API_PUBLIC_URL` (the API's public origin, for self-continuation; falls back to the `GOOGLE_CALLBACK_URL` origin) and `FUNCTION_MAX_DURATION_S` (default 300). Provider keys live in the database, added in the app.
 
 **PDF export:** `GOTENBERG_URL` (a Gotenberg instance; Studio PDF download is disabled without it).
 
 **Auth:** `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_CALLBACK_URL`; `ADMIN_EMAILS` (comma-separated admins); `MAINTENANCE_BYPASS_EMAIL` (optional).
 
-**Inbox scanning (optional):** `MICROSOFT_CLIENT_ID` / `MICROSOFT_CLIENT_SECRET` / `MICROSOFT_TENANT_ID` + `OUTLOOK_REDIRECT_URI` (Outlook); Gmail OAuth via the Google client above.
+**Inbox scanning (optional):** Gmail OAuth via the Google client above + `GMAIL_REDIRECT_URI`. (The `MICROSOFT_*` / `OUTLOOK_REDIRECT_URI` settings stay for Outlook, which is hidden for now.)
 
 **Broadcasts (optional):** `EMAIL_SENDER`, `EMAIL_APP_PASSWORD` (Google App Password, needs 2FA), `EMAIL_SENDER_NAME`, `EMAIL_SMTP_HOST`/`EMAIL_SMTP_PORT`. The Broadcasts page shows a clear banner + disables Send when unset.
 
@@ -184,7 +188,7 @@ Open **http://localhost:5173** and sign in with the seeded account.
 ## Deployment notes
 - **Monolith:** build the frontend, build the backend, serve `frontend/dist` from the backend.
 - **Split:** set frontend `VITE_API_BASE_URL` and backend `CLIENT_URL` to the deployed origins; production cross-origin cookies use `SameSite=None; Secure`.
-- On Vercel, add all `EMAIL_*`, `MICROSOFT_*`, AI provider keys, **`AI_GATEWAY_API_KEY`**, **`GOTENBERG_URL`**, `ENCRYPTION_KEY`, and `ADMIN_EMAILS` to the project environment.
+- On Vercel, add all `EMAIL_*`, **`GOTENBERG_URL`**, **`ENCRYPTION_KEY`**, `API_PUBLIC_URL`, `ADMIN_EMAILS` (and `FUNCTION_MAX_DURATION_S` if your plan's limit isn't 300 s) to the project environment, then add a platform AI key in Admin → AI. No cron is needed: due account deletions and stuck jobs are swept at boot, hourly, and on status reads.
 
 ## Chrome extension (optional)
 1. `chrome://extensions` → enable Developer Mode → **Load unpacked** → select `extension/`.
@@ -192,14 +196,16 @@ Open **http://localhost:5173** and sign in with the seeded account.
 3. On a JD page, use **Tailor with AI** to open the tailoring drawer in the web app.
 
 ## Contributing
-PRs welcome — see **[CONTRIBUTING.md](CONTRIBUTING.md)** for the dev setup, project architecture, coding conventions, and PR/commit guidelines. The non-negotiables: `cd backend && npx tsc --noEmit` and `cd frontend && npm run build` must stay green, and AI calls must go through the central runner (`backend/src/services/ai/run.ts`).
+PRs welcome — see **[CONTRIBUTING.md](CONTRIBUTING.md)** for the dev setup, project architecture, coding conventions, and PR/commit guidelines. The non-negotiables: `cd backend && npx tsc --noEmit` and `cd frontend && npm run build` must stay green, and AI calls must go through the one door (`runAiObject` / `runAiText` in `backend/src/services/ai/gateway.ts`).
 
 ## Breaking changes (recent)
 | Change | Notes |
 |---|---|
 | `/tailor` page removed | Replaced by the AI-first Resume Studio + the per-application tailoring drawer. Deep-links resolve to `/applications?tailor=<appId>` (or `?tailorSession=<id>`). |
 | Typst PDF removed | Resume export is now Gotenberg HTML→PDF (pixel-faithful WYSIWYG). |
-| AI providers no longer a fixed set of 4 | BYOK now covers every Vercel AI Gateway provider; `AIProviderConfig.provider` is a free string. |
+| Vercel AI Gateway removed (2026-10) | Direct adapters for 8 providers. Keys moved from `AIProviderConfig` to `AiKey` (a boot migration copies supported ones); the gateway and per-provider env keys are no longer read. |
+| One match score (2026-10) | The A–F fit grade is gone; the fit check's number is the deterministic 0–10 score. |
+| Inbox auto-apply removed (2026-10) | Every Gmail scan lands in the review queue. `/settings/mailboxes` → `/settings/connectors` (redirects). |
 | `/api/resume-profile/*` → `/api/master-profile/*` | Old `ResumeProfile` docs are orphaned; re-parse from the Profile page. |
 | `/admin/gmail` → `/admin/mailbox` | Gmail + Outlook unified. |
 
