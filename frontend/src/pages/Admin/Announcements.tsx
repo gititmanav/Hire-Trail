@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useId, FormEvent } from "react";
 import toast from "../../components/ui/toast.ts";
 import { adminAPI } from "../../utils/api";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal";
@@ -6,7 +6,10 @@ import { useConfirm } from "../../hooks/useConfirm";
 import type { Announcement } from "../../types";
 import Select from "../../components/ui/Select.tsx";
 import DateInput from "../../components/ui/DateInput.tsx";
-import { MODAL_EXIT, useExitAnimation } from "../../hooks/useExitAnimation.ts";
+import { Modal, ModalHeader, ModalBody, ModalFooter } from "../../components/ui/Modal.tsx";
+import { Field, TextField, Textarea } from "../../components/ui/Field.tsx";
+import { CheckboxMark } from "../../components/ui/Checkbox.tsx";
+import Button from "../../components/ui/Button.tsx";
 
 const TYPE_STYLES: Record<string, { bg: string; text: string }> = {
   info: {
@@ -50,7 +53,7 @@ const EMPTY_FORM: FormData = {
 };
 
 export default function Announcements() {
-  const formExitRef = useExitAnimation(MODAL_EXIT);
+  const bodyId = useId();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -213,124 +216,100 @@ export default function Announcements() {
 
       {/* Form Modal */}
       {showForm && (
-        <div ref={formExitRef} className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/50 p-4 modal-overlay-in">
-          <div data-modal-panel className="card-premium card-no-lift w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 space-y-4 animate-in">
-            <h2 className="text-lg font-semibold text-foreground">
-              {editingId ? "Edit Announcement" : "Create Announcement"}
-            </h2>
-
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1">
-                Title
-              </label>
-              <input
+        <Modal onClose={closeForm} size="md">
+          <ModalHeader title={editingId ? "Edit Announcement" : "Create Announcement"} onClose={closeForm} />
+          <form
+            className="flex flex-col min-h-0"
+            onSubmit={(e: FormEvent) => { e.preventDefault(); handleSubmit(); }}
+          >
+            <ModalBody className="space-y-4">
+              <TextField
+                label="Title"
+                data-autofocus
                 type="text"
                 value={form.title}
                 onChange={(e) => setForm({ ...form, title: e.target.value })}
-                className="input-premium w-full"
                 placeholder="Announcement title"
               />
-            </div>
 
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1">
-                Body
-              </label>
-              <textarea
-                value={form.body}
-                onChange={(e) => setForm({ ...form, body: e.target.value })}
-                rows={4}
-                className="input-premium w-full"
-                placeholder="Announcement body..."
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1">
-                  Type
-                </label>
-                <Select
-                  ariaLabel="Type"
-                  value={form.type}
-                  onChange={(v) => setForm({ ...form, type: v as FormData["type"] })}
-                  options={[{ value: "info", label: "Info" }, { value: "warning", label: "Warning" }, { value: "success", label: "Success" }]}
+              <Field label="Body" htmlFor={bodyId}>
+                <Textarea
+                  id={bodyId}
+                  value={form.body}
+                  onChange={(e) => setForm({ ...form, body: e.target.value })}
+                  rows={4}
+                  placeholder="Announcement body..."
                 />
+              </Field>
+
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Type">
+                  <Select
+                    ariaLabel="Type"
+                    value={form.type}
+                    onChange={(v) => setForm({ ...form, type: v as FormData["type"] })}
+                    options={[{ value: "info", label: "Info" }, { value: "warning", label: "Warning" }, { value: "success", label: "Success" }]}
+                  />
+                </Field>
+                <Field label="End Date">
+                  <DateInput
+                    ariaLabel="End date"
+                    value={form.endDate}
+                    onChange={(endDate) => setForm({ ...form, endDate })}
+                  />
+                </Field>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1">
-                  End Date
-                </label>
-                <DateInput
-                  ariaLabel="End date"
-                  value={form.endDate}
-                  onChange={(endDate) => setForm({ ...form, endDate })}
-                />
+
+              <div className="flex items-center gap-6">
+                {([
+                  { key: "dismissible", label: "Dismissible" },
+                  { key: "active", label: "Active" },
+                ] as const).map((o) => (
+                  <button
+                    key={o.key}
+                    type="button"
+                    role="checkbox"
+                    aria-checked={form[o.key]}
+                    onClick={() => setForm({ ...form, [o.key]: !form[o.key] })}
+                    className="inline-flex items-center gap-2 text-sm text-foreground rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <CheckboxMark checked={form[o.key]} />
+                    {o.label}
+                  </button>
+                ))}
               </div>
-            </div>
 
-            <div className="flex items-center gap-6">
-              <label className="flex items-center gap-2 text-sm text-foreground">
-                <input
-                  type="checkbox"
-                  checked={form.dismissible}
-                  onChange={(e) =>
-                    setForm({ ...form, dismissible: e.target.checked })
-                  }
-                  className="rounded border-border"
-                />
-                Dismissible
-              </label>
-              <label className="flex items-center gap-2 text-sm text-foreground">
-                <input
-                  type="checkbox"
-                  checked={form.active}
-                  onChange={(e) =>
-                    setForm({ ...form, active: e.target.checked })
-                  }
-                  className="rounded border-border"
-                />
-                Active
-              </label>
-            </div>
-
-            {/* Preview */}
-            {form.title && (
-              <div>
-                <p className="text-xs font-medium text-muted-foreground mb-2">
-                  Preview
-                </p>
-                <div
-                  className={`border rounded-lg p-3 ${
-                    BANNER_STYLES[form.type] || BANNER_STYLES.info
-                  }`}
-                >
-                  <p className="font-semibold text-sm">{form.title}</p>
-                  {form.body && (
-                    <p className="text-sm mt-1 opacity-90">{form.body}</p>
-                  )}
+              {/* Preview */}
+              {form.title && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-2">
+                    Preview
+                  </p>
+                  <div
+                    className={`border rounded-lg p-3 ${
+                      BANNER_STYLES[form.type] || BANNER_STYLES.info
+                    }`}
+                  >
+                    <p className="font-semibold text-sm">{form.title}</p>
+                    {form.body && (
+                      <p className="text-sm mt-1 opacity-90">{form.body}</p>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
-
-            <div className="flex justify-end gap-2 pt-2">
-              <button onClick={closeForm} className="btn-secondary text-sm">
-                Cancel
-              </button>
-              <button
-                onClick={handleSubmit}
-                disabled={submitting}
-                className="btn-accent text-sm"
-              >
+              )}
+            </ModalBody>
+            <ModalFooter>
+              <Button variant="ghost" onClick={closeForm}>Cancel</Button>
+              <Button type="submit" variant="primary" disabled={submitting}>
                 {submitting
                   ? "Saving..."
                   : editingId
                     ? "Update"
                     : "Create"}
-              </button>
-            </div>
-          </div>
-        </div>
+              </Button>
+            </ModalFooter>
+          </form>
+        </Modal>
       )}
 
       {/* Announcements List */}

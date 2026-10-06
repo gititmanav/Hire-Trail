@@ -12,8 +12,8 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { X } from "lucide-react";
-import { MODAL_EXIT, useExitAnimation } from "../../hooks/useExitAnimation.ts";
+import { Modal, ModalHeader, ModalBody } from "../ui/Modal.tsx";
+import { layerCount } from "../ui/layers.ts";
 
 interface Binding {
   /** Display label: e.g. "g a". */
@@ -46,7 +46,6 @@ function isTyping(): boolean {
 }
 
 export default function GlobalShortcuts() {
-  const exitRef = useExitAnimation(MODAL_EXIT);
   const navigate = useNavigate();
   const location = useLocation();
   const [helpOpen, setHelpOpen] = useState(false);
@@ -77,8 +76,10 @@ export default function GlobalShortcuts() {
   const handleKey = useCallback((e: KeyboardEvent) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     if (isTyping()) return;
-    if (e.key === "Escape" && helpOpen) { setHelpOpen(false); return; }
     if (e.key === "?") {
+      // Opens over the page only — a menu or dialog that's already up would
+      // sit above (or behind) it; Escape that first.
+      if (!helpOpen && layerCount() > 0) return;
       e.preventDefault();
       setHelpOpen((v) => !v);
       buffer.current = { keys: [], expiresAt: 0 };
@@ -137,58 +138,39 @@ export default function GlobalShortcuts() {
     (grouped[b.section] = grouped[b.section] || []).push(b);
   }
 
+  const closeHelp = () => setHelpOpen(false);
+
   return (
-    <div
-      ref={exitRef}
-      className="fixed inset-0 z-[90] bg-background/70 backdrop-blur-sm flex items-center justify-center p-4 modal-overlay-in"
-      onMouseDown={(e) => { if (e.target === e.currentTarget) setHelpOpen(false); }}
-      role="dialog"
-      aria-label="Keyboard shortcuts"
-    >
-      <div
-        data-modal-panel
-        className="w-full max-w-[520px] bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-in"
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
-          <h2 className="text-base font-semibold text-foreground tracking-tight">Keyboard shortcuts</h2>
-          <button
-            onClick={() => setHelpOpen(false)}
-            className="w-8 h-8 inline-flex items-center justify-center rounded-md border border-border text-muted-foreground hover:text-foreground"
-            aria-label="Close"
-            type="button"
-          >
-            <X size={13} strokeWidth={2} />
-          </button>
-        </div>
-        <div className="px-5 py-4 max-h-[60vh] overflow-y-auto space-y-5">
-          {Object.entries(grouped).map(([section, items]) => (
-            <section key={section}>
-              <h3 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">{section}</h3>
-              <ul className="space-y-1.5">
-                {items.map((b) => (
-                  <li key={b.label} className="flex items-center justify-between gap-3 text-sm">
-                    <span className="text-muted-foreground">{b.description}</span>
-                    <span className="flex items-center gap-1">
-                      {b.sequence.map((k, i) => (
-                        <kbd
-                          key={`${b.label}-${i}`}
-                          className="px-1.5 py-0.5 text-[11px] font-mono rounded-md border border-border bg-muted text-foreground min-w-[20px] text-center"
-                        >
-                          {k}
-                        </kbd>
-                      ))}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ))}
-        </div>
-        <div className="px-5 py-3 border-t border-border text-xs text-muted-foreground">
-          Shortcuts pause while you're typing in inputs.
-        </div>
-      </div>
-    </div>
+    <Modal onClose={closeHelp} size="sm" ariaLabel="Keyboard shortcuts">
+      <ModalHeader title="Keyboard shortcuts" onClose={closeHelp} />
+      <ModalBody className="space-y-5">
+        {Object.entries(grouped).map(([section, items]) => (
+          <section key={section}>
+            <h3 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">{section}</h3>
+            <ul className="space-y-1.5">
+              {items.map((b) => (
+                <li key={b.label} className="flex items-center justify-between gap-3 text-sm">
+                  <span className="text-muted-foreground">{b.description}</span>
+                  <span className="flex items-center gap-1">
+                    {b.sequence.map((k, i) => (
+                      <kbd
+                        key={`${b.label}-${i}`}
+                        className="px-1.5 py-0.5 text-[11px] font-mono rounded-md border border-border bg-muted text-foreground min-w-[20px] text-center"
+                      >
+                        {k}
+                      </kbd>
+                    ))}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
+      </ModalBody>
+      {/* A footnote, not actions — so a plain strip on ModalFooter's rhythm. */}
+      <p className="px-6 py-3.5 mt-4 border-t border-border text-xs text-muted-foreground shrink-0">
+        Shortcuts pause while you're typing in inputs.
+      </p>
+    </Modal>
   );
 }

@@ -1,5 +1,5 @@
 /**
- * Unified Gmail-scan flow — single modal with backdrop that walks the user
+ * Unified Gmail-scan flow — one dialog (ui/Modal) that walks the user
  * through picker → scanning → review → done without page navigation.
  *
  * Why one modal: the review queue is a one-time temporary step. We have no
@@ -14,19 +14,23 @@
  *   review    → editable candidate cards with import/skip/merge
  *   done      → summary + Confirm to close
  *
- * Close attempts during `scanning` or `review` route through a red sub-
- * confirm. Confirming sends `abandonScan` so pending candidates are
- * cleaned up server-side (imported/merged ones stay — they're real Apps).
+ * Close attempts during `scanning` or `review` (the X, Escape, a click
+ * outside) route through a red sub-confirm — a ConfirmModal stacked on top.
+ * Confirming sends `abandonScan` so pending candidates are cleaned up
+ * server-side (imported/merged ones stay — they're real Apps).
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { X, Mail, Filter, Search, AlertTriangle, RotateCw, Link2 } from "lucide-react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { Mail, Filter, Search, AlertTriangle, RotateCw, Link2 } from "lucide-react";
+import { Modal, ModalBody, ModalFooter, ModalHeader } from "../../components/ui/Modal.tsx";
+import ConfirmModal from "../../components/ConfirmModal/ConfirmModal.tsx";
+import Button from "../../components/ui/Button.tsx";
+import { Field, TextField } from "../../components/ui/Field.tsx";
 import Select from "../../components/ui/Select.tsx";
 import { CheckboxMark } from "../../components/ui/Checkbox.tsx";
 import { STAGE_STRIPE_CLASS, STAGE_TONE_CLASS } from "../../utils/stageStyles.ts";
 import toast from "../../components/ui/toast.ts";
 import { emailAPI, type ScanCandidate, type ScanJob, type ScanJobStatus } from "../../utils/api.ts";
 import AiStepper from "../../components/AiIndicator/AiStepper.tsx";
-import { MODAL_EXIT, useExitAnimation } from "../../hooks/useExitAnimation.ts";
 
 const POLL_MS = 3000;
 
@@ -42,9 +46,6 @@ type Stage = (typeof STAGES)[number];
 const STAGE_TONE = Object.fromEntries(
   STAGES.map((st) => [st, `${STAGE_TONE_CLASS[st].bg} ${STAGE_TONE_CLASS[st].text} ${STAGE_TONE_CLASS[st].border}`]),
 ) as Record<Stage, string>;
-
-const inputCls =
-  "w-full px-3 py-2 text-sm bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring transition-shadow";
 
 type Step = "picker" | "scanning" | "review" | "done" | "failed";
 
@@ -81,8 +82,6 @@ export interface EmailScanFlowModalProps {
 }
 
 export default function EmailScanFlowModal({ initialJob, onClose, onFinished }: EmailScanFlowModalProps) {
-  const exitRef = useExitAnimation(MODAL_EXIT);
-  const confirmExitRef = useExitAnimation(MODAL_EXIT);
   const [step, setStep] = useState<Step>(stepForJob(initialJob));
   const [job, setJob] = useState<ScanJob | null>(initialJob);
   const [candidates, setCandidates] = useState<ScanCandidate[]>([]);
@@ -109,15 +108,10 @@ export default function EmailScanFlowModal({ initialJob, onClose, onFinished }: 
     return () => window.clearTimeout(t);
   }, [job, refreshJob]);
 
-  // Lock the page scroll while the modal is open. Restores on unmount.
-  useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = prev; };
-  }, []);
-
-  // ESC / backdrop-click → either close directly (picker / done) or fall into
-  // the "lose results" confirm (scanning / review).
+  // X / Escape / outside click → either close directly (picker / done /
+  // failed) or fall into the "lose results" confirm (scanning / review).
+  // Modal gives Escape to the top layer only, so an open Select — or the
+  // confirm itself — closes before the flow does.
   const requestClose = useCallback(() => {
     if (step === "scanning" || step === "review") {
       setConfirmClose(true);
@@ -125,14 +119,6 @@ export default function EmailScanFlowModal({ initialJob, onClose, onFinished }: 
       onClose();
     }
   }, [step, onClose]);
-
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => {
-      if (e.key === "Escape") requestClose();
-    };
-    document.addEventListener("keydown", h);
-    return () => document.removeEventListener("keydown", h);
-  }, [requestClose]);
 
   const handleStart = async (days: 5 | 10 | 15) => {
     try {
@@ -222,19 +208,8 @@ export default function EmailScanFlowModal({ initialJob, onClose, onFinished }: 
   };
 
   return (
-    <div
-      ref={exitRef}
-      className="fixed inset-0 bg-scrim/70 z-50 flex items-center justify-center p-4 modal-overlay-in"
-      onClick={requestClose}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="scan-flow-title"
-    >
-      <div
-        data-modal-panel
-        className="bg-card border border-border rounded-2xl w-full max-w-2xl max-h-[92vh] overflow-hidden shadow-2xl animate-in flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <>
+      <Modal onClose={requestClose} size="lg">
         {step === "picker" && (
           <PickerStep onStart={handleStart} onClose={requestClose} />
         )}
@@ -256,46 +231,21 @@ export default function EmailScanFlowModal({ initialJob, onClose, onFinished }: 
         {step === "failed" && job && (
           <FailedStep job={job} onRetry={handleRetry} onReconnect={handleReconnect} onClose={onClose} />
         )}
-      </div>
+      </Modal>
 
-      {/* Lose-results sub-confirm */}
+      {/* Lose-results sub-confirm — its own Modal, so it stacks above the flow
+          and takes Escape / outside clicks first. */}
       {confirmClose && (
-        <div
-          ref={confirmExitRef}
-          className="fixed inset-0 bg-scrim/70 z-[60] flex items-center justify-center p-4 modal-overlay-in"
-          onClick={(e) => { e.stopPropagation(); setConfirmClose(false); }}
-        >
-          <div
-            data-modal-panel
-            className="bg-card border border-red-300 dark:border-red-900 rounded-2xl w-full max-w-md p-6 shadow-2xl animate-in"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-base font-semibold text-red-700 dark:text-red-200">
-              You&rsquo;ll lose the scan results.
-            </h3>
-            <p className="text-sm text-foreground/85 mt-2 leading-relaxed">
-              Closing now drops every candidate you haven&rsquo;t imported yet. Anything you already imported stays in your tracker. You can re-run the scan later, but it&rsquo;ll have to read your inbox again.
-            </p>
-            <div className="flex items-center justify-end gap-2 mt-5">
-              <button
-                type="button"
-                onClick={() => setConfirmClose(false)}
-                className="px-3 py-1.5 text-xs font-medium border border-border rounded-lg hover:bg-muted"
-              >
-                Keep scanning
-              </button>
-              <button
-                type="button"
-                onClick={handleAbandon}
-                className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg"
-              >
-                Close &amp; lose results
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmModal
+          title="You’ll lose the scan results."
+          message="Closing now drops every candidate you haven’t imported yet. Anything you already imported stays in your tracker. You can re-run the scan later, but it’ll have to read your inbox again."
+          cancelLabel="Keep scanning"
+          confirmLabel="Close & lose results"
+          onCancel={() => setConfirmClose(false)}
+          onConfirm={() => void handleAbandon()}
+        />
       )}
-    </div>
+    </>
   );
 }
 
@@ -310,16 +260,12 @@ function FailedStep({ job, onRetry, onReconnect, onClose }: {
   const reauth = isReauthError(job.error);
   return (
     <>
-      <div className="px-6 pt-6 pb-4 border-b border-border flex items-start justify-between gap-3">
-        <div>
-          <h2 id="scan-flow-title" className="text-lg font-semibold text-foreground">Scan didn&rsquo;t finish</h2>
-          <p className="text-xs text-muted-foreground mt-1">
-            {reauth ? "Your Gmail connection needs to be refreshed." : "Something interrupted the scan."}
-          </p>
-        </div>
-        <CloseButton onClick={onClose} />
-      </div>
-      <div className="px-6 py-7">
+      <ModalHeader
+        title={<>Scan didn&rsquo;t finish</>}
+        description={reauth ? "Your Gmail connection needs to be refreshed." : "Something interrupted the scan."}
+        onClose={onClose}
+      />
+      <ModalBody className="pt-1">
         <div className="flex items-start gap-3 rounded-lg border border-red-200 dark:border-red-900/60 bg-red-50/60 dark:bg-red-950/20 px-4 py-3">
           <AlertTriangle size={18} strokeWidth={1.8} className="text-red-500 shrink-0 mt-0.5" />
           <div className="min-w-0">
@@ -331,33 +277,19 @@ function FailedStep({ job, onRetry, onReconnect, onClose }: {
             )}
           </div>
         </div>
-      </div>
-      <div className="px-6 py-4 border-t border-border flex items-center justify-end gap-2">
-        <button
-          type="button"
-          onClick={onClose}
-          className="px-4 py-2 text-sm font-medium border border-border rounded-lg text-foreground hover:bg-muted"
-        >
-          Close
-        </button>
+      </ModalBody>
+      <ModalFooter>
+        <Button variant="ghost" onClick={onClose}>Close</Button>
         {reauth ? (
-          <button
-            type="button"
-            onClick={onReconnect}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg"
-          >
-            <Link2 size={15} strokeWidth={2} />Reconnect Gmail
-          </button>
+          <Button variant="primary" onClick={onReconnect}>
+            <Link2 size={15} strokeWidth={2} aria-hidden />Reconnect Gmail
+          </Button>
         ) : (
-          <button
-            type="button"
-            onClick={onRetry}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg"
-          >
-            <RotateCw size={15} strokeWidth={2} />Try again
-          </button>
+          <Button variant="primary" onClick={onRetry}>
+            <RotateCw size={15} strokeWidth={2} aria-hidden />Try again
+          </Button>
         )}
-      </div>
+      </ModalFooter>
     </>
   );
 }
@@ -383,24 +315,22 @@ function PickerStep({
 
   return (
     <>
-      <div className="px-6 pt-6 pb-4 border-b border-border">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider mb-2">
+      <ModalHeader
+        title={
+          <>
+            <span className="flex w-fit px-2 py-0.5 mb-2 rounded-full bg-primary/10 text-primary text-[10px] leading-4 font-bold uppercase tracking-wider">
               One-time setup
-            </div>
-            <h2 id="scan-flow-title" className="text-lg font-semibold text-foreground">
-              Scan your inbox for past applications
-            </h2>
-            <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-              We&rsquo;ll find recent application emails and let you review each one before anything lands in your tracker.
-            </p>
-          </div>
-          <CloseButton onClick={onClose} disabled={submitting} />
-        </div>
-      </div>
+            </span>
+            Scan your inbox for past applications
+          </>
+        }
+        description={<>We&rsquo;ll find recent application emails and let you review each one before anything lands in your tracker.</>}
+        // The header's X has no disabled state; it just does nothing while
+        // the scan is starting, like "Maybe later".
+        onClose={() => { if (!submitting) onClose(); }}
+      />
 
-      <div className="px-6 py-5 space-y-3 overflow-y-auto">
+      <ModalBody className="space-y-3">
         <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
           Pick a scan window
         </div>
@@ -457,26 +387,14 @@ function PickerStep({
             I&rsquo;m okay with HireTrail scanning the last {windowDays} days of my Gmail to find job applications, with AI sorting them as described above. I understand this is read-only.
           </span>
         </button>
-      </div>
+      </ModalBody>
 
-      <div className="px-6 py-4 border-t border-border flex items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={onClose}
-          disabled={submitting}
-          className="px-4 py-2 text-sm font-medium border border-border rounded-lg text-secondary-foreground hover:bg-muted disabled:opacity-50"
-        >
-          Maybe later
-        </button>
-        <button
-          type="button"
-          onClick={start}
-          disabled={!consent || submitting}
-          className="px-4 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50 inline-flex items-center gap-2"
-        >
+      <ModalFooter>
+        <Button variant="ghost" onClick={onClose} disabled={submitting}>Maybe later</Button>
+        <Button variant="primary" onClick={start} disabled={!consent || submitting}>
           {submitting ? "Starting…" : "Start scan"}
-        </button>
-      </div>
+        </Button>
+      </ModalFooter>
     </>
   );
 }
@@ -495,21 +413,16 @@ function ScanningStep({ job, onClose }: { job: ScanJob; onClose: () => void }) {
 
   return (
     <>
-      <div className="px-6 pt-6 pb-4 border-b border-border flex items-start justify-between gap-3">
-        <div>
-          <h2 id="scan-flow-title" className="text-lg font-semibold text-foreground">
-            {isManual ? "Catching up on your inbox…" : "Scanning your inbox…"}
-          </h2>
-          <p className="text-xs text-muted-foreground mt-1">
-            {isManual
-              ? "Reading new mail since the start of today. You can close this — the scan keeps going and you’ll get a notification when it’s ready."
-              : <>We&rsquo;re reading the last {job.windowDays} days. You can close this — the scan keeps going and you&rsquo;ll get a notification when it&rsquo;s ready.</>}
-          </p>
-        </div>
-        <CloseButton onClick={onClose} />
-      </div>
+      <ModalHeader
+        title={isManual ? "Catching up on your inbox…" : "Scanning your inbox…"}
+        description={isManual
+          ? "Reading new mail since the start of today. You can close this — the scan keeps going and you’ll get a notification when it’s ready."
+          : <>We&rsquo;re reading the last {job.windowDays} days. You can close this — the scan keeps going and you&rsquo;ll get a notification when it&rsquo;s ready.</>}
+        onClose={onClose}
+      />
 
-      <div className="px-6 py-7 space-y-5">
+      {/* No footer on this step, so the body carries its own bottom space. */}
+      <div className="px-6 pt-3 pb-7 space-y-5">
         <AiStepper steps={SCAN_STEPS} activeIndex={activeIndex} />
 
         {job.progress.fetched > 0 && (
@@ -588,19 +501,19 @@ function ReviewStep({
 
   return (
     <>
-      <div className="px-6 pt-6 pb-4 border-b border-border flex items-start justify-between gap-3">
-        <div>
-          <h2 id="scan-flow-title" className="text-lg font-semibold text-foreground">Review found applications</h2>
-          <p className="text-xs text-muted-foreground mt-1">
+      <ModalHeader
+        title="Review found applications"
+        description={
+          <>
             {job.kind === "manual" ? "From today's inbox scan." : `From your last ${job.windowDays}-day Gmail scan.`}
             {" "}Found {candidates.length} candidate{candidates.length === 1 ? "" : "s"}.
             {" "}<span className="font-semibold">{pending.length}</span> pending · {decided.length} decided.
-          </p>
-        </div>
-        <CloseButton onClick={onClose} />
-      </div>
+          </>
+        }
+        onClose={onClose}
+      />
 
-      <div className="px-6 py-5 overflow-y-auto flex-1 space-y-3">
+      <ModalBody className="space-y-3">
         {pending.length === 0 && decided.length === 0 ? (
           <p className="text-sm text-muted-foreground py-6 text-center">
             No application emails detected in this window. You can close this and add applications manually or via the extension.
@@ -640,23 +553,21 @@ function ReviewStep({
             </div>
           </details>
         )}
-      </div>
+      </ModalBody>
 
-      <div className="px-6 py-4 border-t border-border flex items-center justify-between gap-3">
-        <p className="text-[11.5px] text-muted-foreground">
-          {pending.length === 0
-            ? "All caught up."
-            : `${pending.length} candidate${pending.length === 1 ? "" : "s"} still pending.`}
-        </p>
-        <button
-          type="button"
-          onClick={handleFinish}
-          disabled={confirming}
-          className="px-4 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50"
-        >
+      <ModalFooter
+        start={
+          <p className="text-[11.5px] text-muted-foreground">
+            {pending.length === 0
+              ? "All caught up."
+              : `${pending.length} candidate${pending.length === 1 ? "" : "s"} still pending.`}
+          </p>
+        }
+      >
+        <Button variant="primary" onClick={handleFinish} disabled={confirming}>
           {confirming ? "Finishing…" : pending.length === 0 ? "Confirm & finish" : "Done with review"}
-        </button>
-      </div>
+        </Button>
+      </ModalFooter>
     </>
   );
 }
@@ -676,49 +587,41 @@ function CandidateCard({
   const role = draft?.role ?? c.role ?? "";
   const stage: Stage = (draft?.stage ?? c.inferredStage) as Stage;
   const isFailed = c.status === "failed";
+  const stageId = useId();
 
   return (
     <div className={`rounded-xl border ${isFailed ? "border-red-300 dark:border-red-900/60 bg-red-50/30 dark:bg-red-950/10" : "border-border bg-card"} p-4 space-y-3`}>
-      {/* Editable fields */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-        <div>
-          <label className="block text-[10.5px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Company *</label>
-          <input
-            className={inputCls}
-            value={company}
-            onChange={(e) => onChange({ company: e.target.value })}
-            placeholder="e.g. Stripe"
-            disabled={busy}
-          />
-        </div>
-        <div>
-          <label className="block text-[10.5px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Role *</label>
-          <input
-            className={`${inputCls} ${!role.trim() ? "border-red-300 dark:border-red-700" : ""}`}
-            value={role}
-            onChange={(e) => onChange({ role: e.target.value })}
-            placeholder="e.g. Backend Engineer"
-            disabled={busy}
-            aria-invalid={!role.trim() || undefined}
-          />
-          {!role.trim() && (
-            <p className="text-[10.5px] text-red-600 dark:text-red-400 mt-1">
-              We couldn&rsquo;t extract a role from this email. Type one in.
-            </p>
-          )}
-        </div>
-        <div>
-          <label className="block text-[10.5px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Stage</label>
+      {/* Editable fields — plain dialog fields, so the gap leaves room for
+          their hover / focus fill. */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-3">
+        <TextField
+          label="Company"
+          required
+          value={company}
+          onChange={(e) => onChange({ company: e.target.value })}
+          placeholder="e.g. Stripe"
+          disabled={busy}
+        />
+        <TextField
+          label="Role"
+          required
+          value={role}
+          onChange={(e) => onChange({ role: e.target.value })}
+          placeholder="e.g. Backend Engineer"
+          disabled={busy}
+          error={!role.trim() ? <>We couldn&rsquo;t extract a role from this email. Type one in.</> : undefined}
+        />
+        <Field label="Stage" htmlFor={stageId}>
           <Select
-            size="sm"
+            id={stageId}
             ariaLabel="Stage"
             value={stage}
             onChange={(v) => onChange({ stage: v as Stage })}
             disabled={busy}
             options={STAGES.map((s) => ({ value: s, label: s, icon: <span className={`w-2 h-2 rounded-full ${STAGE_STRIPE_CLASS[s]}`} /> }))}
           />
-        </div>
-        <div className="text-[11px] text-muted-foreground self-end pb-2">
+        </Field>
+        <div className="text-[11px] text-muted-foreground self-end pb-1">
           <span className={`inline-block px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border text-[10px] ${STAGE_TONE[stage]}`}>
             {stage}
           </span>
@@ -785,16 +688,12 @@ function DoneStep({ job, onClose }: { job: ScanJob; onClose: () => void }) {
   const { imported, skipped, merged } = job.counts;
   return (
     <>
-      <div className="px-6 pt-6 pb-4 border-b border-border flex items-start justify-between gap-3">
-        <div>
-          <h2 id="scan-flow-title" className="text-lg font-semibold text-foreground">Scan complete</h2>
-          <p className="text-xs text-muted-foreground mt-1">
-            {job.kind === "manual" ? "From today's inbox scan." : `From your last ${job.windowDays}-day Gmail scan.`}
-          </p>
-        </div>
-        <CloseButton onClick={onClose} />
-      </div>
-      <div className="px-6 py-8">
+      <ModalHeader
+        title="Scan complete"
+        description={job.kind === "manual" ? "From today's inbox scan." : `From your last ${job.windowDays}-day Gmail scan.`}
+        onClose={onClose}
+      />
+      <ModalBody className="pt-2">
         <div className="grid grid-cols-3 gap-3">
           <SummaryStat label="Imported" value={imported} tone="emerald" />
           <SummaryStat label="Merged" value={merged} tone="amber" />
@@ -805,16 +704,10 @@ function DoneStep({ job, onClose }: { job: ScanJob; onClose: () => void }) {
             Nothing was imported. You can re-run a scan anytime from Settings.
           </p>
         )}
-      </div>
-      <div className="px-6 py-4 border-t border-border flex justify-end">
-        <button
-          type="button"
-          onClick={onClose}
-          className="px-4 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg"
-        >
-          Done
-        </button>
-      </div>
+      </ModalBody>
+      <ModalFooter>
+        <Button variant="primary" onClick={onClose}>Done</Button>
+      </ModalFooter>
     </>
   );
 }
@@ -831,23 +724,3 @@ function SummaryStat({ label, value, tone }: { label: string; value: number; ton
     </div>
   );
 }
-
-/* ───────────────────────── Shared close button ───────────────────────── */
-
-function CloseButton({ onClick, disabled }: { onClick: () => void; disabled?: boolean }) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className="w-9 h-9 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted disabled:opacity-50 shrink-0"
-      aria-label="Close"
-      type="button"
-    >
-      <X size={16} strokeWidth={2} />
-    </button>
-  );
-}
-
-// `inputCls` is re-exported for any consumer that needs to match the form
-// styling outside this file (currently none — exported defensively).
-export { inputCls };

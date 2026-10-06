@@ -4,6 +4,10 @@ import { AlertCircle, X } from "lucide-react";
 import toast from "../../components/ui/toast.ts";
 import { adminAPI } from "../../utils/api";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal";
+import { Modal, ModalHeader, ModalBody, ModalFooter } from "../../components/ui/Modal.tsx";
+import { Input } from "../../components/ui/Field.tsx";
+import { CheckboxMark } from "../../components/ui/Checkbox.tsx";
+import Button from "../../components/ui/Button.tsx";
 import { useConfirm } from "../../hooks/useConfirm";
 import type {
   AdminUserDetail,
@@ -12,7 +16,6 @@ import type {
   MailerStatus,
   Pagination,
 } from "../../types";
-import { MODAL_EXIT, useExitAnimation } from "../../hooks/useExitAnimation.ts";
 
 const fmt = (d: string | null) => d ? new Date(d).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }) : "—";
 
@@ -29,7 +32,6 @@ interface PrefillState {
 }
 
 export default function Broadcasts() {
-  const pickerExitRef = useExitAnimation(MODAL_EXIT);
   const navigate = useNavigate();
   const location = useLocation();
   const prefill = location.state as PrefillState | null;
@@ -420,55 +422,53 @@ export default function Broadcasts() {
 
       {/* User picker modal */}
       {pickerOpen && (
-        <div ref={pickerExitRef} className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/50 p-4 modal-overlay-in" onClick={() => setPickerOpen(false)}>
-          <div data-modal-panel className="bg-card border border-border rounded-xl w-full max-w-lg max-h-[80vh] flex flex-col animate-in" onClick={(e) => e.stopPropagation()}>
-            <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-              <h3 className="font-semibold text-foreground">Pick users</h3>
-              <button onClick={() => setPickerOpen(false)} className="text-muted-foreground hover:text-foreground">
-                <X width={18} height={18} strokeWidth={2} />
-              </button>
-            </div>
-            <div className="p-4 border-b border-border">
-              <input
-                autoFocus
-                type="text"
-                className="input-premium w-full"
-                placeholder="Search by name or email..."
-                value={pickerQuery}
-                onChange={(e) => setPickerQuery(e.target.value)}
-              />
-            </div>
-            <div className="flex-1 overflow-y-auto">
-              {pickerLoading ? (
-                <p className="text-sm text-muted-foreground text-center py-8">Searching...</p>
-              ) : pickerResults.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8">No users found</p>
-              ) : (
-                <ul className="divide-y divide-border">
-                  {pickerResults.map((u) => {
-                    const checked = selectedUsers.some((p) => p.id === u._id);
-                    return (
-                      <li key={u._id}>
-                        <label className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/40 cursor-pointer">
-                          <input type="checkbox" checked={checked} onChange={() => toggleUser(u)} className="rounded border-border" />
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium text-foreground truncate">{u.name}</div>
-                            <div className="text-xs text-muted-foreground truncate">{u.email}</div>
-                          </div>
-                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{u.role}</span>
-                        </label>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </div>
-            <div className="px-5 py-3 border-t border-border flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">{selectedUsers.length} selected</p>
-              <button onClick={() => setPickerOpen(false)} className="btn-accent text-sm">Done</button>
-            </div>
+        <Modal onClose={() => setPickerOpen(false)} size="md">
+          <ModalHeader title="Pick users" onClose={() => setPickerOpen(false)} />
+          <div className="px-6 pb-3 shrink-0">
+            <Input
+              data-autofocus
+              type="text"
+              aria-label="Search users"
+              placeholder="Search by name or email..."
+              value={pickerQuery}
+              onChange={(e) => setPickerQuery(e.target.value)}
+            />
           </div>
-        </div>
+          <ModalBody>
+            {pickerLoading ? (
+              <p className="text-sm text-muted-foreground text-center py-8">Searching...</p>
+            ) : pickerResults.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">No users found</p>
+            ) : (
+              <ul className="-mx-2">
+                {pickerResults.map((u) => {
+                  const checked = selectedUsers.some((p) => p.id === u._id);
+                  return (
+                    <li key={u._id}>
+                      <button
+                        type="button"
+                        role="checkbox"
+                        aria-checked={checked}
+                        onClick={() => toggleUser(u)}
+                        className="w-full flex items-center gap-3 px-2 py-2.5 rounded-lg text-left hover:bg-control/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
+                      >
+                        <CheckboxMark checked={checked} className="shrink-0" />
+                        <span className="flex-1 min-w-0">
+                          <span className="block text-sm font-medium text-foreground truncate">{u.name}</span>
+                          <span className="block text-xs text-muted-foreground truncate">{u.email}</span>
+                        </span>
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{u.role}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </ModalBody>
+          <ModalFooter start={<p className="text-sm text-muted-foreground">{selectedUsers.length} selected</p>}>
+            <Button variant="primary" onClick={() => setPickerOpen(false)}>Done</Button>
+          </ModalFooter>
+        </Modal>
       )}
 
       {confirmState.open && <ConfirmModal title={confirmState.title} message={confirmState.message} confirmLabel={confirmState.confirmLabel} danger={confirmState.danger} onConfirm={handleConfirm} onCancel={handleCancel} />}

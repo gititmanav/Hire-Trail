@@ -1,10 +1,12 @@
 /** Modal a user can pop from any page to report a bug, suggest a feature, or share an idea.
- *  Portaled to document.body so it escapes the sidebar's overflow-hidden clipping context. */
-import { useEffect, useState, FormEvent } from "react";
-import { createPortal } from "react-dom";
+ *  ui/Modal portals it to document.body, so it escapes the sidebar's overflow-hidden clipping context. */
+import { useId, useState, FormEvent } from "react";
 import { useLocation } from "react-router-dom";
-import { Bug, Clock, Lightbulb, ThumbsUp, MessageSquare, X } from "lucide-react";
+import { Bug, Clock, Lightbulb, ThumbsUp, MessageSquare } from "lucide-react";
 import toast from "../ui/toast.ts";
+import { Modal, ModalHeader, ModalBody, ModalFooter } from "../ui/Modal.tsx";
+import { Field, TextField, Textarea } from "../ui/Field.tsx";
+import Button from "../ui/Button.tsx";
 import { feedbackAPI } from "../../utils/api.ts";
 import type { FeedbackType } from "../../utils/api.ts";
 
@@ -26,20 +28,11 @@ const TYPES: TypeOption[] = [
 
 export default function FeedbackModal({ onClose, initial }: Props) {
   const location = useLocation();
-  const [open, setOpen] = useState(false);
+  const detailsId = useId();
   const [type, setType] = useState<FeedbackType>(initial?.type ?? "bug");
   const [title, setTitle] = useState(initial?.title ?? "");
   const [message, setMessage] = useState(initial?.message ?? "");
   const [submitting, setSubmitting] = useState(false);
-
-  useEffect(() => { requestAnimationFrame(() => setOpen(true)); }, []);
-  const handleClose = () => { setOpen(false); setTimeout(onClose, 200); };
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => { if (e.key === "Escape") handleClose(); };
-    document.addEventListener("keydown", h);
-    return () => document.removeEventListener("keydown", h);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -57,7 +50,7 @@ export default function FeedbackModal({ onClose, initial }: Props) {
         appVersion: "4.0",
       });
       toast.success("Thanks — we got it.");
-      handleClose();
+      onClose();
     } catch (err) {
       const e = err as { response?: { data?: { error?: unknown } } };
       const msg = typeof e.response?.data?.error === "string" ? e.response.data.error : "Could not send feedback. Try again?";
@@ -67,29 +60,13 @@ export default function FeedbackModal({ onClose, initial }: Props) {
     }
   };
 
-  return createPortal(
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" role="dialog" aria-modal="true">
-      <div
-        className={`absolute inset-0 bg-scrim/65 transition-opacity duration-200 ${open ? "opacity-100" : "opacity-0"}`}
-        onClick={handleClose}
-        aria-hidden="true"
-      />
-      <div
-        className={`relative w-full max-w-[560px] bg-card border border-border rounded-2xl shadow-2xl transition-all duration-200 ${open ? "opacity-100 translate-y-0 scale-100" : "opacity-0 translate-y-2 scale-[0.98]"}`}
-      >
-        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-border">
+  return (
+    <Modal onClose={onClose} size="md">
+      <ModalHeader title="Send feedback" description="Bugs, ideas, what's broken, what's missing — anything." onClose={onClose} />
+      <form onSubmit={handleSubmit} className="flex flex-col min-h-0">
+        <ModalBody className="space-y-4">
           <div>
-            <h2 className="text-lg font-semibold text-foreground">Send feedback</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">Bugs, ideas, what's broken, what's missing — anything.</p>
-          </div>
-          <button onClick={handleClose} className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted" aria-label="Close">
-            <X size={16} strokeWidth={2} />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="px-6 pt-4 pb-5 space-y-4">
-          <div>
-            <span className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Type</span>
+            <p className="mb-1.5 text-[12.5px] font-medium text-muted-foreground">Type</p>
             <div className="grid grid-cols-5 gap-2">
               {TYPES.map((t) => (
                 <button
@@ -110,25 +87,24 @@ export default function FeedbackModal({ onClose, initial }: Props) {
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">Title</label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              maxLength={200}
-              placeholder="One-line summary"
-              className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
-              required
-            />
-          </div>
+          <TextField
+            label="Title"
+            required
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            maxLength={200}
+            placeholder="One-line summary"
+            data-autofocus
+          />
 
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Details</label>
-              <span className="text-[10px] text-muted-foreground">{message.length}/8000</span>
-            </div>
-            <textarea
+          <Field
+            label="Details"
+            required
+            htmlFor={detailsId}
+            hint={<span className="block text-right tabular-nums">{message.length}/8000</span>}
+          >
+            <Textarea
+              id={detailsId}
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               maxLength={8000}
@@ -138,26 +114,21 @@ export default function FeedbackModal({ onClose, initial }: Props) {
                   ? "Steps to reproduce, what you expected, what happened…"
                   : "Tell us more — the more context the better."
               }
-              className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring resize-y min-h-[120px]"
               required
             />
-          </div>
+          </Field>
 
           <p className="text-[11px] text-muted-foreground leading-relaxed">
             We attach your current page (<code className="font-mono text-foreground">{location.pathname}</code>) and browser to help reproduce issues. Your name and email are included so we can follow up.
           </p>
-
-          <div className="flex justify-end gap-2 pt-2 border-t border-border">
-            <button type="button" onClick={handleClose} className="px-4 py-2 text-sm font-medium border border-border rounded-lg text-secondary-foreground hover:bg-muted">
-              Cancel
-            </button>
-            <button type="submit" disabled={submitting} className="px-4 py-2 text-sm font-medium text-primary-foreground bg-primary hover:brightness-110 rounded-lg disabled:opacity-50">
-              {submitting ? "Sending…" : "Send feedback"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>,
-    document.body
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button type="submit" variant="primary" loading={submitting}>
+            {submitting ? "Sending…" : "Send feedback"}
+          </Button>
+        </ModalFooter>
+      </form>
+    </Modal>
   );
 }

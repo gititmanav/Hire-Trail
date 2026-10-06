@@ -1,9 +1,10 @@
-import { useState, useRef, useEffect } from "react";
-import { X, Upload, FileText, CheckCircle2 } from "lucide-react";
+import { useState, useRef } from "react";
+import { Upload, FileText, CheckCircle2 } from "lucide-react";
 import toast from "../ui/toast.ts";
+import { Modal, ModalHeader, ModalBody, ModalFooter } from "../ui/Modal.tsx";
+import Button from "../ui/Button.tsx";
 import { parseCSV, downloadTemplate, type CSVRow } from "../../utils/csv.ts";
 import { applicationsAPI } from "../../utils/api.ts";
-import { MODAL_EXIT, useExitAnimation } from "../../hooks/useExitAnimation.ts";
 
 interface Props {
   onClose: () => void;
@@ -11,19 +12,12 @@ interface Props {
 }
 
 export default function ImportModal({ onClose, onImported }: Props) {
-  const exitRef = useExitAnimation(MODAL_EXIT);
   const [file, setFile] = useState<File | null>(null);
   const [parsed, setParsed] = useState<CSVRow[] | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
   const [importing, setImporting] = useState(false);
   const [step, setStep] = useState<"upload" | "preview" | "done">("upload");
   const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", h);
-    return () => document.removeEventListener("keydown", h);
-  }, [onClose]);
 
   const handleFile = async (f: File) => {
     setFile(f);
@@ -57,55 +51,50 @@ export default function ImportModal({ onClose, onImported }: Props) {
   };
 
   return (
-    <div ref={exitRef} className="fixed inset-0 bg-scrim/45 flex items-center justify-center z-50 modal-overlay-in" onClick={onClose}>
-      <div data-modal-panel className="bg-card rounded-xl p-6 w-full max-w-[600px] max-h-[85vh] overflow-y-auto shadow-2xl animate-in" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-semibold text-foreground">Import Applications</h2>
-          <button onClick={onClose} className="w-9 h-9 flex items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted">
-            <X size={16} strokeWidth={2} />
-          </button>
-        </div>
+    <Modal onClose={onClose} size="md">
+      <ModalHeader title="Import Applications" onClose={onClose} />
 
-        {step === "upload" && (
-          <>
-            <div
-              className="border-2 border-dashed border-border rounded-xl p-10 text-center hover:border-primary dark:hover:border-primary cursor-pointer"
-              onClick={() => inputRef.current?.click()}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={handleDrop}
+      {step === "upload" && (
+        <div className="px-6 pb-6">
+          <div
+            className="border-2 border-dashed border-border rounded-xl p-10 text-center hover:border-primary dark:hover:border-primary cursor-pointer"
+            onClick={() => inputRef.current?.click()}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={handleDrop}
+          >
+            <Upload className="mx-auto mb-3 text-muted-foreground" size={40} strokeWidth={1.5} />
+            <p className="text-sm font-medium text-foreground mb-1">
+              Drop your CSV here or click to browse
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Columns: Company, Role, Job URL, Stage, Application Date, Notes
+            </p>
+            <input
+              ref={inputRef}
+              type="file"
+              accept=".csv"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handleFile(f);
+              }}
+            />
+          </div>
+
+          <div className="flex items-center justify-between mt-4">
+            <button
+              onClick={downloadTemplate}
+              className="text-sm text-primary hover:underline"
             >
-              <Upload className="mx-auto mb-3 text-muted-foreground" size={40} strokeWidth={1.5} />
-              <p className="text-sm font-medium text-foreground mb-1">
-                Drop your CSV here or click to browse
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Columns: Company, Role, Job URL, Stage, Application Date, Notes
-              </p>
-              <input
-                ref={inputRef}
-                type="file"
-                accept=".csv"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) handleFile(f);
-                }}
-              />
-            </div>
+              Download CSV template
+            </button>
+          </div>
+        </div>
+      )}
 
-            <div className="flex items-center justify-between mt-4">
-              <button
-                onClick={downloadTemplate}
-                className="text-sm text-primary hover:underline"
-              >
-                Download CSV template
-              </button>
-            </div>
-          </>
-        )}
-
-        {step === "preview" && parsed && (
-          <>
+      {step === "preview" && parsed && (
+        <>
+          <ModalBody>
             <div className="mb-4">
               <div className="flex items-center gap-3 mb-3">
                 <div className="flex items-center gap-2 text-sm">
@@ -136,7 +125,7 @@ export default function ImportModal({ onClose, onImported }: Props) {
               </div>
             </div>
 
-            <div className="max-h-[300px] overflow-y-auto border border-border rounded-lg mb-4">
+            <div className="max-h-[300px] overflow-y-auto border border-border rounded-lg">
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-muted">
                   <tr>
@@ -161,35 +150,26 @@ export default function ImportModal({ onClose, onImported }: Props) {
                 </div>
               )}
             </div>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" onClick={onClose}>Cancel</Button>
+            <Button variant="primary" onClick={handleImport} disabled={parsed.length === 0} loading={importing}>
+              {importing ? "Importing..." : `Import ${parsed.length} applications`}
+            </Button>
+          </ModalFooter>
+        </>
+      )}
 
-            <div className="flex justify-end gap-2">
-              <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-foreground border border-border rounded-lg hover:bg-muted">
-                Cancel
-              </button>
-              <button
-                onClick={handleImport}
-                disabled={importing || parsed.length === 0}
-                className="px-4 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50"
-              >
-                {importing ? "Importing..." : `Import ${parsed.length} applications`}
-              </button>
-            </div>
-          </>
-        )}
-
-        {step === "done" && (
-          <div className="text-center py-6">
-            <CheckCircle2 className="mx-auto mb-3 text-success" size={48} strokeWidth={1.5} />
-            <h3 className="text-lg font-semibold text-foreground mb-1">Import complete!</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              {parsed?.length} applications have been added to your tracker
-            </p>
-            <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg">
-              Done
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
+      {step === "done" && (
+        <div className="px-6 pt-2 pb-8 text-center">
+          <CheckCircle2 className="mx-auto mb-3 text-success" size={48} strokeWidth={1.5} />
+          <h3 className="text-lg font-semibold text-foreground mb-1">Import complete!</h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            {parsed?.length} applications have been added to your tracker
+          </p>
+          <Button variant="primary" onClick={onClose}>Done</Button>
+        </div>
+      )}
+    </Modal>
   );
 }

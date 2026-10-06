@@ -1,11 +1,11 @@
 /** Admin bug-report inbox — silent captures from errorHandler + frontend interceptors. */
 import { useCallback, useEffect, useState } from "react";
-import { X } from "lucide-react";
 import toast from "../../components/ui/toast.ts";
 import { adminAPI } from "../../utils/api.ts";
 import type { BugReport, BugReportStatus, BugReportSource } from "../../utils/api.ts";
 import Select from "../../components/ui/Select.tsx";
-import { MODAL_EXIT, useExitAnimation } from "../../hooks/useExitAnimation.ts";
+import { Modal, ModalHeader, ModalBody, ModalFooter } from "../../components/ui/Modal.tsx";
+import { Textarea } from "../../components/ui/Field.tsx";
 
 const STATUS_OPTIONS: { value: BugReportStatus; label: string }[] = [
   { value: "new", label: "New" },
@@ -257,16 +257,9 @@ function BugReportDetail({
   onStatus: (s: BugReportStatus) => void;
   onNotes: (n: string) => void;
 }) {
-  const exitRef = useExitAnimation(MODAL_EXIT);
   const [notes, setNotes] = useState(report.adminNotes);
   // Re-sync when the parent's selection changes (e.g. status update came back).
   useEffect(() => { setNotes(report.adminNotes); }, [report._id, report.adminNotes]);
-
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", h);
-    return () => document.removeEventListener("keydown", h);
-  }, [onClose]);
 
   // List of admin actions, scoped to whatever status we're NOT already in.
   const actions: { label: string; status: BugReportStatus; tone: string }[] = (
@@ -278,89 +271,79 @@ function BugReportDetail({
   ).filter((a) => a.status !== report.status);
 
   return (
-    <div ref={exitRef} className="fixed inset-0 bg-scrim/55 z-50 flex items-center justify-center p-4 modal-overlay-in" onClick={onClose}>
-      <div
-        data-modal-panel
-        className="bg-card border border-border rounded-2xl w-full max-w-3xl max-h-[88vh] overflow-y-auto shadow-2xl animate-in"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="sticky top-0 bg-card border-b border-border px-6 py-4 flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 mb-1">
+    <Modal onClose={onClose} size="xl">
+      <ModalHeader
+        title={<span className="block break-words">{report.errorMessage || "(empty message)"}</span>}
+        description={
+          <>
+            <span className="flex flex-wrap items-center gap-2 mt-1">
               <span className={`px-2 py-0.5 rounded-full text-[10.5px] font-bold uppercase tracking-wider border ${SOURCE_TONE[report.source]}`}>
                 {SOURCE_LABEL[report.source]}
               </span>
               <span className={`px-2 py-0.5 rounded-full text-[10.5px] font-bold uppercase tracking-wider ${STATUS_TONE[report.status]}`}>
                 {report.status}
               </span>
-              <span className="text-[11px] text-muted-foreground font-mono">{report.fingerprint}</span>
-            </div>
-            <h2 className="text-base font-semibold text-foreground break-words">{report.errorMessage || "(empty message)"}</h2>
-            <p className="text-xs text-muted-foreground mt-1">
+              <span className="text-[11px] font-mono">{report.fingerprint}</span>
+            </span>
+            <span className="block text-xs mt-1.5">
               {report.count.toLocaleString()} occurrence{report.count === 1 ? "" : "s"} · first {relativeTime(report.firstSeenAt)} · last {relativeTime(report.lastSeenAt)}
               {report.affectedUserIds.length > 0 && ` · ${report.affectedUserIds.length} affected user${report.affectedUserIds.length === 1 ? "" : "s"}`}
-            </p>
-          </div>
+            </span>
+          </>
+        }
+        onClose={onClose}
+      />
+
+      <ModalBody className="space-y-5">
+        <Field label="Route">
+          <code className="text-[12px] font-mono text-foreground break-all">
+            {report.method ? `${report.method} ` : ""}{report.route || "—"}
+          </code>
+        </Field>
+
+        {report.userAgent && (
+          <Field label="User agent">
+            <code className="text-[12px] font-mono text-muted-foreground break-all">{report.userAgent}</code>
+          </Field>
+        )}
+
+        {report.errorStack && (
+          <Field label="Stack">
+            <pre className="text-[11.5px] font-mono leading-relaxed text-foreground/90 bg-muted/40 rounded-lg p-3 overflow-x-auto whitespace-pre">{report.errorStack}</pre>
+          </Field>
+        )}
+
+        {report.requestBodyPreview && (
+          <Field label="Request body (sanitized)">
+            <pre className="text-[11.5px] font-mono leading-relaxed text-foreground/90 bg-muted/40 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap break-all">{report.requestBodyPreview}</pre>
+          </Field>
+        )}
+
+        <Field label="Admin notes">
+          <Textarea
+            rows={4}
+            placeholder="Internal notes — root cause, link to PR, repro steps…"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            onBlur={() => { if (notes !== report.adminNotes) onNotes(notes); }}
+            maxLength={4000}
+          />
+        </Field>
+      </ModalBody>
+
+      <ModalFooter>
+        {actions.map((a) => (
           <button
-            onClick={onClose}
-            className="w-9 h-9 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted shrink-0"
-            aria-label="Close"
+            key={a.status}
+            type="button"
+            onClick={() => onStatus(a.status)}
+            className={`px-3 py-1.5 text-xs font-medium border rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${a.tone}`}
           >
-            <X size={16} strokeWidth={2} />
+            {a.label}
           </button>
-        </div>
-
-        <div className="px-6 py-5 space-y-5">
-          <Field label="Route">
-            <code className="text-[12px] font-mono text-foreground break-all">
-              {report.method ? `${report.method} ` : ""}{report.route || "—"}
-            </code>
-          </Field>
-
-          {report.userAgent && (
-            <Field label="User agent">
-              <code className="text-[12px] font-mono text-muted-foreground break-all">{report.userAgent}</code>
-            </Field>
-          )}
-
-          {report.errorStack && (
-            <Field label="Stack">
-              <pre className="text-[11.5px] font-mono leading-relaxed text-foreground/90 bg-muted/40 rounded-lg p-3 overflow-x-auto whitespace-pre">{report.errorStack}</pre>
-            </Field>
-          )}
-
-          {report.requestBodyPreview && (
-            <Field label="Request body (sanitized)">
-              <pre className="text-[11.5px] font-mono leading-relaxed text-foreground/90 bg-muted/40 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap break-all">{report.requestBodyPreview}</pre>
-            </Field>
-          )}
-
-          <Field label="Admin notes">
-            <textarea
-              className="input-premium w-full min-h-[100px] text-sm"
-              placeholder="Internal notes — root cause, link to PR, repro steps…"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              onBlur={() => { if (notes !== report.adminNotes) onNotes(notes); }}
-              maxLength={4000}
-            />
-          </Field>
-        </div>
-
-        <div className="sticky bottom-0 bg-card border-t border-border px-6 py-4 flex items-center justify-end gap-2">
-          {actions.map((a) => (
-            <button
-              key={a.status}
-              type="button"
-              onClick={() => onStatus(a.status)}
-              className={`px-3 py-1.5 text-xs font-medium border rounded-lg ${a.tone}`}
-            >
-              {a.label}
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
+        ))}
+      </ModalFooter>
+    </Modal>
   );
 }
 
