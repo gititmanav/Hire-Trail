@@ -21,6 +21,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { X, Mail, Filter, Search, AlertTriangle, RotateCw, Link2 } from "lucide-react";
 import Select from "../../components/ui/Select.tsx";
+import { CheckboxMark } from "../../components/ui/Checkbox.tsx";
 import { STAGE_STRIPE_CLASS, STAGE_TONE_CLASS } from "../../utils/stageStyles.ts";
 import toast from "../../components/ui/toast.ts";
 import { emailAPI, type ScanCandidate, type ScanJob, type ScanJobStatus } from "../../utils/api.ts";
@@ -435,25 +436,27 @@ function PickerStep({
         <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-1.5 mt-3">
           <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">What this scan does</div>
           <ul className="text-[12.5px] text-foreground/90 leading-relaxed space-y-1">
-            <li className="flex gap-2"><span className="text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5">✓</span>Reads subjects and bodies of recent emails, filtered to ones that look like job applications</li>
+            <li className="flex gap-2"><span className="text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5">✓</span>Reads recent emails, filtered to ones that look like job applications</li>
+            <li className="flex gap-2"><span className="text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5">✓</span>Sends a short slice of each of those threads to AI to work out the company, role and stage — HireTrail&rsquo;s AI, or your own key if you chose that in Settings → AI</li>
             <li className="flex gap-2"><span className="text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5">✓</span>Shows you a review queue — you import what you want, skip the rest</li>
             <li className="flex gap-2"><span className="text-red-500 shrink-0 mt-0.5">✗</span>Never sends mail, replies, or modifies your inbox</li>
-            <li className="flex gap-2"><span className="text-red-500 shrink-0 mt-0.5">✗</span>Doesn&rsquo;t train AI models on your data</li>
+            <li className="flex gap-2"><span className="text-red-500 shrink-0 mt-0.5">✗</span>Never sends your email to a free-tier AI key, and HireTrail doesn&rsquo;t train AI on it</li>
           </ul>
         </div>
 
-        <label className="flex items-start gap-3 cursor-pointer p-3 rounded-lg border border-border bg-background hover:bg-muted/30 transition-colors">
-          <input
-            type="checkbox"
-            checked={consent}
-            onChange={(e) => setConsent(e.target.checked)}
-            disabled={submitting}
-            className="mt-0.5 w-4 h-4 accent-primary shrink-0"
-          />
+        <button
+          type="button"
+          role="checkbox"
+          aria-checked={consent}
+          disabled={submitting}
+          onClick={() => setConsent((c) => !c)}
+          className="w-full flex items-start gap-3 text-left p-3 rounded-lg border border-border bg-background hover:bg-muted/30 transition-colors disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <CheckboxMark checked={consent} className="mt-0.5 shrink-0" />
           <span className="text-[13px] text-foreground leading-relaxed">
-            I&rsquo;m okay with HireTrail scanning the last {windowDays} days of my Gmail to detect job applications. I understand this is read-only.
+            I&rsquo;m okay with HireTrail scanning the last {windowDays} days of my Gmail to find job applications, with AI sorting them as described above. I understand this is read-only.
           </span>
-        </label>
+        </button>
       </div>
 
       <div className="px-6 py-4 border-t border-border flex items-center justify-between gap-3">
@@ -499,8 +502,8 @@ function ScanningStep({ job, onClose }: { job: ScanJob; onClose: () => void }) {
           </h2>
           <p className="text-xs text-muted-foreground mt-1">
             {isManual
-              ? "Reading new mail since the start of today. Stay on this screen — closing now loses the results."
-              : <>We&rsquo;re reading the last {job.windowDays} days. Stay on this screen — closing now loses the results.</>}
+              ? "Reading new mail since the start of today. You can close this — the scan keeps going and you’ll get a notification when it’s ready."
+              : <>We&rsquo;re reading the last {job.windowDays} days. You can close this — the scan keeps going and you&rsquo;ll get a notification when it&rsquo;s ready.</>}
           </p>
         </div>
         <CloseButton onClick={onClose} />

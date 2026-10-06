@@ -79,7 +79,7 @@ export function buildEmailScanTask({ jobId, sublabel }: BuildParams): StartTaskI
         }
         await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
       }
-      throw new Error("Scan timed out. Check the review queue or try again from Settings → Email.");
+      throw new Error("Scan timed out. Check the review queue or try again from Settings → Connectors.");
     },
     onResult: (job) => ({
       successLabel:
