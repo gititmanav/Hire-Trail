@@ -294,7 +294,7 @@ export default function AiMap({ clusters, onDrop, focusId = null, ariaLabel }: {
               return c.sats.map((s, j) => (
                 <path
                   key={`${c.id}:${s.id}`}
-                  d={edgePath(placed.cx, placed.cy, placed.sats[j].x, placed.sats[j].y)}
+                  d={edgePath(placed.cx, placed.cy, layout.geo.hubR, placed.sats[j].x, placed.sats[j].y, layout.geo.satR)}
                   fill="none"
                   stroke={s.edge.color}
                   strokeWidth={s.edge.width}
@@ -331,7 +331,7 @@ export default function AiMap({ clusters, onDrop, focusId = null, ariaLabel }: {
                 aria-label={spec.ariaLabel}
                 aria-haspopup="dialog"
                 aria-expanded={openId === spec.id}
-                className={`ai-map-node absolute grid place-items-center rounded-full bg-card shadow-panel border outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+                className={`ai-map-node absolute grid place-items-center rounded-full bg-card ${isDim ? "" : "shadow-panel"} border outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
                   spec.hub ? "border-dashed border-border" : spec.failing ? "border-red-400/70 dark:border-red-500/60" : "border-border"
                 } ${(hovered === spec.id || openId === spec.id) && !drag ? "ring-2 ring-ring/40" : ""} ${
                   draggable && !drag ? "cursor-grab" : ""
@@ -341,7 +341,9 @@ export default function AiMap({ clusters, onDrop, focusId = null, ariaLabel }: {
                   top: y - r,
                   width: r * 2,
                   height: r * 2,
-                  opacity: lifted ? 0.25 : isDim ? 0.4 : 1,
+                  // Dimming fades what's inside, never the circle itself: an
+                  // opaque node is what keeps the edges out of sight behind it.
+                  opacity: lifted ? 0.25 : 1,
                 }}
                 onPointerEnter={(e) => {
                   if (e.pointerType !== "mouse" || drag) return;
@@ -367,12 +369,12 @@ export default function AiMap({ clusters, onDrop, focusId = null, ariaLabel }: {
                   else openCard(spec.id, true);
                 }}
               >
-                {spec.glyph}
+                <span className={`grid place-items-center transition-opacity duration-200 ${isDim ? "opacity-40" : ""}`}>{spec.glyph}</span>
                 {spec.failing && (
                   <span aria-hidden className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-red-500 ring-2 ring-card" />
                 )}
-                {/* Backed by the card colour, so an edge passing under a label never cuts through its text. */}
-                <span className="pointer-events-none absolute left-1/2 top-full -translate-x-1/2 mt-1 flex flex-col items-center w-max rounded-md bg-card/90 px-1 py-px">
+                {/* Solid card colour (the stage's), so an edge passing a label goes behind it. */}
+                <span className="pointer-events-none absolute left-1/2 top-full -translate-x-1/2 mt-1 flex flex-col items-center w-max rounded-md bg-card px-1 py-px">
                   <span className={`max-w-[6.75rem] truncate text-[11.5px] font-medium leading-tight ${isDim ? "text-muted-foreground" : "text-foreground"}`}>
                     {spec.face}
                   </span>

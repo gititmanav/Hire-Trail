@@ -124,15 +124,22 @@ export function layoutClusters(inputs: ClusterInput[], stageWidth: number): Layo
   };
 }
 
-/** A slightly bent edge from hub to satellite (reads as a web, not a star). */
-export function edgePath(x1: number, y1: number, x2: number, y2: number): string {
+/** Gap between an edge's end and the circle it meets. */
+const EDGE_GAP = 5;
+
+/** A straight edge from the hub's rim to the satellite's rim, stopping just
+ *  short of each circle — nothing is ever drawn under a node (Sora's web).
+ *  Empty when the circles are too close to leave a line between them. */
+export function edgePath(x1: number, y1: number, r1: number, x2: number, y2: number, r2: number): string {
   const dx = x2 - x1;
   const dy = y2 - y1;
-  const dist = Math.hypot(dx, dy) || 1;
-  const bend = Math.min(14, dist * 0.12);
-  const mx = (x1 + x2) / 2 + (-dy / dist) * bend;
-  const my = (y1 + y2) / 2 + (dx / dist) * bend;
-  return `M ${x1} ${y1} Q ${mx} ${my} ${x2} ${y2}`;
+  const dist = Math.hypot(dx, dy);
+  const from = r1 + EDGE_GAP;
+  const to = r2 + EDGE_GAP;
+  if (dist <= from + to) return "";
+  const ux = dx / dist;
+  const uy = dy / dist;
+  return `M ${x1 + ux * from} ${y1 + uy * from} L ${x2 - ux * to} ${y2 - uy * to}`;
 }
 
 /** Edge width from a week's calls: 1.5px quiet, up to 4px busy. */
