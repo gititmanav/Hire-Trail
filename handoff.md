@@ -1,6 +1,6 @@
 # handoff.md — for the next session
 
-_Last updated: 2026-10-05 — the AI revamp (AI layer, My AI, Admin AI, MCP, Connectors, admin cleanup, account deletion, extension 1.5.0), one toast system, and AI map "Reset to defaults" — on `master`, pushed._
+_Last updated: 2026-10-06 — the header search (Spotlight), the radius scale, and the dialog system (plain fields, every overlay on `ui/Modal` / `ui/Drawer`) — on `master`, pushed. Before that: the AI revamp, the toast system and the map reset._
 
 ## Current state
 
@@ -11,6 +11,21 @@ _Last updated: 2026-10-05 — the AI revamp (AI layer, My AI, Admin AI, MCP, Con
 - **Also on `master`:** long menus scroll inside a 360px panel with the search pinned (shared `ui/Menu`); Dashboard Company/Stage filters show counts (5a08f5c — Revamp.md "2026-09-25 (late) — Dashboard filter menus").
 - **Also on `master` (pushed):** landing round 3 — BUILD_JOURNAL "2026-10-04", Revamp.md "2026-10-04 — Landing round 3".
 - **On `master` (pushed, 2026-10-05):** the toast system (1f74771), the AI revamp in 14 slices (c6fe98d … 74ee7e1: AI core, endpoints, features, inbox, MCP, account deletion, admin API, boot wiring, My AI, Admin, Connectors, the app's AI surfaces, deletion + legal + landing, extension 1.5.0) and the map reset (000bf25), then the local seed accounts (f44679d), real brand logos (1584394) and the gateway-era env/README cleanup (237e101) — BUILD_JOURNAL "2026-10-05", Revamp.md "2026-10-05 — AI revamp" (Built / Added). The slices were split from one working tree: the tip builds; the commits in between aren't each guaranteed to (the toast commit was checked on its own and does).
+
+**Seeing the revamp locally:** the dev SPA runs on **http://localhost:5175** (`cd frontend && npx vite --port 5175 --strictPort`; the README's :5173 is Vite's default and is usually not running), the API on :5050 (it also serves the last `npm run build`). Production still runs `main` — nothing from the revamp is deployed there. Local logins: `dev@hiretrail.local` (user) / `admin@hiretrail.local` (admin), both `devpass123`.
+
+**On `master` (pushed, 2026-10-06), in 12 slices (caf6f87 … the docs commit):** Classic rows by container width (caf6f87), Connectors everywhere (7132c63), AI map edges (3c0f9bb), quick-link preferences (c4a1f20), the header search + the bell's retirement (a2022b7), the radius scale (d8110b7 — owner's keep / go further / revert still open), plain dialog fields + modal motion (8220f26), every dialog on `ui/Modal` (cc0be35), the scan-wizard fixes (49218ea), `ui/Drawer` (cfc64fd), the tailor-drawer re-init fix (b98866d) — BUILD_JOURNAL entries 2026-10-05 (late) … 2026-10-06 (night). Every slice typechecks on its own (frontend + backend, checked in a scratch worktree). Not yet hand-checked in a visible browser: the search's feel (headless frames only), touch drag, Safari; the dialogs and drawers were checked in headless frames only.
+
+**Dialog follow-ups (small, not started):** page controls still on `.input-premium` (Admin → Bug reports search, the Broadcasts composer, the Companies search) → `ui/Input`; the Import dialog's dropzone is a clickable `<div>` keyboard users can't reach; when a dialog swaps steps (Import, the scan wizard) the focused button disappears and focus drops to the page — move it to the new step's first control; `WidgetPicker/AdminWidgetPicker.tsx` is imported nowhere (delete, or wire it if Admin's dashboard should have one).
+
+**Queued (owner, 2026-10-06 — "queue this for later"):** one page sub-header, everywhere.
+- Every page gets the Applications sub-header's design: same title size and weight, meta beside it, controls on the right, and the bar spans the **full width of the page card** (today some sub-headers sit in an inset container with a short divider).
+- **Deadlines:** Upcoming | Overdue | Completed becomes a tab switcher styled like Applications' List · Board · Calendar.
+- **Contacts** and **Companies:** the Applications sub-header itself — search, a Display options menu and a Filters button — so the page body gets cleaner.
+- **Resumes, Resume Studio and the rest:** where the exact controls don't apply, the same header design anyway (today the heading font sizes differ page to page).
+- **New application's Resume chip:** "Add a resume" moves *inside* the dropdown (a row at the end of the list) instead of the separate "+" circle beside it.
+
+**Queued earlier (not started):** per-feature model switching from the AI map's hover card — the person's own keys only (never Included), and the same for HireTrail's platform keys in Admin → AI (Sora's "Switch model" with a searchable list of the key's live models). Then, if the owner says go: the control/field/surface radius tokens (pill controls), mocked on the Applications toolbar + header first.
 
 ## Ship blockers — land these before `master` goes to `main`
 
@@ -36,7 +51,7 @@ _Last updated: 2026-10-05 — the AI revamp (AI layer, My AI, Admin AI, MCP, Con
 2. **Landing round 3 in a real browser** — Chrome, Safari 26+ (the headings' sweep runs on scroll timelines), Firefox (sweep falls back to plain ink), Windows/Android (the Inter font); the dive (pick Dark → lift → grow), ⌘K, the theme wipe, the founder sweep, the closing beams, and the footer rising over the last ask. Frames so far came from headless Chrome only. If the share image needs refreshing after copy changes, `frontend/public/og.jpg` is a 1200×630 capture of the hero.
 3. **Terms** still names `hiretrail.vercel.app` (`pages/Legal/Terms.tsx` §1) — swap in the live domain when you confirm it. (Privacy was rewritten with the AI revamp.)
 4. Earlier owner calls still open: Dark mirrors charcoal (keep?), "Table" vs "Minimal", tag chips 4.2:1, white on `bg-amber-600` 3.2:1 (Revamp.md → "Noted, not changed").
-5. Queued engineering: the six hand-rolled switches → `ui/Toggle`; the other hand-rolled overlays → `ui/Modal`; `GET /deadlines` status tabs need the viewer's zone (a picked day counts as overdue from 00:00 UTC on its due day — with the Deadlines revamp); analytics bucket applied dates with Date math (Dashboard revamp); drop the old `{userId, completed}` Deadline index in Atlas; `FeedbackModal` hand-rolls a `fixed inset-0` overlay (→ `ui/Modal`); the Classic application card clips its left edge at phone width (seen at 375 px, 2026-10-05).
+5. Queued engineering: the six hand-rolled switches → `ui/Toggle`; `GET /deadlines` status tabs need the viewer's zone (a picked day counts as overdue from 00:00 UTC on its due day — with the Deadlines revamp); analytics bucket applied dates with Date math (Dashboard revamp); drop the old `{userId, completed}` Deadline index in Atlas.
 
 ## How the landing works (short)
 

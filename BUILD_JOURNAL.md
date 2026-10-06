@@ -4,6 +4,92 @@ Append a dated entry every session: decisions, what was built, what was verified
 
 ---
 
+## 2026-10-06 (night) — Dialogs: plain fields, one Modal, one Drawer
+
+Owner: drop the boxes around text in dialogs (Sora's look), use the shared dropdown inside dialogs, and every modal opens and closes softly ("never blip"); then "apply it to all modals — make a common modal component". Details: **Revamp.md → "2026-10-06 — Dialogs and drawers"**.
+
+### Built
+- **Plain fields:** `ui/fieldLook.ts` (`FieldLookContext` box | plain, `useControlClass`); `ui/Modal` provides "plain" — Input / Textarea / TextField draw borderless with a spread-shadow fill on hover/focus, labels go muted, Select / DateInput become the chip, `ui/ChipInput` for short text. New application rebuilt as a composer (headline role, company, link row, chips). Placeholders added wherever a plain field had none.
+- **Motion:** `.modal-panel-in` (320ms rise) / `.modal-exit` (200ms, `MODAL_EXIT_MS`).
+- **Every overlay on a primitive:** the admin dialogs (Announcements, Broadcasts + its picker, Bug reports), Feedback, Import, the idle warning, the shortcuts help, both widget pickers, the Gmail scan wizard (its "lose results" confirm is a stacked `ConfirmModal`), the sign-out overlay and the tour (exit motion).
+- **`ui/Drawer`** (new) + DrawerHeader / DrawerBody / `useDrawerClose`: the Companies panels (company + application), the resume preview, the tailor drawer and the Profile section editor — four hand-built drawers, each with its own timers and a document-wide Escape. The drawer closes itself on the live panel; the scrim is a sibling layer, so the panel never turns see-through while it slides.
+- **`ui/useOverlayLayer`** (new): the behaviour Modal and Drawer share. Focus now lands on `[data-autofocus]`, else the panel — never the header's X (its ring read as a stray state when a dialog opened from the keyboard). `ui/Button` exports `buttonClass` (links that look like buttons); `ui/Field` gains `TextAreaField`; `ui/Modal` exports `CloseButton`.
+- The Profile editor's 30 raw inputs → TextField / TextAreaField with placeholders; its native checkbox → a `CheckboxMark` row.
+
+### Bugs found and fixed on the way
+- **Scan review opened empty.** Opening the wizard on a finished scan (the Connectors banner's "Review") never loaded its candidates — "Found 0 candidates", and "Done with review" would complete the scan and drop the queue. Now it loads on open, candidates land before the step flips to review, and while they load the list shows skeletons with Done disabled.
+- **Closing mid-scan abandoned it.** The scanning step says "You can close this — the scan keeps going", and the banner and the scan-ready notification exist for that, but closing asked "You'll lose the scan results" and abandoned the job. Closing mid-scan now just closes; only the review asks ("Keep reviewing").
+- **The tailor drawer restarted on any parent re-render.** `init` depended on the caller's inline `onClose` (through `startAnalysis`), so a parent re-render (a refetch on window focus) reset it to loading and re-ran the session lookup — and kicked off a new fit check when none existed. `onClose` is read through a ref now.
+- **Escape inside a drawer closed the drawer, not the open dropdown** (document listeners outside the layer stack). Gone with `ui/Drawer`.
+- The shortcuts help (now a Modal at z-50) would have opened under an open menu — "?" now waits until no other layer is open. The Profile editor no longer double-toasts a failed save (the API layer's toast is the one).
+- A disabled plain field took the hover fill (`enabled:hover:` now).
+
+### Verified (HOW)
+- Headless Chrome over CDP (scratch `shots.mjs`, now with an `init` step for page stubs): Feedback (open / settled / mid-close), shortcuts help (focus on the panel, no ring), Import, the admin trio + the recipient picker (signed in as the local admin); each drawer opening, settled and mid-close, two Companies drawers stacked (first Escape closes the top one only), the resume preview with a real PDF (the dev resume pointed at `public/demo-resume-software-engineer.pdf` for the run, then restored), the Profile editor light + dark, the tailor drawer via `?tailor=` (Escape closes it and clears the param).
+- The scan wizard against an in-page stub of `/api/email/*` (no Gmail, no AI): banner "Review" → skeletons, Done disabled, no "nothing found" → 4 candidates; Escape in review → the stacked confirm; mid-scan Escape → closed, banner "Scanning your inbox in the background".
+- Gates: frontend `tsc -b` 0, `npm run build` green.
+- **Not verified:** a visible browser (headless frames only); Safari / Firefox; reduced-motion; a screen-reader pass; the idle warning (needs 60 idle minutes); the scan wizard against real Gmail.
+
+---
+
+## 2026-10-06 (later) — One radius scale, by role (pending the owner's OK)
+
+Owner asked whether controls should go "a little oval" everywhere (Sora screenshots as the reference). Read Sora's source: `--radius: 0.7rem`; buttons/inputs/menu rows `rounded-md` (~9px); property chips `rounded-full` (h-7); panels `rounded-lg`/`xl` (11–15px). Ours was 6px base — noticeably harder.
+- **Changed:** `--radius` 0.375 → 0.625rem (lg 10 · md 8 · sm 6) and Tailwind `xl` / `2xl` → `--radius + 4 / + 8` (14 / 18) — concentric with the 10px rows inside a 4px-padded panel. Form selects stay field-shaped (beside text inputs); capsules stay on chip-style triggers. Two near-square elements pinned to `rounded-[2px]` (Spend bars, the Personalize mini-header).
+- **Verified:** before/after at 2× (headless): popover corner 12→14, segmented track 6→10 / thumb 4→8, Filters button 6→10, form inputs 6→10, pills unchanged; live computed `--radius` 0.625rem. `tsc -b` 0, build green.
+- **Gotcha:** the first "after" run came from a Vite server still restarting (stale CSS) — check a computed value in the capture run, not just the picture.
+- **Open (owner):** keep it; or go further — Sora's chip-style property pickers in forms (e.g. New application's Stage/Resume as content-width chips) would be a form redesign, not a token change.
+
+---
+
+## 2026-10-06 — The header search (Spotlight), quick links, the bell retired
+
+Owner: the reference recording (21st.dev "Apple Spotlight") as the header search, centred, flawless; quick links in the hover circles (default AI · Notifications · Calendar + "+", Apple-widget editing with drag in/out); remove "Where it works", then the bell; a motion library if it helps. Details: **Revamp.md → "The header search"**.
+
+### Built
+- `components/Spotlight/*`, `preferences.quickLinks` (backend validator + model + PUT /auth/profile; frontend normalizer), `motion@12`, `hooks/useUnreadNotifications.ts`, the sidebar's unread count, `useBarPlace` in Header.tsx; removed `Header/GlobalSearch.tsx` and `Header/NotificationBell.tsx`; companies/contacts/deadlines list APIs take `{ quiet, signal }`.
+
+### Verified (HOW)
+- The reference: frames via ffmpeg; geometry and timing measured from raw pixel rows/columns (Python over `ffmpeg -f rawvideo`) — see Revamp.md for the numbers.
+- Ours: headless Chrome over CDP at 2× (scratch `shots.mjs`): idle, mid-morph (goo bridges visible between pill↔circle and circle↔circle), dock, hover-peek, focused, typing → panel, results + ArrowDown, edit opening/settled, a real catalogue→bar drag over a full bar (swap) → saved `["ai","notifications","list"]`, a bar→catalogue drag → saved `["notifications","calendar"]`, Escape closes edit, ⌘K focuses, Enter on "cal" → `/applications/calendar` with the query cleared. Light and dark. Widths: 1440 (420, centred), 1024 (330, centred), 768 (189, fill), 375 (159, panel spans the screen). In the pane: dock geometry by DOM rects (pill 248; circles 34 at 9px gaps, ending flush at the idle right edge). No bell in the header; "Notifications 1" in the sidebar.
+- Gates: frontend `tsc -b` 0, `npm run build` green (shell `Layout` 6.1 KB gzip; `Spotlight` 54.3 KB gzip, lazy); backend `tsc --noEmit` 0.
+- NOT verified: a real trackpad/mouse feel in a visible browser (headless frames only); touch drag on a phone; Safari/Firefox (SVG goo filters are slower in Safari — watch for jank); reduced-motion pass; screen-reader pass.
+
+### Sharp edges
+- The goo filter needs a filter region covering every shape (`span` + `GOO_PAD`); the content layer and the shapes must share transitions (same spring objects, same delays) or they drift.
+- The jiggle must run on an inner element; motion owns the outer element's transform.
+- Restart Vite after `npm install` of a new dependency.
+
+---
+
+## 2026-10-05 (night, later) — AI map: no line under a node
+
+- **Root cause:** edges ran hub-centre → satellite-centre, and dimming set `opacity: .4` on the whole node — the "Not set up" Included hub went see-through and showed the lines under its mark. **Fix:** `edgePath` draws a straight rim-to-rim line (5px short of each circle); dimming fades the glyph, not the circle; labels are solid `bg-card`. Revamp.md → "AI map edges stay out from under the nodes".
+- **Verified:** Settings → AI in light and dark (the class toggled by hand — the admin account is set to Light), and a hover (other nodes fade inside solid circles, the card opens). `tsc -b` 0, build green. Not re-checked: Admin → AI's map (same component).
+
+---
+
+## 2026-10-05 (night) — Connectors, everywhere; why the owner saw the old UI
+
+Owner: call it Connectors (Sora's connectors page for the UI/UX; use the graphify map to navigate); "why am I still seeing the old UI locally — no AI map?". Details: **Revamp.md → "2026-10-05 — Connectors, everywhere"**.
+- **Sora, via the map:** `graphify-out/GRAPH_REPORT.md` → community "connectors.vue" → `app/pages/settings/connectors.vue`; read only its template (lines 573–875).
+- **Built:** `pages/Admin/AdminConnectors.tsx` (git-moved from `MailboxManagement.tsx`), `/admin/connectors` + redirects from `/admin/mailbox` and `/admin/gmail`, the sidebar's Integrations group, the dead `adminAPI.triggerMailboxScan` removed, the "mailbox" wording replaced (landing replica, notification empty states, audit label, README, CLAUDE.md).
+- **Verified:** `/admin/mailbox` lands on `/admin/connectors`; the page empty and with one (temporarily faked, then restored) Gmail connection; the Disconnect confirm (cancelled). `tsc -b` 0, `npm run build` green.
+- **The old UI:** the only dev servers on this machine were :5175 (Vite, this checkout, `master`) and :5050 (the API, which also serves `frontend/dist` built 22:57 today) — both current. Nothing listens on :5173 (the README's port), no service worker exists, and the owner's terminal had no server. So the owner's tab was either a :5173 tab left from an earlier dev server (still showing what it loaded then) or the production site, which runs `main` — none of this revamp is deployed. Claude in Chrome wasn't connected, so the owner's tab wasn't seen.
+
+---
+
+## 2026-10-05 (late) — Classic rows lay out by their own width
+
+Owner: fix the Classic application card clipping on phones. Details: **Revamp.md → "2026-10-05 — Classic rows on phones and tablets"**.
+- **Root cause:** the row switched layout on viewport breakpoints (`flex-col sm:flex-row`, `grid-cols-2 sm:grid-cols-3`, fixed 220/200px panels) while its real constraint is the card's width (the sidebar takes 240px from md up). Phones stacked it with no content inset (title under the stage stripe); 768–1279px kept it horizontal in cards too narrow for it (content 12px at 768, 148px at 1024; the fit panel overflowed).
+- **Built:** container queries — `.app-rows` (the list) and `.app-row-body` (the content) are query containers; `.app-row-side` wraps the pulse + fit panels (one line ≥ 960px, a two-up footer below). The panels' widths/borders and the grid's columns moved out of Tailwind utilities into those rules (never both on one element). `SkeletonRows` rebuilt on the same classes.
+- **Verified:** measured DOM boxes + screenshots at 375, 768, 1024, 1280, 1440 (dark + light, comfortable + compact); 1280/1440 unchanged (rows 141px, panels 220/200); no horizontal scroll; the skeleton mounted in-page next to real rows (281 vs 286px phone, 140 vs 143 desktop). `tsc -b` 0, `npm run build` green, the built CSS keeps both `@container` rules.
+- Grouped by company: the indented rows (671px cards in an ~800px pane) take the two-up footer correctly.
+- **Not verified:** a real phone; Safari (container queries need 16+).
+
+---
+
 ## 2026-10-05 (later) — Committed in slices; real brand logos; local accounts; gateway-era docs
 
 Owner: commit stepwise and push; "use real company logos, not make-ups, everywhere"; a normal local user plus an admin, both `devpass123`; `ENCRYPTION_KEY` is set in Vercel.

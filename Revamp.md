@@ -498,3 +498,66 @@ All nine slices. Where the build differs from the plan above:
 - **Real brand logos, everywhere.** Owner: "use real company logos, not make-ups". `components/BrandLogo` holds the brands' own marks as inline SVG (LobeHub's AI icon set — Gemini, Claude, OpenAI, xAI, DeepSeek, Mistral, Groq, OpenRouter; Gmail from Iconify's logos set; Outlook from Simple Icons in its brand blue), never recoloured, on a neutral tile. Used by every provider surface (via `ProviderMark`), the Gmail connector and review page, Admin Mailboxes, Claude Code connections and the landing's provider chips. Picked the product marks a key actually runs (Gemini for Google, Claude for Anthropic).
 - **AI map → "Reset to defaults".** Owner: the default is what the admin set in Admin → AI → Rules. The button (top-right of the map, only when the person has a choice of their own and may make choices) deletes their per-feature routes; their default key stays (it's theirs, not a default). Undo re-applies the choices as they were shown.
 
+## 2026-10-05 — Classic rows on phones and tablets
+
+### Found
+- At 375px the Classic row stacked (`flex-col` below `sm`): the logo rail spanned the card with the logo centred alone, the content block had no inset of its own so the title and company started under the 3px stage stripe ("nitech"), and the 220px / 200px panels sat at fixed widths. Measured: title 1px from the edge; card 487px tall.
+- Worse in between: `sm:` is a viewport breakpoint, but the sidebar decides the row's room. At 768px the row went horizontal inside a 470px card — the content column was 12px wide (labels overprinting) and the fit panel ran off the card; at 1024px the content was 148px and the 3-column field grid ~40px a column.
+
+### Changed
+- The row lays out by the list's width (CSS container queries, App.css "Classic application rows"): ≥ 960px keeps today's single line exactly; narrower, the logo stays beside the content and the stage + fit panels become a two-up footer. The field grid takes 3 columns at ≥ 360px of content, else 2. The skeleton uses the same classes (it had one 200px panel where the row has two) and now lands within 5px of a real row.
+
+### Verified
+- 375 / 768 / 1024 / 1280 / 1440, dark + light, comfortable + compact, grouped by company: no clipping, no horizontal scroll; 1280 and 1440 measure the same as before (panels 220 / 200, rows 141px); phone card 286px tall (was 487).
+
+## 2026-10-05 — "Connectors", everywhere (admin included)
+
+### Decided (owner)
+- Mailboxes are **Connectors** — the page and the word — following Sora's connectors page (`sora/app/pages/settings/connectors.vue`) for the UI/UX: a Connected list of rows (logo · name · account · status dot · last activity · Manage), an Available grid of fixed-width tiles (logo · 3-line blurb · a Connect pill), one Manage dialog.
+
+### State
+- **Settings → Connectors** already had that anatomy (built with the AI revamp). Not copied from Sora: search + category tabs (one connector), a "Soon" tile for Outlook (owner: Outlook stays hidden).
+- **Admin → Connectors** (was "Mailbox Management", `/admin/mailbox`): rebuilt in the same shape — a Connectors list (Gmail: people connected, 30-day scans · found · imported, a failure line when scans didn't finish; Outlook only while earlier connections exist, as Paused), then People rows (name · account · each connector's linked address + last scan · Disconnect, with one confirm). Shared primitives only (PageHeader, Input, SegmentedControl, Button, ConfirmModal). Sidebar: "Inbox → Mailboxes" + "AI → AI" became **Integrations → Connectors · AI**, like Settings.
+- Removed the admin "Scan Gmail" button: it called `POST /admin/mailbox/:id/scan`, which the inbox rework had deleted (a 404). A scan is the person's own action — it runs on their AI lane and fills their review queue.
+- Wording: the landing's Settings replica (Integrations → Connectors · AI), the notification empty states ("Inbox scans ready for review…" — the `*_detected` pipeline is gone), the audit-log label.
+
+## 2026-10-05 — AI map edges stay out from under the nodes
+
+Owner (screenshots, Sora vs ours): lines showed under the HireTrail mark at the centre. Root cause: edges were drawn centre to centre (a slight curve), and a dimmed node faded its whole circle (`opacity: .4`), so the lines underneath showed through — most visibly on a "Not set up" hub. Now, as in Sora: straight edges from rim to rim with a 5px gap (`mapLayout.ts edgePath`), a dimmed node keeps its opaque circle and fades only its glyph (and drops its shadow), and node labels are solid card colour so an edge passing a label goes behind it. Applies to both maps (Settings → AI, Admin → AI).
+
+## 2026-10-05 — The header search: Spotlight, quick links, no bell
+
+### Decided (owner)
+- The header search becomes the reference video's bar (21st.dev, samitkapoor's "Apple Spotlight"), **centred in the header**, flawless and pixel-faithful. A motion library is fine if it makes it better.
+- The hover circles are **quick links** to pages, configurable: from AI, Personalize, Applications (list), Board, Resumes, Calendar, Notifications. Default **AI · Notifications · Calendar**, plus a 4th **"+"** that opens the catalogue; in edit the links jiggle (Apple-widget style) and pages drag in from / out to the catalogue.
+- Remove the header's **"Where it works"** card, and then the **bell**.
+
+### Built
+- `components/Spotlight/` — `Spotlight.tsx` (the bar), `quickLinks.ts`, `useQuickLinks.ts` (account-saved; demo on the device), `searchIndex.ts` (pages + records, ranked), `SpotlightIdle.tsx` + `geometry.ts` (the lazy split). `preferences.quickLinks` on both sides (≤3, each once; unset = defaults, `[]` = a choice). `motion` 12 added.
+- **Measured off the recording** (3824×2484 = 2×): pill 66 CSS px, circles 64 inset 1, 16 apart, idle 768 wide, dock pill 448 (the dock fills exactly what the pill gives up); open panel radius ≈30, highlighted row 56 tall, 9 in, radius 14, white on #f3f3f3; the morph starts ~17ms after the pointer and covers most of the way in ~130ms with ≈1% overshoot. Scaled to a 36px pill: circles 34 inset 1, 9 apart, 420 / 248. Rows keep the structure in HireTrail's type (13/11.5px, 44px) — a uniform scale would have set them at 9px.
+- **One liquid surface:** shapes (pill, circles, both panels) under an SVG goo filter (blur 5, alpha ×20 −9, source composited over) with a hairline + lift as a filter after it; content on an unfiltered layer animated by the same springs. Circles bud out nearest-first, fold back farthest-first; typing grows the pill into the panel and swallows the circles; the catalogue drips out of "+".
+- Hovering a circle names it in the pill (blur-crossfade placeholder); during a drag the pill says what the drop will do ("Swap with Calendar", "Drop to add", "Drop to take it off").
+- Edit: links jiggle (inner element — the springs own the outer transform) with a remove badge; "+" turns into a check; catalogue tiles drag onto the bar (a full bar swaps with the nearest link) or get clicked; a full bar shakes and says why (aria-live); Alt+←/→ reorders by keyboard; Escape / outside click / Done close.
+- Results: ↑ ↓ / Enter / Esc, hover follows, a sliding highlight (shared layout), the scroll keeps the active row in view; records load quietly once and cache a minute. ⌘K / Ctrl K focuses the bar. It's a layer (`layers.ts`) while a panel is out.
+- Phones: the bar fills the space between the clusters (search only); the results panel spans the screen with 16px gutters; 16px input text (no iOS zoom).
+- The bell → `hooks/useUnreadNotifications` (same poll — it also revives stalled AI jobs), the count on the sidebar's Notifications row (a dot when collapsed) and a dot on the Notifications quick link. The Notifications page refreshes the count after it reads/clears, and its handlers stop double-toasting errors.
+- The avatar's name/email now show from xl (1280) up, so the bar has room at laptop widths.
+
+### Found along the way
+- An SVG filter renders only inside its element's box — the liquid layer is sized to every shape's reach, or the panels would have been clipped.
+- Adding a dependency mid-session leaves Vite's pre-bundle stale ("504 Outdated Optimize Dep", a blank app) — restart the dev server.
+- The search first shipped in the shell chunk: 5.6 → 58.8 KB gzip. Now lazy: shell 6.1 KB, Spotlight 54.3 KB loading beside it.
+
+## 2026-10-06 — Dialogs and drawers
+
+### Decided (owner)
+- Inside a dialog, text fields lose their boxes — plain text on the surface with a soft fill on hover/focus, like Sora. Dropdowns inside dialogs are the shared chip.
+- Every modal appears and leaves softly — never a blink — and every overlay goes through one common component.
+
+### Built
+- One look switch, `ui/fieldLook.ts`: the page keeps the bordered field; `ui/Modal` and `ui/Drawer` switch their contents to "plain". A plain field always has a placeholder (at rest it's the only thing that shows).
+- Two shells, one behaviour: `ui/Modal` (centred) and `ui/Drawer` (a side panel for work that wants the screen's height) share `ui/useOverlayLayer` — the layer stack, scroll lock, focus in/out, Tab trap, Escape for the top layer only.
+- Drawer motion: slides in from the right edge (380ms ease-out) over a fading scrim, and back out (240ms). The scrim is its own layer — the first build faded the panel's parent and the page showed through the panel mid-slide. It closes itself on the live panel, so a PDF iframe or a rendered resume doesn't blank out on the way.
+- Focus on open: `[data-autofocus]`, else the panel itself. Focusing the header's X (the old default) drew a ring on it whenever a dialog opened from the keyboard.
+- Gmail scan wizard: closing mid-scan just closes (the scan runs on; banner + notification bring the person back) — only the review asks before dropping results. This matches the step's own copy and the background banner; the old "lose results" prompt mid-scan contradicted both.
+
