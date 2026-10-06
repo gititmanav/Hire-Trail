@@ -1,14 +1,15 @@
 /**
  * Companies page: card grid with company details, links, and application sidebar.
  */
-import { useState, useEffect, useCallback, useRef, type ReactNode } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
-  FileText, X, ChevronRight
+  FileText, ChevronRight
 } from "lucide-react";
 import toast from "../../components/ui/toast.ts";
 import { applicationsAPI, companiesAPI, resumesAPI, contactsAPI, deadlinesAPI } from "../../utils/api.ts";
 import { SkeletonTable } from "../../components/Skeleton/Skeleton.tsx";
 import ResumePreview from "../../components/ResumePreview/ResumePreview.tsx";
+import { Drawer, DrawerBody, DrawerHeader } from "../../components/ui/Drawer.tsx";
 import EmptyState from "../../components/EmptyState/EmptyState.tsx";
 import CompanyLogo from "../../components/CompanyLogo/CompanyLogo.tsx";
 import type { Company, Application, Resume, Contact, Deadline, Stage, Pagination } from "../../types";
@@ -40,22 +41,6 @@ function quickJumpUrls(company: { name: string; website?: string }) {
 const badgeCls: Record<Stage, string> = STAGE_BADGE_CLASS;
 const fmt = (d: string) => formatDay(dayOf(d), { month: "short", day: "numeric", year: "numeric" }, "en-US");
 
-/* ─── Slide-in Panel with backdrop ─── */
-function SlidePanel({ onClose, width = "w-[420px]", children }: { onClose: () => void; width?: string; children: ReactNode }) {
-  const [open, setOpen] = useState(false);
-  useEffect(() => { requestAnimationFrame(() => setOpen(true)); }, []);
-  const handleClose = () => { setOpen(false); setTimeout(onClose, 300); };
-  useEffect(() => { const h = (e: KeyboardEvent) => { if (e.key === "Escape") handleClose(); }; document.addEventListener("keydown", h); return () => document.removeEventListener("keydown", h); }, []);
-  return (
-    <div className="fixed inset-0 z-40 flex justify-end" onClick={handleClose}>
-      <div className={`absolute inset-0 bg-scrim/60 backdrop-blur-sm transition-opacity duration-300 ${open ? "opacity-100" : "opacity-0"}`} />
-      <div className={`relative ${width} h-full bg-card shadow-2xl flex flex-col border-l border-border transition-transform duration-300 ${open ? "translate-x-0" : "translate-x-full"}`} onClick={(e) => e.stopPropagation()}>
-        {children}
-      </div>
-    </div>
-  );
-}
-
 /* ─── Application Detail Sidebar (matches Applications page exactly) ─── */
 function AppDetailSidebar({ app, resumes, contacts, deadlines, onClose, onStageChange, onViewResume }: {
   app: Application; resumes: Resume[]; contacts: Contact[]; deadlines: Deadline[];
@@ -66,14 +51,9 @@ function AppDetailSidebar({ app, resumes, contacts, deadlines, onClose, onStageC
   const appDeadlines = deadlines.filter((d) => d.applicationId === app._id && !d.completed);
 
   return (
-    <SlidePanel onClose={onClose}>
-      <div className="sticky top-0 bg-card border-b border-border px-6 py-4 flex items-center justify-between shrink-0">
-        <h2 className="text-lg font-semibold text-foreground truncate">{app.role}</h2>
-        <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground">
-          <X size={14} strokeWidth={2} />
-        </button>
-      </div>
-      <div className="p-6 space-y-5 overflow-y-auto flex-1">
+    <Drawer onClose={onClose} width={420}>
+      <DrawerHeader title={app.role} />
+      <DrawerBody className="space-y-5">
         <div>
           <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Company</label>
           <div className="flex items-center gap-2">
@@ -153,8 +133,8 @@ function AppDetailSidebar({ app, resumes, contacts, deadlines, onClose, onStageC
             </div>
           </div>
         )}
-      </div>
-    </SlidePanel>
+      </DrawerBody>
+    </Drawer>
   );
 }
 
@@ -177,14 +157,9 @@ function CompanyAppsSidebar({ company, onClose, onSelectApp }: {
   for (const e of timeline.entries) peakByAppId[e.appId] = e.peakStage;
 
   return (
-    <SlidePanel onClose={onClose}>
-      <div className="sticky top-0 bg-card border-b border-border px-6 py-4 flex items-center justify-between shrink-0">
-        <h2 className="text-lg font-semibold text-foreground truncate">{company.name} — Applications</h2>
-        <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground">
-          <X size={14} strokeWidth={2} />
-        </button>
-      </div>
-      <div className="p-6 overflow-y-auto flex-1">
+    <Drawer onClose={onClose} width={420}>
+      <DrawerHeader title={<>{company.name} — Applications</>} />
+      <DrawerBody>
         {loading ? (
           // Skeleton mirrors the post-load sections: lifetime activity strip,
           // (maybe) compensation card, then the apps list. Three list-row
@@ -278,8 +253,8 @@ function CompanyAppsSidebar({ company, onClose, onSelectApp }: {
             </div>
           </>
         )}
-      </div>
-    </SlidePanel>
+      </DrawerBody>
+    </Drawer>
   );
 }
 

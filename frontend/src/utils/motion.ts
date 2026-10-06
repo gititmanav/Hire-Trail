@@ -9,6 +9,9 @@ export const MODAL_EXIT_MS = 200;
 /** The soft dialog (ui/Modal `motion="soft"` — the sign-in sheet): a slower,
  *  gentler arrival and departure. Keep in step with App.css `.modal-soft-*`. */
 export const SOFT_EXIT_MS = 260;
+/** A side panel (ui/Drawer) slides back out to the edge. Keep in step with
+ *  App.css `.drawer-exit`. */
+export const DRAWER_EXIT_MS = 240;
 export const COLLAPSE_MS = 200;
 
 export function prefersReducedMotion(): boolean {

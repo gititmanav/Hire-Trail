@@ -74,3 +74,20 @@ export function TextField({
     </Field>
   );
 }
+
+/** Field + Textarea in one, linked the same way. */
+export function TextAreaField({
+  label, required, hint, error, ...textareaProps
+}: {
+  label: ReactNode;
+  required?: boolean;
+  hint?: ReactNode;
+  error?: ReactNode;
+} & TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  const id = useId();
+  return (
+    <Field label={label} required={required} hint={hint} error={error} htmlFor={id}>
+      <Textarea id={id} required={required} aria-invalid={error ? true : undefined} {...textareaProps} />
+    </Field>
+  );
+}

@@ -18,7 +18,7 @@ export const boxControlCls =
  *  so nothing shifts). An invalid field tints red. */
 export const plainControlCls =
   "w-full h-8 px-0 bg-transparent text-[14px] text-foreground placeholder:text-muted-foreground/55 rounded-md transition-[background-color,box-shadow] duration-150 " +
-  "hover:bg-control/55 hover:shadow-[0_0_0_6px_hsl(var(--control)/0.55)] " +
+  "enabled:hover:bg-control/55 enabled:hover:shadow-[0_0_0_6px_hsl(var(--control)/0.55)] " +
   "focus:outline-none focus:bg-control/85 focus:shadow-[0_0_0_6px_hsl(var(--control)/0.85)] " +
   "aria-[invalid=true]:bg-[rgb(var(--palette-danger)/0.08)] aria-[invalid=true]:shadow-[0_0_0_6px_rgb(var(--palette-danger)/0.08)] " +
   "disabled:opacity-50 disabled:cursor-not-allowed";

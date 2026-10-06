@@ -18,6 +18,14 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode;
 }
 
+/** The button look, for an element that has to be something else — a link
+ *  that downloads or opens a new tab. */
+export function buttonClass(variant: Variant = "secondary", size: "sm" | "md" = "md"): string {
+  return `relative inline-flex items-center justify-center gap-1.5 font-medium rounded-lg transition-colors select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed ${
+    size === "sm" ? "h-8 px-3 text-[13px]" : "h-9 px-4 text-sm"
+  } ${VARIANTS[variant]}`;
+}
+
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
   { variant = "secondary", size = "md", loading = false, disabled, className = "", children, type = "button", ...rest },
   ref,
@@ -27,9 +35,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
       ref={ref}
       type={type}
       disabled={disabled || loading}
-      className={`relative inline-flex items-center justify-center gap-1.5 font-medium rounded-lg transition-colors select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed ${
-        size === "sm" ? "h-8 px-3 text-[13px]" : "h-9 px-4 text-sm"
-      } ${VARIANTS[variant]} ${className}`}
+      className={`${buttonClass(variant, size)} ${className}`}
       {...rest}
     >
       {loading && (
