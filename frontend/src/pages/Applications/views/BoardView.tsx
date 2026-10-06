@@ -5,15 +5,23 @@
  * Board is instant) with filters from the page header. Moves are optimistic
  * through useMoveStage: the card lands the instant you drop it; a failed save
  * snaps it back with a toast. Clicking a card opens its application page.
+ *
+ * Drag: cards are draggables and columns are drop zones — nothing in the
+ * columns moves while you drag (a column's order is the data's, so there's
+ * nothing to sort). The card you hold stays dimmed in place, the target
+ * column lights up with a card-sized slot, and the drop is the only change.
+ * (Sortable columns moved the card into the target on hover; the moved card
+ * then sat under the pointer and pointed the hover back at its old column,
+ * so it flickered between the two.)
  */
-import { memo, useCallback, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 import {
-  DndContext, DragOverlay, DragStartEvent, DragEndEvent, DragOverEvent,
-  PointerSensor, KeyboardSensor, useSensor, useSensors, pointerWithin, rectIntersection,
+  DndContext, DragOverlay, DragStartEvent, DragEndEvent,
+  PointerSensor, KeyboardSensor, useSensor, useSensors, pointerWithin, rectIntersection, useDraggable, useDroppable,
   type CollisionDetection,
 } from "@dnd-kit/core";
-import { SortableContext, verticalListSortingStrategy, useSortable, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
+// Arrow keys jump between drop zones (it reads any droppables, not only sortables).
+import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import toast from "../../../components/ui/toast.ts";
 import { AlertTriangle, ChevronRight, FileText, MapPin, X } from "lucide-react";
 import { SkeletonCard } from "../../../components/Skeleton/Skeleton.tsx";
@@ -100,14 +108,15 @@ const BoardCard = memo(function BoardCard({ app, resumeName, isDragging, onTailo
   );
 });
 
-function SortableCard({ app, resumeName, onOpen, onTailor }: {
+function DraggableCard({ app, resumeName, onOpen, onTailor }: {
   app: Application; resumeName?: string; onOpen: (app: Application, e: React.MouseEvent) => void; onTailor: (id: string) => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: app._id, data: { type: "card", app } });
+  // No transform: the DragOverlay is what moves; this one stays put, dimmed.
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: app._id, data: { app } });
   return (
     <div
       ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : 1, contentVisibility: "auto", containIntrinsicSize: "auto 140px" }}
+      style={{ opacity: isDragging ? 0.3 : 1, contentVisibility: isDragging ? "visible" : "auto", containIntrinsicSize: "auto 140px" }}
       {...attributes}
       {...listeners}
       // The pointer sensor needs 8px of travel before a drag starts, so a
@@ -157,8 +166,10 @@ function Column({ stage, apps, resumeById, dwell, ghosts, terminal, onOpen, onTa
   onTailor: (id: string) => void;
 }) {
   const c = COLUMN[stage];
-  const { setNodeRef, isOver } = useSortable({ id: `column-${stage}`, data: { type: "column", stage } });
-  const ids = useMemo(() => apps.map((a) => a._id), [apps]);
+  const { setNodeRef, isOver, active } = useDroppable({ id: `column-${stage}`, data: { stage } });
+  // Where the held card would land: a card-sized slot, in any column but its own.
+  const held = active?.data.current?.app as Application | undefined;
+  const slot = isOver && held && held.stage !== stage ? active?.rect.current.initial?.height ?? 120 : 0;
   return (
     <div className="flex flex-col min-w-0">
       <div className={`flex flex-col gap-0.5 px-3 py-2 rounded-t-xl ${c.head} min-w-0`}>
@@ -195,18 +206,17 @@ function Column({ stage, apps, resumeById, dwell, ghosts, terminal, onOpen, onTa
           {dwell.avgDays != null ? `Avg ${dwell.avgDays}d in ${stage}` : "Not enough history"}
         </p>
       </div>
-      <div ref={setNodeRef} className={`flex-1 p-2 rounded-b-xl border-2 border-dashed ${c.border} ${c.body} min-h-[120px] min-w-0 space-y-2 transition-colors ${isOver ? "!border-foreground/25 !bg-muted/40" : ""}`}>
-        <SortableContext items={ids} strategy={verticalListSortingStrategy}>
-          {apps.map((app) => (
-            <SortableCard key={app._id} app={app} resumeName={app.resumeId ? resumeById.get(app.resumeId) : undefined} onOpen={onOpen} onTailor={onTailor} />
-          ))}
-        </SortableContext>
+      <div ref={setNodeRef} className={`flex-1 p-2 rounded-b-xl border-2 border-dashed ${c.border} ${c.body} min-h-[120px] min-w-0 space-y-2 transition-colors ${slot ? "!border-foreground/25 !bg-muted/40" : ""}`}>
+        {slot > 0 && <div aria-hidden className="kanban-drop-slot rounded-xl border-2 border-dashed border-foreground/15 bg-background/60" style={{ height: slot }} />}
+        {apps.map((app) => (
+          <DraggableCard key={app._id} app={app} resumeName={app.resumeId ? resumeById.get(app.resumeId) : undefined} onOpen={onOpen} onTailor={onTailor} />
+        ))}
         {ghosts.length > 0 && (
           <div className="pt-2 mt-2 border-t border-dashed border-border/60 space-y-2" role="region" aria-label={`${ghosts.length} likely ${stage}`}>
             {ghosts.map((g) => <GhostCard key={`ghost-${g.app._id}`} app={g.app} fromStage={g.fromStage} onOpen={onOpen} />)}
           </div>
         )}
-        {apps.length === 0 && ghosts.length === 0 && (
+        {apps.length === 0 && ghosts.length === 0 && !slot && (
           <div className="flex items-center justify-center h-16 text-xs text-muted-foreground">Drop here</div>
         )}
       </div>
@@ -230,11 +240,10 @@ export default function BoardView() {
   const [terminalStage, setTerminalStage] = useState<"Offer" | "Rejected">("Offer");
   const [suggestionDismissed, setSuggestionDismissed] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
-  /** While dragging: where the card is hovering (preview only — the cache
-   *  changes on drop). */
-  const [dragOver, setDragOver] = useState<{ id: string; stage: Stage } | null>(null);
   const [activeApp, setActiveApp] = useState<Application | null>(null);
-  const lastOverStage = useRef<Stage | null>(null);
+  /** Dropped into another column: the card appears there, so the overlay
+   *  mustn't fly back to where it started. A drop in place animates home. */
+  const [landed, setLanded] = useState(false);
 
   const apps = data?.data ?? [];
   const resumeById = useMemo(() => new Map(resumes.map((r) => [r._id, r.name])), [resumes]);
@@ -242,12 +251,9 @@ export default function BoardView() {
 
   const grouped = useMemo(() => {
     const g: Record<Stage, Application[]> = { Drafting: [], Applied: [], OA: [], Interview: [], Offer: [], Rejected: [] };
-    for (const a of apps) {
-      const stage = dragOver?.id === a._id ? dragOver.stage : a.stage;
-      g[stage]?.push(a);
-    }
+    for (const a of apps) g[a.stage]?.push(a);
     return g;
-  }, [apps, dragOver]);
+  }, [apps]);
 
   // Board order (column by column) is what the detail page's J/K walks.
   const orderedIds = useMemo(() => visibleStages.flatMap((s) => grouped[s].map((a) => a._id)), [visibleStages, grouped]);
@@ -287,40 +293,22 @@ export default function BoardView() {
     return hits.length > 0 ? hits : rectIntersection(args);
   }, []);
 
-  const stageOf = useCallback((overId: string): Stage | null => {
-    if (overId.startsWith("column-")) return overId.slice("column-".length) as Stage;
-    return apps.find((a) => a._id === overId)?.stage ?? null;
-  }, [apps]);
-
   const onDragStart = useCallback((e: DragStartEvent) => {
-    const app = apps.find((a) => a._id === e.active.id) ?? null;
-    setActiveApp(app);
-    lastOverStage.current = app?.stage ?? null;
-  }, [apps]);
-
-  const onDragOver = useCallback((e: DragOverEvent) => {
-    if (!e.over) return;
-    const stage = stageOf(String(e.over.id));
-    if (!stage || stage === lastOverStage.current) return;
-    lastOverStage.current = stage;
-    setDragOver({ id: String(e.active.id), stage });
-  }, [stageOf]);
+    setActiveApp((e.active.data.current?.app as Application | undefined) ?? null);
+    setLanded(false);
+  }, []);
 
   const onDragEnd = useCallback((e: DragEndEvent) => {
-    // The ORIGINAL app from drag start — the preview never mutated it, so the
-    // "from" stage is real (the old board lost it and skipped the deadline prompt).
     const app = activeApp;
-    const target = e.over ? stageOf(String(e.over.id)) : null;
+    const target = (e.over?.data.current?.stage as Stage | undefined) ?? null;
+    setLanded(!!app && !!target && target !== app.stage);
     setActiveApp(null);
-    setDragOver(null);
-    lastOverStage.current = null;
     if (app && target) moveStage(app, target);
-  }, [activeApp, stageOf, moveStage]);
+  }, [activeApp, moveStage]);
 
   const onDragCancel = useCallback(() => {
     setActiveApp(null);
-    setDragOver(null);
-    lastOverStage.current = null;
+    setLanded(false);
   }, []);
 
   /* ─── Stale cleanup ─── */
@@ -381,27 +369,25 @@ export default function BoardView() {
         </div>
       )}
 
-      <DndContext sensors={sensors} collisionDetection={collisionDetection} onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd} onDragCancel={onDragCancel}>
+      <DndContext sensors={sensors} collisionDetection={collisionDetection} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={onDragCancel}>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 pb-4">
-          <SortableContext items={visibleStages.map((s) => `column-${s}`)}>
-            {visibleStages.map((s) => (
-              <Column
-                key={s}
-                stage={s}
-                apps={grouped[s]}
-                resumeById={resumeById}
-                dwell={dwell[s]}
-                ghosts={ghostMap[s] ?? []}
-                onOpen={open}
-                onTailor={shell.openTailor}
-                terminal={s === terminalStage
-                  ? { value: terminalStage, onChange: setTerminalStage, counts: { Offer: grouped.Offer.length, Rejected: grouped.Rejected.length } }
-                  : undefined}
-              />
-            ))}
-          </SortableContext>
+          {visibleStages.map((s) => (
+            <Column
+              key={s}
+              stage={s}
+              apps={grouped[s]}
+              resumeById={resumeById}
+              dwell={dwell[s]}
+              ghosts={ghostMap[s] ?? []}
+              onOpen={open}
+              onTailor={shell.openTailor}
+              terminal={s === terminalStage
+                ? { value: terminalStage, onChange: setTerminalStage, counts: { Offer: grouped.Offer.length, Rejected: grouped.Rejected.length } }
+                : undefined}
+            />
+          ))}
         </div>
-        <DragOverlay dropAnimation={{ duration: 200, easing: "cubic-bezier(0.16, 1, 0.3, 1)" }}>
+        <DragOverlay dropAnimation={landed ? null : { duration: 200, easing: "cubic-bezier(0.16, 1, 0.3, 1)" }}>
           {activeApp && <BoardCard app={activeApp} resumeName={activeApp.resumeId ? resumeById.get(activeApp.resumeId) : undefined} isDragging />}
         </DragOverlay>
       </DndContext>
