@@ -3,7 +3,7 @@
  *
  * Run: `npm run seed` from `backend/`.
  *
- * The actual seed logic lives in `utils/seedData.ts` so the admin "Run seed"
+ * The actual seed logic lives in `utils/seedData.ts` so the admin "Reset demo"
  * route and this CLI produce identical output (companies, mock AI fit scores,
  * 2026 date window, protected demo resume, etc.). This script is a thin shell
  * around `runSeed` — connect → clear demo data → seed → disconnect.

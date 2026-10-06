@@ -1,5 +1,6 @@
 import { SystemSettings } from "../models/SystemSettings.js";
 import { env } from "../config/env.js";
+import { isAdminEmail } from "../utils/admin.js";
 
 export const MAINTENANCE_AUTH_MESSAGE =
   "The service is undergoing scheduled maintenance. Please try again later.";
@@ -11,8 +12,12 @@ export function clearMaintenanceModeCache(): void {
   cache = null;
 }
 
+/** Who may use HireTrail during maintenance: the configured bypass email and
+ *  every admin (ADMIN_EMAILS) — otherwise switching maintenance on would lock
+ *  the admin out of the switch that turns it off. */
 export function isMaintenanceBypassEmail(email?: string | null): boolean {
   if (!email) return false;
+  if (isAdminEmail(email)) return true;
   const bypass = env.MAINTENANCE_BYPASS_EMAIL.trim().toLowerCase();
   if (!bypass) return false;
   return email.trim().toLowerCase() === bypass;

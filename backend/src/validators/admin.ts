@@ -37,27 +37,3 @@ export const systemSettingSchema = z.object({
   description: z.string().optional(),
   category: z.string().optional(),
 });
-
-export const inviteSchema = z.object({
-  email: z.string().email().optional().nullable(),
-  maxUses: z.number().int().min(1).default(1),
-  expiresAt: z.string().datetime(),
-});
-
-export const emailTemplateSchema = z.object({
-  name: z.string().min(1).max(100),
-  subject: z.string().min(1).max(200),
-  bodyHtml: z.string().min(1),
-  variables: z.array(z.string()).default([]),
-  type: z.enum(["welcome", "reset", "suspend", "reminder", "digest"]),
-  active: z.boolean().default(true),
-});
-
-export const updateEmailTemplateSchema = z.object({
-  name: z.string().min(1).max(100).optional(),
-  subject: z.string().min(1).max(200).optional(),
-  bodyHtml: z.string().min(1).optional(),
-  variables: z.array(z.string()).optional(),
-  type: z.enum(["welcome", "reset", "suspend", "reminder", "digest"]).optional(),
-  active: z.boolean().optional(),
-});

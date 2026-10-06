@@ -8,8 +8,9 @@ import { AdminLoginEvent } from "../../models/AdminLoginEvent.js";
 import { Notification } from "../../models/Notification.js";
 import { MasterProfile } from "../../models/MasterProfile.js";
 import { TailorSession } from "../../models/TailorSession.js";
-import { AIProviderConfig } from "../../models/AIProviderConfig.js";
+import { AiKey } from "../../models/AiKey.js";
 import { getUser } from "../../middleware/auth.js";
+import { purgeUser } from "../../services/account/deletion.js";
 import { escapeRegex } from "../../utils/regex.js";
 import { logAudit, getClientInfo } from "../../utils/auditLog.js";
 import { validate } from "../../middleware/validate.js";
@@ -43,12 +44,12 @@ router.get("/", async (req: Request, res: Response, next: NextFunction) => {
         .sort({ [sortField]: sortOrder })
         .skip((page - 1) * limit)
         .limit(limit)
-        .select("name email role suspended suspendedAt deleted deletedAt createdAt updatedAt gmailConnected outlookConnected gmailEmail outlookEmail")
+        .select("name email role suspended suspendedAt deleted deletedAt deletion createdAt updatedAt gmailConnected outlookConnected gmailEmail outlookEmail")
         .lean(),
       User.countDocuments(filter).setOptions({ includeDeleted: true }),
     ]);
 
-    // Enrich with counts across all per-user entities (app, resume, master profile, tailor, AI keys).
+    // Enrich with counts across all per-user entities (app, resume, master profile, tailor, own AI keys).
     const userIds = users.map((u) => u._id);
     const [
       appCounts, resumeCounts, lastLogins,
@@ -72,8 +73,8 @@ router.get("/", async (req: Request, res: Response, next: NextFunction) => {
         { $match: { userId: { $in: userIds } } },
         { $group: { _id: "$userId", count: { $sum: 1 } } },
       ]),
-      AIProviderConfig.aggregate([
-        { $match: { userId: { $in: userIds }, isActive: true } },
+      AiKey.aggregate([
+        { $match: { owner: "user", userId: { $in: userIds } } },
         { $group: { _id: "$userId", count: { $sum: 1 } } },
       ]),
     ]);
@@ -126,12 +127,13 @@ router.get("/export", async (_req: Request, res: Response, next: NextFunction) =
   }
 });
 
-/** GET /:id — single user detail */
+/** GET /:id — single user detail (an allow-list: mailbox refresh tokens and
+ *  password hashes never reach the browser) */
 router.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = await User.findById(req.params.id)
       .setOptions({ includeDeleted: true })
-      .select("-password -__v")
+      .select("name email role suspended suspendedAt deleted deletedAt deletion createdAt updatedAt gmailConnected gmailEmail gmailLastSyncAt outlookConnected outlookEmail outlookLastSyncAt")
       .lean();
     if (!user) throw new NotFoundError("User");
 
@@ -274,16 +276,10 @@ router.delete("/:id/hard", async (req: Request, res: Response, next: NextFunctio
     const user = await User.findById(req.params.id).setOptions({ includeDeleted: true });
     if (!user) throw new NotFoundError("User");
 
-    // Delete all user data
-    await Promise.all([
-      Application.deleteMany({ userId: user._id }),
-      Resume.deleteMany({ userId: user._id }),
-      Contact.deleteMany({ userId: user._id }),
-      Deadline.deleteMany({ userId: user._id }),
-      AdminLoginEvent.deleteMany({ userId: user._id }),
-    ]);
-
-    await User.deleteOne({ _id: user._id });
+    // The same complete erase as a self-service deletion: tracker, files,
+    // profile, AI keys and usage, assistant tokens, inbox scans, sessions, and
+    // Google's access to the mailbox — then the user document.
+    await purgeUser(user._id);
 
     const { ipAddress, userAgent } = getClientInfo(req);
     logAudit({
@@ -293,31 +289,6 @@ router.delete("/:id/hard", async (req: Request, res: Response, next: NextFunctio
     });
 
     res.json({ message: "User and all data permanently deleted" });
-  } catch (err) {
-    next(err);
-  }
-});
-
-/** POST /:id/impersonate — start impersonation session */
-router.post("/:id/impersonate", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const admin = getUser(req);
-    const target = await User.findById(req.params.id);
-    if (!target) throw new NotFoundError("User");
-
-    // Store impersonation info in session
-    (req.session as unknown as Record<string, unknown>).impersonating = {
-      userId: target._id.toString(),
-      adminId: admin._id.toString(),
-    };
-
-    const { ipAddress, userAgent } = getClientInfo(req);
-    logAudit({
-      userId: admin._id, action: "impersonate", resourceType: "user",
-      resourceId: target._id, ipAddress, userAgent,
-    });
-
-    res.json({ message: `Now impersonating ${target.name}`, user: { _id: target._id, name: target.name, email: target.email } });
   } catch (err) {
     next(err);
   }

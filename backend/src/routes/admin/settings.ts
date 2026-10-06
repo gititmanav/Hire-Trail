@@ -8,44 +8,41 @@ import { systemSettingSchema } from "../../validators/admin.js";
 
 const router = Router();
 
-/** Seed default settings if none exist */
+/** The settings this editor serves: the ones code reads (DEFAULT_SETTINGS).
+ *  Retired rows stay in the database but aren't listed or writable here —
+ *  AI is configured in Admin → AI. */
+const LIVE_KEYS = DEFAULT_SETTINGS.map((s) => s.key);
+
+/** Insert any live setting a database doesn't have yet (one that predates the
+ *  key, or a fresh one); existing values are never overwritten. */
 async function ensureDefaults(): Promise<void> {
-  const count = await SystemSettings.countDocuments({});
-  if (count === 0) {
-    await SystemSettings.insertMany(
-      DEFAULT_SETTINGS.map((s) => ({ ...s, updatedBy: null }))
-    );
-  }
+  await SystemSettings.bulkWrite(
+    DEFAULT_SETTINGS.map((s) => ({
+      updateOne: { filter: { key: s.key }, update: { $setOnInsert: { ...s, updatedBy: null } }, upsert: true },
+    })),
+  );
 }
 
-/** GET / — all settings grouped by category */
+/** GET / — the live settings */
 router.get("/", async (_req: Request, res: Response, next: NextFunction) => {
   try {
     await ensureDefaults();
-    const raw = await SystemSettings.find({}).sort({ category: 1, key: 1 }).lean();
+    const raw = await SystemSettings.find({ key: { $in: LIVE_KEYS } }).sort({ category: 1, key: 1 }).lean();
 
-    // Never return secret values (e.g. the encrypted AI default key). Surface
-    // only whether one is set so the admin UI can show "configured · ••••".
+    // Never return secret values (belt and braces: no live key is secret today).
     const settings = raw.map((s) =>
       REDACTED_SETTING_KEYS.includes(s.key)
         ? { ...s, value: s.value ? "********" : "", redacted: true }
         : s,
     );
 
-    // Group by category
-    const grouped: Record<string, typeof settings> = {};
-    for (const s of settings) {
-      if (!grouped[s.category]) grouped[s.category] = [];
-      grouped[s.category].push(s);
-    }
-
-    res.json({ settings, grouped });
+    res.json({ settings });
   } catch (err) {
     next(err);
   }
 });
 
-/** PUT / — upsert a single setting */
+/** PUT / — change one live setting */
 router.put("/", validate(systemSettingSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const admin = getUser(req);
@@ -55,6 +52,10 @@ router.put("/", validate(systemSettingSchema), async (req: Request, res: Respons
     // dedicated, encrypting Admin → AI endpoint — never as a raw value here.
     if (REDACTED_SETTING_KEYS.includes(key)) {
       res.status(400).json({ error: `"${key}" is managed via Admin → AI, not the generic settings editor.` });
+      return;
+    }
+    if (!LIVE_KEYS.includes(key)) {
+      res.status(400).json({ error: `"${key}" isn't a setting HireTrail reads.` });
       return;
     }
 

@@ -1,9 +1,10 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { escapeRegex } from "../../utils/regex.js";
 import { User } from "../../models/User.js";
-import { Notification } from "../../models/Notification.js";
-import { scanUserInbox as scanGmail, disconnectGmail } from "../../services/gmailService.js";
-import { scanUserInbox as scanOutlook, disconnectOutlook } from "../../services/outlookService.js";
+import { EmailScanJob } from "../../models/EmailScanJob.js";
+import { EmailScanCandidate } from "../../models/EmailScanCandidate.js";
+import { disconnectGmail } from "../../services/gmailService.js";
+import { disconnectOutlook } from "../../services/outlookService.js";
 import { getUser } from "../../middleware/auth.js";
 import { logAudit, getClientInfo } from "../../utils/auditLog.js";
 import { NotFoundError } from "../../errors/AppError.js";
@@ -11,12 +12,6 @@ import { NotFoundError } from "../../errors/AppError.js";
 const router = Router();
 
 type Provider = "gmail" | "outlook";
-const SIGNAL_TYPES = [
-  "rejection_detected",
-  "interview_detected",
-  "offer_detected",
-  "follow_up_detected",
-] as const;
 
 function getPagination(query: Record<string, unknown>) {
   const page = Math.max(1, Number(query.page) || 1);
@@ -66,75 +61,26 @@ router.get("/users", async (req: Request, res: Response, next: NextFunction) => 
   } catch (err) { next(err); }
 });
 
-/** GET /stats — combined mailbox adoption + signal stats */
+/** GET /stats — mailbox adoption, and the last 30 days of inbox scans (the
+ *  review queue: what scans found, and what people imported from it). */
 router.get("/stats", async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-
-    const [
-      gmailConnected,
-      outlookConnected,
-      bothConnected,
-      anyConnected,
-      rejections,
-      interviews,
-      offers,
-      followUps,
-      signalsToday,
-    ] = await Promise.all([
+    const since = new Date(Date.now() - 30 * 86_400_000);
+    const [gmailConnected, outlookConnected, bothConnected, anyConnected, scans, failedScans, found, imported] = await Promise.all([
       User.countDocuments({ gmailConnected: true }),
       User.countDocuments({ outlookConnected: true }),
       User.countDocuments({ gmailConnected: true, outlookConnected: true }),
       User.countDocuments({ $or: [{ gmailConnected: true }, { outlookConnected: true }] }),
-      Notification.countDocuments({ type: "rejection_detected" }),
-      Notification.countDocuments({ type: "interview_detected" }),
-      Notification.countDocuments({ type: "offer_detected" }),
-      Notification.countDocuments({ type: "follow_up_detected" }),
-      Notification.countDocuments({ type: { $in: SIGNAL_TYPES as unknown as string[] }, createdAt: { $gte: todayStart } }),
+      EmailScanJob.countDocuments({ createdAt: { $gte: since } }),
+      EmailScanJob.countDocuments({ createdAt: { $gte: since }, status: "failed" }),
+      EmailScanCandidate.countDocuments({ createdAt: { $gte: since } }),
+      EmailScanCandidate.countDocuments({ updatedAt: { $gte: since }, status: { $in: ["imported", "merged"] } }),
     ]);
 
     res.json({
-      providers: {
-        gmailConnected,
-        outlookConnected,
-        bothConnected,
-        anyConnected,
-      },
-      signals: { rejections, interviews, offers, followUps },
-      signalsToday,
+      providers: { gmailConnected, outlookConnected, bothConnected, anyConnected },
+      scans30d: { scans, failed: failedScans, found, imported },
     });
-  } catch (err) { next(err); }
-});
-
-/** POST /:userId/scan?provider=gmail|outlook — admin-triggered scan */
-router.post("/:userId/scan", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const admin = getUser(req);
-    const provider = parseProvider(req.query.provider);
-    if (provider === "all") return res.status(400).json({ error: "Specify provider=gmail|outlook" });
-
-    const user = await User.findById(req.params.userId);
-    if (!user) throw new NotFoundError("User");
-
-    let result: { scanned: number; applied: number };
-    if (provider === "gmail") {
-      if (!user.gmailConnected) return res.status(400).json({ error: "User does not have Gmail connected" });
-      result = await scanGmail(user);
-    } else {
-      if (!user.outlookConnected) return res.status(400).json({ error: "User does not have Outlook connected" });
-      result = await scanOutlook(user);
-    }
-    const { scanned, applied } = result;
-
-    const { ipAddress, userAgent } = getClientInfo(req);
-    logAudit({
-      userId: admin._id, action: "update", resourceType: "user",
-      resourceId: user._id, metadata: { action: `${provider}_scan`, scanned, applied },
-      ipAddress, userAgent,
-    });
-
-    res.json({ message: `Scan complete. ${applied} signal(s) detected.`, scanned, applied });
   } catch (err) { next(err); }
 });
 

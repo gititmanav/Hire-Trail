@@ -29,7 +29,8 @@ export async function rejectMaintenanceForNonBypass(
     if (!user) {
       return next();
     }
-    if (isMaintenanceBypassEmail(user.email)) {
+    // Admins (by role or by ADMIN_EMAILS) and the bypass email keep working.
+    if (user.role === "admin" || isMaintenanceBypassEmail(user.email)) {
       return next();
     }
     res.status(503).json({

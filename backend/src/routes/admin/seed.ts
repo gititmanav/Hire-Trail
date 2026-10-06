@@ -5,10 +5,15 @@ import { runSeed, clearSeedData } from "../../utils/seedData.js";
 
 const router = Router();
 
-/** POST /run — run seed data generation */
+/** POST /run — reset the demo account: its data is replaced with a fresh set
+ *  dated around today, exactly as `npm run seed` does. `runSeed` alone adds
+ *  on top of what's there, so a second press would double the demo. There's
+ *  deliberately no "clear" on its own — the landing's "Try the demo" needs an
+ *  account with data in it. */
 router.post("/run", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const admin = getUser(req);
+    await clearSeedData();
     const result = await runSeed();
 
     const { ipAddress, userAgent } = getClientInfo(req);
@@ -17,25 +22,7 @@ router.post("/run", async (req: Request, res: Response, next: NextFunction) => {
       metadata: result, ipAddress, userAgent,
     });
 
-    res.json({ message: "Seed data created successfully", ...result });
-  } catch (err) {
-    next(err);
-  }
-});
-
-/** POST /clear — clear seed data */
-router.post("/clear", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const admin = getUser(req);
-    const result = await clearSeedData();
-
-    const { ipAddress, userAgent } = getClientInfo(req);
-    logAudit({
-      userId: admin._id, action: "seed_clear", resourceType: "system",
-      metadata: result, ipAddress, userAgent,
-    });
-
-    res.json({ message: result.cleared ? "Seed data cleared" : "No seed data found", ...result });
+    res.json({ message: "Demo account reset", ...result });
   } catch (err) {
     next(err);
   }
