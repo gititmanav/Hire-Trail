@@ -8,6 +8,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useFeatureFlags } from "../../hooks/useFeatureFlags.tsx";
+import { useUnreadNotifications } from "../../hooks/useUnreadNotifications.ts";
 import { CollapseToggle, GroupLabel, ICON_ROW, fade, navTone } from "./navParts.tsx";
 
 const FeedbackModal = lazy(() => import("../FeedbackWidget/FeedbackModal.tsx"));
@@ -69,6 +70,7 @@ export default function Sidebar({ collapsed, onToggle, isAdmin }: Props) {
   const { isEnabled } = useFeatureFlags();
   const [feedbackOpen, setFeedbackOpen] = useState(false);
 
+  const unread = useUnreadNotifications();
   const visibleGroups = groups
     .map((g) => ({ ...g, items: g.items.filter((i) => !i.featureKey || isEnabled(i.featureKey)) }))
     .filter((g) => g.items.length > 0);
@@ -88,7 +90,15 @@ export default function Sidebar({ collapsed, onToggle, isAdmin }: Props) {
         {item.badge && (
           <span className="ml-2 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-primary/15 text-primary">{item.badge}</span>
         )}
+        {item.to === "/notifications" && unread > 0 && (
+          <span className="ml-2 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-primary px-1 text-[10px] font-semibold tabular-nums text-primary-foreground" aria-label={`${unread} unread`}>
+            {unread > 99 ? "99+" : unread}
+          </span>
+        )}
       </span>
+      {item.to === "/notifications" && unread > 0 && (
+        <span className={`shell-fade absolute left-[30px] top-[7px] w-2 h-2 rounded-full bg-primary border border-sidebar ${collapsed ? "opacity-100" : "opacity-0"}`} aria-hidden />
+      )}
       {item.badge && (
         <span className={`shell-fade absolute left-[30px] top-[7px] w-2 h-2 rounded-full bg-primary border border-sidebar ${collapsed ? "opacity-100" : "opacity-0"}`} aria-hidden />
       )}

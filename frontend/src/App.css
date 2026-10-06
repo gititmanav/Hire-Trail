@@ -352,6 +352,33 @@ html.vt-shell::view-transition-new(shell-main) {
 @keyframes app-row-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 .app-row-stagger { animation: app-row-in 220ms cubic-bezier(0.16, 1, 0.3, 1) both; }
 
+/* The header search (components/Spotlight). The liquid layer is shapes under
+ * an SVG goo filter; this gives its silhouette a hairline and a soft lift (a
+ * filter after the goo, so the edge follows the blobs). The jiggle runs on an
+ * inner element — the springs own the outer one's transform. */
+.spotlight-silhouette {
+  filter: drop-shadow(0 0 0.5px hsl(var(--foreground) / 0.2)) drop-shadow(0 1px 2px hsl(var(--foreground) / 0.06));
+}
+.dark .spotlight-silhouette {
+  filter: drop-shadow(0 0 0.5px hsl(0 0% 100% / 0.16)) drop-shadow(0 2px 6px hsl(0 0% 0% / 0.35));
+}
+.spotlight-silhouette { transition: filter 200ms var(--ease-out); }
+.spotlight-silhouette.is-open {
+  filter: drop-shadow(0 0 0.5px hsl(var(--foreground) / 0.2)) drop-shadow(0 12px 28px hsl(var(--foreground) / 0.12));
+}
+.dark .spotlight-silhouette.is-open {
+  filter: drop-shadow(0 0 0.5px hsl(0 0% 100% / 0.18)) drop-shadow(0 14px 36px hsl(0 0% 0% / 0.55));
+}
+@media (prefers-reduced-motion: reduce) { .spotlight-silhouette { transition: none; } }
+@keyframes spotlight-jiggle {
+  0%, 100% { transform: rotate(-2.4deg); }
+  50% { transform: rotate(2.4deg); }
+}
+.spotlight-jiggle { animation: spotlight-jiggle 0.28s ease-in-out infinite; transform-origin: 50% 55%; }
+@media (prefers-reduced-motion: reduce) {
+  .spotlight-jiggle { animation: none; }
+}
+
 /* Classic application rows (ApplicationRow + SkeletonRows). A row lays out by
  * the list's width, not the viewport's — the sidebar decides how much room it
  * gets. Wide: one line (logo · content · actions · stage · fit). Narrower: the

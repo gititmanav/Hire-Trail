@@ -239,8 +239,8 @@ export const resumesAPI = {
 };
 
 export const companiesAPI = {
-  getAll: (params?: { page?: number; limit?: number; search?: string }) =>
-    api.get<PaginatedResponse<Company>>("/companies", { params }).then((r) => r.data),
+  getAll: (params?: { page?: number; limit?: number; search?: string }, config?: { quiet?: boolean; signal?: AbortSignal }) =>
+    api.get<PaginatedResponse<Company>>("/companies", { params, ...config }).then((r) => r.data),
   getOne: (id: string) => api.get<CompanyDetail>(`/companies/${id}`).then((r) => r.data),
   create: (data: CompanyFormData) => api.post<Company>("/companies", data).then((r) => r.data),
   update: (id: string, data: Partial<CompanyFormData>) => api.put<Company>(`/companies/${id}`, data).then((r) => r.data),
@@ -251,8 +251,8 @@ export const companiesAPI = {
 };
 
 export const contactsAPI = {
-  getAll: (params?: { page?: number; limit?: number; source?: "manual" | "extension" | "email" }) =>
-    api.get<PaginatedResponse<Contact>>("/contacts", { params }).then((r) => r.data),
+  getAll: (params?: { page?: number; limit?: number; source?: "manual" | "extension" | "email" }, config?: { quiet?: boolean; signal?: AbortSignal }) =>
+    api.get<PaginatedResponse<Contact>>("/contacts", { params, ...config }).then((r) => r.data),
   getOne: (id: string) => api.get<Contact>(`/contacts/${id}`).then((r) => r.data),
   create: (data: ContactFormData) => api.post<Contact>("/contacts", data).then((r) => r.data),
   /** lastOutreachDate isn't on ContactFormData (it's set by the system when
@@ -282,7 +282,7 @@ export const deadlinesAPI = {
       .then((r) => r.data),
 
   /** Fetches every deadline page (API sorts by due date; calendar needs the full set). */
-  async getAllAggregated(params?: { status?: "all" | "upcoming" | "overdue" | "completed" | "active" }) {
+  async getAllAggregated(params?: { status?: "all" | "upcoming" | "overdue" | "completed" | "active" }, config?: { quiet?: boolean; signal?: AbortSignal }) {
     const acc: Deadline[] = [];
     let page = 1;
     const limit = 500;
@@ -292,7 +292,7 @@ export const deadlinesAPI = {
           PaginatedResponse<Deadline> & {
             counts?: { upcoming: number; overdue: number; completed: number };
           }
-        >("/deadlines", { params: { ...params, page, limit } })
+        >("/deadlines", { params: { ...params, page, limit }, ...config })
         .then((r) => r.data);
       acc.push(...body.data);
       if (page >= body.pagination.pages) break;
@@ -419,7 +419,8 @@ export const emailAPI = {
 export const notificationsAPI = {
   getAll: (params?: { page?: number; limit?: number; status?: "current" | "past" }) =>
     api.get<PaginatedResponse<Notification>>("/notifications", { params }).then((r) => r.data),
-  getUnreadCount: () => api.get<{ count: number }>("/notifications/unread-count").then((r) => r.data),
+  getUnreadCount: (config?: { quiet?: boolean; signal?: AbortSignal }) =>
+    api.get<{ count: number }>("/notifications/unread-count", config).then((r) => r.data),
   markRead: (id: string) => api.put<Notification>(`/notifications/${id}/read`).then((r) => r.data),
   markAllRead: () => api.put("/notifications/read-all").then((r) => r.data),
   confirm: (id: string) => api.put<Notification>(`/notifications/${id}/confirm`).then((r) => r.data),

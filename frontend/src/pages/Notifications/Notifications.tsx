@@ -7,9 +7,11 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import toast from "../../components/ui/toast.ts";
 import { Bell, Check, RotateCcw, X } from "lucide-react";
 import { notificationsAPI } from "../../utils/api.ts";
+import { UNREAD_KEY } from "../../hooks/useUnreadNotifications.ts";
 import EmptyState from "../../components/EmptyState/EmptyState.tsx";
 import type { Notification, NotificationType } from "../../types";
 
@@ -61,14 +63,18 @@ export default function Notifications() {
   // Confirm / revert / dismiss all mark the notification dealt-with → it leaves
   // the Current tab and moves to Past. Drop it from the visible list.
   const dropFromList = (id: string) => setItems((prev) => prev.filter((x) => x._id !== id));
+  // The sidebar's unread count follows what this page reads and clears.
+  const qc = useQueryClient();
+  const refreshUnread = () => void qc.invalidateQueries({ queryKey: UNREAD_KEY });
 
   const onConfirm = async (n: Notification) => {
     setBusyId(n._id);
     try {
       await notificationsAPI.confirm(n._id);
       dropFromList(n._id);
+      refreshUnread();
       toast.success("Confirmed");
-    } catch { toast.error("Could not confirm"); }
+    } catch { /* the API layer said why */ }
     finally { setBusyId(null); }
   };
 
@@ -77,8 +83,9 @@ export default function Notifications() {
     try {
       await notificationsAPI.revert(n._id);
       dropFromList(n._id);
+      refreshUnread();
       toast.success(`Reverted to ${n.previousStage}`);
-    } catch { toast.error("Could not revert"); }
+    } catch { /* the API layer said why */ }
     finally { setBusyId(null); }
   };
 
@@ -87,7 +94,8 @@ export default function Notifications() {
     try {
       await notificationsAPI.dismiss(n._id);
       dropFromList(n._id);
-    } catch { toast.error("Could not dismiss"); }
+      refreshUnread();
+    } catch { /* the API layer said why */ }
     finally { setBusyId(null); }
   };
 
@@ -96,7 +104,8 @@ export default function Notifications() {
     try {
       await notificationsAPI.remove(n._id);
       dropFromList(n._id);
-    } catch { toast.error("Could not delete"); }
+      refreshUnread();
+    } catch { /* the API layer said why */ }
     finally { setBusyId(null); }
   };
 
@@ -104,8 +113,9 @@ export default function Notifications() {
     try {
       await notificationsAPI.markAllRead();
       setItems((prev) => prev.map((x) => ({ ...x, read: true })));
+      refreshUnread();
       toast.success("All marked as read");
-    } catch { toast.error("Could not mark all as read"); }
+    } catch { /* the API layer said why */ }
   };
 
   const onOpen = async (n: Notification) => {
@@ -113,6 +123,7 @@ export default function Notifications() {
       try {
         await notificationsAPI.markRead(n._id);
         setItems((prev) => prev.map((x) => x._id === n._id ? { ...x, read: true } : x));
+        refreshUnread();
       } catch { /* ignore */ }
     }
     if (n.type === "scan_ready") navigate("/email-review");

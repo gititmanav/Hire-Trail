@@ -1,28 +1,66 @@
-/** Top bar: extension CTA, global search, notifications, user menu. (Theme lives in
- *  Settings → Personalize; the calendar is a view in Applications.) */
-import { useState, useCallback } from "react";
+/** Top bar: the extension CTA, the search (centred — components/Spotlight),
+ *  the user menu. Notifications live in the sidebar (with the unread count)
+ *  and the search's quick links; theme lives in Settings → Personalize. */
+import { lazy, Suspense, useState, useCallback, useLayoutEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Menu as MenuIcon, Puzzle, Download, Info, ChevronDown, User as UserIcon,
+  Menu as MenuIcon, Puzzle, Download, ChevronDown, User as UserIcon,
   Settings as SettingsIcon, LogOut, Megaphone,
 } from "lucide-react";
 import Menu from "../ui/Menu.tsx";
-import HoverCard from "../ui/HoverCard.tsx";
-import NotificationBell from "./NotificationBell.tsx";
-import GlobalSearch from "./GlobalSearch.tsx";
+import SpotlightIdle from "../Spotlight/SpotlightIdle.tsx";
+import { DOCK_MIN_WIDTH } from "../Spotlight/geometry.ts";
+
+// The search (and the motion engine) loads beside the shell, not in it.
+const Spotlight = lazy(() => import("../Spotlight/Spotlight.tsx"));
 import { useAnnouncements } from "../Announcements/AnnouncementsProvider.tsx";
 import type { User } from "../../types";
 
 const EXT_DISMISSED_KEY = "hiretrail-ext-banner-dismissed";
 
-const SUPPORTED_SITES = [
-  { name: "LinkedIn", domain: "linkedin.com", color: "#0A66C2" },
-  { name: "Indeed", domain: "indeed.com", color: "#2164F3" },
-  { name: "Greenhouse", domain: "greenhouse.io", color: "#23A47F", note: "boards + job-boards" },
-  { name: "Lever", domain: "lever.co", color: "#4B5563" },
-  { name: "Glassdoor", domain: "glassdoor.com", color: "#0CAA41" },
-  { name: "Workday", domain: "myworkdayjobs.com", color: "#005CB9" },
-];
+/** The search's widest, and the room kept between it and the clusters either side. */
+const BAR_MAX = 420;
+const BAR_GAP = 16;
+/** Narrower than this there's no useful bar. */
+const BAR_MIN = 120;
+
+interface BarPlace { left: number; width: number; panel: { x: number; width: number } }
+
+/** Where the search goes: centred in the row when there's room for the dock;
+ *  otherwise filling the space between the clusters (search only). On a
+ *  narrow bar the results panel spans the screen with 16px gutters. */
+function useBarPlace() {
+  const rowRef = useRef<HTMLDivElement>(null);
+  const startRef = useRef<HTMLDivElement>(null);
+  const endRef = useRef<HTMLDivElement>(null);
+  const [place, setPlace] = useState<BarPlace | null>(null);
+  useLayoutEffect(() => {
+    const row = rowRef.current, start = startRef.current, end = endRef.current;
+    if (!row || !start || !end) return;
+    const measure = () => {
+      const r = row.getBoundingClientRect();
+      const cs = getComputedStyle(row);
+      const padL = parseFloat(cs.paddingLeft);
+      const inner = r.width - padL - parseFloat(cs.paddingRight);
+      const L = start.offsetWidth, R = end.offsetWidth;
+      const centred = inner - 2 * Math.max(L, R) - 2 * BAR_GAP;
+      const width = Math.floor(centred >= DOCK_MIN_WIDTH ? Math.min(BAR_MAX, centred) : Math.min(BAR_MAX, inner - L - R - 2 * BAR_GAP));
+      if (width < BAR_MIN) { setPlace(null); return; }
+      const left = Math.round(centred >= DOCK_MIN_WIDTH ? (r.width - width) / 2 : padL + L + BAR_GAP);
+      const roomy = width >= 360;
+      const vw = document.documentElement.clientWidth;
+      const panel = roomy ? { x: 0, width } : { x: 16 - (r.left + left), width: Math.min(BAR_MAX, vw - 32) };
+      setPlace((p) => (p && p.left === left && p.width === width && p.panel.x === panel.x && p.panel.width === panel.width ? p : { left, width, panel }));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(row);
+    ro.observe(start);
+    ro.observe(end);
+    return () => ro.disconnect();
+  }, []);
+  return { rowRef, startRef, endRef, place };
+}
 
 interface Props { user: User; onLogout: () => Promise<void>; onMobileMenuToggle?: () => void; }
 
@@ -32,6 +70,7 @@ export default function Header({ user, onLogout, onMobileMenuToggle }: Props) {
   const initials = user.name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
   const [extHighlight, setExtHighlight] = useState(() => !localStorage.getItem(EXT_DISMISSED_KEY));
   const [loggingOut, setLoggingOut] = useState(false);
+  const { rowRef, startRef, endRef, place } = useBarPlace();
 
   const handleExtDownload = useCallback(() => {
     if (extHighlight) {
@@ -52,9 +91,9 @@ export default function Header({ user, onLogout, onMobileMenuToggle }: Props) {
 
   return (
     <header className="shrink-0 bg-sidebar">
-      <div className="flex items-center justify-between px-4 md:px-6 py-2.5 gap-2">
+      <div ref={rowRef} className="relative flex items-center justify-between px-4 md:px-6 py-2.5 gap-2">
         {/* Mobile hamburger + Extension download CTA (slides with the sidebar edge) */}
-        <div className="shell-header-start flex items-center">
+        <div ref={startRef} className="shell-header-start flex items-center">
           {onMobileMenuToggle && (
             <button onClick={onMobileMenuToggle} className="md:hidden w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-background hover:text-foreground mr-1">
               <MenuIcon size={20} strokeWidth={1.5} />
@@ -80,40 +119,15 @@ export default function Header({ user, onLogout, onMobileMenuToggle }: Props) {
               <Download size={14} strokeWidth={2} className="hidden sm:block" />
             )}
           </a>
-          {/* "Where it works" hover card */}
-          <span className="hidden sm:inline-flex">
-            <HoverCard
-              ariaLabel="Supported job boards"
-              content={
-                <>
-                  <div className="px-3.5 pt-3 pb-2.5 border-b border-border">
-                    <p className="text-[13px] font-semibold text-foreground">Supported job boards</p>
-                    <p className="text-[12px] text-muted-foreground mt-0.5">One-click tracking on these sites</p>
-                  </div>
-                  <div className="p-1.5">
-                    {SUPPORTED_SITES.map((s) => (
-                      <div key={s.domain} className="flex items-center gap-2.5 min-h-8 px-2.5 rounded-lg">
-                        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: s.color }} />
-                        <span className="text-[13px] font-medium text-foreground">{s.name}</span>
-                        <span className="text-[11.5px] text-muted-foreground ml-auto">{s.domain}</span>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              }
-            >
-              <button
-                type="button"
-                className="flex items-center gap-1 px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground rounded-md hover:bg-background"
-              >
-                <Info size={13} strokeWidth={2} />
-                Where it works
-              </button>
-            </HoverCard>
-          </span>
         </div>
-        <div className="flex items-center gap-2">
-          <GlobalSearch />
+        {place && (
+          <div className="absolute top-2.5" style={{ left: place.left }}>
+            <Suspense fallback={<SpotlightIdle width={place.width} />}>
+              <Spotlight width={place.width} panel={place.panel} />
+            </Suspense>
+          </div>
+        )}
+        <div ref={endRef} className="flex items-center gap-2">
           {/* Announcements: only present when there's an active announcement.
            *  This is where a dismissed banner "lives" — click to re-open it. */}
           {hasAnnouncements && (
@@ -126,7 +140,6 @@ export default function Header({ user, onLogout, onMobileMenuToggle }: Props) {
               <Megaphone size={18} strokeWidth={1.7} />
             </button>
           )}
-          <NotificationBell />
           {/* User menu */}
           <Menu
             ariaLabel="Account"
@@ -153,7 +166,7 @@ export default function Header({ user, onLogout, onMobileMenuToggle }: Props) {
             trigger={(open) => (
               <button data-tour="user-menu" type="button" aria-label="Account menu" className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-background focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-semibold shadow-sm">{initials}</div>
-                <div className="hidden sm:flex flex-col items-start">
+                <div className="hidden xl:flex flex-col items-start">
                   <span className="text-[13px] font-medium text-foreground leading-tight">{user.name}</span>
                   <span className="text-[11px] text-muted-foreground leading-tight">{user.email}</span>
                 </div>
