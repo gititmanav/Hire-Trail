@@ -1,256 +1,185 @@
 /**
- * AI platform routes — BYOK management, provider catalog, status, usage.
+ * My AI — the person's side of the AI layer.
  *
- * Contract:
- *   GET    /api/ai/providers          → catalog [{id,label,models[],freeTier,getKeyUrl}]
- *   GET    /api/ai/keys               → [{id,provider,label,last4,isActive,createdAt}]
- *   POST   /api/ai/keys               {provider,key,label?}
- *   POST   /api/ai/keys/:id/activate  → activate (deactivates ALL other keys)
+ *   GET    /api/ai/me                    → the whole map: features (lane, key,
+ *                                           model, lock, activity), keys,
+ *                                           included, assistant, usage
+ *   PUT    /api/ai/features/:feature     {lane, keyId?, model?} → move it
+ *   DELETE /api/ai/features/:feature     → back to the default
+ *   PUT    /api/ai/default-key           {keyId}
+ *   POST   /api/ai/keys                  {provider, name, secret, freeTier?} → tested on save
+ *   PATCH  /api/ai/keys/:id              {name?, freeTier?, secret?} (secret = rotate, tested first)
+ *   POST   /api/ai/keys/:id/check        → re-test the stored key
+ *   GET    /api/ai/keys/:id/models       → the key's live model list
  *   DELETE /api/ai/keys/:id
- *   POST   /api/ai/keys/validate      {provider,key} → {ok,modelTested?}
- *   GET    /api/ai/status             → {hasActiveKey,mode}
- *   GET    /api/ai/usage              → byok {tokensIn,tokensOut,estCostUsd,period}
- *                                       | default {usedPct,used,limit,resetsAt}
+ *   GET    /api/ai/usage                 → this month
+ *   GET    /api/ai/jobs/:id              → an AI job's status
+ *   POST   /api/ai/jobs/:id/cancel
+ *
+ * Keys never leave as ciphertext or plaintext — only nickname, provider,
+ * last four and health. The demo account can read (to draw the empty map)
+ * but never writes or reaches a provider.
  */
 import { Router, Request, Response, NextFunction } from "express";
 import { z } from "zod";
+import mongoose from "mongoose";
 
 import { ensureAuth, getUser } from "../middleware/auth.js";
 import { blockDemoUser } from "../middleware/blockDemoUser.js";
-import { AIProviderConfig, type IAIProviderConfig } from "../models/AIProviderConfig.js";
-import { encrypt } from "../utils/encryption.js";
-import { getAiStatus, gatewayEnabled } from "../services/ai/index.js";
-import { getCatalog } from "../services/ai/catalog.js";
-import { getProviderLogos } from "../services/ai/providerLogos.js";
-import { ensureGatewayModels } from "../services/ai/gatewayModels.js";
-import { validateProviderKey } from "../services/ai/validateKey.js";
-import { usageSummary } from "../services/ai/usage.js";
-import { getAdminAiConfig } from "../services/ai/adminConfig.js";
-import { NotFoundError } from "../errors/AppError.js";
 import { byokValidateLimiter } from "../middleware/rateLimiter.js";
+import { AiJob } from "../models/AiJob.js";
+import { User } from "../models/User.js";
+import { NotFoundError } from "../errors/AppError.js";
+import { AI_PROVIDER_IDS, AI_LANES } from "../services/ai/providerIds.js";
+import { addKey, checkKey, deleteKey, modelsForKey, updateKey } from "../services/ai/keys.js";
+import { ensureDefaultRoute } from "../services/ai/routing.js";
+import { getAiSettings } from "../services/ai/settings.js";
+import { userUsage } from "../services/ai/ledger.js";
+import { cancelAiJob, jobView, reviveAiJobs } from "../services/ai/jobs.js";
+import { resetUserFeatureRoute, setUserDefaultKey, setUserFeatureRoute, userAiMap } from "../services/ai/map.js";
+import type { AiUser } from "../services/ai/gateway.js";
 
 const router = Router();
 router.use(ensureAuth);
-// Demo user can read (to render the empty state) but never writes / pings providers.
 router.post(/.*/, blockDemoUser);
 router.put(/.*/, blockDemoUser);
+router.patch(/.*/, blockDemoUser);
 router.delete(/.*/, blockDemoUser);
 
-/** Public shape for a stored key — never includes the ciphertext. */
-function keyView(k: Pick<IAIProviderConfig, "_id" | "provider" | "name" | "last4" | "isActive" | "createdAt">) {
-  return {
-    id: k._id.toString(),
-    provider: k.provider,
-    label: k.name || "",
-    last4: k.last4 || "",
-    isActive: k.isActive,
-    createdAt: k.createdAt,
-  };
+/** The gateway's view of the signed-in user (email + admin overrides). */
+async function aiUser(req: Request): Promise<AiUser> {
+  const user = getUser(req);
+  const full = await User.findById(user._id).select("email aiOverride").lean();
+  return (full ?? { _id: user._id, email: user.email }) as AiUser;
 }
 
-/** Deactivate every active key for a user EXCEPT the given id (one-active-per-user). */
-async function deactivateOthers(userId: unknown, exceptId?: unknown): Promise<void> {
-  const filter: Record<string, unknown> = { userId, isActive: true };
-  if (exceptId) filter._id = { $ne: exceptId };
-  await AIProviderConfig.updateMany(filter, { $set: { isActive: false } });
-}
+const badRequest = (res: Response, err: z.ZodError) => res.status(400).json({ error: err.flatten().fieldErrors });
 
-/* -------------------- catalog + status + usage -------------------- */
-
-router.get("/providers", async (_req: Request, res: Response, next: NextFunction) => {
+router.get("/me", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    await ensureGatewayModels(); // so the catalog includes live/dynamic providers
-    res.json({
-      gatewayConfigured: gatewayEnabled(),
-      providers: getCatalog().map((p) => ({
-        id: p.id,
-        label: p.label,
-        models: p.models.map((m) => ({ id: m.id, label: m.label, capability: m.capability })),
-        freeTier: p.freeTier,
-        getKeyUrl: p.getKeyUrl,
-        keyKind: p.keyKind,
-        gatewayOnly: p.gatewayOnly ?? false,
-        credentialFormat: p.credentialFormat ?? "apiKey",
-        credentialFields: p.credentialFields ?? null,
-      })),
-    });
+    res.json(await userAiMap(await aiUser(req)));
   } catch (err) { next(err); }
 });
 
-/** Live gateway model catalog (cached). Powers the searchable model picker. */
-router.get("/models", async (_req: Request, res: Response, next: NextFunction) => {
+/* ---------------- the map ---------------- */
+
+const routeSchema = z.object({
+  lane: z.enum(AI_LANES),
+  keyId: z.string().nullable().optional(),
+  model: z.string().max(160).nullable().optional(),
+});
+
+router.put("/features/:feature", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const models = await ensureGatewayModels();
-    res.json({
-      gatewayConfigured: gatewayEnabled(),
-      models: models.map((m) => ({
-        id: m.id, provider: m.provider, label: m.label,
-        contextWindow: m.contextWindow ?? null, pricing: m.pricing ?? null,
-      })),
-    });
+    const parsed = routeSchema.safeParse(req.body);
+    if (!parsed.success) return badRequest(res, parsed.error);
+    const user = await aiUser(req);
+    await setUserFeatureRoute(user, String(req.params.feature), parsed.data);
+    res.json(await userAiMap(user));
   } catch (err) { next(err); }
 });
 
-/** Provider brand logos (Cloudinary-cached). { provider: logoUrl } — only
- *  providers we could resolve; the UI falls back to a monogram for the rest. */
-router.get("/provider-logos", async (_req: Request, res: Response, next: NextFunction) => {
+router.delete("/features/:feature", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    res.json({ logos: await getProviderLogos() });
+    const user = await aiUser(req);
+    await resetUserFeatureRoute(user, String(req.params.feature));
+    res.json(await userAiMap(user));
   } catch (err) { next(err); }
 });
 
-router.get("/status", async (req: Request, res: Response, next: NextFunction) => {
+router.put("/default-key", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const parsed = z.object({ keyId: z.string().min(1) }).safeParse(req.body);
+    if (!parsed.success) return badRequest(res, parsed.error);
+    const user = await aiUser(req);
+    await setUserDefaultKey(user, parsed.data.keyId);
+    res.json(await userAiMap(user));
+  } catch (err) { next(err); }
+});
+
+/* ---------------- keys ---------------- */
+
+const addKeySchema = z.object({
+  provider: z.enum(AI_PROVIDER_IDS),
+  name: z.string().max(60).optional().default(""),
+  secret: z.string().min(1).max(4096),
+  freeTier: z.boolean().optional(),
+});
+
+router.post("/keys", byokValidateLimiter, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const parsed = addKeySchema.safeParse(req.body);
+    if (!parsed.success) return badRequest(res, parsed.error);
+    const user = getUser(req);
+    const { key, note } = await addKey({ owner: "user", userId: user._id }, parsed.data, user._id);
+    await ensureDefaultRoute("user", user._id, new mongoose.Types.ObjectId(key.id));
+    res.status(201).json({ key, note });
+  } catch (err) { next(err); }
+});
+
+const patchKeySchema = z.object({
+  name: z.string().max(60).optional(),
+  freeTier: z.boolean().optional(),
+  secret: z.string().min(1).max(4096).optional(),
+});
+
+router.patch("/keys/:id", byokValidateLimiter, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const parsed = patchKeySchema.safeParse(req.body);
+    if (!parsed.success) return badRequest(res, parsed.error);
+    const user = getUser(req);
+    res.json(await updateKey({ owner: "user", userId: user._id }, String(req.params.id), parsed.data));
+  } catch (err) { next(err); }
+});
+
+router.post("/keys/:id/check", byokValidateLimiter, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = getUser(req);
-    res.json(await getAiStatus(user._id));
+    res.json({ key: await checkKey({ owner: "user", userId: user._id }, String(req.params.id)) });
   } catch (err) { next(err); }
 });
 
-router.get("/usage", async (req: Request, res: Response, next: NextFunction) => {
+router.get("/keys/:id/models", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = getUser(req);
-    const hasActiveKey = Boolean(await AIProviderConfig.exists({ userId: user._id, isActive: true }));
-    const admin = await getAdminAiConfig();
-    res.json(await usageSummary(user._id, { byok: hasActiveKey, monthlyTokenLimit: admin.monthlyTokenLimit }));
-  } catch (err) { next(err); }
-});
-
-/* -------------------- validate (no persistence) -------------------- */
-
-// Provider is a free string now (the gateway routes to 40+ providers); the
-// catalog derives metadata for any id and validateKey/use-time surfaces errors.
-const validateKeySchema = z.object({
-  provider: z.string().trim().min(1).max(60),
-  key: z.string().min(4),
-  /** The model the user picked — validated directly so we test what they'll run,
-   *  not a per-provider default that may not exist in their account. */
-  model: z.string().trim().max(160).optional(),
-});
-
-// SECURITY: the body carries a raw provider key. We never log request bodies in
-// this app; on hosted platforms ensure body capture is disabled for this route.
-// Rate-limited (30 / 5min / IP) so it can't be used to brute-validate stolen keys.
-router.post("/keys/validate", byokValidateLimiter, async (req: Request, res: Response, _next: NextFunction) => {
-  const parsed = validateKeySchema.safeParse(req.body);
-  if (!parsed.success) {
-    res.json({ ok: false, reason: "Missing provider or API key." });
-    return;
-  }
-  const result = await validateProviderKey(parsed.data.provider, parsed.data.key, parsed.data.model);
-  res.json(result);
-});
-
-/* -------------------- keys CRUD -------------------- */
-
-const createKeySchema = z.object({
-  provider: z.string().trim().min(1).max(60),
-  key: z.string().min(8, "API key looks too short"),
-  label: z.string().max(80).optional().default(""),
-  modelOverride: z.string().max(160).optional().nullable(),
-  /** False when pre-validation failed: the key is stored but NOT routed to,
-   *  so a bad save can't silently break the user's working AI. */
-  activate: z.boolean().optional().default(true),
-});
-
-/** Display tail of a credential. JSON multi-field secrets (Bedrock/Azure) would
- *  otherwise show `"-1\"}"` — use the longest field value (the actual secret). */
-function credentialLast4(key: string): string {
-  const trimmed = key.trim();
-  if (trimmed.startsWith("{")) {
-    try {
-      const obj = JSON.parse(trimmed) as Record<string, unknown>;
-      const longest = Object.values(obj)
-        .filter((v): v is string => typeof v === "string")
-        .sort((a, b) => b.length - a.length)[0];
-      if (longest) return longest.slice(-4);
-    } catch { /* fall through */ }
-  }
-  return key.slice(-4);
-}
-
-const updateKeySchema = z.object({
-  label: z.string().max(80).optional(),
-  modelOverride: z.string().max(160).nullable().optional(),
-  isActive: z.boolean().optional(),
-});
-
-router.get("/keys", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const user = getUser(req);
-    const keys = await AIProviderConfig.find({ userId: user._id }).sort({ createdAt: -1 }).lean();
-    res.json(keys.map(keyView));
-  } catch (err) { next(err); }
-});
-
-router.post("/keys", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const user = getUser(req);
-    const parsed = createKeySchema.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({ error: parsed.error.flatten().fieldErrors });
-      return;
-    }
-    const { provider, key, label, modelOverride, activate } = parsed.data;
-
-    // A newly-added key becomes the single active key — unless it failed
-    // pre-validation, in which case it's stored inactive for later.
-    if (activate) await deactivateOthers(user._id);
-    const doc = await AIProviderConfig.create({
-      userId: user._id,
-      provider,
-      encryptedKey: encrypt(key),
-      last4: credentialLast4(key),
-      name: label,
-      isActive: activate,
-      modelOverride: modelOverride?.trim() || null,
-    });
-    res.status(201).json(keyView(doc));
-  } catch (err) { next(err); }
-});
-
-router.post("/keys/:id/activate", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const user = getUser(req);
-    const key = await AIProviderConfig.findOne({ _id: req.params.id, userId: user._id });
-    if (!key) throw new NotFoundError("API key");
-    // Exactly one active key per user — activating this deactivates the rest.
-    await deactivateOthers(user._id, key._id);
-    key.isActive = true;
-    await key.save();
-    res.json(keyView(key));
-  } catch (err) { next(err); }
-});
-
-router.put("/keys/:id", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const user = getUser(req);
-    const parsed = updateKeySchema.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({ error: parsed.error.flatten().fieldErrors });
-      return;
-    }
-    const key = await AIProviderConfig.findOne({ _id: req.params.id, userId: user._id });
-    if (!key) throw new NotFoundError("API key");
-
-    if (parsed.data.label !== undefined) key.name = parsed.data.label;
-    if (parsed.data.modelOverride !== undefined) key.modelOverride = parsed.data.modelOverride?.trim() || null;
-    if (parsed.data.isActive === true) {
-      await deactivateOthers(user._id, key._id);
-      key.isActive = true;
-    } else if (parsed.data.isActive === false) {
-      key.isActive = false;
-    }
-    await key.save();
-    res.json(keyView(key));
+    res.json({ models: await modelsForKey({ owner: "user", userId: user._id }, String(req.params.id)) });
   } catch (err) { next(err); }
 });
 
 router.delete("/keys/:id", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = getUser(req);
-    const key = await AIProviderConfig.findOneAndDelete({ _id: req.params.id, userId: user._id });
-    if (!key) throw new NotFoundError("API key");
-    res.json({ message: "API key removed" });
+    const result = await deleteKey({ owner: "user", userId: user._id }, String(req.params.id));
+    res.json(result);
+  } catch (err) { next(err); }
+});
+
+/* ---------------- usage + jobs ---------------- */
+
+router.get("/usage", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = await aiUser(req);
+    res.json(await userUsage(user._id, await getAiSettings(), user.aiOverride?.allowanceUsd ?? null));
+  } catch (err) { next(err); }
+});
+
+router.get("/jobs/:id", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = getUser(req);
+    if (!mongoose.isValidObjectId(req.params.id)) throw new NotFoundError("AI job");
+    await reviveAiJobs(user._id);
+    const job = await AiJob.findOne({ _id: req.params.id, userId: user._id });
+    if (!job) throw new NotFoundError("AI job");
+    res.json(jobView(job));
+  } catch (err) { next(err); }
+});
+
+router.post("/jobs/:id/cancel", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = getUser(req);
+    const ok = await cancelAiJob(String(req.params.id), user._id);
+    if (!ok) throw new NotFoundError("Running AI job");
+    res.json({ ok: true });
   } catch (err) { next(err); }
 });
 
