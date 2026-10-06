@@ -1,8 +1,6 @@
 import { NavLink } from "react-router-dom";
 import {
-  LayoutDashboard, Shield, FileEdit, Calendar, Mail, Bell, MessageSquare, Bug,
-  HardDrive, Settings, Megaphone, FileText, Send, UserPlus, Database,
-  Archive, Sparkles,
+  LayoutDashboard, Users, Mail, Bell, MessageSquare, Bug, Settings, Megaphone, FileText, Send, Sparkles,
   type LucideIcon,
 } from "lucide-react";
 import { CollapseToggle, GroupLabel, ICON_ROW, fade, navTone } from "../Sidebar/navParts.tsx";
@@ -25,31 +23,27 @@ const groups: AdminNavGroup[] = [
   {
     label: "Overview",
     items: [
-      { to: "/admin",          label: "Dashboard", Icon: LayoutDashboard, end: true },
-      { to: "/admin/calendar", label: "Calendar",  Icon: Calendar },
+      { to: "/admin", label: "Dashboard", Icon: LayoutDashboard, end: true },
     ],
   },
   {
     label: "People",
     items: [
-      { to: "/admin/users",   label: "Users & Roles", Icon: Shield },
-      { to: "/admin/invites", label: "Invites",       Icon: UserPlus },
+      { to: "/admin/users", label: "Users", Icon: Users },
     ],
   },
   {
-    label: "Content",
+    label: "Communicate",
     items: [
-      { to: "/admin/content",         label: "Content",         Icon: FileEdit },
-      { to: "/admin/announcements",   label: "Announcements",   Icon: Megaphone },
-      { to: "/admin/email-templates", label: "Email Templates", Icon: Mail },
-      { to: "/admin/broadcasts",      label: "Broadcasts",      Icon: Send },
+      { to: "/admin/announcements", label: "Announcements", Icon: Megaphone },
+      { to: "/admin/broadcasts",    label: "Broadcasts",    Icon: Send },
+      { to: "/admin/notifications", label: "Notifications", Icon: Bell },
     ],
   },
   {
     label: "Inbox",
     items: [
-      { to: "/admin/mailbox",       label: "Mailboxes",     Icon: Mail },
-      { to: "/admin/notifications", label: "Notifications", Icon: Bell },
+      { to: "/admin/mailbox", label: "Mailboxes", Icon: Mail },
     ],
   },
   {
@@ -62,17 +56,14 @@ const groups: AdminNavGroup[] = [
   {
     label: "AI",
     items: [
-      { to: "/admin/ai", label: "AI Providers", Icon: Sparkles },
+      { to: "/admin/ai", label: "AI", Icon: Sparkles },
     ],
   },
   {
     label: "System",
     items: [
       { to: "/admin/settings",   label: "Settings",   Icon: Settings },
-      { to: "/admin/storage",    label: "Storage",    Icon: HardDrive },
       { to: "/admin/audit-logs", label: "Audit Logs", Icon: FileText },
-      { to: "/admin/backup",     label: "Backup",     Icon: Archive },
-      { to: "/admin/seed",       label: "Seed Data",  Icon: Database },
     ],
   },
 ];

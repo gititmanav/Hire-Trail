@@ -91,20 +91,10 @@ export default function MailboxManagement() {
   const statCards = useMemo(() => {
     if (!stats) return [];
     return [
-      { label: "Total connected", value: stats.providers.anyConnected, hint: `${stats.providers.bothConnected} with both` },
-      { label: "Gmail", value: stats.providers.gmailConnected, hint: "Google Workspace + personal" },
-      { label: "Outlook", value: stats.providers.outlookConnected, hint: "Microsoft Graph" },
-      { label: "Signals today", value: stats.signalsToday, hint: "Auto-classified emails", accent: "text-emerald-600 dark:text-emerald-400" },
-    ];
-  }, [stats]);
-
-  const signalCards = useMemo(() => {
-    if (!stats) return [];
-    return [
-      { label: "Interviews", value: stats.signals.interviews, color: "from-blue-500/15 to-blue-500/0", text: "text-blue-600 dark:text-blue-400" },
-      { label: "Offers", value: stats.signals.offers, color: "from-emerald-500/15 to-emerald-500/0", text: "text-emerald-600 dark:text-emerald-400" },
-      { label: "Follow-ups", value: stats.signals.followUps, color: "from-amber-500/15 to-amber-500/0", text: "text-amber-600 dark:text-amber-400" },
-      { label: "Rejections", value: stats.signals.rejections, color: "from-red-500/15 to-red-500/0", text: "text-red-600 dark:text-red-400" },
+      { label: "Connected", value: stats.providers.anyConnected, hint: `Gmail ${stats.providers.gmailConnected}${stats.providers.outlookConnected ? ` · Outlook ${stats.providers.outlookConnected} (paused)` : ""}` },
+      { label: "Scans · 30 days", value: stats.scans30d.scans, hint: stats.scans30d.failed ? `${stats.scans30d.failed} didn't finish` : "All finished" },
+      { label: "Found", value: stats.scans30d.found, hint: "Applications put in review queues" },
+      { label: "Imported", value: stats.scans30d.imported, hint: "Added to trackers after review" },
     ];
   }, [stats]);
 
@@ -112,7 +102,7 @@ export default function MailboxManagement() {
     <div className="fade-up">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-foreground tracking-tight">Mailbox Management</h1>
-        <p className="text-sm text-muted-foreground mt-1">Gmail and Outlook connections with email-signal triage.</p>
+        <p className="text-sm text-muted-foreground mt-1">Who has a mailbox connected, and what inbox scans found for them to review.</p>
       </div>
 
       {/* Provider stats */}
@@ -120,24 +110,12 @@ export default function MailboxManagement() {
         {statCards.map((s) => (
           <div key={s.label} className="surface-card p-4">
             <p className="text-xs uppercase tracking-wider text-muted-foreground">{s.label}</p>
-            <p className={`text-2xl font-bold mt-1 ${s.accent ?? "text-foreground"}`}>{s.value}</p>
+            <p className="text-2xl font-bold mt-1 text-foreground tabular-nums">{s.value}</p>
             <p className="text-[11px] text-muted-foreground mt-1">{s.hint}</p>
           </div>
         ))}
       </div>
 
-      {/* Signal breakdown */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        {signalCards.map((c) => (
-          <div key={c.label} className={`relative overflow-hidden surface-card p-4`}>
-            <div className={`absolute inset-0 bg-gradient-to-br ${c.color} pointer-events-none`} />
-            <div className="relative">
-              <p className="text-xs uppercase tracking-wider text-muted-foreground">{c.label}</p>
-              <p className={`text-2xl font-bold mt-1 ${c.text}`}>{c.value}</p>
-            </div>
-          </div>
-        ))}
-      </div>
 
       {/* Tabs + search */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">

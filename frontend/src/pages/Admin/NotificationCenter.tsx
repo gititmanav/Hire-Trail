@@ -12,6 +12,7 @@ const TYPE_META: Record<NotificationSignalType, { label: string; cls: string; do
   offer_detected: { label: "Offer", cls: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20", dot: "bg-emerald-500" },
   follow_up_detected: { label: "Follow-up", cls: "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20", dot: "bg-amber-500" },
   info: { label: "Info", cls: "bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/20", dot: "bg-slate-500" },
+  scan_ready: { label: "Scan ready", cls: "bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/20", dot: "bg-slate-500" },
 };
 
 const SOURCE_META: Record<string, { label: string; cls: string }> = {
@@ -97,17 +98,6 @@ export default function NotificationCenter() {
     }
   };
 
-  const signalStats = useMemo(() => {
-    const byType = stats?.byType ?? [];
-    const lookup = Object.fromEntries(byType.map((b) => [b._id, b.count]));
-    return {
-      interviews: lookup.interview_detected || 0,
-      offers: lookup.offer_detected || 0,
-      followUps: lookup.follow_up_detected || 0,
-      rejections: lookup.rejection_detected || 0,
-    };
-  }, [stats]);
-
   const sourceStats = useMemo(() => {
     const bySource = stats?.bySource ?? [];
     const lookup = Object.fromEntries(bySource.map((b) => [b._id, b.count]));
@@ -129,17 +119,17 @@ export default function NotificationCenter() {
     <div className="fade-up">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-foreground tracking-tight">Notification Center</h1>
-        <p className="text-sm text-muted-foreground mt-1">Auto-classified email signals from connected mailboxes, plus manual notifications.</p>
+        <p className="text-sm text-muted-foreground mt-1">Notifications HireTrail sent people — scan results, spend alerts, announcements — and ones you send.</p>
       </div>
 
       {/* Stats */}
       {stats && (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
             {[
               { label: "Total", value: stats.total, accent: "text-foreground" },
               { label: "Unread", value: stats.unread, accent: "text-amber-600 dark:text-amber-400" },
-              { label: "Open signals", value: stats.unresolvedSignals, accent: "text-primary" },
+              { label: "Resolved", value: stats.resolvedCount, accent: "text-foreground" },
               { label: "Today", value: stats.todayCount, accent: "text-emerald-600 dark:text-emerald-400" },
             ].map((s) => (
               <div key={s.label} className="surface-card p-4">
@@ -149,27 +139,6 @@ export default function NotificationCenter() {
             ))}
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-            {([
-              { key: "interview_detected", label: "Interviews", value: signalStats.interviews, color: "text-blue-600 dark:text-blue-400", grad: "from-blue-500/15 to-blue-500/0" },
-              { key: "offer_detected", label: "Offers", value: signalStats.offers, color: "text-emerald-600 dark:text-emerald-400", grad: "from-emerald-500/15 to-emerald-500/0" },
-              { key: "follow_up_detected", label: "Follow-ups", value: signalStats.followUps, color: "text-amber-600 dark:text-amber-400", grad: "from-amber-500/15 to-amber-500/0" },
-              { key: "rejection_detected", label: "Rejections", value: signalStats.rejections, color: "text-red-600 dark:text-red-400", grad: "from-red-500/15 to-red-500/0" },
-            ] as const).map((c) => (
-              <button
-                key={c.key}
-                onClick={() => { setTypeFilter(c.key); refetch({ type: c.key }); }}
-                className={`relative overflow-hidden bg-card border rounded-xl p-4 text-left transition-shadow hover:shadow-sm ${typeFilter === c.key ? "border-primary/50 ring-1 ring-primary/30" : "border-border"}`}
-              >
-                <div className={`absolute inset-0 bg-gradient-to-br ${c.grad} pointer-events-none`} />
-                <div className="relative">
-                  <p className="text-xs uppercase tracking-wider text-muted-foreground">{c.label}</p>
-                  <p className={`text-2xl font-bold mt-1 ${c.color}`}>{c.value}</p>
-                  <p className="text-[11px] text-muted-foreground mt-1">Click to filter</p>
-                </div>
-              </button>
-            ))}
-          </div>
         </>
       )}
 
@@ -188,11 +157,13 @@ export default function NotificationCenter() {
             onChange={(v) => { setTypeFilter(v); refetch({ type: v }); }}
             options={[
               { value: "", label: "All types" },
-              { value: "interview_detected", label: "Interview" },
-              { value: "offer_detected", label: "Offer" },
-              { value: "follow_up_detected", label: "Follow-up" },
-              { value: "rejection_detected", label: "Rejection" },
+              { value: "scan_ready", label: "Scan ready" },
               { value: "info", label: "Info" },
+              // Older signals from the retired auto-apply inbox pipeline (rows still exist).
+              { value: "interview_detected", label: "Interview (older)" },
+              { value: "offer_detected", label: "Offer (older)" },
+              { value: "follow_up_detected", label: "Follow-up (older)" },
+              { value: "rejection_detected", label: "Rejection (older)" },
             ]}
           />
         </div>

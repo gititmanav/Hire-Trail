@@ -1,13 +1,20 @@
-/** Admin Dashboard — comprehensive single-screen snapshot of the platform.
- *  KPI strip · pipeline funnel · integration health · tailor/profile metrics · feedback · recent activity. */
-import { useEffect, useMemo, useState, useContext } from "react";
+/** Admin Dashboard — one screen of the platform, every number real.
+ *  KPI strip · 30-day charts · pipeline · inbox review queue · own AI keys ·
+ *  match scores · profiles · feedback · recent activity. The server leaves out
+ *  deleted accounts and the demo account (routes/admin/dashboard.ts). */
+import { useEffect, useMemo, useState, useContext, type CSSProperties, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import toast from "../../components/ui/toast.ts";
 import { Line, Bar, Doughnut } from "react-chartjs-2";
 import "../../utils/chartSetup";
-import { chartColors, primaryColor, mutedFgColor, borderColor } from "../../utils/chartSetup";
+import { chartColors, primaryColor, mutedFgColor, borderColor, paletteColor } from "../../utils/chartSetup";
 import { ThemeContext } from "../../hooks/useTheme.tsx";
+import PageHeader from "../../components/ui/PageHeader.tsx";
+import { Skeleton } from "../../components/Skeleton/Skeleton.tsx";
+import ProviderMark from "../../components/ai/ProviderMark.tsx";
+import { usd } from "../../components/ai/format.ts";
 import { adminAPI } from "../../utils/api";
+import { STAGES, STAGE_FAMILY, STAGE_STRIPE_CLASS } from "../../utils/stageStyles.ts";
+import { SCORE_BAND_LABEL, formatScore, scoreBand, scoreBandColor, type ScoreBand } from "../../utils/matchScore.ts";
 import type { AdminDashboardData, AuditLog } from "../../types";
 
 /* ---------------- helpers ---------------- */
@@ -26,15 +33,27 @@ function userName(userId: AuditLog["userId"]): string {
   return "System";
 }
 
-const STAGE_ORDER = ["Applied", "OA", "Interview", "Offer", "Rejected"] as const;
-const SIGNAL_LABELS: Record<string, string> = {
-  interview_detected: "Interview",
-  offer_detected: "Offer",
-  rejection_detected: "Rejection",
-  follow_up_detected: "Follow-up",
-};
+const BANDS: ScoreBand[] = ["strong", "good", "fair"];
 
 /* ---------------- page ---------------- */
+
+/** The last 30 days (UTC, as the server buckets them), quiet days at zero —
+ *  so one busy day is one bar, not the whole chart. */
+function last30Days(rows: { _id: string; count: number }[]): { labels: string[]; counts: number[] } {
+  const byDay = new Map(rows.map((r) => [r._id, r.count]));
+  const labels: string[] = [];
+  const counts: number[] = [];
+  const today = new Date();
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - i));
+    const key = d.toISOString().slice(0, 10);
+    labels.push(d.toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" }));
+    counts.push(byDay.get(key) ?? 0);
+  }
+  return { labels, counts };
+}
+
+const plural = (n: number, word: string) => `${n.toLocaleString()} ${word}${n === 1 ? "" : "s"}`;
 
 export default function AdminDashboard() {
   const { revision } = useContext(ThemeContext);
@@ -44,7 +63,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     adminAPI.getDashboard()
       .then(setData)
-      .catch(() => toast.error("Failed to load dashboard"))
+      .catch(() => { /* the interceptor toasts */ })
       .finally(() => setLoading(false));
   }, []);
 
@@ -64,64 +83,44 @@ export default function AdminDashboard() {
       plugins: { legend: { display: false } },
       scales: {
         x: { ticks: { color: fg, font: { size: 10 } }, grid: { display: false } },
-        y: { ticks: { color: fg, font: { size: 10 } }, grid: { color: border } },
+        y: { ticks: { color: fg, font: { size: 10 }, precision: 0 }, grid: { color: border }, beginAtZero: true },
       },
     } as const;
 
-    const userGrowth = {
-      labels: data.charts.userGrowth.map((d) => d._id),
-      datasets: [{
-        label: "New users",
-        data: data.charts.userGrowth.map((d) => d.count),
-        borderColor: primary,
-        backgroundColor: primaryColor(0.13),
-        fill: true,
-        tension: 0.3,
-      }],
+    const line = (rows: { _id: string; count: number }[], label: string, color: string, fill: string) => {
+      const days = last30Days(rows);
+      return {
+        labels: days.labels,
+        datasets: [{ label, data: days.counts, borderColor: color, backgroundColor: fill, fill: true, tension: 0.3, pointRadius: 0 }],
+      };
     };
 
-    const tailorPerDay = {
-      labels: data.charts.tailorPerDay.map((d) => d._id),
-      datasets: [{
-        label: "Tailor sessions",
-        data: data.charts.tailorPerDay.map((d) => d.count),
-        borderColor: palette[1],
-        backgroundColor: chartColors(0.13)[1],
-        fill: true,
-        tension: 0.3,
-      }],
-    };
+    const userGrowth = line(data.charts.userGrowth, "New users", primary, primaryColor(0.13));
+    const tailorPerDay = line(data.charts.tailorPerDay, "Tailoring", palette[1], chartColors(0.13)[1]);
+    const aiRunsPerDay = line(data.charts.aiRunsPerDay, "AI runs", palette[3], chartColors(0.13)[3]);
 
+    const appsDays = last30Days(data.charts.appsPerDay);
     const appsPerDay = {
-      labels: data.charts.appsPerDay.map((d) => d._id),
+      labels: appsDays.labels,
       datasets: [{
         label: "Applications added",
-        data: data.charts.appsPerDay.map((d) => d.count),
+        data: appsDays.counts,
         backgroundColor: chartColors(0.67)[2],
         borderColor: palette[2],
         borderWidth: 1,
       }],
     };
 
+    const stages = STAGES.filter((s) => data.tracking.applicationsByStage[s]);
     const stageBreakdown = {
-      labels: STAGE_ORDER.filter((s) => data.breakdowns.applicationsByStage[s]),
+      labels: stages,
       datasets: [{
-        data: STAGE_ORDER.filter((s) => data.breakdowns.applicationsByStage[s]).map((s) => data.breakdowns.applicationsByStage[s] || 0),
-        backgroundColor: chartColors(0.67),
+        data: stages.map((s) => data.tracking.applicationsByStage[s] || 0),
+        backgroundColor: stages.map((s) => paletteColor(`${STAGE_FAMILY[s]}-500`, 0.8)),
         borderColor: border,
         borderWidth: 1,
       }],
     };
-
-    const barOpts = {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { ticks: { color: fg, font: { size: 10 } }, grid: { display: false } },
-        y: { ticks: { color: fg, font: { size: 10 } }, grid: { color: border } },
-      },
-    } as const;
 
     const doughnutOpts = {
       responsive: true,
@@ -131,110 +130,83 @@ export default function AdminDashboard() {
       },
     } as const;
 
-    return { userGrowth, tailorPerDay, appsPerDay, stageBreakdown, lineOpts, barOpts, doughnutOpts };
+    return { userGrowth, tailorPerDay, aiRunsPerDay, appsPerDay, stageBreakdown, lineOpts, doughnutOpts };
   }, [data, revision]);
 
-  if (loading) {
-    return (
-      <div className="p-2">
-        <h1 className="text-2xl font-semibold text-foreground mb-1">Admin Dashboard</h1>
-        <p className="text-sm text-muted-foreground">Loading platform snapshot…</p>
-      </div>
-    );
-  }
+  if (loading) return <DashboardSkeleton />;
 
   if (!data || !charts) {
     return (
-      <div className="p-2">
-        <h1 className="text-2xl font-semibold text-foreground mb-1">Admin Dashboard</h1>
-        <p className="text-sm text-muted-foreground">No data available.</p>
+      <div>
+        <PageHeader title="Dashboard" />
+        <p className="text-sm text-muted-foreground py-12 text-center">The dashboard didn't load. Refresh to try again.</p>
       </div>
     );
   }
 
-  const s = data.stats;
-  const avgFit = s.avgFitScore != null ? s.avgFitScore.toFixed(2) : "—";
-
-  // Compute health pings from already-loaded data so we don't need an extra API hit.
-  const health = [
-    { label: "API", ok: true },
-    { label: "Database", ok: data.recentActivity != null },
-    { label: "AI provider", ok: Object.keys(data.breakdowns.aiKeysByProvider).length > 0 || data.stats.tailorSessionsTotal > 0 },
-    { label: "Email scan", ok: data.stats.gmailConnectedUsers + data.stats.outlookConnectedUsers > 0 },
-  ];
+  const { users: u, tracking: t, mailboxes: m, ai, fit, inbox, feedback } = data;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">Admin Dashboard</h1>
-          <p className="text-sm text-muted-foreground mt-1">Snapshot of users, application activity, integrations, AI usage, and feedback.</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {health.map((h) => (
-            <span key={h.label} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border bg-card text-[11px] font-medium text-foreground">
-              <span className={`w-1.5 h-1.5 rounded-full ${h.ok ? "bg-emerald-500" : "bg-muted-foreground/40"}`} />
-              {h.label}
-              <span className="text-muted-foreground">{h.ok ? "online" : "idle"}</span>
-            </span>
-          ))}
-        </div>
-      </div>
+      <PageHeader title="Dashboard" meta="Excludes the demo account" />
 
       {/* ===== KPI strip ===== */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        <Kpi label="Total users" value={s.totalUsers} subValue={`${s.adminUsers} admin · ${s.regularUsers} user`} />
-        <Kpi label="Active (7d)" value={s.activeUsers7d} subValue={`+${s.signupsThisWeek} signups this week`} />
-        <Kpi label="Applications" value={s.totalApplications} subValue={`${s.totalResumes} resumes`} />
-        <Kpi label="Mailbox-connected" value={s.anyMailboxConnected} subValue={`Gmail ${s.gmailConnectedUsers} · Outlook ${s.outlookConnectedUsers}`} />
-        <Kpi label="BYOK keys" value={s.aiByokUserCount} subValue="Users with own AI keys" />
-        <Kpi label="Open feedback" value={s.feedbackOpen} subValue="In the admin inbox" highlight={s.feedbackOpen > 0} link="/admin/feedback" />
+        <Kpi label="Users" value={u.total.toLocaleString()} subValue={`${u.admins} admin · +${u.signupsThisWeek} this week`} link="/admin/users" />
+        <Kpi label="Signed in · 7d" value={u.signedInThisWeek.toLocaleString()} subValue={`+${u.signupsToday} new today`} />
+        <Kpi label="Applications" value={t.applications.toLocaleString()} subValue={`${plural(t.resumes, "resume")} · ${plural(t.contacts, "contact")}`} />
+        <Kpi label="Inbox connected" value={m.any.toLocaleString()} subValue={`Gmail ${m.gmail}${m.outlook ? ` · Outlook ${m.outlook}` : ""}`} link="/admin/mailbox" />
+        <Kpi label="Included AI spend" value={usd(ai.includedSpendUsd)} subValue={`${ai.runsThisMonth.toLocaleString()} AI runs this month`} link="/admin/ai?view=spend" />
+        <Kpi label="Open feedback" value={feedback.open.toLocaleString()} subValue="In the admin inbox" highlight={feedback.open > 0} link="/admin/feedback" />
       </div>
 
-      {/* ===== Growth charts ===== */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <ChartCard title="User signups (30d)" subtitle={`+${s.signupsThisMonth} this month`}>
+      {/* ===== 30-day charts ===== */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <ChartCard title="New users (30d)" subtitle={`+${u.signupsThisMonth} in the last 30 days`}>
           <Line data={charts.userGrowth} options={charts.lineOpts} />
         </ChartCard>
-        <ChartCard title="Applications tracked (30d)">
-          <Bar data={charts.appsPerDay} options={charts.barOpts} />
+        <ChartCard title="Applications added (30d)">
+          <Bar data={charts.appsPerDay} options={charts.lineOpts} />
         </ChartCard>
-        <ChartCard title="Tailor sessions (30d)" subtitle={`${s.tailorSessionsTotal} total · avg fit ${avgFit}/5`}>
+        <ChartCard title="Tailoring (30d)" subtitle={`${fit.sessionsThisWeek} this week · ${fit.sessionsTotal.toLocaleString()} all time`}>
           <Line data={charts.tailorPerDay} options={charts.lineOpts} />
+        </ChartCard>
+        <ChartCard title="AI runs (30d)" subtitle={`${ai.runsThisMonth.toLocaleString()} this month`}>
+          <Line data={charts.aiRunsPerDay} options={charts.lineOpts} />
         </ChartCard>
       </div>
 
       {/* ===== Breakdowns row ===== */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <ChartCard title="Application pipeline" subtitle="Current stage distribution">
-          {Object.values(data.breakdowns.applicationsByStage).reduce((a, b) => a + b, 0) === 0 ? (
+          {t.applications === 0 ? (
             <EmptyChart label="No applications tracked yet" />
           ) : (
             <Doughnut data={charts.stageBreakdown} options={charts.doughnutOpts} />
           )}
         </ChartCard>
 
-        <Card title="Email signals (30d)" subtitle="Auto-detections from connected inboxes">
-          <SignalList signals={data.breakdowns.signalsThisMonth} />
+        <Card title="Inbox review queue" subtitle="This month, from connected inboxes">
+          <InboxQueue inbox={inbox} />
         </Card>
 
-        <Card title="AI providers in use" subtitle="Active BYOK keys per provider">
-          <ProviderBars providers={data.breakdowns.aiKeysByProvider} />
+        <Card title="People's own AI" subtitle="Their own keys and assistant connections">
+          <OwnAi ai={ai} />
         </Card>
       </div>
 
       {/* ===== Secondary metrics row ===== */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card title="Tailor fit grades" subtitle="Distribution across last 30 days">
-          <FitGradeBars dist={data.breakdowns.tailorFitDistribution} />
+        <Card title="Match scores" subtitle="Scored in the last 30 days">
+          <ScoreBands fit={fit} />
         </Card>
 
         <Card title="Profile coverage" subtitle="Users with structured master profiles">
-          <ProfileCoverage masterProfileUsers={s.masterProfileUsers} totalUsers={s.totalUsers} />
+          <ProfileCoverage masterProfileUsers={t.masterProfileUsers} totalUsers={u.total} />
         </Card>
 
         <Card title="Feedback by type" subtitle="All-time inbox breakdown">
-          <FeedbackBars byType={data.breakdowns.feedbackByType} />
+          <FeedbackBars byType={feedback.byType} />
         </Card>
       </div>
 
@@ -251,7 +223,7 @@ export default function AdminDashboard() {
             {data.recentActivity.slice(0, 10).map((a) => (
               <li key={a._id} className="px-5 py-2.5 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
-                  <span className={`shrink-0 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${actionColors[a.action] ?? "bg-muted text-muted-foreground"}`}>
+                  <span className={`shrink-0 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${actionColors[a.action] ?? "bg-control text-muted-foreground"}`}>
                     {a.action.replace(/_/g, " ")}
                   </span>
                   <div className="min-w-0">
@@ -273,6 +245,20 @@ export default function AdminDashboard() {
 /* Sub-components                                                 */
 /* ============================================================== */
 
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-6" aria-busy>
+      <PageHeader title="Dashboard" />
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-[92px] rounded-xl" />)}
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-[284px] rounded-xl" />)}
+      </div>
+    </div>
+  );
+}
+
 function Kpi({ label, value, subValue, highlight, link }: { label: string; value: number | string; subValue?: string; highlight?: boolean; link?: string }) {
   const inner = (
     <div className={`border rounded-xl p-4 transition-colors h-full ${
@@ -280,16 +266,16 @@ function Kpi({ label, value, subValue, highlight, link }: { label: string; value
         ? "border-red-300 dark:border-red-800/60 bg-red-50 dark:bg-red-900/20"
         : "border-border bg-card hover:border-foreground/20"
     }`}>
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground truncate">{label}</p>
       <p className="text-2xl font-bold text-foreground mt-1 tabular-nums">{value}</p>
       {subValue && <p className="text-[11px] text-muted-foreground mt-1.5 truncate">{subValue}</p>}
     </div>
   );
-  if (link) return <Link to={link}>{inner}</Link>;
+  if (link) return <Link to={link} className="rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">{inner}</Link>;
   return inner;
 }
 
-function ChartCard({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
+function ChartCard({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
   return (
     <div className="surface-card p-4">
       <div className="mb-3">
@@ -301,7 +287,7 @@ function ChartCard({ title, subtitle, children }: { title: string; subtitle?: st
   );
 }
 
-function Card({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
+function Card({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
   return (
     <div className="surface-card p-4">
       <div className="mb-3">
@@ -317,79 +303,102 @@ function EmptyChart({ label }: { label: string }) {
   return <div className="h-full flex items-center justify-center text-xs text-muted-foreground">{label}</div>;
 }
 
-function SignalList({ signals }: { signals: Record<string, number> }) {
-  const total = Object.values(signals).reduce((a, b) => a + b, 0);
-  if (total === 0) return <p className="text-xs text-muted-foreground py-6 text-center">No signals detected this month.</p>;
+function Empty({ children }: { children: ReactNode }) {
+  return <p className="text-xs text-muted-foreground py-6 text-center">{children}</p>;
+}
+
+/** One labelled bar: label left, count (· share) right, the bar under it. */
+function BarRow({ label, value, pct, fill, style }: { label: ReactNode; value: ReactNode; pct: number; fill?: string; style?: CSSProperties }) {
   return (
-    <ul className="space-y-2.5">
-      {["interview_detected", "offer_detected", "rejection_detected", "follow_up_detected"].map((k) => {
-        const v = signals[k] || 0;
-        const pct = total > 0 ? Math.round((v / total) * 100) : 0;
-        const tone =
-          k === "interview_detected" ? "bg-purple-500" :
-          k === "offer_detected" ? "bg-emerald-500" :
-          k === "rejection_detected" ? "bg-red-500" :
-          "bg-amber-500";
-        return (
-          <li key={k}>
-            <div className="flex justify-between items-center text-xs mb-1">
-              <span className="text-foreground">{SIGNAL_LABELS[k]}</span>
-              <span className="text-muted-foreground tabular-nums">{v} · {pct}%</span>
-            </div>
-            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-              <div className={`h-full ${tone} rounded-full transition-all`} style={{ width: `${pct}%` }} />
-            </div>
-          </li>
-        );
-      })}
-    </ul>
+    <li>
+      <div className="flex justify-between items-center gap-3 text-xs mb-1">
+        <span className="text-foreground min-w-0 truncate">{label}</span>
+        <span className="text-muted-foreground tabular-nums shrink-0">{value}</span>
+      </div>
+      <div className="h-1.5 bg-control rounded-full overflow-hidden">
+        <div className={`h-full rounded-full ${fill ?? ""}`} style={{ width: `${pct}%`, ...style }} />
+      </div>
+    </li>
   );
 }
 
-function ProviderBars({ providers }: { providers: Record<string, number> }) {
-  const entries = Object.entries(providers);
-  if (entries.length === 0) return <p className="text-xs text-muted-foreground py-6 text-center">No BYOK keys configured yet.</p>;
-  const max = Math.max(...entries.map(([, v]) => v));
+/** Three quiet figures in a row (the queue's found / imported / merged). */
+function Figures({ items }: { items: [string, number][] }) {
   return (
-    <ul className="space-y-2.5">
-      {entries.sort((a, b) => b[1] - a[1]).map(([p, v]) => (
-        <li key={p}>
-          <div className="flex justify-between items-center text-xs mb-1">
-            <span className="text-foreground capitalize">{p}</span>
-            <span className="text-muted-foreground tabular-nums">{v} {v === 1 ? "user" : "users"}</span>
-          </div>
-          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-            <div className="h-full bg-primary rounded-full" style={{ width: `${(v / max) * 100}%` }} />
-          </div>
-        </li>
+    <div className="grid grid-cols-3 gap-2 mb-4">
+      {items.map(([label, n]) => (
+        <div key={label} className="rounded-lg bg-control/60 px-2.5 py-2 min-w-0">
+          <p className="text-[11px] text-muted-foreground truncate">{label}</p>
+          <p className="text-lg font-semibold text-foreground tabular-nums leading-tight mt-0.5">{n.toLocaleString()}</p>
+        </div>
       ))}
-    </ul>
+    </div>
   );
 }
 
-function FitGradeBars({ dist }: { dist: Record<string, number> }) {
-  const grades = ["A", "B", "C", "D", "F"];
-  const total = grades.reduce((s, g) => s + (dist[g] || 0), 0);
-  if (total === 0) return <p className="text-xs text-muted-foreground py-6 text-center">No tailor sessions yet.</p>;
-  const tones: Record<string, string> = { A: "bg-emerald-500", B: "bg-blue-500", C: "bg-amber-500", D: "bg-orange-500", F: "bg-red-500" };
+function InboxQueue({ inbox }: { inbox: AdminDashboardData["inbox"] }) {
+  const added = inbox.importedThisMonth + inbox.mergedThisMonth;
+  if (inbox.foundThisMonth === 0 && added === 0) return <Empty>No inbox scans this month.</Empty>;
   return (
-    <ul className="space-y-2.5">
-      {grades.map((g) => {
-        const v = dist[g] || 0;
-        const pct = total > 0 ? Math.round((v / total) * 100) : 0;
-        return (
-          <li key={g}>
-            <div className="flex justify-between items-center text-xs mb-1">
-              <span className="text-foreground font-semibold">Grade {g}</span>
-              <span className="text-muted-foreground tabular-nums">{v} · {pct}%</span>
-            </div>
-            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-              <div className={`h-full ${tones[g]} rounded-full`} style={{ width: `${pct}%` }} />
-            </div>
-          </li>
-        );
-      })}
-    </ul>
+    <>
+      <Figures items={[["Found", inbox.foundThisMonth], ["Imported", inbox.importedThisMonth], ["Merged", inbox.mergedThisMonth]]} />
+      {added === 0 ? (
+        <Empty>Nothing imported or merged yet.</Empty>
+      ) : (
+        <ul className="space-y-2.5">
+          {STAGES.filter((s) => inbox.addedByStage[s]).map((s) => {
+            const v = inbox.addedByStage[s];
+            return <BarRow key={s} label={s} value={v} pct={Math.round((v / added) * 100)} fill={STAGE_STRIPE_CLASS[s]} />;
+          })}
+        </ul>
+      )}
+    </>
+  );
+}
+
+function OwnAi({ ai }: { ai: AdminDashboardData["ai"] }) {
+  const rows = ai.ownKeysByProvider;
+  const max = Math.max(1, ...rows.map((r) => r.count));
+  return (
+    <>
+      <Figures items={[["Own key", ai.ownKeyUsers], ["Keys", rows.reduce((n, r) => n + r.count, 0)], ["Assistants", ai.assistantConnections]]} />
+      {rows.length === 0 ? (
+        <Empty>No one has added their own key yet.</Empty>
+      ) : (
+        <ul className="space-y-2.5">
+          {rows.map((r) => (
+            <BarRow
+              key={r.provider}
+              label={<span className="inline-flex items-center gap-1.5"><ProviderMark provider={r.provider} size={16} />{r.label}</span>}
+              value={`${r.count} ${r.count === 1 ? "key" : "keys"}`}
+              pct={(r.count / max) * 100}
+              fill="bg-primary"
+            />
+          ))}
+        </ul>
+      )}
+    </>
+  );
+}
+
+function ScoreBands({ fit }: { fit: AdminDashboardData["fit"] }) {
+  if (fit.scored30d === 0) return <Empty>No scored applications in the last 30 days.</Empty>;
+  const byBand: Record<ScoreBand, number> = { strong: 0, good: 0, fair: 0 };
+  for (const [bucket, n] of Object.entries(fit.scoreBuckets)) byBand[scoreBand(Number(bucket))] += n;
+  return (
+    <>
+      <p className="text-xs text-muted-foreground mb-3">
+        Average <span className="text-foreground font-semibold tabular-nums">{fit.avgMatchScore != null ? formatScore(fit.avgMatchScore) : "—"}</span> / 10
+        {" · "}{fit.scored30d.toLocaleString()} scored
+      </p>
+      <ul className="space-y-2.5">
+        {BANDS.map((b) => {
+          const v = byBand[b];
+          const pct = Math.round((v / fit.scored30d) * 100);
+          return <BarRow key={b} label={SCORE_BAND_LABEL[b]} value={`${v} · ${pct}%`} pct={pct} style={{ background: scoreBandColor(b) }} />;
+        })}
+      </ul>
+    </>
   );
 }
 
@@ -401,7 +410,7 @@ function ProfileCoverage({ masterProfileUsers, totalUsers }: { masterProfileUser
         <p className="text-3xl font-bold text-foreground tabular-nums">{masterProfileUsers}</p>
         <p className="text-xs text-muted-foreground mt-0.5">of {totalUsers} users have built a master profile</p>
       </div>
-      <div className="h-2 bg-muted rounded-full overflow-hidden">
+      <div className="h-2 bg-control rounded-full overflow-hidden">
         <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${pct}%` }} />
       </div>
       <p className="text-[11px] font-medium text-muted-foreground">{pct}% adoption</p>
@@ -430,18 +439,8 @@ function FeedbackBars({ byType }: { byType: Record<string, number> }) {
     <ul className="space-y-2.5">
       {types.map((t) => {
         const v = byType[t.key] || 0;
-        const pct = total > 0 ? Math.round((v / total) * 100) : 0;
-        return (
-          <li key={t.key}>
-            <div className="flex justify-between items-center text-xs mb-1">
-              <span className="text-foreground">{t.label}</span>
-              <span className="text-muted-foreground tabular-nums">{v} · {pct}%</span>
-            </div>
-            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-              <div className={`h-full ${t.tone} rounded-full`} style={{ width: `${pct}%` }} />
-            </div>
-          </li>
-        );
+        const pct = Math.round((v / total) * 100);
+        return <BarRow key={t.key} label={t.label} value={`${v} · ${pct}%`} pct={pct} fill={t.tone} />;
       })}
     </ul>
   );

@@ -11,8 +11,6 @@
  * cache. Layout: utils/calendarGrid.ts (pure, tested). Dates: utils/dates.ts
  * only. The anchor lives in the URL (`?d=`), so Back from an application lands
  * on the same page of the calendar; the scale is a remembered preference.
- *
- * Also rendered standalone at /admin/calendar (no Applications shell).
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useOutletContext, useSearchParams } from "react-router-dom";

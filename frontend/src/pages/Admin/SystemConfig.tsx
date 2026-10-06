@@ -1,243 +1,173 @@
-import { useState, useEffect, useCallback } from "react";
-import { Wrench } from "lucide-react";
+/** Admin → Settings. Only switches the product actually reads: maintenance
+ *  mode and the feature flags (the list is DEFAULT_SETTINGS on the server) —
+ *  plus resetting the demo account. AI lives in Admin → AI. */
+import { useState, useEffect } from "react";
 import toast from "../../components/ui/toast.ts";
 import { adminAPI } from "../../utils/api";
+import PageHeader from "../../components/ui/PageHeader.tsx";
+import Toggle from "../../components/ui/Toggle.tsx";
+import Button from "../../components/ui/Button.tsx";
+import { Skeleton } from "../../components/Skeleton/Skeleton.tsx";
+import ConfirmModal from "../../components/ConfirmModal/ConfirmModal";
+import { useConfirm } from "../../hooks/useConfirm";
+import { SettingsCard, SettingsRow, SettingsSection } from "../Settings/ui.tsx";
 import type { SystemSetting } from "../../types";
 
-const CATEGORY_LABELS: Record<string, string> = {
-  general: "General",
-  limits: "Limits",
-  features: "Features",
-  session: "Session",
-  storage: "Storage",
+const MAINTENANCE_KEY = "maintenance_mode";
+
+/** What each flag hides when it's off (hooks/useFeatureFlags readers). */
+const FEATURE_COPY: Record<string, { title: string; description: string }> = {
+  feature_kanban: { title: "Board view", description: "The Board view on Applications." },
+  feature_job_search: { title: "Job search", description: "The Jobs page and its sidebar link." },
+  feature_csv_import_export: { title: "Import / Export", description: "The CSV Import / Export page and its sidebar link." },
 };
 
-function SettingRow({
-  setting,
-  onSave,
-}: {
-  setting: SystemSetting;
-  onSave: (key: string, value: unknown) => Promise<void>;
-}) {
-  const [value, setValue] = useState<unknown>(setting.value);
-  const [saving, setSaving] = useState(false);
+export default function SystemConfig() {
+  const [settings, setSettings] = useState<SystemSetting[] | null>(null);
+  const [saving, setSaving] = useState<string | null>(null);
+  const [resetting, setResetting] = useState(false);
+  const { confirm, confirmState, handleConfirm, handleCancel } = useConfirm();
 
   useEffect(() => {
-    setValue(setting.value);
-  }, [setting.value]);
+    adminAPI.getSettings()
+      .then((r) => setSettings(r.settings))
+      .catch(() => setSettings([]));
+  }, []);
 
-  const handleSave = async () => {
-    setSaving(true);
+  // Read the way the server does (Boolean(value)), so the switch shows what's in force.
+  const valueOf = (key: string) => Boolean(settings?.find((s) => s.key === key)?.value);
+
+  const patch = (key: string, value: boolean) =>
+    setSettings((prev) => prev && prev.map((s) => (s.key === key ? { ...s, value } : s)));
+
+  /** Optimistic: the switch moves now and moves back if the save fails
+   *  (the interceptor says why). */
+  const save = async (key: string, value: boolean, done: string) => {
+    patch(key, value);
+    setSaving(key);
     try {
-      await onSave(setting.key, value);
+      await adminAPI.updateSetting(key, value);
+      toast.success(done);
+    } catch {
+      patch(key, !value);
     } finally {
-      setSaving(false);
+      setSaving(null);
     }
   };
 
-  const isMaintenanceMode = setting.key === "maintenance_mode";
+  const setMaintenance = async (on: boolean) => {
+    if (on) {
+      const ok = await confirm(
+        "Everyone who isn't an admin is signed out and can't sign in until you turn it off. Admins keep full access.",
+        { title: "Turn on maintenance mode?", confirmLabel: "Turn on" },
+      );
+      if (!ok) return;
+    }
+    void save(MAINTENANCE_KEY, on, on ? "Maintenance mode is on" : "Maintenance mode is off");
+  };
+
+  const resetDemo = async () => {
+    const ok = await confirm(
+      "The demo's applications, contacts, deadlines and resumes are replaced with a fresh set dated around today. Anyone using the demo right now is signed out.",
+      { title: "Reset the demo account?", confirmLabel: "Reset demo", danger: false },
+    );
+    if (!ok) return;
+    setResetting(true);
+    try {
+      const r = await adminAPI.resetDemo();
+      toast.success(`Demo reset — ${r.applications.toLocaleString()} applications, ${r.contacts.toLocaleString()} contacts, ${r.deadlines.toLocaleString()} deadlines`);
+    } catch { /* the interceptor toasts */ } finally {
+      setResetting(false);
+    }
+  };
+
+  const features = (settings ?? []).filter((s) => s.key.startsWith("feature_"));
+  const maintenanceOn = valueOf(MAINTENANCE_KEY);
 
   return (
-    <div
-      className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-3 ${
-        isMaintenanceMode ? "" : "border-b border-border/50 last:border-0"
-      }`}
-    >
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-foreground">
-          {setting.key}
-        </p>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          {setting.description}
-        </p>
-      </div>
-      <div className="flex items-center gap-2 shrink-0">
-        {setting.valueType === "boolean" ? (
-          <button
-            onClick={() => {
-              const next = !value;
-              setValue(next);
-              setSaving(true);
-              onSave(setting.key, next).finally(() => setSaving(false));
-            }}
-            disabled={saving}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full focus:outline-none focus:ring-2 focus:ring-ring/40 ${
-              value
-                ? "bg-primary"
-                : "bg-muted-foreground/30"
-            }`}
-          >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full shadow-sm transition-transform ${
-                value ? "translate-x-6 bg-primary-foreground" : "translate-x-1 bg-paper"
-              }`}
-            />
-          </button>
-        ) : setting.valueType === "number" ? (
-          <>
-            <input
-              type="number"
-              value={String(value ?? "")}
-              onChange={(e) => setValue(Number(e.target.value))}
-              className="input-premium w-28 text-sm"
-            />
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="btn-accent text-xs px-3 py-1.5"
-            >
-              {saving ? "..." : "Save"}
-            </button>
-          </>
+    <div>
+      <PageHeader title="Settings" />
+
+      <div className="max-w-3xl">
+        {!settings ? (
+          <div className="space-y-6" aria-busy>
+            <Skeleton className="h-20 w-full rounded-xl" />
+            <Skeleton className="h-48 w-full rounded-xl" />
+            <Skeleton className="h-20 w-full rounded-xl" />
+          </div>
         ) : (
           <>
-            <input
-              type="text"
-              value={String(value ?? "")}
-              onChange={(e) => setValue(e.target.value)}
-              className="input-premium w-48 text-sm"
-            />
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="btn-accent text-xs px-3 py-1.5"
-            >
-              {saving ? "..." : "Save"}
-            </button>
+            {settings.some((s) => s.key === MAINTENANCE_KEY) && (
+              <SettingsSection title="Maintenance">
+                <SettingsCard>
+                  <SettingsRow
+                    title={
+                      <span className="inline-flex items-center gap-2">
+                        Maintenance mode
+                        {maintenanceOn && (
+                          <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-red-600 dark:text-red-400">
+                            <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-red-500" />On
+                          </span>
+                        )}
+                      </span>
+                    }
+                    description={
+                      maintenanceOn
+                        ? "Only admins can use HireTrail right now. Everyone else sees a maintenance message until you turn this off."
+                        : "Signs everyone but admins out and shows a maintenance message. Admins keep full access, so you can always turn it back off."
+                    }
+                  >
+                    <Toggle label="Maintenance mode" checked={maintenanceOn} disabled={saving === MAINTENANCE_KEY} onChange={setMaintenance} />
+                  </SettingsRow>
+                </SettingsCard>
+              </SettingsSection>
+            )}
+
+            {features.length > 0 && (
+              <SettingsSection title="Features" description="Turning one off hides it for everyone. Nothing is deleted, and turning it back on brings it back as it was.">
+                <SettingsCard>
+                  {features.map((s) => {
+                    const copy = FEATURE_COPY[s.key] ?? { title: s.key, description: s.description };
+                    const on = Boolean(s.value);
+                    return (
+                      <SettingsRow key={s.key} title={copy.title} description={copy.description}>
+                        <Toggle
+                          label={copy.title}
+                          checked={on}
+                          disabled={saving === s.key}
+                          onChange={(next) => void save(s.key, next, `${copy.title} is ${next ? "on" : "off"}`)}
+                        />
+                      </SettingsRow>
+                    );
+                  })}
+                </SettingsCard>
+              </SettingsSection>
+            )}
+
+            <SettingsSection title="Demo account">
+              <SettingsCard>
+                <SettingsRow
+                  title="Reset the demo account"
+                  description="Gives demo@hiretrail.com — what “Try the demo” opens — a fresh set of applications, contacts and deadlines dated around today."
+                >
+                  <Button size="sm" onClick={resetDemo} loading={resetting}>Reset demo</Button>
+                </SettingsRow>
+              </SettingsCard>
+            </SettingsSection>
           </>
         )}
       </div>
-    </div>
-  );
-}
 
-export default function SystemConfig() {
-  const [grouped, setGrouped] = useState<Record<string, SystemSetting[]>>({});
-  const [allSettings, setAllSettings] = useState<SystemSetting[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const result = await adminAPI.getSettings();
-      setGrouped(result.grouped);
-      setAllSettings(result.settings);
-    } catch {
-      toast.error("Failed to load settings");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  const handleSave = useCallback(
-    async (key: string, value: unknown) => {
-      try {
-        await adminAPI.updateSetting(key, value);
-        toast.success(`Setting "${key}" updated`);
-        // Update local state
-        setAllSettings((prev) =>
-          prev.map((s) => (s.key === key ? { ...s, value } : s))
-        );
-        setGrouped((prev) => {
-          const next: Record<string, SystemSetting[]> = {};
-          for (const [cat, settings] of Object.entries(prev)) {
-            next[cat] = settings.map((s) =>
-              s.key === key ? { ...s, value } : s
-            );
-          }
-          return next;
-        });
-      } catch {
-        toast.error(`Failed to update "${key}"`);
-      }
-    },
-    []
-  );
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-      </div>
-    );
-  }
-
-  // Find maintenance mode setting
-  const maintenanceSetting = allSettings.find(
-    (s) => s.key === "maintenance_mode"
-  );
-
-  const categoryOrder = ["general", "limits", "features", "session", "storage"];
-
-  return (
-    <div className="fade-up space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground tracking-tight">System Configuration</h1>
-        <p className="text-sm text-muted-foreground mt-1">Platform-wide feature flags, limits, and operational settings.</p>
-      </div>
-
-      {/* Maintenance Mode Banner */}
-      {maintenanceSetting && (
-        <div className={`rounded-xl border p-5 ${maintenanceSetting.value ? "border-red-500/40 bg-red-500/5" : "border-border bg-card"}`}>
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div className="flex items-start gap-3">
-              <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${maintenanceSetting.value ? "bg-red-500/15 text-red-600 dark:text-red-400" : "bg-muted text-muted-foreground"}`}>
-                <Wrench width={20} height={20} strokeWidth={2} />
-              </div>
-              <div>
-                <h2 className={`text-lg font-semibold ${maintenanceSetting.value ? "text-red-700 dark:text-red-300" : "text-foreground"}`}>Maintenance mode</h2>
-                <p className={`text-sm mt-0.5 ${maintenanceSetting.value ? "text-red-600 dark:text-red-300/90" : "text-muted-foreground"}`}>
-                  {maintenanceSetting.value
-                    ? "The platform is in maintenance mode. Non-admin users cannot access it."
-                    : "Maintenance mode is off. The platform is accessible to all users."}
-                </p>
-              </div>
-            </div>
-            <SettingRow setting={maintenanceSetting} onSave={handleSave} />
-          </div>
-        </div>
+      {confirmState.open && (
+        <ConfirmModal
+          title={confirmState.title}
+          message={confirmState.message}
+          confirmLabel={confirmState.confirmLabel}
+          danger={confirmState.danger}
+          onConfirm={handleConfirm}
+          onCancel={handleCancel}
+        />
       )}
-
-      {/* Grouped Settings */}
-      {categoryOrder.map((cat) => {
-        const settings = grouped[cat];
-        if (!settings || settings.length === 0) return null;
-        const filtered = settings.filter((s) => s.key !== "maintenance_mode");
-        if (filtered.length === 0) return null;
-
-        return (
-          <div key={cat} className="surface-card p-5">
-            <h2 className="text-base font-semibold text-foreground mb-2 uppercase tracking-wider text-muted-foreground">
-              {CATEGORY_LABELS[cat] || cat}
-            </h2>
-            <div className="space-y-0">
-              {filtered.map((setting) => (
-                <SettingRow key={setting._id} setting={setting} onSave={handleSave} />
-              ))}
-            </div>
-          </div>
-        );
-      })}
-
-      {Object.entries(grouped)
-        .filter(([cat]) => !categoryOrder.includes(cat))
-        .map(([cat, settings]) => {
-          if (!settings || settings.length === 0) return null;
-          return (
-            <div key={cat} className="surface-card p-5">
-              <h2 className="text-base font-semibold mb-2 uppercase tracking-wider text-muted-foreground">{CATEGORY_LABELS[cat] || cat}</h2>
-              <div className="space-y-0">
-                {settings.map((setting) => (
-                  <SettingRow key={setting._id} setting={setting} onSave={handleSave} />
-                ))}
-              </div>
-            </div>
-          );
-        })}
     </div>
   );
 }
