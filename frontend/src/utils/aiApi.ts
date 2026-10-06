@@ -164,6 +164,11 @@ export interface McpConnection {
   scopes: McpScope[];
   lastClient: string;
   lastUsedAt: string | null;
+  /** When a client first said hello with it — "connected". */
+  helloAt: string | null;
+  /** Its first tool call (proof the whole path works). */
+  firstTool: string;
+  firstToolAt: string | null;
   expiresAt: string | null;
   createdAt: string;
 }

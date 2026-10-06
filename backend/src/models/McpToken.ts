@@ -25,6 +25,12 @@ export interface IMcpToken extends Document {
   /** The client that last used it ("claude-code 2.1.4"), from MCP's initialize. */
   lastClient: string;
   lastUsedAt: Date | null;
+  /** The first time a client said hello (initialize) with it — "connected".
+   *  Missing on tokens made before 2026-10-06 (tokenView falls back). */
+  helloAt: Date | null;
+  /** The first tool it called, and when — the connection proven end to end. */
+  firstTool: string;
+  firstToolAt: Date | null;
   expiresAt: Date | null;
   revokedAt: Date | null;
   createdAt: Date;
@@ -40,6 +46,9 @@ const mcpTokenSchema = new Schema<IMcpToken>(
     scopes: { type: [String], enum: MCP_SCOPES, default: ["read", "write", "ai"] },
     lastClient: { type: String, default: "", maxlength: 120 },
     lastUsedAt: { type: Date, default: null },
+    helloAt: { type: Date, default: null },
+    firstTool: { type: String, default: "", maxlength: 80 },
+    firstToolAt: { type: Date, default: null },
     expiresAt: { type: Date, default: null },
     revokedAt: { type: Date, default: null },
   },

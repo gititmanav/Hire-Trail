@@ -21,7 +21,7 @@ import { User } from "../models/User.js";
 import { getAiSettings } from "../services/ai/settings.js";
 import { getMaintenanceMode, isMaintenanceBypassEmail, MAINTENANCE_AUTH_MESSAGE } from "../services/maintenance.js";
 import { buildMcpServer } from "../services/mcp/server.js";
-import { chargeRate, touchToken, verifyToken } from "../services/mcp/tokens.js";
+import { chargeRate, noteFirstTool, touchToken, verifyToken } from "../services/mcp/tokens.js";
 import type { AiUser } from "../services/ai/gateway.js";
 
 const router = Router();
@@ -30,6 +30,16 @@ const DEMO_EMAIL = "demo@hiretrail.com";
 function rpcError(res: Response, status: number, message: string, headers: Record<string, string> = {}) {
   for (const [k, v] of Object.entries(headers)) res.setHeader(k, v);
   res.status(status).json({ jsonrpc: "2.0", error: { code: status === 401 ? -32001 : -32000, message }, id: null });
+}
+
+/** The tool a `tools/call` request runs. */
+function toolOf(body: unknown): string | null {
+  const msgs = Array.isArray(body) ? body : [body];
+  for (const m of msgs) {
+    const call = m as { method?: string; params?: { name?: unknown } };
+    if (call?.method === "tools/call" && typeof call.params?.name === "string") return call.params.name;
+  }
+  return null;
 }
 
 /** The client's name and version, when this request is MCP's `initialize`. */
@@ -69,6 +79,8 @@ router.post("/", async (req: Request, res: Response) => {
       return rpcError(res, 429, `That's the hourly limit of ${policy.mcp.callsPerHour} assistant calls. Try again next hour.`, { "Retry-After": "600" });
     }
     void touchToken(token, clientOf(req.body)).catch(() => undefined);
+    const tool = toolOf(req.body);
+    if (tool) void noteFirstTool(token, tool).catch(() => undefined);
 
     const server = buildMcpServer({ user: user as unknown as AiUser & { name?: string }, token, policy });
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });

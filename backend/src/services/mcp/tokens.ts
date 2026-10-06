@@ -26,6 +26,9 @@ export interface McpTokenView {
   scopes: McpScope[];
   lastClient: string;
   lastUsedAt: Date | null;
+  helloAt: Date | null;
+  firstTool: string;
+  firstToolAt: Date | null;
   expiresAt: Date | null;
   createdAt: Date;
 }
@@ -38,6 +41,10 @@ export function tokenView(t: IMcpToken): McpTokenView {
     scopes: t.scopes,
     lastClient: t.lastClient,
     lastUsedAt: t.lastUsedAt,
+    // Tokens from before helloAt existed: a recorded client means one said hello.
+    helloAt: t.helloAt ?? (t.lastClient ? t.lastUsedAt : null),
+    firstTool: t.firstTool ?? "",
+    firstToolAt: t.firstToolAt ?? null,
     expiresAt: t.expiresAt,
     createdAt: t.createdAt,
   };
@@ -81,11 +88,25 @@ export async function verifyToken(secret: string): Promise<IMcpToken | null> {
   return t;
 }
 
-/** Record use (throttled) and the client's name when it says hello. */
+/** Record use (throttled), and the client's name when it says hello — the
+ *  first hello also stamps helloAt, which Settings → AI watches for. */
 export async function touchToken(t: IMcpToken, client?: string | null): Promise<void> {
   const stale = !t.lastUsedAt || Date.now() - t.lastUsedAt.getTime() > TOUCH_EVERY_MS;
-  if (!stale && (!client || client === t.lastClient)) return;
-  await McpToken.updateOne({ _id: t._id }, { $set: { lastUsedAt: new Date(), ...(client ? { lastClient: client.slice(0, 120) } : {}) } });
+  const firstHello = !!client && !t.helloAt;
+  if (!stale && !firstHello && (!client || client === t.lastClient)) return;
+  const now = new Date();
+  await McpToken.updateOne({ _id: t._id }, [{
+    $set: {
+      lastUsedAt: now,
+      ...(client ? { lastClient: client.slice(0, 120), helloAt: { $ifNull: ["$helloAt", now] } } : {}),
+    },
+  }]);
+}
+
+/** The first tool call through this token (only the first is kept). */
+export async function noteFirstTool(t: IMcpToken, tool: string): Promise<void> {
+  if (t.firstToolAt) return;
+  await McpToken.updateOne({ _id: t._id, firstToolAt: null }, { $set: { firstToolAt: new Date(), firstTool: tool.slice(0, 80) } });
 }
 
 /**
