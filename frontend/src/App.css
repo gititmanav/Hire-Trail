@@ -173,7 +173,6 @@
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes fade-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes scale-in { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
-@keyframes fadeSlideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
 
 @keyframes onboard-resize {
   0% { transform: scaleX(1); }
@@ -312,6 +311,30 @@ html.vt-shell::view-transition-new(shell-main) {
   .modal-overlay-in, .animate-in, .fade-up, .modal-exit, .modal-exit > [role="dialog"], .modal-exit > [data-modal-panel] { animation: none; }
   .modal-soft-overlay-in, .modal-soft-panel-in, .modal-soft-exit, .modal-soft-exit > [role="dialog"] { animation: none; }
 }
+
+/* Toasts (components/ui/Toaster.tsx). Cards sit absolutely at the bottom of
+ * the list and are placed by transform; a tucked card (behind the front one)
+ * hides its content and takes the front card's height, so only its top edge
+ * peeks out. Exit timing must fit TOAST_EXIT_MS (ui/toast.ts). */
+.toaster { position: fixed; z-index: 300; right: 24px; bottom: 24px; width: 360px; pointer-events: none; }
+.toaster-list { position: relative; margin: 0; padding: 0; list-style: none; pointer-events: auto; }
+.toast {
+  transform-origin: 50% 0;
+  touch-action: none;
+  transition: transform 400ms var(--ease-out), opacity 300ms var(--ease-out), height 400ms var(--ease-out);
+}
+.toast[data-leaving] { transition-duration: 200ms; transition-timing-function: cubic-bezier(0.4, 0, 1, 1); }
+.toast[data-swiping] { transition: none; cursor: grabbing; }
+.toast-body { transition: opacity 200ms ease; }
+.toast[data-tucked] .toast-body { opacity: 0; }
+@media (max-width: 639px) {
+  .toaster { left: 16px; right: 16px; width: auto; bottom: max(16px, env(safe-area-inset-bottom)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .toast { transition: opacity 160ms ease; }
+  .toast-body { transition: none; }
+}
+@media print { .toaster { display: none; } }
 
 /* Per-row stagger on Applications list reflow. Capped to the first ~12 rows
  *  so a 200-app list doesn't take 5 seconds to materialize. */

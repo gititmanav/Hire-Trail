@@ -6,9 +6,8 @@
  *  List, Board and the detail page agree. */
 import { useCallback, useEffect } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
-import toast from "react-hot-toast";
+import toast, { toastWithUndo } from "../../../../components/ui/toast.ts";
 import { applicationsAPI, calendarAPI, deadlinesAPI, type CalendarParams, type CalendarResponse } from "../../../../utils/api.ts";
-import { toastWithUndo } from "../../../../utils/undoToast.tsx";
 import { formatDay, type Ymd } from "../../../../utils/dates.ts";
 import type { CalendarEvent } from "../../../../utils/calendarGrid.ts";
 import type { ApplicationFilters } from "../../data/filters.ts";

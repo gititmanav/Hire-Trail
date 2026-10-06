@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useMemo, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronDown, ChevronRight, Eye, FileText, Pencil, Plus, RefreshCw, Search, Star, StarOff, Trash2, Upload, UserRound, Wand2, X } from "lucide-react";
-import toast from "react-hot-toast";
+import toast from "../../components/ui/toast.ts";
 import { resumesAPI, authAPI, masterProfileAPI, pollMasterProfileParse } from "../../utils/api.ts";
 import { Skeleton } from "../../components/Skeleton/Skeleton.tsx";
 import EmptyState from "../../components/EmptyState/EmptyState.tsx";

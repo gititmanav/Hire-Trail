@@ -2,7 +2,7 @@
  *  background tick so the count stays fresh without hammering the API. */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import toast from "react-hot-toast";
+import toast from "../ui/toast.ts";
 import { Bell, X } from "lucide-react";
 import { notificationsAPI } from "../../utils/api.ts";
 import { useRefetchOnFocus } from "../../hooks/useRefetchOnFocus.ts";

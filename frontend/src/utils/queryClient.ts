@@ -10,7 +10,7 @@
  */
 import { QueryCache, QueryClient } from "@tanstack/react-query";
 import type { AxiosError } from "axios";
-import toast from "react-hot-toast";
+import toast from "../components/ui/toast.ts";
 
 function isRetryable(error: unknown): boolean {
   const status = (error as AxiosError)?.response?.status;

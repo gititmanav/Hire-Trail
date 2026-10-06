@@ -7,7 +7,7 @@
  *  there is no model-specific provider key; the model is sent per call). */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, ExternalLink, Lock, Search, Sparkles, X } from "lucide-react";
-import toast from "react-hot-toast";
+import toast from "../../components/ui/toast.ts";
 import { aiAPI } from "../../utils/api.ts";
 import type { AICatalogProvider, AIModel } from "../../utils/api.ts";
 import { useDemoGate } from "../../hooks/useDemoGate.tsx";
@@ -207,7 +207,7 @@ export default function AddKeyForm({
       });
       setApiKey(""); setFieldValues({}); setJsonText(""); setName(""); setModelOverride(""); setValidation({ state: "idle" });
       if (validated) toast.success(`${sel?.label ?? providerId} key saved`);
-      else toast(`${sel?.label ?? providerId} key saved but left inactive — it didn't validate. Activate it from the list once it works.`, { icon: "⚠️", duration: 6000 });
+      else toast.warning(`${sel?.label ?? providerId} key saved but left inactive — it didn't validate. Activate it from the list once it works.`, { duration: 6000 });
       await onAdded();
     } catch (err) {
       const x = err as { response?: { data?: { error?: unknown } } };

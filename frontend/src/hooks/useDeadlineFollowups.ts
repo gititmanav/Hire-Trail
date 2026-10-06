@@ -12,7 +12,7 @@
  * "which deadlines to close" logic.
  */
 import { useCallback } from "react";
-import toast from "react-hot-toast";
+import toast from "../components/ui/toast.ts";
 import { deadlinesAPI } from "../utils/api.ts";
 import type { Deadline, Stage } from "../types";
 
@@ -57,44 +57,21 @@ export function useDeadlineFollowups() {
         ? targets[0].type
         : `${targets.length} deadlines`;
 
-      const toastId = toast(
-        (t) => (
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-foreground truncate">
-                {companyName} moved {fromStage} → {toStage}
-              </p>
-              <p className="text-xs text-muted-foreground truncate">Mark {summary} complete?</p>
-            </div>
-            <div className="flex items-center gap-1 shrink-0">
-              <button
-                type="button"
-                onClick={async () => {
-                  try {
-                    await Promise.all(ids.map((id) => deadlinesAPI.update(id, { completed: true })));
-                    toast.success(`Marked ${ids.length} deadline${ids.length === 1 ? "" : "s"} complete`);
-                  } catch {
-                    toast.error("Couldn't update deadlines — try the Deadlines page.");
-                  } finally {
-                    toast.dismiss(t.id);
-                  }
-                }}
-                className="px-2.5 py-1 text-xs font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-md"
-              >
-                Mark done
-              </button>
-              <button
-                type="button"
-                onClick={() => toast.dismiss(t.id)}
-                className="px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
-              >
-                Dismiss
-              </button>
-            </div>
-          </div>
-        ),
-        { duration: 10_000 },
-      );
+      const toastId = toast(`${companyName} moved ${fromStage} → ${toStage}`, {
+        description: `Mark ${summary} complete?`,
+        duration: 10_000,
+        action: {
+          label: "Mark done",
+          onClick: async () => {
+            try {
+              await Promise.all(ids.map((id) => deadlinesAPI.update(id, { completed: true })));
+              toast.success(`Marked ${ids.length} deadline${ids.length === 1 ? "" : "s"} complete`);
+            } catch {
+              toast.error("Couldn't update deadlines — try the Deadlines page.");
+            }
+          },
+        },
+      });
       return toastId;
     } catch {
       return null;

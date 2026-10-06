@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback, useRef, type ReactNode } from "react"
 import {
   FileText, X, ChevronRight
 } from "lucide-react";
-import toast from "react-hot-toast";
+import toast from "../../components/ui/toast.ts";
 import { applicationsAPI, companiesAPI, resumesAPI, contactsAPI, deadlinesAPI } from "../../utils/api.ts";
 import { SkeletonTable } from "../../components/Skeleton/Skeleton.tsx";
 import ResumePreview from "../../components/ResumePreview/ResumePreview.tsx";

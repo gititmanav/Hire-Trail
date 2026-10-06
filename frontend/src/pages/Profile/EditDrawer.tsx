@@ -3,7 +3,7 @@
  *  section keys back to the master profile. */
 import { useCallback, useEffect, useState } from "react";
 import { ChevronLeft, ChevronUp, ChevronDown, Trash2, X } from "lucide-react";
-import toast from "react-hot-toast";
+import toast from "../../components/ui/toast.ts";
 import { masterProfileAPI } from "../../utils/api.ts";
 
 /* ---------- types (kept loose for runtime flexibility) ---------- */

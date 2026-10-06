@@ -3,7 +3,7 @@
  *  a forward-looking stage change. */
 import { useCallback, useEffect, useState } from "react";
 import { MessageCircle } from "lucide-react";
-import toast from "react-hot-toast";
+import toast from "../ui/toast.ts";
 import { notificationsAPI } from "../../utils/api.ts";
 import type { Notification, NotificationType } from "../../types";
 

@@ -3,7 +3,7 @@
  *  here (…/settings/mailboxes?gmail=success — the /settings index redirect
  *  also forwards legacy /settings?gmail=… links). */
 import { useEffect, useState, FormEvent, lazy, Suspense, useContext } from "react";
-import toast from "react-hot-toast";
+import toast from "../../../components/ui/toast.ts";
 import { ArrowRight, Calendar, Mail } from "lucide-react";
 import { applicationsAPI, emailAPI } from "../../../utils/api.ts";
 import type { EmailStatusResponse, ScanJob } from "../../../utils/api.ts";

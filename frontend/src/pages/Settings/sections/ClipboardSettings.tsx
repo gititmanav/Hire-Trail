@@ -1,7 +1,7 @@
 /** Settings → Clipboard: what the browser extension writes to the clipboard
  *  when tracking a job. */
 import { useContext, useRef, useState } from "react";
-import toast from "react-hot-toast";
+import toast from "../../../components/ui/toast.ts";
 import { ChevronDown } from "lucide-react";
 import { api } from "../../../utils/api.ts";
 import type { User } from "../../../types";

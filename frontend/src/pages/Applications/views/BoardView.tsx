@@ -14,7 +14,7 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import toast from "react-hot-toast";
+import toast from "../../../components/ui/toast.ts";
 import { AlertTriangle, ChevronRight, FileText, MapPin, X } from "lucide-react";
 import { SkeletonCard } from "../../../components/Skeleton/Skeleton.tsx";
 import ConfirmModal from "../../../components/ConfirmModal/ConfirmModal.tsx";

@@ -3,7 +3,7 @@
  */
 import { useState, useCallback, FormEvent } from "react";
 import { Loader2, Search, Briefcase, MapPin, ExternalLink, Check, Plus } from "lucide-react";
-import toast from "react-hot-toast";
+import toast from "../../components/ui/toast.ts";
 import { api, applicationsAPI } from "../../utils/api.ts";
 import { useJobSearch } from "../../hooks/useJobSearchState.ts";
 

@@ -3,7 +3,7 @@
  *  provider/model, and the per-user monthly token quota. Wired to /api/admin/ai. */
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Sparkles, Trash2 } from "lucide-react";
-import toast from "react-hot-toast";
+import toast from "../../components/ui/toast.ts";
 import { adminAiAPI, aiAPI, type AdminAiConfig, type AICatalogProvider, type AIModel } from "../../utils/api";
 import Select from "../../components/ui/Select.tsx";
 import { ComboboxList, handleComboboxKey, type ComboboxOption } from "../../components/ui/Combobox.tsx";

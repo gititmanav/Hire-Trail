@@ -1,7 +1,7 @@
 /** Shared resume add/edit modal — used by Resumes page and Application form. */
 import { useState, useRef, useMemo, FormEvent, KeyboardEvent } from "react";
 import { X, Tag, FileText, CheckCircle2, UploadCloud } from "lucide-react";
-import toast from "react-hot-toast";
+import toast from "../ui/toast.ts";
 import type { Resume } from "../../types";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "../ui/Modal.tsx";
 import { TextField } from "../ui/Field.tsx";

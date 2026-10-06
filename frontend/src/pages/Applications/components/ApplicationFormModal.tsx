@@ -4,7 +4,7 @@
  *  previously had no way to add one outside the old sidebar). */
 import { FormEvent, useState } from "react";
 import { Plus } from "lucide-react";
-import toast from "react-hot-toast";
+import toast from "../../../components/ui/toast.ts";
 import { useQueryClient } from "@tanstack/react-query";
 import { resumesAPI } from "../../../utils/api.ts";
 import { STAGES } from "../../../utils/stageStyles.ts";

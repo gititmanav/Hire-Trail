@@ -17,7 +17,7 @@
  */
 import { createContext, useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { useLocation } from "react-router-dom";
-import toast from "react-hot-toast";
+import toast from "../components/ui/toast.ts";
 import { authAPI } from "../utils/api.ts";
 import { normalizeThemePrefs, type CustomTheme, type ThemeMode, type ThemePrefs } from "../utils/preferences.ts";
 import { seedCustomTheme } from "../utils/theme.ts";

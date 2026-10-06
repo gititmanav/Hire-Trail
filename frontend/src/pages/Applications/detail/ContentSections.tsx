@@ -2,7 +2,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Check, Copy } from "lucide-react";
-import toast from "react-hot-toast";
+import toast from "../../../components/ui/toast.ts";
 import { tailorAPI } from "../../../utils/api.ts";
 import Button from "../../../components/ui/Button.tsx";
 

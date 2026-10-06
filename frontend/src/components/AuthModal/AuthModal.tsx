@@ -13,7 +13,7 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { Info, Play, X } from "lucide-react";
-import toast from "react-hot-toast";
+import toast from "../ui/toast.ts";
 import { AxiosError } from "axios";
 import { authAPI, settingsAPI } from "../../utils/api.ts";
 import { getGoogleOAuthUrl } from "../../config/apiBase.ts";

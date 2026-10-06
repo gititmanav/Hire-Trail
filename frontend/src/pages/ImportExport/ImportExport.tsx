@@ -1,7 +1,7 @@
 /** CSV export with filters; import flows reuse `parseCSV` + bulk application create. */
 import { useState, useRef, useEffect } from "react";
 import { Download, Upload, CheckCircle2 } from "lucide-react";
-import toast from "react-hot-toast";
+import toast from "../../components/ui/toast.ts";
 import { applicationsAPI, contactsAPI } from "../../utils/api.ts";
 import { exportToCSV, parseCSV, downloadTemplate } from "../../utils/csv.ts";
 import type { Stage, Application, Contact } from "../../types";

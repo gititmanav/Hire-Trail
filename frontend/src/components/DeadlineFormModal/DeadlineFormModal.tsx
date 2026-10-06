@@ -3,7 +3,7 @@
  *  same way everywhere. */
 import { useState, FormEvent } from "react";
 import { Calendar, ClipboardList, Handshake, Heart, Mail, Users } from "lucide-react";
-import toast from "react-hot-toast";
+import toast from "../ui/toast.ts";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "../ui/Modal.tsx";
 import { Field, Input, Textarea } from "../ui/Field.tsx";
 import Select from "../ui/Select.tsx";

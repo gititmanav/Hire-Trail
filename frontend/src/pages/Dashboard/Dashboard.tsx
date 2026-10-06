@@ -1,8 +1,8 @@
 import { useState, useEffect, useContext, useCallback, useMemo, lazy, Suspense } from "react";
 import { Responsive, WidthProvider } from "react-grid-layout";
 import { Link } from "react-router-dom";
-import { Building2, ChevronDown, Plus, Bookmark, Info, Lock, Unlock, LayoutGrid } from "lucide-react";
-import toast from "react-hot-toast";
+import { Building2, ChevronDown, Plus, Info, Lock, Unlock, LayoutGrid } from "lucide-react";
+import toast from "../../components/ui/toast.ts";
 import { UserContext } from "../../App.tsx";
 import { applicationsAPI, authAPI, contactsAPI, deadlinesAPI, resumesAPI } from "../../utils/api.ts";
 import StageSuggestionsCard from "../../components/StageSuggestionsCard/StageSuggestionsCard.tsx";
@@ -68,6 +68,7 @@ export default function Dashboard() {
   useEffect(() => {
     if (!localStorage.getItem(ONBOARD_KEY)) {
       setShowOnboarding(true);
+      if (!locked) toast("Tip: you can drag and resize these widgets.", { id: "dashboard-tip", duration: 3500 });
       const timer = setTimeout(() => {
         localStorage.setItem(ONBOARD_KEY, "true");
         setShowOnboarding(false);
@@ -196,14 +197,6 @@ export default function Dashboard() {
 
   return (
     <div className="fade-up">
-      {showOnboarding && !locked && (
-        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-50 bg-foreground text-background px-5 py-3 rounded-xl shadow-xl text-sm font-medium animate-in" style={{ animation: "fadeSlideUp 0.4s ease-out, fadeSlideUp 0.4s ease-out 3s reverse forwards" }}>
-          <div className="flex items-center gap-2">
-            <Bookmark size={18} strokeWidth={1.5} className="text-primary" />
-            Tip: You can drag and resize these widgets!
-          </div>
-        </div>
-      )}
 
       {staleApps.length > 0 && !staleBannerDismissed && (
         <div className="mb-4 flex items-center justify-between gap-4 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/30 px-5 py-3 text-sm text-amber-800 dark:text-amber-200">

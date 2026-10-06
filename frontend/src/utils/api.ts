@@ -4,7 +4,7 @@
  * Base URL: `VITE_API_BASE_URL` or `/api` (see `config/apiBase.ts`).
  */
 import axios, { AxiosError } from "axios";
-import toast from "react-hot-toast";
+import toast from "../components/ui/toast.ts";
 import { getApiBaseURL } from "../config/apiBase.ts";
 import { reportClientBug } from "./bugReporter.ts";
 import type {

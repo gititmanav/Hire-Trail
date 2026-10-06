@@ -2,7 +2,7 @@
  *  Custom theme built from three inputs) and how the Applications list reads
  *  (Classic | Table). */
 import { CSSProperties, KeyboardEvent, ReactNode, useContext, useEffect, useRef, useState } from "react";
-import toast from "react-hot-toast";
+import toast, { toastWithUndo } from "../../../components/ui/toast.ts";
 import { Check, ClipboardPaste, Copy, Monitor, Moon, Palette, RotateCcw, Sun, type LucideIcon } from "lucide-react";
 import { ThemeContext, ThemeControlsContext } from "../../../hooks/useTheme.tsx";
 import { useListDesign } from "../../../hooks/useListDesign.ts";
@@ -10,7 +10,6 @@ import { useDemoGate } from "../../../hooks/useDemoGate.tsx";
 import type { CustomTheme, ListDesign, ThemeMode } from "../../../utils/preferences.ts";
 import { hexToLch, lchToHex, seedCustomTheme, themeFromClipboard, themeToClipboard } from "../../../utils/theme.ts";
 import { generated } from "../../../utils/themeDom.ts";
-import { toastWithUndo } from "../../../utils/undoToast.tsx";
 import ColorPicker, { normalizeHex } from "../../../components/ui/ColorPicker.tsx";
 import Slider from "../../../components/ui/Slider.tsx";
 import Button from "../../../components/ui/Button.tsx";

@@ -3,7 +3,7 @@
  *  useStageMutation), and once the server confirms it offers to close the
  *  application's now-irrelevant deadlines. */
 import { useCallback } from "react";
-import { useDeadlineFollowups } from "../../../hooks/useDeadlineFollowups.tsx";
+import { useDeadlineFollowups } from "../../../hooks/useDeadlineFollowups.ts";
 import { useStageMutation } from "./queries.ts";
 import type { Application, Stage } from "../../../types";
 

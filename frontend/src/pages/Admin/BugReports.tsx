@@ -1,7 +1,7 @@
 /** Admin bug-report inbox — silent captures from errorHandler + frontend interceptors. */
 import { useCallback, useEffect, useState } from "react";
 import { X } from "lucide-react";
-import toast from "react-hot-toast";
+import toast from "../../components/ui/toast.ts";
 import { adminAPI } from "../../utils/api.ts";
 import type { BugReport, BugReportStatus, BugReportSource } from "../../utils/api.ts";
 import Select from "../../components/ui/Select.tsx";

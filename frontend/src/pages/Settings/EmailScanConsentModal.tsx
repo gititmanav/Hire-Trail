@@ -9,7 +9,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { X, ArrowRight } from "lucide-react";
-import toast from "react-hot-toast";
+import toast from "../../components/ui/toast.ts";
 import { emailAPI } from "../../utils/api.ts";
 import { MODAL_EXIT, useExitAnimation } from "../../hooks/useExitAnimation.ts";
 

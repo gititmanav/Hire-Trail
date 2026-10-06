@@ -11,7 +11,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import toast from "react-hot-toast";
+import toast from "../../components/ui/toast.ts";
 import { ChevronLeft, Check, ArrowRight, Mail } from "lucide-react";
 import { emailAPI, type ScanCandidate, type ScanJob } from "../../utils/api.ts";
 import { STAGE_TONE_CLASS } from "../../utils/stageStyles.ts";

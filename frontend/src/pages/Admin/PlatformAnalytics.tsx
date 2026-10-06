@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useContext } from "react";
-import toast from "react-hot-toast";
+import toast from "../../components/ui/toast.ts";
 import { Bar } from "react-chartjs-2";
 import "../../utils/chartSetup";
 import { chartColors, mutedFgColor, borderColor, stageColor, paletteColor } from "../../utils/chartSetup";

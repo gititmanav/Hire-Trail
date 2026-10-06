@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef, FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 import { ChevronRight, Pencil, Plus, Send, Star, Trash2 } from "lucide-react";
-import toast from "react-hot-toast";
+import toast from "../../components/ui/toast.ts";
 import { contactsAPI, companiesAPI } from "../../utils/api.ts";
 import CompanyLogo from "../../components/CompanyLogo/CompanyLogo.tsx";
 import { SkeletonCard } from "../../components/Skeleton/Skeleton.tsx";

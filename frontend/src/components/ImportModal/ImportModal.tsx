@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { X, Upload, FileText, CheckCircle2 } from "lucide-react";
-import toast from "react-hot-toast";
+import toast from "../ui/toast.ts";
 import { parseCSV, downloadTemplate, type CSVRow } from "../../utils/csv.ts";
 import { applicationsAPI } from "../../utils/api.ts";
 import { MODAL_EXIT, useExitAnimation } from "../../hooks/useExitAnimation.ts";

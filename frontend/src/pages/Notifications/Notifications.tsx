@@ -7,7 +7,7 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import toast from "react-hot-toast";
+import toast from "../../components/ui/toast.ts";
 import { Bell, Check, RotateCcw, X } from "lucide-react";
 import { notificationsAPI } from "../../utils/api.ts";
 import EmptyState from "../../components/EmptyState/EmptyState.tsx";

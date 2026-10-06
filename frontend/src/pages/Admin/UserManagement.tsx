@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronDown, Search } from "lucide-react";
-import toast from "react-hot-toast";
+import toast from "../../components/ui/toast.ts";
 import { adminAPI } from "../../utils/api";
 import Menu, { type MenuItem } from "../../components/ui/Menu.tsx";
 import Select from "../../components/ui/Select.tsx";

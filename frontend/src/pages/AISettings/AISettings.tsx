@@ -12,7 +12,7 @@
  */
 import { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { KeyRound, Sparkles, Trash2 } from "lucide-react";
-import toast from "react-hot-toast";
+import toast from "../../components/ui/toast.ts";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal.tsx";
 import AiPulse from "../../components/AiIndicator/AiPulse.tsx";
 import { Skeleton } from "../../components/Skeleton/Skeleton.tsx";

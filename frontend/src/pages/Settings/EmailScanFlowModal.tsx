@@ -22,7 +22,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { X, Mail, Filter, Search, AlertTriangle, RotateCw, Link2 } from "lucide-react";
 import Select from "../../components/ui/Select.tsx";
 import { STAGE_STRIPE_CLASS, STAGE_TONE_CLASS } from "../../utils/stageStyles.ts";
-import toast from "react-hot-toast";
+import toast from "../../components/ui/toast.ts";
 import { emailAPI, type ScanCandidate, type ScanJob, type ScanJobStatus } from "../../utils/api.ts";
 import AiStepper from "../../components/AiIndicator/AiStepper.tsx";
 import { MODAL_EXIT, useExitAnimation } from "../../hooks/useExitAnimation.ts";

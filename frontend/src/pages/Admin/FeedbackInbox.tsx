@@ -1,7 +1,7 @@
 /** Admin Feedback inbox — list, filter, triage. */
 import { useCallback, useEffect, useState } from "react";
 import { X } from "lucide-react";
-import toast from "react-hot-toast";
+import toast from "../../components/ui/toast.ts";
 import { adminAPI } from "../../utils/api.ts";
 import type { FeedbackItem, FeedbackStatus, FeedbackSeverity, FeedbackType } from "../../utils/api.ts";
 import Select from "../../components/ui/Select.tsx";

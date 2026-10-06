@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Shield, CheckCircle2, ChevronDown, User, Search, Check, type LucideIcon } from "lucide-react";
-import toast from "react-hot-toast";
+import toast from "../../components/ui/toast.ts";
 import { adminAPI } from "../../utils/api";
 import Menu, { type MenuItem } from "../../components/ui/Menu.tsx";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal";

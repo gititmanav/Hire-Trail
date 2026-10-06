@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import toast from "react-hot-toast";
+import toast from "../../../components/ui/toast.ts";
 import { companiesAPI } from "../../../utils/api.ts";
 import { usePageShortcuts } from "../../../hooks/usePageShortcuts.ts";
 import { useConfirm } from "../../../hooks/useConfirm.ts";

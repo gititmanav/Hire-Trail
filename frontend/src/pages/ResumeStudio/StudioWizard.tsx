@@ -10,7 +10,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, CloudOff, Download, Loader2 } from "lucide-react";
-import toast from "react-hot-toast";
+import toast from "../../components/ui/toast.ts";
 import { readStudioSession, writeStudioSession, useStudioDocument } from "./useStudioDocument.ts";
 import GapStep from "./steps/GapStep.tsx";
 import AlignStep, { defaultAlignConfig, buildAlignInstruction, type AlignConfig } from "./steps/AlignStep.tsx";
@@ -107,7 +107,7 @@ export default function StudioWizard({
       a.remove();
       URL.revokeObjectURL(url);
       if (ext === "pdf") toast.success("PDF downloaded — identical to the preview.", { id: toastId });
-      else toast("Downloaded a print-ready preview (mock mode).", { id: toastId, icon: "ℹ️", duration: 5000 });
+      else toast("Downloaded a print-ready preview (mock mode).", { id: toastId, duration: 5000 });
     } catch (err) {
       const e = err as { response?: { data?: { error?: string } }; message?: string };
       toast.error(e?.response?.data?.error || e?.message || "Could not generate the PDF — please try again.", { id: toastId });

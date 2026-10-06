@@ -2,7 +2,7 @@
  *  KPI strip · pipeline funnel · integration health · tailor/profile metrics · feedback · recent activity. */
 import { useEffect, useMemo, useState, useContext } from "react";
 import { Link } from "react-router-dom";
-import toast from "react-hot-toast";
+import toast from "../../components/ui/toast.ts";
 import { Line, Bar, Doughnut } from "react-chartjs-2";
 import "../../utils/chartSetup";
 import { chartColors, primaryColor, mutedFgColor, borderColor } from "../../utils/chartSetup";

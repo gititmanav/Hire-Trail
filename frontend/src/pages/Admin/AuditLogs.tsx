@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import toast from "react-hot-toast";
+import toast from "../../components/ui/toast.ts";
 import { adminAPI } from "../../utils/api";
 import type { AuditLog, Pagination } from "../../types";
 import Select from "../../components/ui/Select.tsx";

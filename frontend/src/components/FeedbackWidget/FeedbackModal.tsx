@@ -4,7 +4,7 @@ import { useEffect, useState, FormEvent } from "react";
 import { createPortal } from "react-dom";
 import { useLocation } from "react-router-dom";
 import { Bug, Clock, Lightbulb, ThumbsUp, MessageSquare, X } from "lucide-react";
-import toast from "react-hot-toast";
+import toast from "../ui/toast.ts";
 import { feedbackAPI } from "../../utils/api.ts";
 import type { FeedbackType } from "../../utils/api.ts";
 

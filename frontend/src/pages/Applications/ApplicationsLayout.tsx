@@ -14,7 +14,7 @@
  *  The list style (Classic | Table) is a Personalize preference (useListDesign). */
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Outlet, useLocation, useNavigate, useOutletContext, useSearchParams } from "react-router-dom";
-import toast from "react-hot-toast";
+import toast from "../../components/ui/toast.ts";
 import { applicationsAPI, tailorAPI } from "../../utils/api.ts";
 import { exportToCSV } from "../../utils/csv.ts";
 import { useFeatureFlags } from "../../hooks/useFeatureFlags.tsx";

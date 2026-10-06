@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { Loader2, AlertCircle, Database, User } from "lucide-react";
-import toast from "react-hot-toast";
+import toast from "../../components/ui/toast.ts";
 import { adminAPI } from "../../utils/api";
 
 export default function BackupManagement() {

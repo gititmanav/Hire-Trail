@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import toast from "react-hot-toast";
+import toast from "../../components/ui/toast.ts";
 import { adminAPI } from "../../utils/api";
 import type { Application, Contact, Deadline, Resume, Pagination } from "../../types";
 import { STAGE_BADGE_CLASS } from "../../utils/stageStyles.ts";

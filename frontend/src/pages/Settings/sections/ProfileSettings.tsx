@@ -1,6 +1,6 @@
 /** Settings → Profile: identity, password, and account deletion. */
 import { useContext, useMemo, useState, FormEvent } from "react";
-import toast from "react-hot-toast";
+import toast from "../../../components/ui/toast.ts";
 import { api, authAPI } from "../../../utils/api.ts";
 import type { User } from "../../../types";
 import { UserContext } from "../../../App.tsx";

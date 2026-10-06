@@ -16,7 +16,7 @@
  */
 import { useContext, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import toast from "react-hot-toast";
+import toast from "../../components/ui/toast.ts";
 import AuthModal, { type AuthMode } from "../../components/AuthModal/AuthModal.tsx";
 import { UserContext, preloadAppShell } from "../../App.tsx";
 import { authAPI } from "../../utils/api.ts";

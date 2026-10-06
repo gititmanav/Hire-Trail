@@ -2,7 +2,7 @@
  *  Right sidebar shows the source-resume preview + quick stats. */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { UploadCloud, FileText, ChevronRight, MapPin, Mail, Phone, Globe, Pencil } from "lucide-react";
-import toast from "react-hot-toast";
+import toast from "../../components/ui/toast.ts";
 import { masterProfileAPI, resumesAPI, pollMasterProfileParse } from "../../utils/api.ts";
 import ResumePreview from "../../components/ResumePreview/ResumePreview.tsx";
 import EditDrawer, { type SectionKey as EditSectionKey } from "./EditDrawer.tsx";

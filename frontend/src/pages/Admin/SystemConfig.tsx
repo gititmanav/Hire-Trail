@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Wrench } from "lucide-react";
-import toast from "react-hot-toast";
+import toast from "../../components/ui/toast.ts";
 import { adminAPI } from "../../utils/api";
 import type { SystemSetting } from "../../types";
 

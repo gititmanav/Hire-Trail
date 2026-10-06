@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import toast from "react-hot-toast";
+import toast from "../../components/ui/toast.ts";
 import { adminAPI } from "../../utils/api";
 import type { StorageStats } from "../../types";
 
@@ -32,7 +32,7 @@ export default function StorageManagement() {
   };
 
   const handleCleanup = () => {
-    toast("Cleanup not yet implemented", { icon: "🔧" });
+    toast("Cleanup not yet implemented");
   };
 
   if (loading) {

@@ -12,7 +12,7 @@
  */
 import { useMemo, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-import toast from "react-hot-toast";
+import toast, { toastWithUndo } from "../../components/ui/toast.ts";
 import { Archive, ArchiveRestore, ArrowLeft, ChevronDown, ChevronUp, Ellipsis, ExternalLink, Link2, Pencil, Sparkles, Trash2 } from "lucide-react";
 import CompanyLogo from "../../components/CompanyLogo/CompanyLogo.tsx";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal.tsx";
@@ -24,7 +24,6 @@ import Tooltip from "../../components/ui/Tooltip.tsx";
 import { useConfirm } from "../../hooks/useConfirm.ts";
 import { usePageShortcuts } from "../../hooks/usePageShortcuts.ts";
 import { computeAppHealth } from "../../utils/applicationHealth.ts";
-import { toastWithUndo } from "../../utils/undoToast.tsx";
 import ApplicationFormModal from "./components/ApplicationFormModal.tsx";
 import StageMenu from "./components/StageMenu.tsx";
 import ApplicationTailorDrawer from "./ApplicationTailorDrawer.tsx";

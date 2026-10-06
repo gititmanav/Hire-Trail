@@ -15,7 +15,7 @@
  * It strictly reflects backend output — it never invents resume content.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import toast from "react-hot-toast";
+import toast from "../../components/ui/toast.ts";
 import { resumeStudioAPI } from "../../utils/studioApi.ts";
 import {
   cloneDoc, normalizeOrders,
@@ -283,7 +283,7 @@ export function useStudioDocument(resumeId: string, initialJd: string, initialGa
     setScoreAnim(null);
     // Best-effort server revert; the local restore is authoritative for the UI.
     try { await resumeStudioAPI.revert(resumeId, snap.doc.version ?? 1, snap.doc); } catch { /* ignore */ }
-    toast("Reverted the last AI change", { icon: "↩️" });
+    toast("Reverted the last AI change");
   }, [resumeId]);
 
   /* ---------- target selection ---------- */

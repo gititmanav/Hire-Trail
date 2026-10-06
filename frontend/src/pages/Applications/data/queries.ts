@@ -11,7 +11,7 @@
  *  the source of truth without the user ever waiting on it.
  */
 import { useMutation, useQuery, useQueryClient, keepPreviousData, type QueryClient } from "@tanstack/react-query";
-import toast from "react-hot-toast";
+import toast from "../../../components/ui/toast.ts";
 import {
   applicationsAPI, contactsAPI, deadlinesAPI, resumesAPI, companiesAPI,
   type ApplicationListParams, type ApplicationListResponse,
