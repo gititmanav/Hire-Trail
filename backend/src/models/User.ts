@@ -18,6 +18,9 @@ export interface IUser extends Document {
   suspendedAt: Date | null;
   deleted: boolean;
   deletedAt: Date | null;
+  /** Set while a deletion the person asked for is pending (services/account/
+   *  deletion.ts): signing in before `scheduledFor` clears it. */
+  deletion?: { requestedAt: Date; scheduledFor: Date; reason: string; note: string } | null;
   tourCompleted: boolean;
   /** Default resume for new applications (e.g. Chrome extension). */
   primaryResumeId: mongoose.Types.ObjectId | null;
@@ -51,6 +54,17 @@ export interface IUser extends Document {
   /** Settings → Personalize. Follows the user across devices. Missing on
    *  documents that predate it — always read through normalizePreferences. */
   preferences?: { theme?: unknown; listDesign?: string };
+  /** Admin's per-user AI rules (Admin → Users). Missing on most documents —
+   *  read through services/ai/routing.ts, which treats absence as "no override". */
+  aiOverride?: {
+    /** No AI at all for this user. */
+    suspended?: boolean;
+    /** Replaces the platform's per-user Included allowance (USD/month). */
+    allowanceUsd?: number | null;
+    /** Every feature runs in this lane for this user (if the feature allows it). */
+    forcedLane?: "included" | "byok" | "assistant" | "off" | null;
+    note?: string;
+  };
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidate: string): Promise<boolean>;
@@ -90,6 +104,13 @@ const userSchema = new Schema<IUser>(
     suspendedAt: { type: Date, default: null },
     deleted: { type: Boolean, default: false },
     deletedAt: { type: Date, default: null },
+    deletion: {
+      type: new Schema(
+        { requestedAt: Date, scheduledFor: Date, reason: String, note: String },
+        { _id: false },
+      ),
+      default: undefined,
+    },
     tourCompleted: { type: Boolean, default: false },
     primaryResumeId: {
       type: Schema.Types.ObjectId,
@@ -140,6 +161,18 @@ const userSchema = new Schema<IUser>(
       ),
       default: undefined,
     },
+    aiOverride: {
+      type: new mongoose.Schema(
+        {
+          suspended: { type: Boolean, default: false },
+          allowanceUsd: { type: Number, default: null, min: 0 },
+          forcedLane: { type: String, enum: ["included", "byok", "assistant", "off", null], default: null },
+          note: { type: String, default: "", maxlength: 280 },
+        },
+        { _id: false },
+      ),
+      default: undefined,
+    },
   },
   {
     timestamps: true,
@@ -155,6 +188,9 @@ const userSchema = new Schema<IUser>(
     },
   }
 );
+
+// Due deletions are found by date (services/account/deletion.ts).
+userSchema.index({ "deletion.scheduledFor": 1 }, { sparse: true });
 
 // email (unique) and googleId (sparse) are indexed at the field level — an
 // extra schema.index() here duplicated them (Mongoose boot warning).

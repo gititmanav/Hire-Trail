@@ -4,7 +4,8 @@ export interface IAdminLoginEvent extends Document {
   userId: mongoose.Types.ObjectId;
   email: string;
   name: string;
-  provider: "local" | "google";
+  /** "google-extension": Google sign-in from the Chrome extension. */
+  provider: "local" | "google" | "google-extension";
   ipAddress: string;
   userAgent: string;
   loggedInAt: Date;
@@ -22,7 +23,7 @@ const adminLoginEventSchema = new Schema<IAdminLoginEvent>(
     },
     email: { type: String, required: true, trim: true, lowercase: true },
     name: { type: String, required: true, trim: true },
-    provider: { type: String, enum: ["local", "google"], required: true },
+    provider: { type: String, enum: ["local", "google", "google-extension"], required: true },
     ipAddress: { type: String, default: "" },
     userAgent: { type: String, default: "" },
     loggedInAt: { type: Date, default: Date.now, index: true },

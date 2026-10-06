@@ -22,6 +22,9 @@ export function configurePassport(): void {
   passport.deserializeUser(async (id: string, done) => {
     try {
       const user = await User.findById(id);
+      // A suspended or deleted account is signed out on its next request:
+      // `false` drops the session's user instead of trusting a stale login.
+      if (!user || user.suspended || user.deleted) return done(null, false);
       done(null, user);
     } catch (err) {
       done(err, null);

@@ -1,5 +1,6 @@
 /** Session-based auth: register/login/logout, Google OAuth, profile and password updates, token auth for extensions. */
 import { Router, Request, Response, NextFunction } from "express";
+import { z } from "zod";
 import passport from "passport";
 import jwt from "jsonwebtoken";
 import { User, DEFAULT_CLIPBOARD_PROMPT } from "../models/User.js";
@@ -11,22 +12,10 @@ import { AppError } from "../errors/AppError.js";
 import { env } from "../config/env.js";
 import { isAdminEmail } from "../utils/admin.js";
 import { AdminLoginEvent } from "../models/AdminLoginEvent.js";
+import { cancelScheduledDeletion, maybePurgeDueDeletions, requestDeletion, DELETION_REASONS } from "../services/account/deletion.js";
 import { ensureAuth, getUser } from "../middleware/auth.js";
 import { Resume } from "../models/Resume.js";
-import { Application } from "../models/Application.js";
-import { Contact } from "../models/Contact.js";
-import { Deadline } from "../models/Deadline.js";
-import { Notification } from "../models/Notification.js";
-import { TailorSession } from "../models/TailorSession.js";
-import { MasterProfile } from "../models/MasterProfile.js";
-import { Feedback } from "../models/Feedback.js";
-import { AuditLog } from "../models/AuditLog.js";
-import { Company } from "../models/Company.js";
-import { Invite } from "../models/Invite.js";
-import { disconnectGmail } from "../services/gmailService.js";
-import { disconnectOutlook } from "../services/outlookService.js";
 import { ensureClipboardNudge } from "../services/migrations/seedClipboardNudge.js";
-import mongoose from "mongoose";
 import {
   getMaintenanceMode,
   isMaintenanceBypassEmail,
@@ -44,6 +33,7 @@ function clientUser(u: {
   _id: unknown; name: string; email: string; role: string; tourCompleted?: boolean;
   primaryResumeId?: unknown; mergeResumesEnabled?: boolean; clipboardCopyOnTrack?: boolean;
   clipboardFormat?: string; clipboardPromptTemplate?: string; preferences?: unknown;
+  password?: string | null;
 }) {
   return {
     _id: u._id,
@@ -57,6 +47,8 @@ function clientUser(u: {
     clipboardFormat: u.clipboardFormat ?? "metadata",
     clipboardPromptTemplate: u.clipboardPromptTemplate ?? DEFAULT_CLIPBOARD_PROMPT,
     preferences: normalizePreferences(u.preferences),
+    /** Whether the account signs in with a password (never the hash). */
+    hasPassword: Boolean(u.password),
   };
 }
 
@@ -106,7 +98,7 @@ router.post(
           name: user.name,
           provider: "local",
           ...meta,
-        });
+        }).catch((err) => console.warn("[auth] login event not recorded:", err instanceof Error ? err.message : err));
         res.status(201).json(clientUser(user));
       });
     } catch (err) {
@@ -131,9 +123,11 @@ router.post(
           }
           return res.status(401).json({ error: info?.message || "Invalid credentials" });
         }
-        req.login(user, (loginErr) => {
+        req.login(user, async (loginErr) => {
           if (loginErr) return next(loginErr);
-          res.json(clientUser(user));
+          // Signing in during a pending deletion keeps the account.
+          const deletionCancelled = await cancelScheduledDeletion(user).catch(() => false);
+          res.json({ ...clientUser(user), ...(deletionCancelled && { deletionCancelled: true }) });
           const meta = getRequestMeta(req);
           void AdminLoginEvent.create({
             userId: user._id,
@@ -141,7 +135,7 @@ router.post(
             name: user.name,
             provider: "local",
             ...meta,
-          });
+          }).catch((err) => console.warn("[auth] login event not recorded:", err instanceof Error ? err.message : err));
         });
       }
     )(req, res, next);
@@ -163,6 +157,8 @@ router.post("/logout", (req: Request, res: Response, next: NextFunction) => {
 router.get("/me", ensureAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = getUser(req);
+    // Every app load: erase accounts whose deletion date has passed (hourly per instance).
+    maybePurgeDueDeletions();
     if (isAdminEmail(user.email) && user.role !== "admin") {
       await User.findByIdAndUpdate(user._id, { $set: { role: "admin" } });
     }
@@ -211,12 +207,13 @@ router.get("/google/callback", (req: Request, res: Response, next: NextFunction)
       console.error("Google OAuth: no user");
       return res.redirect(`${env.CLIENT_URL}/login`);
     }
-    req.login(user, (loginErr) => {
+    req.login(user, async (loginErr) => {
       if (loginErr) {
         console.error("Google login error:", loginErr);
         return res.redirect(`${env.CLIENT_URL}/login`);
       }
-      res.redirect(env.CLIENT_URL);
+      const deletionCancelled = await cancelScheduledDeletion(user).catch(() => false);
+      res.redirect(deletionCancelled ? `${env.CLIENT_URL}/?deletionCancelled=1` : env.CLIENT_URL);
       const meta = getRequestMeta(req);
       void AdminLoginEvent.create({
         userId: user._id,
@@ -224,7 +221,7 @@ router.get("/google/callback", (req: Request, res: Response, next: NextFunction)
         name: user.name,
         provider: "google",
         ...meta,
-      });
+      }).catch((err) => console.warn("[auth] login event not recorded:", err instanceof Error ? err.message : err));
     });
   })(req, res, next);
 });
@@ -251,6 +248,7 @@ router.post(
       if ((await getMaintenanceMode()) && !isMaintenanceBypassEmail(user.email)) {
         return res.status(503).json({ error: MAINTENANCE_AUTH_MESSAGE, code: "MAINTENANCE" });
       }
+      await cancelScheduledDeletion(user).catch(() => false);
       const token = jwt.sign({ userId: user._id.toString() }, env.SESSION_SECRET, { expiresIn: "30d" });
       res.json({
         token,
@@ -395,6 +393,7 @@ router.post(
 
       if (user.suspended) return res.status(403).json({ error: "Account suspended" });
 
+      await cancelScheduledDeletion(user).catch(() => false);
       const token = jwt.sign({ userId: user._id.toString() }, env.SESSION_SECRET, { expiresIn: "30d" });
       res.json({
         token,
@@ -414,7 +413,7 @@ router.post(
         name: user.name,
         provider: "google-extension",
         ...meta,
-      });
+      }).catch((err) => console.warn("[auth] login event not recorded:", err instanceof Error ? err.message : err));
     } catch (err) {
       next(err);
     }
@@ -486,80 +485,38 @@ router.put("/profile", ensureAuth, async (req: Request, res: Response, next: Nex
   }
 });
 
-// DELETE account — GDPR right-to-erasure. Revokes external OAuth tokens, cascades
-// owned data across collections, deletes server-side sessions, then deletes the user
-// document. Requires typed confirmation (body: { confirm: "DELETE" }).
-router.delete("/me", ensureAuth, async (req: Request, res: Response, next: NextFunction) => {
+// Account deletion — possible, deliberately a little hard (services/account/
+// deletion.ts): a reason, DELETE, and the password (or, for a Google-only
+// account, its email address). Scheduled 14 days out; signing in before then
+// keeps the account. Signs the person out everywhere.
+const deletionSchema = z.object({
+  reason: z.enum(DELETION_REASONS),
+  note: z.string().max(500).optional(),
+  confirm: z.string(),
+  password: z.string().max(200).optional(),
+  email: z.string().max(320).optional(),
+});
+router.post("/me/deletion", ensureAuth, authLimiter, async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const parsed = deletionSchema.safeParse(req.body);
+    if (!parsed.success) throw new AppError("Choose a reason and confirm to continue.", 400);
     const user = getUser(req);
-
-    if (user.email === DEMO_EMAIL) {
-      throw new AppError("The demo account cannot be deleted.", 403);
-    }
-
-    const { confirm } = (req.body ?? {}) as { confirm?: string };
-    if (confirm !== "DELETE") {
-      throw new AppError('Confirmation phrase did not match. Type "DELETE" to confirm.', 400);
-    }
-
-    const userId = user._id;
-    const userIdStr = String(userId);
-
-    // Revoke external OAuth tokens. Failures here must not block local deletion —
-    // the disconnect helpers already swallow revoke errors and still clear local state.
-    await Promise.allSettled([
-      disconnectGmail(userIdStr),
-      disconnectOutlook(userIdStr),
-    ]);
-
-    // Cascade-delete owned data.
-    await Promise.all([
-      Resume.deleteMany({ userId }),
-      Application.deleteMany({ userId }),
-      Contact.deleteMany({ userId }),
-      Deadline.deleteMany({ userId }),
-      Notification.deleteMany({ userId }),
-      TailorSession.deleteMany({ userId }),
-      MasterProfile.deleteMany({ userId }),
-      Feedback.deleteMany({ userId }),
-      AuditLog.deleteMany({ userId }),
-      AdminLoginEvent.deleteMany({ userId }),
-      Company.updateMany({}, { $pull: { users: userId } }),
-      Invite.deleteMany({ createdBy: userId }),
-      Invite.updateMany({ "usedBy.userId": userId }, { $pull: { usedBy: { userId } } }),
-    ]);
-
-    // Companies with no users remaining are orphans — drop them.
-    await Company.deleteMany({ users: { $size: 0 } });
-
-    // Wipe other active sessions for this user. The session document stores
-    // passport-serialised userId inside a JSON string in the `session` field.
-    const db = mongoose.connection.db;
-    if (db) {
-      try {
-        await db.collection("sessions").deleteMany({
-          session: { $regex: `"user":"${userIdStr}"` },
-        });
-      } catch {
-        // best-effort — TTL + ensureAuth's user lookup will invalidate any leftovers
-      }
-    }
-
-    // Hard delete. The unique email index frees the address for re-registration.
-    await User.deleteOne({ _id: userId });
-
+    const { scheduledFor } = await requestDeletion(user._id, parsed.data);
     const finish = () => {
       res.clearCookie("connect.sid");
-      res.json({ message: "Account deleted." });
+      res.json({ scheduledFor });
     };
-    if (req.session) {
-      req.session.destroy(() => finish());
-    } else {
-      finish();
-    }
+    if (req.session) req.session.destroy(() => finish());
+    else finish();
   } catch (err) {
     next(err);
   }
+});
+
+// The old one-step delete. A page loaded before the change would call it —
+// refuse plainly rather than delete without the new safeguards.
+router.delete("/me", ensureAuth, (_req: Request, res: Response) => {
+  res.status(410).json({ error: "This page is out of date. Refresh HireTrail, then try again from Settings → Profile." });
 });
 
 // PUT change password
