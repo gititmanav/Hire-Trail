@@ -14,10 +14,12 @@
  *   review    → editable candidate cards with import/skip/merge
  *   done      → summary + Confirm to close
  *
- * Close attempts during `scanning` or `review` (the X, Escape, a click
- * outside) route through a red sub-confirm — a ConfirmModal stacked on top.
- * Confirming sends `abandonScan` so pending candidates are cleaned up
- * server-side (imported/merged ones stay — they're real Apps).
+ * Closing mid-scan just closes: the scan keeps going server-side and the
+ * Connectors banner / a notification brings the person back. Closing the
+ * review (the X, Escape, a click outside) routes through a red sub-confirm —
+ * a ConfirmModal stacked on top. Confirming sends `abandonScan` so pending
+ * candidates are cleaned up server-side (imported/merged ones stay — they're
+ * real Apps).
  */
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { Mail, Filter, Search, AlertTriangle, RotateCw, Link2 } from "lucide-react";
@@ -31,6 +33,7 @@ import { STAGE_STRIPE_CLASS, STAGE_TONE_CLASS } from "../../utils/stageStyles.ts
 import toast from "../../components/ui/toast.ts";
 import { emailAPI, type ScanCandidate, type ScanJob, type ScanJobStatus } from "../../utils/api.ts";
 import AiStepper from "../../components/AiIndicator/AiStepper.tsx";
+import { Skeleton } from "../../components/Skeleton/Skeleton.tsx";
 
 const POLL_MS = 3000;
 
@@ -85,21 +88,32 @@ export default function EmailScanFlowModal({ initialJob, onClose, onFinished }: 
   const [step, setStep] = useState<Step>(stepForJob(initialJob));
   const [job, setJob] = useState<ScanJob | null>(initialJob);
   const [candidates, setCandidates] = useState<ScanCandidate[]>([]);
+  // False until the first candidate list lands — an empty review before then
+  // isn't "nothing found", and finishing it would drop the queue.
+  const [candidatesLoaded, setCandidatesLoaded] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
 
   const refreshJob = useCallback(async () => {
     try {
       const { job: latest } = await emailAPI.getLatestScanJob();
-      setJob(latest);
+      // Candidates first, so the review never opens on an empty list.
       if (latest && (latest.status === "ready_for_review" || latest.status === "completed")) {
         const { candidates: list } = await emailAPI.getScanCandidates(latest._id);
         setCandidates(list);
+        setCandidatesLoaded(true);
       }
+      setJob(latest);
     } catch {/* axios toast covers it */}
   }, []);
 
   // Drive the step from job status as it evolves.
   useEffect(() => { setStep(stepForJob(job)); }, [job]);
+
+  // Opened on a scan that already finished (the banner's "Review", a
+  // notification): its candidates load now — the poll only runs mid-scan.
+  useEffect(() => {
+    if (initialJob && !NON_TERMINAL_JOB_STATUSES.includes(initialJob.status)) void refreshJob();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- once, for the job it opened on
 
   // Poll while the worker is mid-flight.
   useEffect(() => {
@@ -108,12 +122,11 @@ export default function EmailScanFlowModal({ initialJob, onClose, onFinished }: 
     return () => window.clearTimeout(t);
   }, [job, refreshJob]);
 
-  // X / Escape / outside click → either close directly (picker / done /
-  // failed) or fall into the "lose results" confirm (scanning / review).
-  // Modal gives Escape to the top layer only, so an open Select — or the
-  // confirm itself — closes before the flow does.
+  // X / Escape / outside click → close directly, except in review, which
+  // asks first ("lose results"). Modal gives Escape to the top layer only,
+  // so an open Select — or the confirm itself — closes before the flow does.
   const requestClose = useCallback(() => {
-    if (step === "scanning" || step === "review") {
+    if (step === "review") {
       setConfirmClose(true);
     } else {
       onClose();
@@ -220,6 +233,7 @@ export default function EmailScanFlowModal({ initialJob, onClose, onFinished }: 
           <ReviewStep
             job={job}
             candidates={candidates}
+            loading={!candidatesLoaded}
             onRefresh={refreshJob}
             onClose={requestClose}
             onConfirmFinish={handleConfirmFinish}
@@ -239,7 +253,7 @@ export default function EmailScanFlowModal({ initialJob, onClose, onFinished }: 
         <ConfirmModal
           title="You’ll lose the scan results."
           message="Closing now drops every candidate you haven’t imported yet. Anything you already imported stays in your tracker. You can re-run the scan later, but it’ll have to read your inbox again."
-          cancelLabel="Keep scanning"
+          cancelLabel="Keep reviewing"
           confirmLabel="Close & lose results"
           onCancel={() => setConfirmClose(false)}
           onConfirm={() => void handleAbandon()}
@@ -441,10 +455,11 @@ function ScanningStep({ job, onClose }: { job: ScanJob; onClose: () => void }) {
 /* ───────────────────────── Review step ───────────────────────── */
 
 function ReviewStep({
-  job, candidates, onRefresh, onClose, onConfirmFinish,
+  job, candidates, loading, onRefresh, onClose, onConfirmFinish,
 }: {
   job: ScanJob;
   candidates: ScanCandidate[];
+  loading: boolean;
   onRefresh: () => Promise<void>;
   onClose: () => void;
   onConfirmFinish: () => Promise<void>;
@@ -506,15 +521,21 @@ function ReviewStep({
         description={
           <>
             {job.kind === "manual" ? "From today's inbox scan." : `From your last ${job.windowDays}-day Gmail scan.`}
-            {" "}Found {candidates.length} candidate{candidates.length === 1 ? "" : "s"}.
-            {" "}<span className="font-semibold">{pending.length}</span> pending · {decided.length} decided.
+            {!loading && (
+              <>
+                {" "}Found {candidates.length} candidate{candidates.length === 1 ? "" : "s"}.
+                {" "}<span className="font-semibold">{pending.length}</span> pending · {decided.length} decided.
+              </>
+            )}
           </>
         }
         onClose={onClose}
       />
 
       <ModalBody className="space-y-3">
-        {pending.length === 0 && decided.length === 0 ? (
+        {loading ? (
+          [0, 1].map((i) => <Skeleton key={i} className="h-[172px] w-full !rounded-xl" />)
+        ) : pending.length === 0 && decided.length === 0 ? (
           <p className="text-sm text-muted-foreground py-6 text-center">
             No application emails detected in this window. You can close this and add applications manually or via the extension.
           </p>
@@ -558,14 +579,16 @@ function ReviewStep({
       <ModalFooter
         start={
           <p className="text-[11.5px] text-muted-foreground">
-            {pending.length === 0
+            {loading
+              ? "Loading what the scan found…"
+              : pending.length === 0
               ? "All caught up."
               : `${pending.length} candidate${pending.length === 1 ? "" : "s"} still pending.`}
           </p>
         }
       >
-        <Button variant="primary" onClick={handleFinish} disabled={confirming}>
-          {confirming ? "Finishing…" : pending.length === 0 ? "Confirm & finish" : "Done with review"}
+        <Button variant="primary" onClick={handleFinish} disabled={confirming || loading}>
+          {confirming ? "Finishing…" : !loading && pending.length === 0 ? "Confirm & finish" : "Done with review"}
         </Button>
       </ModalFooter>
     </>
