@@ -6,9 +6,12 @@
  *     cached, monogram fallback)
  *   - middle content: role (dominant), company (secondary), chip strip,
  *     stage-aware age badge
- *   - right "Pipeline Pulse" panel: stage track + health + next-action link
+ *   - right "Pipeline Pulse" panel: stage track + health + next-action link,
+ *     then the fit panel
  *
- * On <sm the right panel reflows below content as a footer strip.
+ * The row lays out by the list's width (a container query, App.css → "Classic
+ * application rows"): wide lists keep one line; narrower ones drop the pulse
+ * and fit panels into a two-up footer under the logo + content.
  */
 import { memo, useMemo } from "react";
 import {
@@ -129,7 +132,7 @@ function ApplicationRowImpl({
         onOpen();
       }}
       style={staggerDelay !== undefined ? { animationDelay: `${staggerDelay}ms` } : undefined}
-      className={`group relative flex flex-col sm:flex-row items-stretch overflow-hidden rounded-xl border bg-card transition-shadow cursor-pointer hover:shadow-sm ${
+      className={`app-row group relative flex items-stretch overflow-hidden rounded-xl border bg-card transition-shadow cursor-pointer hover:shadow-sm ${
         staggerIndex >= 0 ? "app-row-stagger" : ""
       } ${
         selected
@@ -175,7 +178,7 @@ function ApplicationRowImpl({
       </div>
 
       {/* Middle: content */}
-      <div className={`flex-1 min-w-0 ${isCompact ? "py-2 pr-3" : "py-3 pr-3"} flex flex-col gap-1.5`}>
+      <div className={`app-row-body flex-1 min-w-0 ${isCompact ? "py-2 pr-3" : "py-3 pr-3"} flex flex-col gap-1.5`}>
         <div className="flex items-start gap-2 min-w-0">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5 min-w-0">
@@ -304,16 +307,18 @@ function ApplicationRowImpl({
         </button>
       </div>
 
-      {/* Right: Pipeline Pulse */}
-      <PipelinePulse app={app} health={health} action={action} onOpen={onOpen} />
-      <AppFitPanel
-        fit={app.fit}
-        onOpen={(sid) => onOpenFit?.(sid)}
-        onRun={onRunFit}
-        hasMasterProfile={hasMasterProfile}
-        hasJobDescription={hasJobDescription(app)}
-        extracting={app.aiExtractionStatus === "processing"}
-      />
+      {/* Right: Pipeline Pulse + fit — a footer on narrower lists */}
+      <div className="app-row-side border-border">
+        <PipelinePulse app={app} health={health} action={action} onOpen={onOpen} />
+        <AppFitPanel
+          fit={app.fit}
+          onOpen={(sid) => onOpenFit?.(sid)}
+          onRun={onRunFit}
+          hasMasterProfile={hasMasterProfile}
+          hasJobDescription={hasJobDescription(app)}
+          extracting={app.aiExtractionStatus === "processing"}
+        />
+      </div>
     </div>
   );
 }

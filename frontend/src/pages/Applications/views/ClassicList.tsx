@@ -112,7 +112,7 @@ export default function ClassicList() {
           onClearFilters={() => setFilters({ q: "", stage: "", company: "", resume: "", source: "" })}
         />
       ) : (
-        <div role="list" aria-label="Applications" className="space-y-2" key={`${filters.stage}|${filters.q}|${filters.status}|${page}`}>
+        <div role="list" aria-label="Applications" className="app-rows space-y-2" key={`${filters.stage}|${filters.q}|${filters.status}|${page}`}>
           {grouped
             ? grouped.map(([company, list]) => {
                 const expanded = expandedGroups.has(company);

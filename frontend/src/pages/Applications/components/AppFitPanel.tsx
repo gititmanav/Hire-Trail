@@ -79,7 +79,7 @@ function FitPanelImpl({ fit, onOpen, hasMasterProfile = true, hasJobDescription 
         if (actionable) { onRun!(); return; }
         onOpen(fit?.sessionId ?? null);
       }}
-      className="w-[200px] shrink-0 text-left text-white flex flex-col gap-2 p-3 border-l border-white/10 cursor-pointer transition-colors hover:bg-neutral-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+      className="text-left text-white flex flex-col gap-2 p-3 border-l border-white/10 cursor-pointer transition-colors hover:bg-neutral-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
       style={{ background: `linear-gradient(160deg, ${cssPalette("neutral-900")} 0%, ${cssPalette("neutral-800")} 100%)` }}
       aria-label={
         score !== null && band

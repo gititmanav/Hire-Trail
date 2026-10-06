@@ -351,6 +351,29 @@ html.vt-shell::view-transition-new(shell-main) {
  *  so a 200-app list doesn't take 5 seconds to materialize. */
 @keyframes app-row-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 .app-row-stagger { animation: app-row-in 220ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+/* Classic application rows (ApplicationRow + SkeletonRows). A row lays out by
+ * the list's width, not the viewport's — the sidebar decides how much room it
+ * gets. Wide: one line (logo · content · actions · stage · fit). Narrower: the
+ * stage and fit panels drop into a two-up footer under the logo + content.
+ * The field grid picks its columns from the content's own width. These own
+ * the row's wrap, the panels' widths and borders — no Tailwind utility on
+ * the same elements sets them. */
+.app-rows { container: app-rows / inline-size; }
+.app-row { flex-wrap: wrap; }
+.app-row-body { container: app-row-body / inline-size; }
+.app-row-side { display: flex; flex-basis: 100%; border-top-width: 1px; }
+.app-row-side > * { flex: 1 1 0%; min-width: 0; }
+.app-field-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@container app-row-body (min-width: 360px) {
+  .app-field-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@container app-rows (min-width: 960px) {
+  .app-row { flex-wrap: nowrap; }
+  .app-row-side { flex-basis: auto; border-top-width: 0; }
+  .app-row-side > :first-child { flex: 0 0 220px; border-left-width: 1px; }
+  .app-row-side > :last-child { flex: 0 0 200px; }
+}
 @media (prefers-reduced-motion: reduce) {
   .app-row-stagger { animation: none; }
 }

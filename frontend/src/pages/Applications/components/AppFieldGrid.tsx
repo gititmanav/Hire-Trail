@@ -66,7 +66,7 @@ function AppFieldGridImpl({ app, resume, contact, deadlines }: Props) {
   })();
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2 mt-1.5">
+    <div className="app-field-grid grid gap-x-4 gap-y-2 mt-1.5">
       <Cell icon={<Icons.location />}  label="Location" value={app.location || NONE} />
       <Cell icon={<Icons.salary />}    label="Salary"   value={app.salary   || NONE} />
       <Cell icon={<Icons.jobType />}   label="Type"     value={app.jobType  || NONE} />

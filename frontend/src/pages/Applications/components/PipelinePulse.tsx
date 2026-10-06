@@ -108,7 +108,7 @@ function PipelinePulseImpl({ app, health, action, onOpen }: Props) {
 
   return (
     <div
-      className="w-[220px] shrink-0 flex flex-col gap-2.5 px-3.5 py-3 border-l border-border bg-gradient-to-br from-muted/20 to-transparent"
+      className="flex flex-col gap-2.5 px-3.5 py-3 border-border bg-gradient-to-br from-muted/20 to-transparent"
       role="group"
       aria-label={`Pipeline — ${app.stage}, ${health.longLabel}`}
     >
