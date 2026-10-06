@@ -17,7 +17,7 @@ import type {
   Announcement, SystemSetting, SeedResult, Notification,
   AdminNotificationItem, AdminNotificationStats,
   AdminMailboxUser, AdminMailboxStats, MailboxProvider,
-  BroadcastEmailItem, BroadcastRecipientType, MailerStatus, Stage,
+  BroadcastEmailItem, BroadcastRecipientType, MailerStatus, Stage, ContactOutreachStatus,
 } from "../types";
 import type { Preferences } from "./preferences.ts";
 import type { CalendarEvent } from "./calendarGrid.ts";
@@ -239,8 +239,11 @@ export const resumesAPI = {
 };
 
 export const companiesAPI = {
-  getAll: (params?: { page?: number; limit?: number; search?: string }, config?: { quiet?: boolean; signal?: AbortSignal }) =>
-    api.get<PaginatedResponse<Company>>("/companies", { params, ...config }).then((r) => r.data),
+  getAll: (
+    params?: { page?: number; limit?: number; search?: string; stage?: Stage; sort?: "name" | "applications" | "recent" },
+    config?: { quiet?: boolean; signal?: AbortSignal },
+  ) =>
+    api.get<PaginatedResponse<Company> & { stageCounts?: Record<Stage, number> }>("/companies", { params, ...config }).then((r) => r.data),
   getOne: (id: string) => api.get<CompanyDetail>(`/companies/${id}`).then((r) => r.data),
   create: (data: CompanyFormData) => api.post<Company>("/companies", data).then((r) => r.data),
   update: (id: string, data: Partial<CompanyFormData>) => api.put<Company>(`/companies/${id}`, data).then((r) => r.data),
@@ -251,8 +254,11 @@ export const companiesAPI = {
 };
 
 export const contactsAPI = {
-  getAll: (params?: { page?: number; limit?: number; source?: "manual" | "extension" | "email" }, config?: { quiet?: boolean; signal?: AbortSignal }) =>
-    api.get<PaginatedResponse<Contact>>("/contacts", { params, ...config }).then((r) => r.data),
+  getAll: (
+    params?: { page?: number; limit?: number; source?: "manual" | "extension" | "email"; status?: ContactOutreachStatus; search?: string },
+    config?: { quiet?: boolean; signal?: AbortSignal },
+  ) =>
+    api.get<PaginatedResponse<Contact> & { statusCounts?: Record<ContactOutreachStatus, number> }>("/contacts", { params, ...config }).then((r) => r.data),
   getOne: (id: string) => api.get<Contact>(`/contacts/${id}`).then((r) => r.data),
   create: (data: ContactFormData) => api.post<Contact>("/contacts", data).then((r) => r.data),
   /** lastOutreachDate isn't on ContactFormData (it's set by the system when

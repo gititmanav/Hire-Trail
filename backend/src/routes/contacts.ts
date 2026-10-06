@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from "express";
-import { Contact, CONTACT_SOURCES } from "../models/Contact.js";
+import mongoose from "mongoose";
+import { Contact, CONTACT_OUTREACH_STATUSES, CONTACT_SOURCES } from "../models/Contact.js";
 import { Company } from "../models/Company.js";
 import { ensureAuth, getUser } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
@@ -7,8 +8,9 @@ import {
   createContactSchema,
   updateContactSchema,
 } from "../validators/contacts.js";
-import { NotFoundError } from "../errors/AppError.js";
+import { AppError, NotFoundError } from "../errors/AppError.js";
 import { ensureCompanyLogo } from "./companies.js";
+import { searchRegex } from "../utils/regex.js";
 
 const router = Router();
 router.use(ensureAuth);
@@ -39,35 +41,60 @@ async function findOrCreateCompanyId(name: string, userId: any): Promise<string 
   return company?._id?.toString() || null;
 }
 
-// GET list (paginated). Optional ?source=extension|manual|email filter.
+// GET list (paginated). Optional filters: ?source=extension|manual|email,
+// ?status=<outreach status>, ?search=<name or company>. `statusCounts` counts
+// each outreach status under the other filters (so the Status options can
+// show them); a contact saved before outreach tracking counts as not_contacted.
 router.get("/", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = getUser(req);
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
-    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
+    // Up to 1000: the CSV export and the company pages read every contact at once.
+    const limit = Math.min(1000, Math.max(1, parseInt(req.query.limit as string) || 20));
     const skip = (page - 1) * limit;
 
-    const query: any = { userId: user._id };
+    const base: any = { userId: user._id };
+    // Cast here: aggregate() (the status counts) doesn't cast strings like find() does.
     const companyIdParam = req.query.companyId as string;
-    if (companyIdParam) query.companyId = companyIdParam;
+    if (companyIdParam) {
+      if (!mongoose.Types.ObjectId.isValid(companyIdParam)) throw new AppError("Invalid company id.", 400);
+      base.companyId = new mongoose.Types.ObjectId(companyIdParam);
+    }
 
     const sourceParam = req.query.source as string;
     if (sourceParam && (CONTACT_SOURCES as readonly string[]).includes(sourceParam)) {
-      query.source = sourceParam;
+      base.source = sourceParam;
     }
 
-    const [contacts, total] = await Promise.all([
+    const term = searchRegex(req.query.search);
+    if (term) base.$or = [{ name: term }, { company: term }];
+
+    const query: any = { ...base };
+    const statusParam = req.query.status as string;
+    if (statusParam && (CONTACT_OUTREACH_STATUSES as readonly string[]).includes(statusParam)) {
+      query.outreachStatus = statusParam === "not_contacted" ? { $in: ["not_contacted", null] } : statusParam;
+    }
+
+    const [contacts, total, byStatus] = await Promise.all([
       Contact.find(query)
         .sort({ lastContactDate: -1 })
         .skip(skip)
         .limit(limit)
         .lean(),
       Contact.countDocuments(query),
+      Contact.aggregate<{ _id: string; n: number }>([
+        { $match: base },
+        { $group: { _id: { $ifNull: ["$outreachStatus", "not_contacted"] }, n: { $sum: 1 } } },
+      ]),
     ]);
+
+    const statusCounts = Object.fromEntries(CONTACT_OUTREACH_STATUSES.map((s) => [s, 0])) as Record<string, number>;
+    for (const row of byStatus) statusCounts[row._id] = (statusCounts[row._id] ?? 0) + row.n;
 
     res.json({
       data: contacts,
       pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+      statusCounts,
     });
   } catch (err) {
     next(err);

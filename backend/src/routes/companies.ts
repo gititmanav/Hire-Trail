@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { Company, ICompany } from "../models/Company.js";
-import { Application } from "../models/Application.js";
+import { Application, STAGES } from "../models/Application.js";
 import { ensureAuth, getUser } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
 import { updateCompanySchema } from "../validators/companies.js";
@@ -131,38 +131,59 @@ export async function ensureCompanyLogo(company: ICompany): Promise<ICompany> {
   return company;
 }
 
-// GET list: companies for current user with pagination + search + application counts
+// GET list: the person's companies, paginated. ?search= (name), ?stage= (an
+// application of theirs there is at that stage), ?sort=name|applications|recent
+// (A–Z, most applications, latest application). Each row carries its
+// applicationCount; `stageCounts` feeds the Stage filter's options.
 router.get("/", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = getUser(req);
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
     const limit = Math.min(500, Math.max(1, parseInt(req.query.limit as string) || 24));
     const skip = (page - 1) * limit;
-    const search = (req.query.search as string) || "";
+    const sort = (["name", "applications", "recent"] as const).find((v) => v === req.query.sort) ?? "name";
+    const stage = (STAGES as readonly string[]).includes(req.query.stage as string) ? (req.query.stage as string) : "";
 
     const query: any = { users: user._id };
-    const nameRegex = searchRegex(search);
+    const nameRegex = searchRegex(req.query.search);
     if (nameRegex) query.name = nameRegex;
 
-    const [companies, total] = await Promise.all([
-      Company.find(query).sort({ name: 1 }).skip(skip).limit(limit).lean(),
-      Company.countDocuments(query),
+    // This person's applications per company: how many, the latest, which stages.
+    const rows = await Application.aggregate<{ _id: unknown; count: number; latest: Date | null; stages: string[] }>([
+      { $match: { userId: user._id, companyId: { $ne: null } } },
+      { $group: { _id: "$companyId", count: { $sum: 1 }, latest: { $max: "$applicationDate" }, stages: { $addToSet: "$stage" } } },
     ]);
+    const byId = new Map(rows.map((r) => [String(r._id), r]));
 
-    // Get application counts per company for this user
-    const companyIds = companies.map((c) => c._id);
-    const appCounts = await Application.aggregate([
-      { $match: { userId: user._id, companyId: { $in: companyIds } } },
-      { $group: { _id: "$companyId", count: { $sum: 1 } } },
-    ]);
-    const countMap = new Map(appCounts.map((a) => [a._id.toString(), a.count]));
+    // Companies with an application at each stage, under the search (the Stage options' counts).
+    const searched = nameRegex ? new Set((await Company.find(query, { _id: 1 }).lean()).map((c) => String(c._id))) : null;
+    const stageCounts = Object.fromEntries(STAGES.map((st) => [
+      st, rows.filter((r) => r.stages.includes(st) && (!searched || searched.has(String(r._id)))).length,
+    ]));
 
-    const data = companies.map((c) => ({
-      ...c,
-      applicationCount: countMap.get(c._id.toString()) || 0,
-    }));
+    if (stage) query._id = { $in: rows.filter((r) => r.stages.includes(stage)).map((r) => r._id) };
 
-    res.json({ data, pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
+    let companies: any[];
+    let total: number;
+    if (sort === "name") {
+      [companies, total] = await Promise.all([
+        Company.find(query).sort({ name: 1 }).skip(skip).limit(limit).lean(),
+        Company.countDocuments(query),
+      ]);
+    } else {
+      // Sorting by this person's own activity: their company list is small, so sort it here.
+      const all = await Company.find(query).lean();
+      const key = (c: any) => {
+        const r = byId.get(String(c._id));
+        return sort === "applications" ? r?.count ?? 0 : r?.latest ? new Date(r.latest).getTime() : 0;
+      };
+      all.sort((a, b) => key(b) - key(a) || a.name.localeCompare(b.name));
+      total = all.length;
+      companies = all.slice(skip, skip + limit);
+    }
+
+    const data = companies.map((c) => ({ ...c, applicationCount: byId.get(String(c._id))?.count ?? 0 }));
+    res.json({ data, pagination: { page, limit, total, pages: Math.ceil(total / limit) }, stageCounts });
   } catch (err) {
     next(err);
   }
