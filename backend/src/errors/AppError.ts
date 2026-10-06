@@ -2,11 +2,17 @@
 export class AppError extends Error {
   public statusCode: number;
   public isOperational: boolean;
+  /** Machine-readable reason the client can act on (e.g. "ai_needs_key"). */
+  public code?: string;
+  /** Extra JSON the client may use — never secrets, never stack traces. */
+  public details?: Record<string, unknown>;
 
-  constructor(message: string, statusCode: number) {
+  constructor(message: string, statusCode: number, opts: { code?: string; details?: Record<string, unknown> } = {}) {
     super(message);
     this.statusCode = statusCode;
     this.isOperational = true;
+    this.code = opts.code;
+    this.details = opts.details;
     Error.captureStackTrace(this, this.constructor);
   }
 }

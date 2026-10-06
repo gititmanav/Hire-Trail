@@ -49,6 +49,14 @@ const envSchema = z
     /** Gotenberg HTML→PDF service base URL (Cloud Run, scale-to-zero). Empty
      *  disables the HTML resume renderer (POST /api/resumes/render-pdf). */
     GOTENBERG_URL: z.string().default(""),
+    /** The API's public origin (e.g. https://hiretrail.manavkaneria.me). Long
+     *  AI jobs continue themselves by calling it; empty = derived from
+     *  GOOGLE_CALLBACK_URL's origin. */
+    API_PUBLIC_URL: z.string().default(""),
+    /** The host's function time limit, in seconds (Vercel: 300 with Fluid
+     *  compute; less without it). AI calls and job steps size themselves to
+     *  fit inside it, so a lower limit means shorter steps, not killed calls. */
+    FUNCTION_MAX_DURATION_S: z.coerce.number().int().min(10).max(900).default(300),
     // Sentry — leave empty to disable error tracking
     SENTRY_DSN: z.string().default(""),
     SENTRY_ENVIRONMENT: z.string().default(""),

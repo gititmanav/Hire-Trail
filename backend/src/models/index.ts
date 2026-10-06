@@ -13,8 +13,8 @@ export type { IMasterProfile, IBullet, IExperience, IProject, IEducation, ISkill
 export { AIProviderConfig, AI_PROVIDERS } from "./AIProviderConfig.js";
 export type { IAIProviderConfig, AIProvider } from "./AIProviderConfig.js";
 
-export { AiUsage, AI_OP_TYPES, currentPeriod, periodResetsAt } from "./AiUsage.js";
-export type { IAiUsage, AiOpType } from "./AiUsage.js";
+export { AiUsage, AI_USAGE_STATUSES, currentPeriod, periodResetsAt } from "./AiUsage.js";
+export type { IAiUsage } from "./AiUsage.js";
 
 export { AiCache } from "./AiCache.js";
 export type { IAiCache } from "./AiCache.js";
@@ -45,9 +45,6 @@ export type { ISystemSettings, SettingCategory, SettingValueType } from "./Syste
 
 export { Invite } from "./Invite.js";
 export type { IInvite, IInviteUsage } from "./Invite.js";
-
-export { EmailTemplate, EMAIL_TEMPLATE_TYPES } from "./EmailTemplate.js";
-export type { IEmailTemplate, EmailTemplateType } from "./EmailTemplate.js";
 
 export { BroadcastEmail, BROADCAST_STATUSES, BROADCAST_RECIPIENT_TYPES } from "./BroadcastEmail.js";
 export type { IBroadcastEmail, BroadcastStatus, BroadcastRecipientType } from "./BroadcastEmail.js";

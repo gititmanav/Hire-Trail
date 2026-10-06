@@ -50,8 +50,14 @@ export function errorHandler(
   if (err instanceof AppError) {
     // 5xx AppErrors (e.g. AIProviderError on upstream 502s) are still bugs
     // worth surfacing to the admin panel — they fired despite our safeguards.
-    if (err.statusCode >= 500) reportFromRequest(err, req, "backend_500");
-    res.status(err.statusCode).json({ error: err.message });
+    // AI failures (ai_* codes) are the provider's weather, not our bug — they
+    // are already in the AI ledger with their error code, so they skip this.
+    if (err.statusCode >= 500 && !err.code?.startsWith("ai_")) reportFromRequest(err, req, "backend_500");
+    res.status(err.statusCode).json({
+      error: err.message,
+      ...(err.code && { code: err.code }),
+      ...(err.details && { details: err.details }),
+    });
     return;
   }
 

@@ -1,7 +1,7 @@
 /**
  * Content-hash cache for deterministic AI outputs.
  *
- * Resume parses and JD analyses are pure functions of (opType, model, input):
+ * Resume parses and posting reads are pure functions of (feature, prompt version, model, input):
  * re-running the same PDF text or the same JD+profile through the same model
  * yields the same structured result. We hash those inputs and memoize the
  * validated output so a retry, a duplicate upload, or two users analyzing the
@@ -15,13 +15,12 @@
  */
 import mongoose, { Schema } from "mongoose";
 
-import type { AiOpType } from "./AiUsage.js";
-
 // Not `extends Document`: the `model` field would clash with Document.model().
 export interface IAiCache {
-  /** sha256 of `${opType}:${model}:${input}` — see services/ai/cache.ts. */
+  /** sha256 of feature + prompt version + provider + model + input — services/ai/cache.ts. */
   hash: string;
-  opType: AiOpType;
+  /** The feature id that produced it (field name kept from the first version). */
+  opType: string;
   model: string;
   /** The validated structured result (whatever the op returns). */
   result: unknown;
