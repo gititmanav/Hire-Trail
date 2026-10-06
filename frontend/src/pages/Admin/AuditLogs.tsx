@@ -4,6 +4,7 @@ import { adminAPI } from "../../utils/api";
 import type { AuditLog, Pagination } from "../../types";
 import Select from "../../components/ui/Select.tsx";
 import DateInput from "../../components/ui/DateInput.tsx";
+import PageHeader from "../../components/ui/PageHeader.tsx";
 
 const actionColors: Record<string, string> = {
   login: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
@@ -82,152 +83,154 @@ export default function AuditLogs() {
   }, [fetchLogs]);
 
   return (
-    <div className="space-y-6 p-6">
-      <h1 className="text-2xl font-bold text-foreground">Audit Logs</h1>
+    <div>
+      <PageHeader title="Audit Logs" />
+      <div className="space-y-6">
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
-        <div className="w-44">
-          <Select
-            ariaLabel="Action"
-            value={actionFilter}
-            onChange={setActionFilter}
-            searchable={actionOptions.length > 8}
-            searchPlaceholder="Search actions…"
-            options={[{ value: "", label: "All Actions" }, ...actionOptions.filter(Boolean).map((a) => ({ value: a, label: a.replace(/_/g, " ") }))]}
-          />
-        </div>
-        <div className="w-44">
-          <Select
-            ariaLabel="Resource"
-            value={resourceFilter}
-            onChange={setResourceFilter}
-            options={[{ value: "", label: "All Resources" }, ...resourceOptions.filter(Boolean).map((r) => ({ value: r, label: labelResource(r) }))]}
-          />
-        </div>
-        <div className="w-44">
-          <DateInput ariaLabel="Start date" placeholder="Start date" value={startDate} onChange={setStartDate} />
-        </div>
-        <div className="w-44">
-          <DateInput ariaLabel="End date" placeholder="End date" value={endDate} onChange={setEndDate} />
-        </div>
-      </div>
-
-      {/* Table */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm text-left">
-          <thead className="text-xs uppercase text-muted-foreground border-b border-border">
-            <tr>
-              <th className="px-4 py-3 w-8" />
-              <th className="px-4 py-3">Timestamp</th>
-              <th className="px-4 py-3">User</th>
-              <th className="px-4 py-3">Action</th>
-              <th className="px-4 py-3">Resource Type</th>
-              <th className="px-4 py-3">IP Address</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading && (
-              <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
-                  Loading...
-                </td>
-              </tr>
-            )}
-            {!loading && logs.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
-                  No logs found.
-                </td>
-              </tr>
-            )}
-            {!loading &&
-              logs.map((log) => {
-                const isExpanded = expandedRow === log._id;
-                const badgeCls = actionColors[log.action] || "bg-muted text-foreground";
-                return (
-                  <tr key={log._id} className="border-b border-border">
-                    <td colSpan={6} className="p-0">
-                      <div
-                        className="grid grid-cols-[2rem_1fr_1fr_1fr_1fr_1fr] items-center hover:bg-muted cursor-pointer"
-                        onClick={() => setExpandedRow(isExpanded ? null : log._id)}
-                      >
-                        <span className="px-4 py-3 text-muted-foreground">{isExpanded ? "▼" : "▶"}</span>
-                        <span className="px-4 py-3 text-muted-foreground whitespace-nowrap">
-                          {new Date(log.timestamp).toLocaleString()}
-                        </span>
-                        <span className="px-4 py-3 text-foreground">{getUserName(log.userId)}</span>
-                        <span className="px-4 py-3">
-                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${badgeCls}`}>
-                            {log.action}
-                          </span>
-                        </span>
-                        <span className="px-4 py-3 text-muted-foreground">{labelResource(log.resourceType)}</span>
-                        <span className="px-4 py-3 text-muted-foreground font-mono text-xs">
-                          {log.ipAddress || "—"}
-                        </span>
-                      </div>
-                      {isExpanded && (
-                        <div className="px-8 py-4 bg-muted/60 border-t border-border space-y-3">
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                              <p className="text-xs font-semibold text-muted-foreground mb-1">Old Value</p>
-                              <pre className="text-xs bg-card border border-border p-3 rounded-lg overflow-x-auto max-h-48 text-foreground">
-                                {formatJson(log.oldValue)}
-                              </pre>
-                            </div>
-                            <div>
-                              <p className="text-xs font-semibold text-muted-foreground mb-1">New Value</p>
-                              <pre className="text-xs bg-card border border-border p-3 rounded-lg overflow-x-auto max-h-48 text-foreground">
-                                {formatJson(log.newValue)}
-                              </pre>
-                            </div>
-                          </div>
-                          {log.metadata !== undefined && log.metadata !== null && (
-                            <div>
-                              <p className="text-xs font-semibold text-muted-foreground mb-1">Metadata</p>
-                              <pre className="text-xs bg-card border border-border p-3 rounded-lg overflow-x-auto max-h-48 text-foreground">
-                                {formatJson(log.metadata)}
-                              </pre>
-                            </div>
-                          )}
-                          {log.resourceId && (
-                            <p className="text-xs text-muted-foreground font-mono">resourceId: {String(log.resourceId)}</p>
-                          )}
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Pagination */}
-      {pagination.pages > 1 && (
-        <div className="flex items-center justify-between pt-2">
-          <p className="text-sm text-muted-foreground">
-            Page {pagination.page} of {pagination.pages} ({pagination.total} entries)
-          </p>
-          <div className="flex gap-2">
-            <button
-              onClick={() => fetchLogs(pagination.page - 1)}
-              disabled={pagination.page <= 1}
-              className="btn-secondary text-sm disabled:opacity-50"
-            >
-              Previous
-            </button>
-            <button
-              onClick={() => fetchLogs(pagination.page + 1)}
-              disabled={pagination.page >= pagination.pages}
-              className="btn-secondary text-sm disabled:opacity-50"
-            >
-              Next
-            </button>
+        {/* Filters */}
+        <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
+          <div className="w-44">
+            <Select
+              ariaLabel="Action"
+              value={actionFilter}
+              onChange={setActionFilter}
+              searchable={actionOptions.length > 8}
+              searchPlaceholder="Search actions…"
+              options={[{ value: "", label: "All Actions" }, ...actionOptions.filter(Boolean).map((a) => ({ value: a, label: a.replace(/_/g, " ") }))]}
+            />
+          </div>
+          <div className="w-44">
+            <Select
+              ariaLabel="Resource"
+              value={resourceFilter}
+              onChange={setResourceFilter}
+              options={[{ value: "", label: "All Resources" }, ...resourceOptions.filter(Boolean).map((r) => ({ value: r, label: labelResource(r) }))]}
+            />
+          </div>
+          <div className="w-44">
+            <DateInput ariaLabel="Start date" placeholder="Start date" value={startDate} onChange={setStartDate} />
+          </div>
+          <div className="w-44">
+            <DateInput ariaLabel="End date" placeholder="End date" value={endDate} onChange={setEndDate} />
           </div>
         </div>
-      )}
+
+        {/* Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left">
+            <thead className="text-xs uppercase text-muted-foreground border-b border-border">
+              <tr>
+                <th className="px-4 py-3 w-8" />
+                <th className="px-4 py-3">Timestamp</th>
+                <th className="px-4 py-3">User</th>
+                <th className="px-4 py-3">Action</th>
+                <th className="px-4 py-3">Resource Type</th>
+                <th className="px-4 py-3">IP Address</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading && (
+                <tr>
+                  <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
+                    Loading...
+                  </td>
+                </tr>
+              )}
+              {!loading && logs.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
+                    No logs found.
+                  </td>
+                </tr>
+              )}
+              {!loading &&
+                logs.map((log) => {
+                  const isExpanded = expandedRow === log._id;
+                  const badgeCls = actionColors[log.action] || "bg-muted text-foreground";
+                  return (
+                    <tr key={log._id} className="border-b border-border">
+                      <td colSpan={6} className="p-0">
+                        <div
+                          className="grid grid-cols-[2rem_1fr_1fr_1fr_1fr_1fr] items-center hover:bg-muted cursor-pointer"
+                          onClick={() => setExpandedRow(isExpanded ? null : log._id)}
+                        >
+                          <span className="px-4 py-3 text-muted-foreground">{isExpanded ? "▼" : "▶"}</span>
+                          <span className="px-4 py-3 text-muted-foreground whitespace-nowrap">
+                            {new Date(log.timestamp).toLocaleString()}
+                          </span>
+                          <span className="px-4 py-3 text-foreground">{getUserName(log.userId)}</span>
+                          <span className="px-4 py-3">
+                            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${badgeCls}`}>
+                              {log.action}
+                            </span>
+                          </span>
+                          <span className="px-4 py-3 text-muted-foreground">{labelResource(log.resourceType)}</span>
+                          <span className="px-4 py-3 text-muted-foreground font-mono text-xs">
+                            {log.ipAddress || "—"}
+                          </span>
+                        </div>
+                        {isExpanded && (
+                          <div className="px-8 py-4 bg-muted/60 border-t border-border space-y-3">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                <p className="text-xs font-semibold text-muted-foreground mb-1">Old Value</p>
+                                <pre className="text-xs bg-card border border-border p-3 rounded-lg overflow-x-auto max-h-48 text-foreground">
+                                  {formatJson(log.oldValue)}
+                                </pre>
+                              </div>
+                              <div>
+                                <p className="text-xs font-semibold text-muted-foreground mb-1">New Value</p>
+                                <pre className="text-xs bg-card border border-border p-3 rounded-lg overflow-x-auto max-h-48 text-foreground">
+                                  {formatJson(log.newValue)}
+                                </pre>
+                              </div>
+                            </div>
+                            {log.metadata !== undefined && log.metadata !== null && (
+                              <div>
+                                <p className="text-xs font-semibold text-muted-foreground mb-1">Metadata</p>
+                                <pre className="text-xs bg-card border border-border p-3 rounded-lg overflow-x-auto max-h-48 text-foreground">
+                                  {formatJson(log.metadata)}
+                                </pre>
+                              </div>
+                            )}
+                            {log.resourceId && (
+                              <p className="text-xs text-muted-foreground font-mono">resourceId: {String(log.resourceId)}</p>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination */}
+        {pagination.pages > 1 && (
+          <div className="flex items-center justify-between pt-2">
+            <p className="text-sm text-muted-foreground">
+              Page {pagination.page} of {pagination.pages} ({pagination.total} entries)
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => fetchLogs(pagination.page - 1)}
+                disabled={pagination.page <= 1}
+                className="btn-secondary text-sm disabled:opacity-50"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => fetchLogs(pagination.page + 1)}
+                disabled={pagination.page >= pagination.pages}
+                className="btn-secondary text-sm disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

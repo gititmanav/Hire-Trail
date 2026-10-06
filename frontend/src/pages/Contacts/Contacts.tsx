@@ -1,7 +1,7 @@
 /** Paginated contact cards with client-side search across the current page. */
 import { useState, useEffect, useCallback, useRef, FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
-import { ChevronRight, Pencil, Plus, Send, Star, Trash2 } from "lucide-react";
+import { ChevronRight, ExternalLink, Mail, MoreHorizontal, Pencil, PenLine, Puzzle, Send, Star, Trash2 } from "lucide-react";
 import toast from "../../components/ui/toast.ts";
 import { contactsAPI, companiesAPI } from "../../utils/api.ts";
 import CompanyLogo from "../../components/CompanyLogo/CompanyLogo.tsx";
@@ -15,10 +15,16 @@ import { Field, TextField, Textarea } from "../../components/ui/Field.tsx";
 import Select from "../../components/ui/Select.tsx";
 import DateInput from "../../components/ui/DateInput.tsx";
 import Button from "../../components/ui/Button.tsx";
+import PageHeader, { CreateButton, PageBody, PageSearch, type PageSearchHandle } from "../../components/ui/PageHeader.tsx";
+import FiltersPopover, { ANY_DOT, FilterRow } from "../../components/ui/FiltersPopover.tsx";
+import SegmentedControl from "../../components/ui/SegmentedControl.tsx";
+import Pagination from "../../components/ui/Pagination.tsx";
 import { useConfirm } from "../../hooks/useConfirm.ts";
+import { usePageShortcuts } from "../../hooks/usePageShortcuts.ts";
+import { usePersistentState, oneOf } from "../../hooks/usePersistentState.ts";
 import { contactStrength } from "../../utils/contactStrength.ts";
 import { OUTREACH_TEMPLATES, renderOutreachTemplate, templateToClipboard } from "../../utils/outreachTemplates.ts";
-import type { Contact, ContactFormData, ContactOutreachStatus, ContactSource, Pagination } from "../../types";
+import type { Contact, ContactFormData, ContactOutreachStatus, ContactSource, Pagination as PageInfo } from "../../types";
 
 const SOURCES = ["Cold email", "Referral", "Career fair", "LinkedIn", "Professor intro", "Alumni network", "Other"];
 const OUTREACH_STATUSES: { value: ContactOutreachStatus; label: string }[] = [
@@ -37,11 +43,24 @@ const OUTREACH_COLORS: Record<ContactOutreachStatus, string> = {
   follow_up_needed: "bg-orange-50 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400",
   gone_cold: "bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400",
 };
+/** The status's colour as a dot (Filters, like a stage's). */
+const OUTREACH_DOT: Record<ContactOutreachStatus, string> = {
+  not_contacted: "bg-muted-foreground/40",
+  reached_out: "bg-blue-500",
+  responded: "bg-green-500",
+  meeting_scheduled: "bg-purple-500",
+  follow_up_needed: "bg-orange-500",
+  gone_cold: "bg-red-500",
+};
+const SOURCE_FILTERS: { value: ContactSource; label: string; icon: React.ReactNode }[] = [
+  { value: "manual", label: "Added manually", icon: <PenLine size={14} strokeWidth={1.8} className="text-muted-foreground" /> },
+  { value: "extension", label: "Browser extension", icon: <Puzzle size={14} strokeWidth={1.8} className="text-muted-foreground" /> },
+  { value: "email", label: "Inbox scan", icon: <Mail size={14} strokeWidth={1.8} className="text-muted-foreground" /> },
+];
+type GroupBy = "person" | "company";
 const fmt = (d: string) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 const ini = (n: string) => n.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
-const inputCls = "w-full px-3 py-2 text-sm bg-card border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring";
 const btnIcon = "w-9 h-9 flex items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted";
-const normalizeOutreachStatus = (status?: ContactOutreachStatus | null): ContactOutreachStatus => status || "not_contacted";
 
 function needsFollowUp(c: Contact): boolean {
   if (c.nextFollowUpDate) {
@@ -130,22 +149,6 @@ function ContactFormModal({ contact, onSave, onClose }: { contact: Contact | nul
   );
 }
 
-function PaginationBar({ page, pag, setPage }: { page: number; pag: Pagination; setPage: (p: number) => void }) {
-  if (pag.pages <= 1) return null;
-  return (
-    <div className="flex items-center justify-between mt-4">
-      <span className="text-sm text-muted-foreground">Showing {(pag.page - 1) * pag.limit + 1}–{Math.min(pag.page * pag.limit, pag.total)} of {pag.total}</span>
-      <div className="flex gap-1">
-        <button disabled={page <= 1} onClick={() => setPage(page - 1)} className="px-3 py-1.5 text-sm border border-border rounded-lg disabled:opacity-30 hover:bg-muted text-secondary-foreground">Prev</button>
-        {Array.from({ length: Math.min(pag.pages, 5) }, (_, i) => {
-          const p = pag.pages <= 5 ? i + 1 : page <= 3 ? i + 1 : page >= pag.pages - 2 ? pag.pages - 4 + i : page - 2 + i;
-          return <button key={p} onClick={() => setPage(p)} className={`w-9 h-9 text-sm rounded-lg ${p === page ? "bg-primary text-primary-foreground" : "border border-border text-secondary-foreground hover:bg-muted"}`}>{p}</button>;
-        })}
-        <button disabled={page >= pag.pages} onClick={() => setPage(page + 1)} className="px-3 py-1.5 text-sm border border-border rounded-lg disabled:opacity-30 hover:bg-muted text-secondary-foreground">Next</button>
-      </div>
-    </div>
-  );
-}
 
 /** Strength score chip with tier-tinted background. Tooltip surfaces the
  *  factor breakdown so the user trusts the number. */
@@ -164,7 +167,7 @@ function ContactStrengthChip({ contact }: { contact: Contact }) {
   ].join(" · ");
   return (
     <span
-      className={`hidden sm:inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full tabular-nums shrink-0 ${tone}`}
+      className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full tabular-nums shrink-0 ${tone}`}
       title={title}
       aria-label={`Contact strength ${s.score} of 100`}
     >
@@ -216,124 +219,158 @@ function ContactCard({ c, onEdit, onDelete, companyLogoUrl }: { c: Contact; onEd
     : days < 365 ? `${Math.round(days / 30)}mo`
     : `${Math.round(days / 365)}y`;
 
+  const copyTemplate = async (key: (typeof OUTREACH_TEMPLATES)[number]["key"], label: string) => {
+    const text = templateToClipboard(renderOutreachTemplate(key, c));
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success(`${label} copied — paste into your email client.`);
+    } catch {
+      toast.error("Couldn't access the clipboard — try again or paste manually.");
+    }
+  };
+
+  // Layout by the card's own width (App.css "Contact cards"): one line when
+  // wide; on a phone the details drop into a footer and the tools fold into ⋯.
   return (
-    <div className="bg-card border border-border rounded-xl px-4 py-3 flex items-center gap-3 group min-w-0">
-      <div className="w-10 h-10 rounded-full bg-muted text-secondary-foreground flex items-center justify-center text-[13px] font-semibold shrink-0">
-        {ini(c.name)}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap min-w-0">
-          <h3 className="text-[14px] font-semibold text-foreground truncate">{c.name}</h3>
-          {c.outreachStatus && <OutreachBadge status={c.outreachStatus} />}
-          {c.connectionSource && (
-            <span className="hidden sm:inline-block text-[10px] font-medium bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full">{c.connectionSource}</span>
-          )}
-          {c.source === "extension" && (
-            <span className="inline-flex items-center gap-0.5 text-[10px] font-medium bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300 px-1.5 py-0.5 rounded-full">
-              via extension
-            </span>
-          )}
+    <div className="contact-card bg-card border border-border rounded-xl px-4 py-3 group min-w-0">
+      <div className="contact-card-row">
+        <div className="w-10 h-10 rounded-full bg-muted text-secondary-foreground flex items-center justify-center text-[13px] font-semibold shrink-0">
+          {ini(c.name)}
         </div>
-        <div className="flex items-center gap-1.5 min-w-0">
-          {c.company && <CompanyLogo size="xs" name={c.company} logoUrl={companyLogoUrl} />}
-          <p className="text-[12.5px] text-muted-foreground truncate">
-            {c.role ? `${c.role} at ` : ""}{c.company}
-          </p>
-        </div>
-        {c.notes && (
-          <div className="mt-0.5">
-            <p className={`text-[11.5px] text-muted-foreground/85 italic ${notesExpanded ? "" : "line-clamp-1"}`}>{c.notes}</p>
-            {hasLongNotes && (
-              <button onClick={() => setNotesExpanded(!notesExpanded)} className="text-[11px] text-muted-foreground hover:text-foreground hover:underline">
-                {notesExpanded ? "Show less" : "Show more"}
-              </button>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap min-w-0">
+            <h3 className="text-[14px] font-semibold text-foreground truncate">{c.name}</h3>
+            {c.outreachStatus && <OutreachBadge status={c.outreachStatus} />}
+            {c.connectionSource && (
+              <span className="hidden sm:inline-block text-[10px] font-medium bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full">{c.connectionSource}</span>
+            )}
+            {c.source === "extension" && (
+              <span className="inline-flex items-center gap-0.5 text-[10px] font-medium bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300 px-1.5 py-0.5 rounded-full">
+                via extension
+              </span>
             )}
           </div>
-        )}
-      </div>
-      {/* Strength chip — small 0-100 score with tier-tinted background.
-       *  Tooltip exposes the factor breakdown so the user understands the
-       *  number rather than seeing a magic value. */}
-      <ContactStrengthChip contact={c} />
-      {/* Age chip + follow-up date */}
-      <div className="flex flex-col items-end gap-1 shrink-0">
-        <span
-          className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${ageToneClass(days, c.outreachStatus)}`}
-          title={days == null ? "No last-contact date" : `${days} days since last contact`}
-        >
-          {ageLabel}
-        </span>
-        {c.nextFollowUpDate && (
-          <span className={`text-[10.5px] tabular-nums ${needsFollowUp(c) ? "text-orange-500 font-medium" : "text-muted-foreground"}`}>
-            Follow up: {fmt(c.nextFollowUpDate)}
-          </span>
-        )}
-      </div>
-      {/* "Send follow-up →" CTA: prominent for any contact that owes a touch,
-       *  otherwise tucked under hover so it doesn't compete with the data. */}
-      {needsFollowUp(c) ? (
-        <button
-          type="button"
-          onClick={onEdit}
-          className="text-[11px] font-medium text-primary hover:underline shrink-0"
-          title="Open this contact to log a follow-up"
-        >
-          Send follow-up →
-        </button>
-      ) : null}
-      {/* Action toolbar — Outreach + LinkedIn + Edit + Delete. */}
-      <div className="flex gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 has-[[aria-expanded=true]]:opacity-100 transition-opacity shrink-0">
-        {/* Outreach templates: pick one → email is rendered with the
-         *  contact's name/role/company filled in and copied to clipboard. */}
-        <Menu
-          ariaLabel="Outreach templates"
-          align="end"
-          width={224}
-          trigger={
-            <button type="button" className={btnIcon} title="Outreach templates" aria-label="Outreach templates">
-              <Send size={14} strokeWidth={1.6} aria-hidden />
-            </button>
-          }
-          items={OUTREACH_TEMPLATES.map((tpl) => ({
-            label: tpl.label,
-            onSelect: async () => {
-              const rendered = renderOutreachTemplate(tpl.key, c);
-              const text = templateToClipboard(rendered);
-              try {
-                await navigator.clipboard.writeText(text);
-                toast.success(`${tpl.label} copied — paste into your email client.`);
-              } catch {
-                toast.error("Couldn't access the clipboard — try again or paste manually.");
-              }
-            },
-          }))}
-        />
-        {c.linkedinUrl ? (
-          <a
-            href={c.linkedinUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={`${btnIcon} !text-[#0a66c2] hover:!text-[#004182]`}
-            title="Open LinkedIn profile"
-            aria-label="Open LinkedIn profile"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-              <path d="M20.45 20.45h-3.55v-5.57c0-1.33-.03-3.04-1.85-3.04-1.86 0-2.14 1.45-2.14 2.95v5.66H9.36V9h3.41v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.26 2.37 4.26 5.45v6.29zM5.34 7.43a2.06 2.06 0 01-2.06-2.07 2.06 2.06 0 014.13 0 2.07 2.07 0 01-2.07 2.07zm1.78 13.02H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.23.79 24 1.77 24h20.45C23.2 24 24 23.23 24 22.27V1.73C24 .77 23.2 0 22.22 0z" />
-            </svg>
-          </a>
-        ) : (
-          <span className={`${btnIcon} opacity-40 cursor-not-allowed`} title="No LinkedIn URL — add one via Edit" aria-label="LinkedIn unavailable">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-              <path d="M20.45 20.45h-3.55v-5.57c0-1.33-.03-3.04-1.85-3.04-1.86 0-2.14 1.45-2.14 2.95v5.66H9.36V9h3.41v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.26 2.37 4.26 5.45v6.29zM5.34 7.43a2.06 2.06 0 01-2.06-2.07 2.06 2.06 0 014.13 0 2.07 2.07 0 01-2.07 2.07zm1.78 13.02H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.23.79 24 1.77 24h20.45C23.2 24 24 23.23 24 22.27V1.73C24 .77 23.2 0 22.22 0z" />
-            </svg>
-          </span>
-        )}
-        <button className={btnIcon} onClick={onEdit} aria-label="Edit contact">
-          <Pencil size={14} strokeWidth={1.5} aria-hidden />
-        </button>
-        <button className={`${btnIcon} !text-danger`} onClick={onDelete} aria-label="Delete contact">
-          <Trash2 size={14} strokeWidth={1.5} aria-hidden />
-        </button>
+          <div className="flex items-center gap-1.5 min-w-0">
+            {c.company && <CompanyLogo size="xs" name={c.company} logoUrl={companyLogoUrl} />}
+            <p className="text-[12.5px] text-muted-foreground truncate">
+              {c.role ? `${c.role} at ` : ""}{c.company}
+            </p>
+          </div>
+          {c.notes && (
+            <div className="mt-0.5">
+              <p className={`text-[11.5px] text-muted-foreground/85 italic ${notesExpanded ? "" : "line-clamp-1"}`}>{c.notes}</p>
+              {hasLongNotes && (
+                <button onClick={() => setNotesExpanded(!notesExpanded)} className="text-[11px] text-muted-foreground hover:text-foreground hover:underline">
+                  {notesExpanded ? "Show less" : "Show more"}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="contact-card-side">
+          {/* Strength chip — small 0-100 score with tier-tinted background.
+           *  Tooltip exposes the factor breakdown so the user understands the
+           *  number rather than seeing a magic value. */}
+          <ContactStrengthChip contact={c} />
+          {/* Age chip + follow-up date */}
+          <div className="contact-card-age shrink-0">
+            <span
+              className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${ageToneClass(days, c.outreachStatus)}`}
+              title={days == null ? "No last-contact date" : `${days} days since last contact`}
+            >
+              {ageLabel}
+            </span>
+            {c.nextFollowUpDate && (
+              <span className={`text-[10.5px] tabular-nums ${needsFollowUp(c) ? "text-orange-500 font-medium" : "text-muted-foreground"}`}>
+                Follow up: {fmt(c.nextFollowUpDate)}
+              </span>
+            )}
+          </div>
+          <div className="contact-card-end">
+            {/* "Send follow-up →" CTA: prominent for any contact that owes a touch,
+             *  otherwise tucked under hover so it doesn't compete with the data. */}
+            {needsFollowUp(c) ? (
+              <button
+                type="button"
+                onClick={onEdit}
+                className="text-[11px] font-medium text-primary hover:underline shrink-0"
+                title="Open this contact to log a follow-up"
+              >
+                Send follow-up →
+              </button>
+            ) : null}
+            {/* Action toolbar — Outreach + LinkedIn + Edit + Delete. Revealed on
+             *  hover; always shown where there is no hover (touch). */}
+            <div className="contact-card-tools gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 has-[[aria-expanded=true]]:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity shrink-0">
+              {/* Outreach templates: pick one → email is rendered with the
+               *  contact's name/role/company filled in and copied to clipboard. */}
+              <Menu
+                ariaLabel="Outreach templates"
+                align="end"
+                width={224}
+                trigger={
+                  <button type="button" className={btnIcon} title="Outreach templates" aria-label="Outreach templates">
+                    <Send size={14} strokeWidth={1.6} aria-hidden />
+                  </button>
+                }
+                items={OUTREACH_TEMPLATES.map((tpl) => ({ label: tpl.label, onSelect: () => void copyTemplate(tpl.key, tpl.label) }))}
+              />
+              {c.linkedinUrl ? (
+                <a
+                  href={c.linkedinUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`${btnIcon} !text-[#0a66c2] hover:!text-[#004182]`}
+                  title="Open LinkedIn profile"
+                  aria-label="Open LinkedIn profile"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                    <path d="M20.45 20.45h-3.55v-5.57c0-1.33-.03-3.04-1.85-3.04-1.86 0-2.14 1.45-2.14 2.95v5.66H9.36V9h3.41v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.26 2.37 4.26 5.45v6.29zM5.34 7.43a2.06 2.06 0 01-2.06-2.07 2.06 2.06 0 014.13 0 2.07 2.07 0 01-2.07 2.07zm1.78 13.02H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.23.79 24 1.77 24h20.45C23.2 24 24 23.23 24 22.27V1.73C24 .77 23.2 0 22.22 0z" />
+                  </svg>
+                </a>
+              ) : (
+                <span className={`${btnIcon} opacity-40 cursor-not-allowed`} title="No LinkedIn URL — add one via Edit" aria-label="LinkedIn unavailable">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                    <path d="M20.45 20.45h-3.55v-5.57c0-1.33-.03-3.04-1.85-3.04-1.86 0-2.14 1.45-2.14 2.95v5.66H9.36V9h3.41v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.26 2.37 4.26 5.45v6.29zM5.34 7.43a2.06 2.06 0 01-2.06-2.07 2.06 2.06 0 014.13 0 2.07 2.07 0 01-2.07 2.07zm1.78 13.02H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.23.79 24 1.77 24h20.45C23.2 24 24 23.23 24 22.27V1.73C24 .77 23.2 0 22.22 0z" />
+                  </svg>
+                </span>
+              )}
+              <button className={btnIcon} onClick={onEdit} aria-label="Edit contact">
+                <Pencil size={14} strokeWidth={1.5} aria-hidden />
+              </button>
+              <button className={`${btnIcon} !text-danger`} onClick={onDelete} aria-label="Delete contact">
+                <Trash2 size={14} strokeWidth={1.5} aria-hidden />
+              </button>
+            </div>
+            {/* The same tools in one menu, for a narrow card. */}
+            <span className="contact-card-more">
+              <Menu
+                ariaLabel={`Actions for ${c.name}`}
+                align="end"
+                width={232}
+                trigger={
+                  <button type="button" className={btnIcon} aria-label={`Actions for ${c.name}`}>
+                    <MoreHorizontal size={15} strokeWidth={1.8} aria-hidden />
+                  </button>
+                }
+                items={[
+                  { label: "Edit contact", icon: <Pencil size={14} strokeWidth={1.6} />, onSelect: onEdit },
+                  ...(c.linkedinUrl
+                    ? [{ label: "Open LinkedIn", icon: <ExternalLink size={14} strokeWidth={1.6} />, onSelect: () => { window.open(c.linkedinUrl, "_blank", "noopener,noreferrer"); } }]
+                    : []),
+                  ...OUTREACH_TEMPLATES.map((tpl, i) => ({
+                    label: tpl.label,
+                    icon: <Send size={14} strokeWidth={1.6} />,
+                    heading: i === 0 ? "Copy an outreach email" : undefined,
+                    dividerBefore: i === 0,
+                    onSelect: () => void copyTemplate(tpl.key, tpl.label),
+                  })),
+                  { label: "Delete contact", icon: <Trash2 size={14} strokeWidth={1.6} />, destructive: true, dividerBefore: true, onSelect: onDelete },
+                ]}
+              />
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -344,12 +381,16 @@ export default function Contacts() {
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState<Contact | null>(null);
+  // Search and filters run on the server, over every contact (not just this page).
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"All" | ContactOutreachStatus>("All");
-  const [sourceFilter, setSourceFilter] = useState<"all" | ContactSource>("all");
+  const [statusFilter, setStatusFilter] = useState<"" | ContactOutreachStatus>("");
+  const [sourceFilter, setSourceFilter] = useState<"" | ContactSource>("");
+  const [statusCounts, setStatusCounts] = useState<Partial<Record<ContactOutreachStatus, number>>>({});
   const [page, setPage] = useState(1);
-  const [pag, setPag] = useState<Pagination>({ page: 1, limit: 20, total: 0, pages: 0 });
-  const [viewMode, setViewMode] = useState<"person" | "company">("person");
+  const [pag, setPag] = useState<PageInfo>({ page: 1, limit: 20, total: 0, pages: 0 });
+  const [groupBy, setGroupBy] = usePersistentState<GroupBy>("hiretrail-contacts-group", "person", oneOf<GroupBy>(["person", "company"]));
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const searchRef = useRef<PageSearchHandle>(null);
   const [expandedCompanies, setExpandedCompanies] = useState<Set<string>>(new Set());
   const { confirm: confirmDelete, confirmState, handleConfirm: onConfirm, handleCancel: onCancel } = useConfirm();
 
@@ -358,12 +399,15 @@ export default function Contacts() {
       const res = await contactsAPI.getAll({
         page,
         limit: 20,
-        ...(sourceFilter !== "all" ? { source: sourceFilter } : {}),
+        ...(sourceFilter ? { source: sourceFilter } : {}),
+        ...(statusFilter ? { status: statusFilter } : {}),
+        ...(search ? { search } : {}),
       });
       setContacts(res.data);
       setPag(res.pagination);
+      if (res.statusCounts) setStatusCounts(res.statusCounts);
     } catch {} finally { setLoading(false); }
-  }, [page, sourceFilter]);
+  }, [page, sourceFilter, statusFilter, search]);
 
   useEffect(() => { fetchContacts(); }, [fetchContacts]);
 
@@ -438,153 +482,167 @@ export default function Contacts() {
     await fetchContacts();
   };
 
-  const statusCounts = OUTREACH_STATUSES.reduce((acc, s) => {
-    acc[s.value] = contacts.filter((c) => normalizeOutreachStatus(c.outreachStatus) === s.value).length;
-    return acc;
-  }, {} as Record<ContactOutreachStatus, number>);
+  const create = () => { setEditing(null); setModal(true); };
+  const filterBy = (patch: { status?: "" | ContactOutreachStatus; source?: "" | ContactSource; search?: string }) => {
+    setPage(1);
+    if (patch.status !== undefined) setStatusFilter(patch.status);
+    if (patch.source !== undefined) setSourceFilter(patch.source);
+    if (patch.search !== undefined) setSearch(patch.search);
+  };
+  const activeFilters = (statusFilter ? 1 : 0) + (sourceFilter ? 1 : 0);
+  const filtering = activeFilters > 0 || !!search;
+  const clearFilters = () => filterBy({ status: "", source: "", search: "" });
 
-  const filtered = contacts.filter((c) => {
-    const matchesSearch = !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.company.toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = statusFilter === "All" || normalizeOutreachStatus(c.outreachStatus) === statusFilter;
-    return matchesSearch && matchesStatus;
+  usePageShortcuts({
+    "/": () => searchRef.current?.focus(),
+    f: () => setFiltersOpen(true),
+    c: create,
   });
 
-  if (loading) return <div className="fade-up grid grid-cols-1 md:grid-cols-2 gap-4">{[1, 2, 3, 4].map((i) => <SkeletonCard key={i} />)}</div>;
+  const header = (
+    <PageHeader
+      title="Contacts"
+      meta={loading ? undefined : `${pag.total} ${filtering ? "found" : pag.total === 1 ? "contact" : "contacts"}`}
+      actions={
+        <>
+          <PageSearch ref={searchRef} value={search} onChange={(q) => filterBy({ search: q })} placeholder="Search contacts" ariaLabel="Search contacts by name or company" />
+          <FiltersPopover
+            open={filtersOpen}
+            onOpenChange={setFiltersOpen}
+            active={activeFilters}
+            canReset={activeFilters > 0 || groupBy !== "person"}
+            onReset={() => { filterBy({ status: "", source: "" }); setGroupBy("person"); }}
+            filters={
+              <>
+                <FilterRow label="Status">
+                  <Select
+                    variant="pill"
+                    ariaLabel="Status"
+                    value={statusFilter}
+                    onChange={(v) => filterBy({ status: v as "" | ContactOutreachStatus })}
+                    options={[
+                      { value: "", label: "Any status", icon: ANY_DOT },
+                      ...OUTREACH_STATUSES.map((st) => ({
+                        value: st.value,
+                        label: `${st.label} · ${statusCounts[st.value] ?? 0}`,
+                        icon: <span className={`w-2 h-2 rounded-full ${OUTREACH_DOT[st.value]}`} />,
+                      })),
+                    ]}
+                  />
+                </FilterRow>
+                <FilterRow label="Source">
+                  <Select
+                    variant="pill"
+                    ariaLabel="Source"
+                    value={sourceFilter}
+                    onChange={(v) => filterBy({ source: v as "" | ContactSource })}
+                    options={[{ value: "", label: "Any source", icon: ANY_DOT }, ...SOURCE_FILTERS]}
+                  />
+                </FilterRow>
+              </>
+            }
+            display={
+              <FilterRow label="Group by">
+                <SegmentedControl<GroupBy>
+                  ariaLabel="Group by"
+                  size="sm"
+                  value={groupBy}
+                  onChange={setGroupBy}
+                  segments={[{ value: "person", label: "Person" }, { value: "company", label: "Company" }]}
+                />
+              </FilterRow>
+            }
+          />
+          <CreateButton onClick={create} label="New contact" />
+        </>
+      }
+    />
+  );
+
+  if (loading) {
+    return (
+      <div>
+        {header}
+        <PageBody className="space-y-2">{[1, 2, 3, 4].map((i) => <SkeletonCard key={i} />)}</PageBody>
+      </div>
+    );
+  }
 
   return (
-    <div className="fade-up">
-      <div className="flex items-center justify-between flex-wrap gap-3 mb-6">
-        <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
-          Contacts
-          <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-muted text-muted-foreground">
-            {pag.total}
-          </span>
-        </h1>
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex rounded-lg border border-border overflow-hidden">
-            <button onClick={() => setViewMode("person")} className={`px-3 py-1.5 text-xs font-medium ${viewMode === "person" ? "bg-muted text-foreground" : "bg-card text-secondary-foreground hover:bg-muted"}`}>By Person</button>
-            <button onClick={() => setViewMode("company")} className={`px-3 py-1.5 text-xs font-medium ${viewMode === "company" ? "bg-muted text-foreground" : "bg-card text-secondary-foreground hover:bg-muted"}`}>By Company</button>
-          </div>
-          <button onClick={() => { setEditing(null); setModal(true); }} className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium rounded-lg"><Plus size={16} strokeWidth={2} />Add contact</button>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-1 mb-3 border-b border-border">
-        {([
-          { value: "all", label: "All contacts" },
-          { value: "manual", label: "Added manually" },
-          { value: "extension", label: "Tracked via extension" },
-        ] as const).map((t) => (
-          <button
-            key={t.value}
-            onClick={() => { setSourceFilter(t.value); setPage(1); }}
-            className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-              sourceFilter === t.value
-                ? "border-primary text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm py-3 -mx-4 md:-mx-6 px-4 md:px-6">
-        <div className="flex flex-wrap items-center gap-3 max-w-[1200px]">
-          <input className={`${inputCls} w-[280px]`} placeholder="Search name or company..." value={search} onChange={(e) => setSearch(e.target.value)} />
-          <div className="flex flex-wrap gap-1.5">
-            <button
-              onClick={() => setStatusFilter("All")}
-              className={`inline-flex items-center gap-1 px-3 py-1 text-[13px] font-medium rounded-full border ${statusFilter === "All" ? "bg-muted border-border text-foreground" : "bg-card border-border text-muted-foreground hover:border-muted-foreground/40 hover:text-foreground"}`}
-            >
-              All
-            </button>
-            {OUTREACH_STATUSES.map((s) => (
-              <button
-                key={s.value}
-                onClick={() => setStatusFilter(s.value)}
-                className={`inline-flex items-center gap-1 px-3 py-1 text-[13px] font-medium rounded-full border ${statusFilter === s.value ? "bg-muted border-border text-foreground" : "bg-card border-border text-muted-foreground hover:border-muted-foreground/40 hover:text-foreground"}`}
-              >
-                {s.label}
-                <span className="text-[11px] bg-muted px-1.5 rounded-full">{statusCounts[s.value] || 0}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {filtered.length === 0 ? (
-        contacts.length === 0 ? (
-          <EmptyState
-            intent="welcome"
-            title="Build your network here"
-            description="Add recruiters, referrers, and hiring managers you've reached out to. Track outreach status and follow-up timing so nothing slips."
-            actions={[
-              { label: "Add contact", variant: "primary", onClick: () => { setEditing(null); setModal(true); } },
-              { label: "Install extension", variant: "secondary", href: "/" },
-            ]}
-          />
+    <div>
+      {header}
+      <PageBody>
+        {contacts.length === 0 ? (
+          !filtering ? (
+            <EmptyState
+              intent="welcome"
+              title="Build your network here"
+              description="Add recruiters, referrers, and hiring managers you've reached out to. Track outreach status and follow-up timing so nothing slips."
+              actions={[
+                { label: "Add contact", variant: "primary", onClick: create },
+                { label: "Install extension", variant: "secondary", href: "/" },
+              ]}
+            />
+          ) : (
+            <EmptyState
+              intent="filtered"
+              title="No contacts match these filters"
+              description="Try clearing your search or the filters."
+              actions={[{ label: "Clear filters", variant: "secondary", onClick: clearFilters }]}
+            />
+          )
+        ) : groupBy === "person" ? (
+          <>
+            <div className="space-y-2">
+              {contacts.map((c) => <ContactCard key={c._id} c={c} companyLogoUrl={logoFor(c.company)} onEdit={() => { setEditing(c); setModal(true); }} onDelete={() => handleDelete(c._id)} />)}
+            </div>
+            <Pagination page={page} pag={pag} onPage={setPage} className="mt-4" />
+          </>
         ) : (
-          <EmptyState
-            intent="filtered"
-            title="No contacts match these filters"
-            description="Try clearing your search or the outreach status filter."
-            actions={[
-              { label: "Clear filters", variant: "secondary", onClick: () => { setSearch(""); setStatusFilter("All"); setSourceFilter("all"); } },
-            ]}
-          />
-        )
-      ) : viewMode === "person" ? (
-        <>
-          <div className="space-y-2">
-            {filtered.map((c) => <ContactCard key={c._id} c={c} companyLogoUrl={logoFor(c.company)} onEdit={() => { setEditing(c); setModal(true); }} onDelete={() => handleDelete(c._id)} />)}
-          </div>
-          <PaginationBar page={page} pag={pag} setPage={setPage} />
-        </>
-      ) : (
-        <>
-          <div className="space-y-3">
-            {Object.entries(
-              filtered.reduce<Record<string, Contact[]>>((acc, c) => {
-                const key = c.company || "Unknown";
-                (acc[key] = acc[key] || []).push(c);
-                return acc;
-              }, {})
-            )
-              .sort(([a], [b]) => a.localeCompare(b))
-              .map(([company, companyContacts]) => {
-                const isExpanded = expandedCompanies.has(company);
-                const hasFollowUp = companyContacts.some(needsFollowUp);
-                return (
-                  <div key={company} className="bg-card border border-border rounded-xl overflow-hidden">
-                    <button
-                      onClick={() => setExpandedCompanies((prev) => {
-                        const next = new Set(prev);
-                        if (next.has(company)) next.delete(company); else next.add(company);
-                        return next;
-                      })}
-                      className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-muted/50"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <ChevronRight size={16} strokeWidth={1.5} className={`text-muted-foreground transition-transform ${isExpanded ? "rotate-90" : ""}`} />
-                        <CompanyLogo size="sm" name={company} logoUrl={logoFor(company)} />
-                        <span className="text-[15px] font-semibold text-foreground">{company}</span>
-                        <span className="text-xs text-muted-foreground font-medium">{companyContacts.length} contact{companyContacts.length !== 1 ? "s" : ""}</span>
-                        {hasFollowUp && <span className="w-2 h-2 rounded-full bg-orange-400" title="Has contacts needing follow-up" />}
-                      </div>
-                    </button>
-                    {isExpanded && (
-                      <div className="border-t border-border p-3 space-y-2">
-                        {companyContacts.map((c) => <ContactCard key={c._id} c={c} companyLogoUrl={logoFor(c.company)} onEdit={() => { setEditing(c); setModal(true); }} onDelete={() => handleDelete(c._id)} />)}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-          </div>
-          <PaginationBar page={page} pag={pag} setPage={setPage} />
-        </>
-      )}
+          <>
+            <div className="space-y-3">
+              {Object.entries(
+                contacts.reduce<Record<string, Contact[]>>((acc, c) => {
+                  const key = c.company || "Unknown";
+                  (acc[key] = acc[key] || []).push(c);
+                  return acc;
+                }, {})
+              )
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([company, companyContacts]) => {
+                  const isExpanded = expandedCompanies.has(company);
+                  const hasFollowUp = companyContacts.some(needsFollowUp);
+                  return (
+                    <div key={company} className="bg-card border border-border rounded-xl overflow-hidden">
+                      <button
+                        onClick={() => setExpandedCompanies((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(company)) next.delete(company); else next.add(company);
+                          return next;
+                        })}
+                        className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-muted/50"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <ChevronRight size={16} strokeWidth={1.5} className={`text-muted-foreground transition-transform ${isExpanded ? "rotate-90" : ""}`} />
+                          <CompanyLogo size="sm" name={company} logoUrl={logoFor(company)} />
+                          <span className="text-[15px] font-semibold text-foreground">{company}</span>
+                          <span className="text-xs text-muted-foreground font-medium">{companyContacts.length} contact{companyContacts.length !== 1 ? "s" : ""}</span>
+                          {hasFollowUp && <span className="w-2 h-2 rounded-full bg-orange-400" title="Has contacts needing follow-up" />}
+                        </div>
+                      </button>
+                      {isExpanded && (
+                        <div className="border-t border-border p-3 space-y-2">
+                          {companyContacts.map((c) => <ContactCard key={c._id} c={c} companyLogoUrl={logoFor(c.company)} onEdit={() => { setEditing(c); setModal(true); }} onDelete={() => handleDelete(c._id)} />)}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+            </div>
+            <Pagination page={page} pag={pag} onPage={setPage} className="mt-4" />
+          </>
+        )}
+      </PageBody>
 
       {modal && <ContactFormModal contact={editing} onSave={save} onClose={() => { setModal(false); setEditing(null); }} />}
       {confirmState.open && (

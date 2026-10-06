@@ -5,6 +5,7 @@ import ConfirmModal from "../../components/ConfirmModal/ConfirmModal";
 import { useConfirm } from "../../hooks/useConfirm";
 import type { AdminNotificationItem, AdminNotificationStats, Pagination, NotificationSignalType } from "../../types";
 import Select from "../../components/ui/Select.tsx";
+import PageHeader from "../../components/ui/PageHeader.tsx";
 
 const TYPE_META: Record<NotificationSignalType, { label: string; cls: string; dot: string }> = {
   rejection_detected: { label: "Rejection", cls: "bg-red-500/10 text-red-700 dark:text-red-300 border-red-500/20", dot: "bg-red-500" },
@@ -116,11 +117,9 @@ export default function NotificationCenter() {
   const hasFilters = Boolean(search || typeFilter || sourceFilter || readFilter || resolvedFilter);
 
   return (
-    <div className="fade-up">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground tracking-tight">Notification Center</h1>
-        <p className="text-sm text-muted-foreground mt-1">Notifications HireTrail sent people — scan results, spend alerts, announcements — and ones you send.</p>
-      </div>
+    <div>
+      <PageHeader title="Notifications" />
+      <p className="-mt-2 mb-6 max-w-2xl text-[13px] text-muted-foreground leading-relaxed">Notifications HireTrail sent people — scan results, spend alerts, announcements — and ones you send.</p>
 
       {/* Stats */}
       {stats && (

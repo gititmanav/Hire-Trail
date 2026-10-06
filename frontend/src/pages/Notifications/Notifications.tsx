@@ -9,10 +9,13 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import toast from "../../components/ui/toast.ts";
-import { Bell, Check, RotateCcw, X } from "lucide-react";
+import { Check, CheckCheck, RotateCcw, X } from "lucide-react";
 import { notificationsAPI } from "../../utils/api.ts";
 import { UNREAD_KEY } from "../../hooks/useUnreadNotifications.ts";
 import EmptyState from "../../components/EmptyState/EmptyState.tsx";
+import PageHeader, { HeaderIconButton, PageBody } from "../../components/ui/PageHeader.tsx";
+import SegmentedControl from "../../components/ui/SegmentedControl.tsx";
+import { usePageShortcuts } from "../../hooks/usePageShortcuts.ts";
 import type { Notification, NotificationType } from "../../types";
 
 const TYPE_LABEL: Record<string, { label: string; tone: string }> = {
@@ -132,143 +135,141 @@ export default function Notifications() {
   };
 
   const hasUnread = items.some((n) => !n.read);
+  const unread = items.filter((n) => !n.read).length;
+  usePageShortcuts({ "1": () => setTab("current"), "2": () => setTab("past") });
 
   return (
-    <div className="max-w-3xl mx-auto px-5 py-8">
-      <div className="flex items-center justify-between mb-5">
-        <div className="flex items-center gap-2.5">
-          <Bell size={20} strokeWidth={1.8} className="text-foreground" />
-          <h1 className="text-2xl font-semibold text-foreground">Notifications</h1>
-        </div>
-        {tab === "current" && hasUnread && (
-          <button onClick={onMarkAllRead} className="text-xs text-muted-foreground hover:text-foreground">
-            Mark all as read
-          </button>
-        )}
-      </div>
+    <div>
+      <PageHeader
+        title="Notifications"
+        meta={tab === "current" && unread > 0 ? `${unread} unread` : undefined}
+        actions={
+          <>
+            <SegmentedControl<Tab>
+              ariaLabel="Show notifications"
+              value={tab}
+              onChange={setTab}
+              segments={[{ value: "current", label: "Current" }, { value: "past", label: "Past" }]}
+            />
+            {tab === "current" && hasUnread && (
+              <HeaderIconButton label="Mark all as read" onClick={onMarkAllRead}>
+                <CheckCheck size={15} strokeWidth={1.8} aria-hidden />
+              </HeaderIconButton>
+            )}
+          </>
+        }
+      />
+      <PageBody size="md">
 
-      <div className="inline-flex items-center gap-0.5 rounded-lg bg-muted p-0.5 mb-6">
-        {(["current", "past"] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`px-3.5 py-1.5 text-xs font-semibold rounded-md capitalize transition-colors ${
-              tab === t ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {t}
-          </button>
-        ))}
-      </div>
-
-      {loading ? (
-        <div className="space-y-3">
-          {[0, 1, 2, 3].map((i) => (
-            <div key={i} className="h-20 rounded-xl border border-border bg-card animate-pulse" />
-          ))}
-        </div>
-      ) : items.length === 0 ? (
-        tab === "current" ? (
-          <EmptyState
-            title="You're all caught up"
-            description="Inbox scans ready for review and other updates show up here."
-            actions={[{ label: "Open Settings", href: "/settings" }]}
-          />
+        {loading ? (
+          <div className="space-y-3">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="h-20 rounded-xl border border-border bg-card animate-pulse" />
+            ))}
+          </div>
+        ) : items.length === 0 ? (
+          tab === "current" ? (
+            <EmptyState
+              title="You're all caught up"
+              description="Inbox scans ready for review and other updates show up here."
+              actions={[{ label: "Open Settings", href: "/settings" }]}
+            />
+          ) : (
+            <EmptyState
+              title="Nothing in your history yet"
+              description="Notifications you've dealt with are kept here for reference."
+            />
+          )
         ) : (
-          <EmptyState
-            title="Nothing in your history yet"
-            description="Notifications you've dealt with are kept here for reference."
-          />
-        )
-      ) : (
-        <ul className="space-y-2">
-          {items.map((n) => {
-            const meta = TYPE_LABEL[n.type];
-            const isSuggestion = SUGGESTION_TYPES.includes(n.type);
-            const canRevert = isSuggestion && !n.resolved && !!n.previousStage && !!n.applicationId;
-            const canConfirm = isSuggestion && !n.resolved;
-            const clickable = n.type === "scan_ready" || n.type === "clipboard_config" || !!n.applicationId;
-            return (
-              <li
-                key={n._id}
-                className={`group relative rounded-xl border border-border p-4 ${!n.read ? "bg-primary/5" : "bg-card"} ${clickable ? "cursor-pointer hover:border-muted-foreground/30" : ""}`}
-                onClick={clickable ? () => onOpen(n) : undefined}
-              >
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); void (tab === "past" ? onRemove(n) : onDismiss(n)); }}
-                  disabled={busyId === n._id}
-                  title={tab === "past" ? "Delete" : "Dismiss"}
-                  aria-label={tab === "past" ? "Delete notification" : "Dismiss notification"}
-                  className="absolute top-2.5 right-2.5 w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground/60 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-muted hover:text-foreground disabled:opacity-50"
+          <ul className="space-y-2">
+            {items.map((n) => {
+              const meta = TYPE_LABEL[n.type];
+              const isSuggestion = SUGGESTION_TYPES.includes(n.type);
+              const canRevert = isSuggestion && !n.resolved && !!n.previousStage && !!n.applicationId;
+              const canConfirm = isSuggestion && !n.resolved;
+              const clickable = n.type === "scan_ready" || n.type === "clipboard_config" || !!n.applicationId;
+              return (
+                <li
+                  key={n._id}
+                  className={`group relative rounded-xl border border-border p-4 ${!n.read ? "bg-primary/5" : "bg-card"} ${clickable ? "cursor-pointer hover:border-muted-foreground/30" : ""}`}
+                  onClick={clickable ? () => onOpen(n) : undefined}
                 >
-                  <X size={14} strokeWidth={2} />
-                </button>
-                <div className="flex items-start gap-2.5 pr-6">
-                  {!n.read && <span className="mt-2 w-1.5 h-1.5 rounded-full bg-primary shrink-0" aria-hidden />}
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {meta && (
-                        <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${meta.tone}`}>
-                          {meta.label}
-                        </span>
-                      )}
-                      <p className="text-sm font-medium text-foreground">{n.title}</p>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">{n.message}</p>
-                    <p className="text-[10px] text-muted-foreground/70 mt-1">
-                      {new Date(n.createdAt).toLocaleString()}
-                    </p>
-                    {(canConfirm || canRevert) && (
-                      <div className="flex items-center gap-2 mt-2.5" onClick={(e) => e.stopPropagation()}>
-                        {canRevert && (
-                          <button
-                            onClick={() => onRevert(n)}
-                            disabled={busyId === n._id}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium border border-border rounded-md text-secondary-foreground hover:bg-muted disabled:opacity-50"
-                            title={`Revert to ${n.previousStage}`}
-                          >
-                            <RotateCcw size={11} strokeWidth={2} /> Revert
-                          </button>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); void (tab === "past" ? onRemove(n) : onDismiss(n)); }}
+                    disabled={busyId === n._id}
+                    title={tab === "past" ? "Delete" : "Dismiss"}
+                    aria-label={tab === "past" ? "Delete notification" : "Dismiss notification"}
+                    className="absolute top-2.5 right-2.5 w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground/60 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-muted hover:text-foreground disabled:opacity-50"
+                  >
+                    <X size={14} strokeWidth={2} />
+                  </button>
+                  <div className="flex items-start gap-2.5 pr-6">
+                    {!n.read && <span className="mt-2 w-1.5 h-1.5 rounded-full bg-primary shrink-0" aria-hidden />}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {meta && (
+                          <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${meta.tone}`}>
+                            {meta.label}
+                          </span>
                         )}
-                        {canConfirm && (
-                          <button
-                            onClick={() => onConfirm(n)}
-                            disabled={busyId === n._id}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-                          >
-                            <Check size={11} strokeWidth={2.5} /> Confirm
-                          </button>
-                        )}
+                        <p className="text-sm font-medium text-foreground">{n.title}</p>
                       </div>
-                    )}
+                      <p className="text-xs text-muted-foreground mt-1">{n.message}</p>
+                      <p className="text-[10px] text-muted-foreground/70 mt-1">
+                        {new Date(n.createdAt).toLocaleString()}
+                      </p>
+                      {(canConfirm || canRevert) && (
+                        <div className="flex items-center gap-2 mt-2.5" onClick={(e) => e.stopPropagation()}>
+                          {canRevert && (
+                            <button
+                              onClick={() => onRevert(n)}
+                              disabled={busyId === n._id}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium border border-border rounded-md text-secondary-foreground hover:bg-muted disabled:opacity-50"
+                              title={`Revert to ${n.previousStage}`}
+                            >
+                              <RotateCcw size={11} strokeWidth={2} /> Revert
+                            </button>
+                          )}
+                          {canConfirm && (
+                            <button
+                              onClick={() => onConfirm(n)}
+                              disabled={busyId === n._id}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                            >
+                              <Check size={11} strokeWidth={2.5} /> Confirm
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
 
-      {pages > 1 && !loading && (
-        <div className="flex items-center justify-center gap-3 mt-6">
-          <button
-            onClick={() => fetchPage(tab, page - 1)}
-            disabled={page <= 1}
-            className="px-3 py-1.5 text-xs font-medium border border-border rounded-md text-secondary-foreground hover:bg-muted disabled:opacity-40"
-          >
-            Previous
-          </button>
-          <span className="text-xs text-muted-foreground">Page {page} of {pages}</span>
-          <button
-            onClick={() => fetchPage(tab, page + 1)}
-            disabled={page >= pages}
-            className="px-3 py-1.5 text-xs font-medium border border-border rounded-md text-secondary-foreground hover:bg-muted disabled:opacity-40"
-          >
-            Next
-          </button>
-        </div>
-      )}
+        {pages > 1 && !loading && (
+          <div className="flex items-center justify-center gap-3 mt-6">
+            <button
+              onClick={() => fetchPage(tab, page - 1)}
+              disabled={page <= 1}
+              className="px-3 py-1.5 text-xs font-medium border border-border rounded-md text-secondary-foreground hover:bg-muted disabled:opacity-40"
+            >
+              Previous
+            </button>
+            <span className="text-xs text-muted-foreground">Page {page} of {pages}</span>
+            <button
+              onClick={() => fetchPage(tab, page + 1)}
+              disabled={page >= pages}
+              className="px-3 py-1.5 text-xs font-medium border border-border rounded-md text-secondary-foreground hover:bg-muted disabled:opacity-40"
+            >
+              Next
+            </button>
+          </div>
+        )}
+      </PageBody>
     </div>
   );
 }

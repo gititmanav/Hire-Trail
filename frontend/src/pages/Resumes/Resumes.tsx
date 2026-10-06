@@ -1,7 +1,7 @@
 /** Resume versions with optional PDF to Cloudinary; usage counts come from the list API. */
-import { useState, useEffect, useCallback, useMemo, type CSSProperties } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronDown, ChevronRight, Eye, FileText, Pencil, Plus, RefreshCw, Search, Star, StarOff, Trash2, Upload, UserRound, Wand2, X } from "lucide-react";
+import { ChevronDown, ChevronRight, Eye, FileText, Pencil, Plus, RefreshCw, Star, StarOff, Trash2, UserRound, Wand2 } from "lucide-react";
 import toast from "../../components/ui/toast.ts";
 import { resumesAPI, authAPI, masterProfileAPI, pollMasterProfileParse } from "../../utils/api.ts";
 import { Skeleton } from "../../components/Skeleton/Skeleton.tsx";
@@ -12,6 +12,11 @@ import ResumePreview from "../../components/ResumePreview/ResumePreview.tsx";
 import ResumeModal from "../../components/ResumeModal/ResumeModal.tsx";
 import { useConfirm } from "../../hooks/useConfirm.ts";
 import { useBackgroundTasks } from "../../hooks/useBackgroundTasks.tsx";
+import { usePageShortcuts } from "../../hooks/usePageShortcuts.ts";
+import { usePersistentState, oneOf } from "../../hooks/usePersistentState.ts";
+import PageHeader, { CreateButton, PageBody, PageSearch, type PageSearchHandle } from "../../components/ui/PageHeader.tsx";
+import FiltersPopover, { FilterRow } from "../../components/ui/FiltersPopover.tsx";
+import Select from "../../components/ui/Select.tsx";
 import { useDemoGate } from "../../hooks/useDemoGate.tsx";
 import type { Resume, ResumeVersion, ResumeMetrics } from "../../types";
 
@@ -325,6 +330,8 @@ function ActionCard({ icon, title, subtitle, tone, onClick }: { icon: React.Reac
   );
 }
 
+type ResumeSort = "recent" | "name" | "usage";
+
 export default function Resumes() {
   const navigate = useNavigate();
   const [resumes, setResumes] = useState<Resume[]>([]);
@@ -335,7 +342,9 @@ export default function Resumes() {
   const [primaryResumeId, setPrimaryResumeId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [selectedTag, setSelectedTag] = useState("All");
-  const [sortBy, setSortBy] = useState<"recent" | "name" | "usage">("recent");
+  const [sortBy, setSortBy] = usePersistentState<ResumeSort>("hiretrail-resumes-sort", "recent", oneOf<ResumeSort>(["recent", "name", "usage"]));
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const searchRef = useRef<PageSearchHandle>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const { confirm: confirmDelete, confirmState, handleConfirm: onConfirm, handleCancel: onCancel } = useConfirm();
   const { startTask, tasks } = useBackgroundTasks();
@@ -523,196 +532,186 @@ export default function Resumes() {
     }
   };
 
-  const tagFilterLabel = selectedTag === "All" ? "All tags" : selectedTag;
-  const sortLabel = sortBy === "recent" ? "Most recent" : sortBy === "name" ? "Name A–Z" : "Most used";
+  const create = () => { setEditing(null); setModal(true); };
+  usePageShortcuts({
+    "/": () => searchRef.current?.focus(),
+    f: () => setFiltersOpen(true),
+    c: create,
+  });
+  const ownResumes = resumes.filter((r) => !isTailored(r)).length;
 
   return (
-    <div className="fade-up max-w-6xl">
-      <div className="mb-5">
-        <h1 className="text-2xl font-bold text-foreground tracking-tight">My Documents</h1>
-        <p className="text-sm text-muted-foreground mt-1">Manage, tailor, and track every resume in your job search.</p>
-      </div>
-
-      {/* Quick actions */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
-        <ActionCard
-          icon={<FileText size={20} strokeWidth={1.6} className="text-primary" />}
-          title="New Resume"
-          subtitle="Upload a PDF or add a version to track"
-          tone="bg-primary/10"
-          onClick={() => { setEditing(null); setModal(true); }}
-        />
-        <ActionCard
-          icon={<Wand2 size={20} strokeWidth={1.6} className="text-violet-500" />}
-          title="Resume Studio"
-          subtitle="See the gap, tailor & edit, then download a pixel-perfect PDF"
-          tone="bg-violet-500/10"
-          onClick={() => navigate("/resume-studio")}
-        />
-        <ActionCard
-          icon={<UserRound size={20} strokeWidth={1.6} className="text-sky-500" />}
-          title="Master Profile"
-          subtitle="Edit the career history AI tailoring draws from"
-          tone="bg-sky-500/10"
-          onClick={() => navigate("/profile")}
-        />
-      </div>
-
-      {loading ? (
-        <div className="bg-card border border-border rounded-xl p-4 space-y-3">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="flex items-center gap-3">
-              <Skeleton className="h-9 w-9 !rounded-lg" />
-              <div className="flex-1 space-y-1.5"><Skeleton className="h-4 w-48" /><Skeleton className="h-3 w-32" /></div>
-            </div>
-          ))}
-        </div>
-      ) : resumes.length === 0 ? (
-        <EmptyState
-          intent="welcome"
-          title="Add your first resume"
-          description="Upload your résumés, tag them by role focus, and HireTrail will track which version actually gets responses. Mark one as Primary to power AI tailoring."
-          actions={[{ label: "Upload resume", variant: "primary", onClick: () => { setEditing(null); setModal(true); } }]}
-        />
-      ) : (
-        <>
-          {/* ===== Resumes table card ===== */}
-          <div className="bg-card border border-border rounded-xl overflow-hidden">
-            {/* Toolbar */}
-            <div className="flex items-center gap-3 flex-wrap px-4 py-3 border-b border-border">
-              <div className="flex items-center gap-3 min-w-0">
-                {selected.size > 0 ? (
-                  <>
-                    <span className="text-sm font-medium text-foreground tabular-nums">{selected.size} selected</span>
-                    <span className="text-border" aria-hidden>|</span>
-                    <button onClick={bulkDelete} className="inline-flex items-center gap-1.5 px-2.5 py-1 text-sm font-medium text-danger hover:bg-danger/10 rounded-md">
-                      <Trash2 size={14} strokeWidth={1.8} />Delete
-                    </button>
-                  </>
-                ) : (
-                  <span className="text-sm font-medium text-muted-foreground tabular-nums">{orderedRows.length} resume{orderedRows.length === 1 ? "" : "s"}</span>
-                )}
-              </div>
-
-              <div className="ml-auto flex items-center gap-2 flex-wrap">
-                <button onClick={() => { setEditing(null); setModal(true); }} className="inline-flex items-center gap-1.5 h-9 px-3 text-sm font-medium border border-border rounded-lg text-foreground hover:border-primary hover:text-primary transition-colors">
-                  <Upload size={15} strokeWidth={1.8} />Upload
-                </button>
-                {allExistingTags.length > 0 && (
-                  <Menu
-                    ariaLabel="Filter by tag"
-                    align="end"
-                    width={208}
-                    searchable={allExistingTags.length > 6}
-                    searchPlaceholder="Filter tags…"
-                    trigger={
-                      <button className="inline-flex items-center justify-between gap-2 h-9 px-3 text-sm border border-border rounded-lg text-foreground hover:border-muted-foreground/40 min-w-[120px]">
-                        <span className="truncate">{tagFilterLabel}</span>
-                        <ChevronRight size={14} strokeWidth={1.8} className="rotate-90 text-muted-foreground shrink-0" />
-                      </button>
-                    }
-                    items={[
-                      { label: "All tags", checked: selectedTag === "All", onSelect: () => setSelectedTag("All") },
-                      ...allExistingTags.map((t) => ({ label: t, checked: selectedTag === t, onSelect: () => setSelectedTag(t) })),
+    <div>
+      <PageHeader
+        title="Resumes"
+        meta={loading ? undefined : search || selectedTag !== "All" ? `${orderedRows.length} found` : `${ownResumes} ${ownResumes === 1 ? "resume" : "resumes"}`}
+        actions={
+          <>
+            <PageSearch ref={searchRef} value={search} onChange={setSearch} placeholder="Search resumes" ariaLabel="Search resumes" />
+            <FiltersPopover
+              open={filtersOpen}
+              onOpenChange={setFiltersOpen}
+              active={selectedTag !== "All" ? 1 : 0}
+              canReset={selectedTag !== "All" || sortBy !== "recent"}
+              onReset={() => { setSelectedTag("All"); setSortBy("recent"); }}
+              filters={
+                allExistingTags.length > 0 ? (
+                  <FilterRow label="Tag">
+                    <Select
+                      variant="pill"
+                      ariaLabel="Tag"
+                      searchable={allExistingTags.length > 6}
+                      searchPlaceholder="Search tags…"
+                      value={selectedTag}
+                      onChange={setSelectedTag}
+                      options={[{ value: "All", label: "Any tag" }, ...allExistingTags.map((t) => ({ value: t, label: t }))]}
+                    />
+                  </FilterRow>
+                ) : undefined
+              }
+              display={
+                <FilterRow label="Sort">
+                  <Select
+                    variant="pill"
+                    ariaLabel="Sort"
+                    value={sortBy}
+                    onChange={(v) => setSortBy(v as ResumeSort)}
+                    options={[
+                      { value: "recent", label: "Most recent" },
+                      { value: "name", label: "Name A–Z" },
+                      { value: "usage", label: "Most used" },
                     ]}
                   />
-                )}
-                <Menu
-                  ariaLabel="Sort resumes"
-                  align="end"
-                  width={184}
-                  trigger={
-                    <button className="inline-flex items-center justify-between gap-2 h-9 px-3 text-sm border border-border rounded-lg text-foreground hover:border-muted-foreground/40 min-w-[130px]">
-                      <span className="truncate">{sortLabel}</span>
-                      <ChevronRight size={14} strokeWidth={1.8} className="rotate-90 text-muted-foreground shrink-0" />
-                    </button>
-                  }
-                  items={[
-                    { label: "Most recent", checked: sortBy === "recent", onSelect: () => setSortBy("recent") },
-                    { label: "Name A–Z", checked: sortBy === "name", onSelect: () => setSortBy("name") },
-                    { label: "Most used", checked: sortBy === "usage", onSelect: () => setSortBy("usage") },
-                  ]}
-                />
-                <div className="relative">
-                  <Search size={15} strokeWidth={2} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                  <input
-                    className="h-9 w-full sm:w-56 pl-9 pr-8 text-sm bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30"
-                    placeholder="Search resumes…"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                  />
-                  {search && (
-                    <button onClick={() => setSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" aria-label="Clear search">
-                      <X size={14} strokeWidth={2} />
-                    </button>
-                  )}
-                </div>
+                </FilterRow>
+              }
+            />
+            <CreateButton onClick={create} label="New resume" />
+          </>
+        }
+      />
+      <PageBody>
+
+        {/* Quick actions */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
+          <ActionCard
+            icon={<FileText size={20} strokeWidth={1.6} className="text-primary" />}
+            title="New Resume"
+            subtitle="Upload a PDF or add a version to track"
+            tone="bg-primary/10"
+            onClick={create}
+          />
+          <ActionCard
+            icon={<Wand2 size={20} strokeWidth={1.6} className="text-violet-500" />}
+            title="Resume Studio"
+            subtitle="See the gap, tailor & edit, then download a pixel-perfect PDF"
+            tone="bg-violet-500/10"
+            onClick={() => navigate("/resume-studio")}
+          />
+          <ActionCard
+            icon={<UserRound size={20} strokeWidth={1.6} className="text-sky-500" />}
+            title="Master Profile"
+            subtitle="Edit the career history AI tailoring draws from"
+            tone="bg-sky-500/10"
+            onClick={() => navigate("/profile")}
+          />
+        </div>
+
+        {loading ? (
+          <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="flex items-center gap-3">
+                <Skeleton className="h-9 w-9 !rounded-lg" />
+                <div className="flex-1 space-y-1.5"><Skeleton className="h-4 w-48" /><Skeleton className="h-3 w-32" /></div>
               </div>
+            ))}
+          </div>
+        ) : resumes.length === 0 ? (
+          <EmptyState
+            intent="welcome"
+            title="Add your first resume"
+            description="Upload your résumés, tag them by role focus, and HireTrail will track which version actually gets responses. Mark one as Primary to power AI tailoring."
+            actions={[{ label: "Upload resume", variant: "primary", onClick: () => { setEditing(null); setModal(true); } }]}
+          />
+        ) : (
+          <>
+            {/* ===== Resumes table card ===== */}
+            <div className="bg-card border border-border rounded-xl overflow-hidden">
+              {/* Bulk actions, while rows are selected (search, filters and sort are in the header). */}
+              {selected.size > 0 && (
+                <div className="flex items-center gap-3 px-4 h-11 border-b border-border">
+                  <span className="text-sm font-medium text-foreground tabular-nums">{selected.size} selected</span>
+                  <span className="text-border" aria-hidden>|</span>
+                  <button onClick={bulkDelete} className="inline-flex items-center gap-1.5 px-2.5 py-1 text-sm font-medium text-danger hover:bg-danger/10 rounded-md">
+                    <Trash2 size={14} strokeWidth={1.8} />Delete
+                  </button>
+                </div>
+              )}
+
+              {/* Table */}
+              {orderedRows.length === 0 ? (
+                <div className="px-6 py-12">
+                  <EmptyState intent="filtered" title="No resumes match these filters" description="Try clearing your search or tag filter." />
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="border-b border-border bg-muted/30 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        <th className="w-10 pl-4 pr-1 py-2.5">
+                          <input
+                            type="checkbox"
+                            checked={allSelected}
+                            onChange={toggleSelectAll}
+                            aria-label="Select all resumes"
+                            disabled={selectableIds.length === 0}
+                            className="h-4 w-4 rounded border-border text-primary focus:ring-ring disabled:opacity-40 cursor-pointer"
+                          />
+                        </th>
+                        <th className="py-2.5 pr-4">Resume name</th>
+                        <th className="py-2.5 px-3 hidden md:table-cell">Created</th>
+                        <th className="py-2.5 px-3 hidden lg:table-cell">Last edited</th>
+                        <th className="py-2.5 pr-4 pl-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {orderedRows.map((r) => (
+                        <ResumeTableRow
+                          key={r._id}
+                          r={r}
+                          isPrimary={r._id === primaryResumeId}
+                          tagColorMap={tagColorMap}
+                          selected={selected.has(r._id)}
+                          onToggleSelect={toggleSelect}
+                          setAsPrimary={setAsPrimary}
+                          setEditing={setEditing}
+                          setModal={setModal}
+                          handleDelete={handleDelete}
+                          setPreviewResume={setPreviewResume}
+                          parseWithAI={parseWithAI}
+                          parsingId={parsingId}
+                        />
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
 
-            {/* Table */}
-            {orderedRows.length === 0 ? (
-              <div className="px-6 py-12">
-                <EmptyState intent="filtered" title="No resumes match these filters" description="Try clearing your search or tag filter." />
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="border-b border-border bg-muted/30 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      <th className="w-10 pl-4 pr-1 py-2.5">
-                        <input
-                          type="checkbox"
-                          checked={allSelected}
-                          onChange={toggleSelectAll}
-                          aria-label="Select all resumes"
-                          disabled={selectableIds.length === 0}
-                          className="h-4 w-4 rounded border-border text-primary focus:ring-ring disabled:opacity-40 cursor-pointer"
-                        />
-                      </th>
-                      <th className="py-2.5 pr-4">Resume name</th>
-                      <th className="py-2.5 px-3 hidden md:table-cell">Created</th>
-                      <th className="py-2.5 px-3 hidden lg:table-cell">Last edited</th>
-                      <th className="py-2.5 pr-4 pl-3 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {orderedRows.map((r) => (
-                      <ResumeTableRow
-                        key={r._id}
-                        r={r}
-                        isPrimary={r._id === primaryResumeId}
-                        tagColorMap={tagColorMap}
-                        selected={selected.has(r._id)}
-                        onToggleSelect={toggleSelect}
-                        setAsPrimary={setAsPrimary}
-                        setEditing={setEditing}
-                        setModal={setModal}
-                        handleDelete={handleDelete}
-                        setPreviewResume={setPreviewResume}
-                        parseWithAI={parseWithAI}
-                        parsingId={parsingId}
-                      />
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+            {tailoredResumes.length > 0 && (
+              <TailoredResumesSection
+                resumes={tailoredResumes}
+                allResumes={resumes}
+                tagColorMap={tagColorMap}
+                setEditing={setEditing}
+                setModal={setModal}
+                handleDelete={handleDelete}
+                setPreviewResume={setPreviewResume}
+              />
             )}
-          </div>
+          </>
+        )}
 
-          {tailoredResumes.length > 0 && (
-            <TailoredResumesSection
-              resumes={tailoredResumes}
-              allResumes={resumes}
-              tagColorMap={tagColorMap}
-              setEditing={setEditing}
-              setModal={setModal}
-              handleDelete={handleDelete}
-              setPreviewResume={setPreviewResume}
-            />
-          )}
-        </>
-      )}
+      </PageBody>
 
       {previewResume && (
         <ResumePreview

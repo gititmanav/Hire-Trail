@@ -10,6 +10,7 @@ import { Modal, ModalHeader, ModalBody, ModalFooter } from "../../components/ui/
 import { Field, TextField, Textarea } from "../../components/ui/Field.tsx";
 import { CheckboxMark } from "../../components/ui/Checkbox.tsx";
 import Button from "../../components/ui/Button.tsx";
+import PageHeader, { CreateButton } from "../../components/ui/PageHeader.tsx";
 
 const TYPE_STYLES: Record<string, { bg: string; text: string }> = {
   info: {
@@ -185,14 +186,9 @@ export default function Announcements() {
   }
 
   return (
-    <div className="fade-up">
-      <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">Announcements</h1>
-          <p className="text-sm text-muted-foreground mt-1">Banner messages shown to all users. Scheduled by start/end date.</p>
-        </div>
-        <button onClick={openCreate} className="btn-accent text-sm">+ New announcement</button>
-      </div>
+    <div>
+      <PageHeader title="Announcements" actions={<CreateButton onClick={openCreate} label="New announcement" />} />
+      <p className="-mt-2 mb-6 max-w-2xl text-[13px] text-muted-foreground leading-relaxed">Banner messages shown to all users, scheduled by start and end date.</p>
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">

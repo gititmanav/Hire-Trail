@@ -20,9 +20,17 @@ export interface SelectOption {
   icon?: ReactNode;
 }
 
+/** A row under the options that does something instead of picking a value —
+ *  "Add a resume". Pinned below the list; reached by the arrow keys like an option. */
+export interface SelectAction {
+  label: string;
+  icon?: ReactNode;
+  onSelect: () => void;
+}
+
 export default function Select({
   value, options, onChange, placeholder = "Select…", searchable, searchPlaceholder = "Search…",
-  disabled, id, ariaLabel, renderValue, size = "md", variant,
+  disabled, id, ariaLabel, renderValue, size = "md", variant, action,
 }: {
   value: string;
   options: SelectOption[];
@@ -38,6 +46,7 @@ export default function Select({
   /** "sm" for dense surfaces (filter panels); "md" matches form inputs. */
   size?: "sm" | "md";
   variant?: "field" | "pill";
+  action?: SelectAction;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -74,6 +83,12 @@ export default function Select({
     setOpen(false);
     triggerRef.current?.focus({ preventScroll: true });
   };
+  // The action row sits after the options, at index filtered.length.
+  const lastIdx = filtered.length - (action ? 0 : 1);
+  const runAction = () => {
+    setOpen(false);
+    action?.onSelect();
+  };
 
   const onTriggerKeyDown = (e: React.KeyboardEvent) => {
     if (open) return;
@@ -85,13 +100,14 @@ export default function Select({
 
   const onListKeyDown = (e: React.KeyboardEvent) => {
     switch (e.key) {
-      case "ArrowDown": e.preventDefault(); setActiveIdx((i) => Math.min(i + 1, filtered.length - 1)); break;
+      case "ArrowDown": e.preventDefault(); setActiveIdx((i) => Math.min(i + 1, lastIdx)); break;
       case "ArrowUp": e.preventDefault(); setActiveIdx((i) => Math.max(i - 1, 0)); break;
       case "Home": e.preventDefault(); setActiveIdx(0); break;
-      case "End": e.preventDefault(); setActiveIdx(filtered.length - 1); break;
+      case "End": e.preventDefault(); setActiveIdx(lastIdx); break;
       case "Enter":
         e.preventDefault();
         if (activeIdx >= 0 && filtered[activeIdx]) commit(filtered[activeIdx].value);
+        else if (action && activeIdx === filtered.length) runAction();
         break;
       case "Tab": setOpen(false); break;
     }
@@ -178,6 +194,21 @@ export default function Select({
             );
           })}
         </div>
+        {/* Pinned under the list (like the search above it), so it's in view however long the list is. */}
+        {action && (
+          <div className="p-1.5 border-t border-border shrink-0">
+            <div
+              role="option"
+              aria-selected={false}
+              onMouseEnter={() => setActiveIdx(filtered.length)}
+              onClick={runAction}
+              className={`${itemClass({ active: activeIdx === filtered.length })} text-muted-foreground`}
+            >
+              {action.icon && <span className="min-w-4 shrink-0 inline-flex items-center justify-center">{action.icon}</span>}
+              <p className="flex-1 min-w-0 truncate leading-5">{action.label}</p>
+            </div>
+          </div>
+        )}
       </Popover>
     </>
   );

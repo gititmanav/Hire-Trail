@@ -420,6 +420,67 @@ html.vt-shell::view-transition-new(shell-main) {
   .app-row-side > :first-child { flex: 0 0 220px; border-left-width: 1px; }
   .app-row-side > :last-child { flex: 0 0 200px; }
 }
+
+/* Pagination (ui/Pagination). Lays out by its own width: the full set
+ * (Previous · five numbers · Next) once it fits, else ‹ Page 3 of 11 ›. */
+.pager { container: pager / inline-size; }
+.pager-row { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+.pager-step { width: 2rem; }
+.pager-word, .pager-pages { display: none; }
+@container pager (min-width: 460px) {
+  .pager-step { width: auto; padding-inline: 0.75rem; }
+  .pager-word { display: inline; }
+  .pager-chevron, .pager-of { display: none; }
+  .pager-pages { display: inline-flex; }
+}
+
+/* Contact cards (Contacts). Each card lays out by its own width: wide, one
+ * line (avatar · who · strength · last contact · follow-up · tools on
+ * hover); narrow, the who gets the whole line and the rest drops into a
+ * footer, with the tools folded into one always-visible "⋯" menu. These own
+ * the row's wrap, the footer and the tools' display — no Tailwind utility on
+ * the same elements sets them. */
+.contact-card { container: contact-card / inline-size; }
+.contact-card-row { display: flex; flex-wrap: wrap; align-items: center; column-gap: 0.75rem; }
+.contact-card-side { display: flex; align-items: center; gap: 0.75rem; flex-basis: 100%; min-width: 0; margin-top: 0.625rem; padding-top: 0.625rem; border-top-width: 1px; }
+.contact-card-age { display: flex; align-items: center; gap: 0.5rem; }
+.contact-card-end { display: flex; align-items: center; gap: 0.75rem; margin-left: auto; }
+.contact-card-tools { display: none; }
+@container contact-card (min-width: 600px) {
+  .contact-card-row { flex-wrap: nowrap; }
+  .contact-card-side { flex-basis: auto; margin-top: 0; padding-top: 0; border-top-width: 0; }
+  .contact-card-age { flex-direction: column; align-items: flex-end; gap: 0.25rem; }
+  .contact-card-tools { display: flex; }
+  .contact-card-more { display: none; }
+}
+
+/* Deadline rows (Deadlines). The list lays its rows out by its own width:
+ * wide, one line (done · type · company · what · due · tools on hover);
+ * narrow, the due date sits under the text, the company mark goes (the text
+ * names it), and the tools fold into one always-visible "⋯" menu. */
+.deadline-rows { container: deadline-rows / inline-size; }
+.deadline-row {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  grid-template-areas: "check tile body more" ". . due .";
+  column-gap: 0.75rem;
+  row-gap: 0.375rem;
+  align-items: center;
+}
+.deadline-row-check { grid-area: check; }
+.deadline-row-tile { grid-area: tile; }
+.deadline-row-logo, .deadline-row-tools { display: none; }
+.deadline-row-body { grid-area: body; }
+.deadline-row-due { grid-area: due; display: flex; align-items: center; gap: 0.5rem; }
+.deadline-row-more { grid-area: more; }
+@container deadline-rows (min-width: 560px) {
+  .deadline-row { display: flex; align-items: center; gap: 0.75rem; }
+  .deadline-row-logo { display: block; }
+  .deadline-row-body { flex: 1 1 0%; }
+  .deadline-row-due { flex-direction: column; align-items: flex-end; gap: 0.125rem; }
+  .deadline-row-tools { display: flex; }
+  .deadline-row-more { display: none; }
+}
 @media (prefers-reduced-motion: reduce) {
   .app-row-stagger { animation: none; }
 }
@@ -431,8 +492,11 @@ html.vt-shell::view-transition-new(shell-main) {
  *  on the outer sortable element. */
 @keyframes kanban-card-enter { from { opacity: 0; transform: translateY(6px) scale(0.97); } to { opacity: 1; transform: none; } }
 .kanban-card-enter { animation: kanban-card-enter 240ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+/* Where a held card would land (BoardView): fades in, never pushes in. */
+@keyframes kanban-drop-slot { from { opacity: 0; } to { opacity: 1; } }
+.kanban-drop-slot { animation: kanban-drop-slot 160ms ease-out both; }
 @media (prefers-reduced-motion: reduce) {
-  .kanban-card-enter { animation: none; }
+  .kanban-card-enter, .kanban-drop-slot { animation: none; }
 }
 
 /* Kanban predicted-destination "ghost" card. Hatched diagonal stripes signal

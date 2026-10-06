@@ -108,28 +108,18 @@ export default function ApplicationFormModal({ app, onClose, onSaved }: {
                 ariaLabel="Stage"
                 options={STAGES.map((st) => ({ value: st, label: st, icon: <span className={`w-2 h-2 rounded-full ${STAGE_STRIPE_CLASS[st]}`} /> }))}
               />
-              <span className="inline-flex items-center gap-1">
-                <Select
-                  value={form.resumeId || ""}
-                  onChange={(v) => u("resumeId", v)}
-                  ariaLabel="Resume"
-                  searchable
-                  searchPlaceholder="Search resumes…"
-                  options={[
-                    { value: "", label: "No resume", icon: <FileText size={13} strokeWidth={1.9} /> },
-                    ...resumes.map((r) => ({ value: r._id, label: r.name, icon: <FileText size={13} strokeWidth={1.9} /> })),
-                  ]}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowResumeModal(true)}
-                  title="Add a resume"
-                  aria-label="Add a resume"
-                  className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-border text-muted-foreground transition-colors hover:border-muted-foreground/40 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <Plus size={13} strokeWidth={2} aria-hidden />
-                </button>
-              </span>
+              <Select
+                value={form.resumeId || ""}
+                onChange={(v) => u("resumeId", v)}
+                ariaLabel="Resume"
+                searchable
+                searchPlaceholder="Search resumes…"
+                options={[
+                  { value: "", label: "No resume", icon: <FileText size={13} strokeWidth={1.9} /> },
+                  ...resumes.map((r) => ({ value: r._id, label: r.name, icon: <FileText size={13} strokeWidth={1.9} /> })),
+                ]}
+                action={{ label: "Add a resume", icon: <Plus size={14} strokeWidth={2} />, onSelect: () => setShowResumeModal(true) }}
+              />
               <ChipInput icon={<MapPin size={13} strokeWidth={1.9} />} value={form.location || ""} onChange={(v) => u("location", v)} placeholder="Location" />
               <ChipInput icon={<DollarSign size={13} strokeWidth={1.9} />} value={form.salary || ""} onChange={(v) => u("salary", v)} placeholder="Salary" />
               <ChipInput icon={<Briefcase size={13} strokeWidth={1.9} />} value={form.jobType || ""} onChange={(v) => u("jobType", v)} placeholder="Job type" />

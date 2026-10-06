@@ -20,13 +20,14 @@ import { exportToCSV } from "../../utils/csv.ts";
 import { useFeatureFlags } from "../../hooks/useFeatureFlags.tsx";
 import { usePageShortcuts } from "../../hooks/usePageShortcuts.ts";
 import { usePersistentState, oneOf, isBoolean } from "../../hooks/usePersistentState.ts";
-import PageHeader from "../../components/ui/PageHeader.tsx";
+import PageHeader, { CreateButton, PageBody, PageSearch, type PageSearchHandle } from "../../components/ui/PageHeader.tsx";
 import SegmentedControl from "../../components/ui/SegmentedControl.tsx";
 import Toggle from "../../components/ui/Toggle.tsx";
-import { SearchField, ViewSwitcher, CreateButton, VIEWS, type SearchFieldHandle, type ViewKey } from "./components/HeaderControls.tsx";
+import { ViewSwitcher, VIEWS, type ViewKey } from "./components/HeaderControls.tsx";
 import { useListDesign } from "../../hooks/useListDesign.ts";
 import type { ListDesign } from "../../utils/preferences.ts";
-import FiltersMenu, { FilterRow } from "./components/FiltersMenu.tsx";
+import FiltersMenu from "./components/FiltersMenu.tsx";
+import { FilterRow } from "../../components/ui/FiltersPopover.tsx";
 import ApplicationFormModal from "./components/ApplicationFormModal.tsx";
 import ShortcutsModal from "./components/ShortcutsModal.tsx";
 import ApplicationTailorDrawer from "./ApplicationTailorDrawer.tsx";
@@ -97,7 +98,7 @@ export default function ApplicationsLayout() {
   const [importOpen, setImportOpen] = useState(false);
   const qc = useQueryClient();
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const searchRef = useRef<SearchFieldHandle>(null);
+  const searchRef = useRef<PageSearchHandle>(null);
 
   const openCreate = useCallback(() => setEditing(null), []);
   const openEdit = useCallback((app: Application) => setEditing(app), []);
@@ -253,11 +254,12 @@ export default function ApplicationsLayout() {
     calendarShow, registerCalendarCreate,
   };
 
-  // Classic keeps its original 1200px column; every other view uses the width.
+  // Classic keeps its original 1200px column (under a header that spans the
+  // card); every other view uses the width.
   const constrained = view === "list" && design === "classic";
 
   // The calendar owns its height: the page never scrolls, the grid fills the card.
-  const rootClass = constrained ? "max-w-[1200px] mx-auto" : view === "calendar" ? "flex-1 min-h-[560px] flex flex-col" : "";
+  const rootClass = view === "calendar" ? "flex-1 min-h-[560px] flex flex-col" : "";
 
   return (
     <div className={rootClass}>
@@ -266,7 +268,7 @@ export default function ApplicationsLayout() {
         meta={meta}
         actions={
           <>
-            <SearchField ref={searchRef} value={filters.q} onChange={(q) => setFilters({ q })} />
+            <PageSearch ref={searchRef} value={filters.q} onChange={(q) => setFilters({ q })} placeholder="Search company or role" ariaLabel="Search applications" />
             <ViewSwitcher views={views} search={filterSearch} />
             <FiltersMenu
               open={filtersOpen}
@@ -292,7 +294,7 @@ export default function ApplicationsLayout() {
       {/* Board/Calendar are their own chunks — keep the header on screen while
           one loads, with a quiet view-shaped placeholder. */}
       <Suspense fallback={<div className={`${view === "calendar" ? "flex-1" : "h-[60vh]"} rounded-xl border border-border bg-card/60 animate-pulse`} aria-label="Loading view" />}>
-        <Outlet context={context} />
+        {constrained ? <PageBody><Outlet context={context} /></PageBody> : <Outlet context={context} />}
       </Suspense>
 
       {editing !== undefined && (

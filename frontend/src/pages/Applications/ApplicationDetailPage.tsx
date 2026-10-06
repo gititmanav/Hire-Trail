@@ -17,7 +17,7 @@ import { Archive, ArchiveRestore, ArrowLeft, ChevronDown, ChevronUp, Ellipsis, E
 import CompanyLogo from "../../components/CompanyLogo/CompanyLogo.tsx";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal.tsx";
 import ResumePreview from "../../components/ResumePreview/ResumePreview.tsx";
-import PageHeader from "../../components/ui/PageHeader.tsx";
+import PageHeader, { PageBody } from "../../components/ui/PageHeader.tsx";
 import Button from "../../components/ui/Button.tsx";
 import Menu from "../../components/ui/Menu.tsx";
 import Tooltip from "../../components/ui/Tooltip.tsx";
@@ -136,7 +136,7 @@ export default function ApplicationDetailPage() {
   };
 
   return (
-    <div className="max-w-[1320px] mx-auto">
+    <div>
       <PageHeader
         titleAs="div"
         title={
@@ -194,39 +194,41 @@ export default function ApplicationDetailPage() {
         }
       />
 
-      {/* Hero */}
-      <div className="flex items-start gap-4">
-        <CompanyLogo name={app.company} logoUrl={company?.logoUrl} size="lg" />
-        <div className="min-w-0 flex-1">
-          <h1 className="text-[22px] leading-tight font-semibold tracking-tight text-foreground">{app.role}</h1>
-          <p className="mt-1 text-[14px] text-muted-foreground">
-            <span className="text-foreground/90 font-medium">{app.company}</span>
-            {meta.map((m) => <span key={m}> · {m}</span>)}
-          </p>
-          <div className="mt-3 flex items-center gap-2.5 flex-wrap">
-            <StageMenu app={app} onMove={moveStage} size="md" />
-            <span className="text-[13px] text-muted-foreground">{health.longLabel}</span>
-            {app.archived && <span className="text-[12px] font-medium px-2 py-0.5 rounded-md bg-muted text-muted-foreground">Archived</span>}
+      <PageBody size="2xl">
+        {/* Hero */}
+        <div className="flex items-start gap-4">
+          <CompanyLogo name={app.company} logoUrl={company?.logoUrl} size="lg" />
+          <div className="min-w-0 flex-1">
+            <h1 className="text-[22px] leading-tight font-semibold tracking-tight text-foreground">{app.role}</h1>
+            <p className="mt-1 text-[14px] text-muted-foreground">
+              <span className="text-foreground/90 font-medium">{app.company}</span>
+              {meta.map((m) => <span key={m}> · {m}</span>)}
+            </p>
+            <div className="mt-3 flex items-center gap-2.5 flex-wrap">
+              <StageMenu app={app} onMove={moveStage} size="md" />
+              <span className="text-[13px] text-muted-foreground">{health.longLabel}</span>
+              {app.archived && <span className="text-[12px] font-medium px-2 py-0.5 rounded-md bg-muted text-muted-foreground">Archived</span>}
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="grid lg:grid-cols-[minmax(0,1fr)_340px] gap-6 mt-8 items-start">
-        <div className="space-y-4 min-w-0">
-          <FitSection
-            app={app}
-            analyzing={reanalyze.isPending}
-            onAnalyze={() => reanalyze.mutate(app._id)}
-            onTailor={() => setTailoring(true)}
-          />
-          {/* The list's cached row has no JD (summary payload) — show the
-              skeleton until the full document lands, never "No description". */}
-          <JobDescriptionSection text={app.jobDescription} loading={isPlaceholderData && app.jobDescription == null} onAdd={() => setEditing(true)} />
-          <NotesSection notes={app.notes ?? ""} onEdit={() => setEditing(true)} />
-          <TailoringHistorySection applicationId={app._id} onOpen={() => setTailoring(true)} />
+        <div className="grid lg:grid-cols-[minmax(0,1fr)_340px] gap-6 mt-8 items-start">
+          <div className="space-y-4 min-w-0">
+            <FitSection
+              app={app}
+              analyzing={reanalyze.isPending}
+              onAnalyze={() => reanalyze.mutate(app._id)}
+              onTailor={() => setTailoring(true)}
+            />
+            {/* The list's cached row has no JD (summary payload) — show the
+                skeleton until the full document lands, never "No description". */}
+            <JobDescriptionSection text={app.jobDescription} loading={isPlaceholderData && app.jobDescription == null} onAdd={() => setEditing(true)} />
+            <NotesSection notes={app.notes ?? ""} onEdit={() => setEditing(true)} />
+            <TailoringHistorySection applicationId={app._id} onOpen={() => setTailoring(true)} />
+          </div>
+          <DetailRail app={app} onMove={moveStage} onPreviewResume={setPreview} />
         </div>
-        <DetailRail app={app} onMove={moveStage} onPreviewResume={setPreview} />
-      </div>
+      </PageBody>
 
       {editing && <ApplicationFormModal app={app} onClose={() => setEditing(false)} />}
       {tailoring && <ApplicationTailorDrawer applicationId={app._id} onClose={() => setTailoring(false)} />}

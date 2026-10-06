@@ -8,12 +8,13 @@
  */
 import { useEffect, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
-import { AlertCircle, ArrowLeft, ArrowRight, FileText, Sparkles } from "lucide-react";
+import { AlertCircle, ArrowRight, FileText, Sparkles } from "lucide-react";
 import "./ResumeStudio.css";
 import { useStudioDocument } from "./useStudioDocument.ts";
 import StudioWizard from "./StudioWizard.tsx";
 import { authAPI } from "../../utils/api.ts";
 import { useDemoGate } from "../../hooks/useDemoGate.tsx";
+import PageHeader from "../../components/ui/PageHeader.tsx";
 
 export default function ResumeStudio() {
   const [params] = useSearchParams();
@@ -37,51 +38,48 @@ export default function ResumeStudio() {
 
   const studio = useStudioDocument(typeof resolvedId === "string" ? resolvedId : "", initialJd);
 
+  const header = <PageHeader title="Resume Studio" />;
+
   if (resolvedId === undefined || studio.loading) {
     return (
-      <div className="max-w-2xl mx-auto pt-20 flex flex-col items-center text-center">
-        <Sparkles size={28} strokeWidth={1.6} className="text-primary mb-3" />
-        <p className="text-sm text-muted-foreground">Loading Resume Studio…</p>
+      <div>
+        {header}
+        <div className="max-w-2xl mx-auto pt-16 flex flex-col items-center text-center">
+          <Sparkles size={28} strokeWidth={1.6} className="text-primary mb-3" />
+          <p className="text-sm text-muted-foreground">Loading Resume Studio…</p>
+        </div>
       </div>
     );
   }
 
   if (resolvedId === null) {
     return (
-      <div className="max-w-lg mx-auto pt-20 flex flex-col items-center text-center">
-        <FileText size={28} strokeWidth={1.5} className="text-muted-foreground mb-3" />
-        <h2 className="text-lg font-semibold text-foreground">Pick a resume to tailor</h2>
-        <p className="text-sm text-muted-foreground mt-1.5 max-w-sm">
-          Resume Studio tailors one of your resumes to a job. Open it from a resume in Documents, or set a primary resume there first.
-        </p>
-        <Link to="/resumes" className="mt-5 inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg">
-          Go to Documents <ArrowRight size={15} strokeWidth={2} />
-        </Link>
+      <div>
+        {header}
+        <div className="max-w-lg mx-auto pt-16 flex flex-col items-center text-center">
+          <FileText size={28} strokeWidth={1.5} className="text-muted-foreground mb-3" />
+          <h2 className="text-lg font-semibold text-foreground">Pick a resume to tailor</h2>
+          <p className="text-sm text-muted-foreground mt-1.5 max-w-sm">
+            Resume Studio tailors one of your resumes to a job. Open it from a resume in Resumes, or set a primary resume there first.
+          </p>
+          <Link to="/resumes" className="mt-5 inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg">
+            Go to Resumes <ArrowRight size={15} strokeWidth={2} />
+          </Link>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="w-full">
-      {/* Header */}
-      <div className="min-w-0 mb-5">
-        <Link to="/resumes" className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground mb-2">
-          <ArrowLeft size={13} strokeWidth={2} /> Back to Documents
-        </Link>
-        <div className="flex items-center gap-2">
-          <div className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-primary text-primary-foreground shadow-sm">
-            <Sparkles size={18} strokeWidth={1.9} />
-          </div>
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">Resume Studio</h1>
-        </div>
-      </div>
+      {header}
 
       {/* Tracked-variant note */}
       <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 mb-5 text-xs text-muted-foreground">
         <FileText size={14} strokeWidth={1.8} className="text-primary shrink-0" />
         <span>
           Edits save automatically as a <strong className="text-foreground font-medium">tracked variant</strong> — it appears under{" "}
-          <Link to="/resumes" className="text-primary hover:underline">Tailored variants</Link> in Documents, with its own response metrics.
+          <Link to="/resumes" className="text-primary hover:underline">Tailored variants</Link> in Resumes, with its own response metrics.
         </span>
         {isDemo && (
           <span className="ml-auto inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">

@@ -21,9 +21,6 @@ export default function Layout({ user, onLogout }: Props) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
   const scrollRef = useRef<HTMLElement>(null);
-  // Applications manages its own widths (Classic list keeps its 1200px column).
-  const fullWidth = ["/", "/profile", "/resume-studio"].includes(location.pathname)
-    || location.pathname.startsWith("/applications");
   // Remount (and replay the entrance) per section, not per path — switching
   // Applications views or stepping J/K through applications must not reset
   // the page or flash the fade.
@@ -85,7 +82,9 @@ export default function Layout({ user, onLogout }: Props) {
           className={`shell-main flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-background border-t border-border md:border md:rounded-xl md:shadow-panel md:mr-2 md:mb-2 ${fillHeight ? "flex flex-col" : ""}`}
         >
           <AnnouncementBanner />
-          <div key={sectionKey} className={`p-4 md:p-6 ${fullWidth ? "" : "max-w-[1200px]"} mx-auto fade-up ${fillHeight ? "w-full flex-1 min-h-0 flex flex-col" : ""}`}>
+          {/* Every page gets the whole card: its PageHeader spans it, and the page
+              caps only its body (ui/PageHeader PageBody). */}
+          <div key={sectionKey} className={`p-4 md:p-6 fade-up ${fillHeight ? "w-full flex-1 min-h-0 flex flex-col" : ""}`}>
             <Outlet />
           </div>
         </main>

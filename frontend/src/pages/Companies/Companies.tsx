@@ -10,10 +10,15 @@ import { applicationsAPI, companiesAPI, resumesAPI, contactsAPI, deadlinesAPI } 
 import { SkeletonTable } from "../../components/Skeleton/Skeleton.tsx";
 import ResumePreview from "../../components/ResumePreview/ResumePreview.tsx";
 import { Drawer, DrawerBody, DrawerHeader } from "../../components/ui/Drawer.tsx";
+import PageHeader, { PageBody, PageSearch, type PageSearchHandle } from "../../components/ui/PageHeader.tsx";
+import FiltersPopover, { ANY_DOT, FilterRow } from "../../components/ui/FiltersPopover.tsx";
+import Select from "../../components/ui/Select.tsx";
+import { usePageShortcuts } from "../../hooks/usePageShortcuts.ts";
+import { usePersistentState, oneOf } from "../../hooks/usePersistentState.ts";
 import EmptyState from "../../components/EmptyState/EmptyState.tsx";
 import CompanyLogo from "../../components/CompanyLogo/CompanyLogo.tsx";
 import type { Company, Application, Resume, Contact, Deadline, Stage, Pagination } from "../../types";
-import { STAGES, STAGE_BADGE_CLASS, STAGE_COLOR } from "../../utils/stageStyles.ts";
+import { STAGES, STAGE_BADGE_CLASS, STAGE_COLOR, STAGE_STRIPE_CLASS } from "../../utils/stageStyles.ts";
 import { companyTimeline, summarizeTimeline, compensationSummary, formatMoneyShort } from "../../utils/companyAggregates.ts";
 import { dayOf, formatDay } from "../../utils/dates.ts";
 
@@ -259,6 +264,8 @@ function CompanyAppsSidebar({ company, onClose, onSelectApp }: {
 }
 
 /* ─── Main Component ─── */
+type CompanySort = "name" | "applications" | "recent";
+
 export default function Companies() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [allApps, setAllApps] = useState<Application[]>([]);
@@ -266,32 +273,32 @@ export default function Companies() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [deadlines, setDeadlines] = useState<Deadline[]>([]);
   const [loading, setLoading] = useState(true);
+  // PageSearch debounces; search, stage and sort run on the server.
   const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [stage, setStage] = useState<"" | Stage>("");
+  const [sort, setSort] = usePersistentState<CompanySort>("hiretrail-companies-sort", "name", oneOf<CompanySort>(["name", "applications", "recent"]));
+  const [stageCounts, setStageCounts] = useState<Partial<Record<Stage, number>>>({});
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const searchRef = useRef<PageSearchHandle>(null);
   const [page, setPage] = useState(1);
   const [pag, setPag] = useState<Pagination>({ page: 1, limit: 24, total: 0, pages: 0 });
   const [sidebarCompany, setSidebarCompany] = useState<Company | null>(null);
   const [sidebarApp, setSidebarApp] = useState<Application | null>(null);
   const [previewResume, setPreviewResume] = useState<Resume | null>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
-
-  useEffect(() => {
-    debounceRef.current = setTimeout(() => { setDebouncedSearch(search); setPage(1); }, 300);
-    return () => clearTimeout(debounceRef.current);
-  }, [search]);
 
   const fetchData = useCallback(async () => {
     try {
       const [c, r, ct, dl, ap] = await Promise.all([
-        companiesAPI.getAll({ page, limit: 24, search: debouncedSearch || undefined }),
+        companiesAPI.getAll({ page, limit: 24, search: search || undefined, stage: stage || undefined, sort }),
         resumesAPI.getAll(),
         contactsAPI.getAll({ limit: 500 }),
         deadlinesAPI.getAll({ limit: 500, status: "upcoming" }),
         applicationsAPI.getAll({ limit: 1000, archived: "all" }),
       ]);
       setCompanies(c.data); setPag(c.pagination); setResumes(r); setContacts(ct.data); setDeadlines(dl.data); setAllApps(ap.data);
+      if (c.stageCounts) setStageCounts(c.stageCounts);
     } catch {} finally { setLoading(false); }
-  }, [page, debouncedSearch]);
+  }, [page, search, stage, sort]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -323,160 +330,213 @@ export default function Companies() {
     } catch {}
   };
 
-  if (loading) return <div className="fade-up"><SkeletonTable rows={6} /></div>;
+  const filterBy = (patch: { search?: string; stage?: "" | Stage }) => {
+    setPage(1);
+    if (patch.search !== undefined) setSearch(patch.search);
+    if (patch.stage !== undefined) setStage(patch.stage);
+  };
+  usePageShortcuts({
+    "/": () => searchRef.current?.focus(),
+    f: () => setFiltersOpen(true),
+  });
+
+  const header = (
+    <PageHeader
+      title="Companies"
+      meta={loading ? undefined : `${pag.total} ${search || stage ? "found" : pag.total === 1 ? "company" : "companies"}`}
+      actions={
+        <>
+          <PageSearch ref={searchRef} value={search} onChange={(q) => filterBy({ search: q })} placeholder="Search companies" ariaLabel="Search companies" />
+          <FiltersPopover
+            open={filtersOpen}
+            onOpenChange={setFiltersOpen}
+            active={stage ? 1 : 0}
+            canReset={!!stage || sort !== "name"}
+            onReset={() => { filterBy({ stage: "" }); setSort("name"); setPage(1); }}
+            filters={
+              <FilterRow label="Stage">
+                <Select
+                  variant="pill"
+                  ariaLabel="Stage"
+                  value={stage}
+                  onChange={(v) => filterBy({ stage: v as "" | Stage })}
+                  options={[
+                    { value: "", label: "Any stage", icon: ANY_DOT },
+                    ...STAGES.map((st) => ({ value: st, label: `${st} · ${stageCounts[st] ?? 0}`, icon: <span className={`w-2 h-2 rounded-full ${STAGE_STRIPE_CLASS[st]}`} /> })),
+                  ]}
+                />
+              </FilterRow>
+            }
+            display={
+              <FilterRow label="Sort">
+                <Select
+                  variant="pill"
+                  ariaLabel="Sort"
+                  value={sort}
+                  onChange={(v) => { setSort(v as CompanySort); setPage(1); }}
+                  options={[
+                    { value: "name", label: "Name A–Z" },
+                    { value: "applications", label: "Most applications" },
+                    { value: "recent", label: "Latest application" },
+                  ]}
+                />
+              </FilterRow>
+            }
+          />
+        </>
+      }
+    />
+  );
+
+  if (loading) return <div>{header}<PageBody><SkeletonTable rows={6} /></PageBody></div>;
 
   return (
-    <div className="fade-up">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-foreground tracking-tight">Companies</h1>
-      </div>
-
-      <div className="sticky top-0 z-20 backdrop-blur-sm py-3 -mx-4 md:-mx-6 px-4 md:px-6">
-        <input className="input-premium max-w-[320px]" placeholder="Search companies..." value={search} onChange={(e) => setSearch(e.target.value)} />
-      </div>
-
-      {companies.length === 0 ? (
-        search ? (
-          <EmptyState
-            intent="filtered"
-            title="No companies match your search"
-            description="Try a different keyword, or clear the search to see all companies."
-            actions={[{ label: "Clear search", variant: "secondary", onClick: () => setSearch("") }]}
-          />
+    <div>
+      {header}
+      <PageBody>
+        {companies.length === 0 ? (
+          search || stage ? (
+            <EmptyState
+              intent="filtered"
+              title="No companies match"
+              description="Try a different keyword or stage, or clear them to see every company."
+              actions={[{ label: "Clear filters", variant: "secondary", onClick: () => filterBy({ search: "", stage: "" }) }]}
+            />
+          ) : (
+            <EmptyState
+              intent="welcome"
+              title="No companies tracked yet"
+              description="Companies show up here automatically when you add applications or contacts. Start tracking jobs to populate this view."
+            />
+          )
         ) : (
-          <EmptyState
-            intent="welcome"
-            title="No companies tracked yet"
-            description="Companies show up here automatically when you add applications or contacts. Start tracking jobs to populate this view."
-          />
-        )
-      ) : (
-        <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-            {companies.map((c) => {
-              const linkedContacts = contacts.filter((ct) => ct.company.toLowerCase() === c.name.toLowerCase());
-              const visibleAvatars = linkedContacts.slice(0, 3);
-              const overflow = Math.max(0, linkedContacts.length - visibleAvatars.length);
-              // Stage breakdown for the status bar — counts per stage from the
-              // user's full apps array, case-insensitive name match.
-              const companyApps = allApps.filter((a) => a.company.toLowerCase() === c.name.toLowerCase());
-              const stageCounts = STAGES.reduce<Record<Stage, number>>((acc, s) => {
-                acc[s] = companyApps.filter((a) => a.stage === s).length;
-                return acc;
-              }, { Drafting: 0, Applied: 0, OA: 0, Interview: 0, Offer: 0, Rejected: 0 });
-              const totalApps = companyApps.length;
-              return (
-                <div key={c._id} className="card-premium p-4">
-                  <div className="flex items-start gap-3 mb-3">
-                    {/* Bare 56px logo — no wrapping tile, no white background,
-                     *  no padding. The brand mark sits directly on the card
-                     *  surface. Monogram fallback still keeps its tinted
-                     *  background (handled inside CompanyLogo). */}
-                    <CompanyLogo name={c.name} logoUrl={c.logoUrl} size="lg" bare />
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-[15px] font-semibold text-foreground truncate">{c.name}</h3>
-                      {c.website ? (
-                        <a href={c.website} target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:text-foreground hover:underline truncate block">{c.domain || c.website}</a>
-                      ) : (
-                        <p className="text-xs text-muted-foreground">No website</p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Status breakdown bar — stacked horizontal showing the
-                   *  distribution of the user's apps at this company across
-                   *  stages. Empty when there are no apps yet. */}
-                  {totalApps > 0 && (
-                    <div className="mb-3">
-                      <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                        {STAGES.map((s) => {
-                          const w = stageCounts[s] / totalApps;
-                          if (w === 0) return null;
-                          return (
-                            <div
-                              key={s}
-                              className="h-full"
-                              style={{ width: `${w * 100}%`, backgroundColor: STAGE_BAR_COLOR[s] }}
-                              title={`${stageCounts[s]} ${s}`}
-                            />
-                          );
-                        })}
-                      </div>
-                      <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1 text-[10px] text-muted-foreground">
-                        {STAGES.filter((s) => stageCounts[s] > 0).map((s) => (
-                          <span key={s} className="inline-flex items-center gap-1 tabular-nums">
-                            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: STAGE_BAR_COLOR[s] }} aria-hidden />
-                            {stageCounts[s]} {s}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {linkedContacts.length > 0 && (
-                    <div className="flex items-center gap-1 mb-3" title={linkedContacts.map((ct) => ct.name).join(", ")}>
-                      <div className="flex -space-x-1.5">
-                        {visibleAvatars.map((ct) => (
-                          <div
-                            key={ct._id}
-                            className="w-6 h-6 rounded-full bg-muted text-secondary-foreground border-2 border-card flex items-center justify-center text-[10px] font-semibold"
-                            title={`${ct.name}${ct.role ? ` — ${ct.role}` : ""}`}
-                          >
-                            {ct.name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("") || "?"}
-                          </div>
-                        ))}
-                        {overflow > 0 && (
-                          <div
-                            className="w-6 h-6 rounded-full bg-muted text-muted-foreground border-2 border-card flex items-center justify-center text-[9px] font-semibold"
-                            title={`${overflow} more contact${overflow === 1 ? "" : "s"} at ${c.name}`}
-                          >
-                            +{overflow}
-                          </div>
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+              {companies.map((c) => {
+                const linkedContacts = contacts.filter((ct) => ct.company.toLowerCase() === c.name.toLowerCase());
+                const visibleAvatars = linkedContacts.slice(0, 3);
+                const overflow = Math.max(0, linkedContacts.length - visibleAvatars.length);
+                // Stage breakdown for the status bar — counts per stage from the
+                // user's full apps array, case-insensitive name match.
+                const companyApps = allApps.filter((a) => a.company.toLowerCase() === c.name.toLowerCase());
+                const stageCounts = STAGES.reduce<Record<Stage, number>>((acc, s) => {
+                  acc[s] = companyApps.filter((a) => a.stage === s).length;
+                  return acc;
+                }, { Drafting: 0, Applied: 0, OA: 0, Interview: 0, Offer: 0, Rejected: 0 });
+                const totalApps = companyApps.length;
+                return (
+                  <div key={c._id} className="card-premium p-4">
+                    <div className="flex items-start gap-3 mb-3">
+                      {/* Bare 56px logo — no wrapping tile, no white background,
+                       *  no padding. The brand mark sits directly on the card
+                       *  surface. Monogram fallback still keeps its tinted
+                       *  background (handled inside CompanyLogo). */}
+                      <CompanyLogo name={c.name} logoUrl={c.logoUrl} size="lg" bare />
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-[15px] font-semibold text-foreground truncate">{c.name}</h3>
+                        {c.website ? (
+                          <a href={c.website} target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:text-foreground hover:underline truncate block">{c.domain || c.website}</a>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">No website</p>
                         )}
                       </div>
-                      <span className="text-[11px] text-muted-foreground ml-1">
-                        {linkedContacts.length} contact{linkedContacts.length === 1 ? "" : "s"}
-                      </span>
                     </div>
-                  )}
 
-                  {/* Quick-jump external research links. Glassdoor / Levels.fyi
-                   *  / Blind / careers — each opens in a new tab so the user
-                   *  doesn't lose their HireTrail context. */}
-                  {(() => {
-                    const urls = quickJumpUrls(c);
-                    return (
-                      <div className="flex items-center gap-1 mb-2.5">
-                        <a href={urls.glassdoor} target="_blank" rel="noopener noreferrer" title="Glassdoor reviews" aria-label="Glassdoor reviews" className="px-1.5 py-0.5 text-[10px] font-semibold rounded-md border border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground/50 transition-colors">GD</a>
-                        <a href={urls.levels} target="_blank" rel="noopener noreferrer" title="Levels.fyi compensation" aria-label="Levels.fyi compensation" className="px-1.5 py-0.5 text-[10px] font-semibold rounded-md border border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground/50 transition-colors">L.fyi</a>
-                        <a href={urls.blind} target="_blank" rel="noopener noreferrer" title="Blind discussions" aria-label="Blind discussions" className="px-1.5 py-0.5 text-[10px] font-semibold rounded-md border border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground/50 transition-colors">Blind</a>
-                        <a href={urls.careers} target="_blank" rel="noopener noreferrer" title="Careers page" aria-label="Careers page" className="px-1.5 py-0.5 text-[10px] font-semibold rounded-md border border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground/50 transition-colors">Careers</a>
+                    {/* Status breakdown bar — stacked horizontal showing the
+                     *  distribution of the user's apps at this company across
+                     *  stages. Empty when there are no apps yet. */}
+                    {totalApps > 0 && (
+                      <div className="mb-3">
+                        <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                          {STAGES.map((s) => {
+                            const w = stageCounts[s] / totalApps;
+                            if (w === 0) return null;
+                            return (
+                              <div
+                                key={s}
+                                className="h-full"
+                                style={{ width: `${w * 100}%`, backgroundColor: STAGE_BAR_COLOR[s] }}
+                                title={`${stageCounts[s]} ${s}`}
+                              />
+                            );
+                          })}
+                        </div>
+                        <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1 text-[10px] text-muted-foreground">
+                          {STAGES.filter((s) => stageCounts[s] > 0).map((s) => (
+                            <span key={s} className="inline-flex items-center gap-1 tabular-nums">
+                              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: STAGE_BAR_COLOR[s] }} aria-hidden />
+                              {stageCounts[s]} {s}
+                            </span>
+                          ))}
+                        </div>
                       </div>
-                    );
-                  })()}
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">
-                      {c.applicationCount || 0} application{(c.applicationCount || 0) !== 1 ? "s" : ""}
-                    </span>
-                    <button onClick={() => setSidebarCompany(c)} className="text-xs text-muted-foreground hover:text-foreground hover:underline flex items-center gap-1">
-                      View apps
-                      <ChevronRight size={10} strokeWidth={2} />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                    )}
 
-          {pag.pages > 1 && (
-            <div className="flex items-center justify-center gap-2 mt-6">
-              <button disabled={page <= 1} onClick={() => setPage(page - 1)} className="px-3 py-1.5 text-sm border border-border rounded-lg disabled:opacity-30 hover:bg-muted text-secondary-foreground">Prev</button>
-              <span className="text-sm text-muted-foreground">Page {page} of {pag.pages}</span>
-              <button disabled={page >= pag.pages} onClick={() => setPage(page + 1)} className="px-3 py-1.5 text-sm border border-border rounded-lg disabled:opacity-30 hover:bg-muted text-secondary-foreground">Next</button>
+                    {linkedContacts.length > 0 && (
+                      <div className="flex items-center gap-1 mb-3" title={linkedContacts.map((ct) => ct.name).join(", ")}>
+                        <div className="flex -space-x-1.5">
+                          {visibleAvatars.map((ct) => (
+                            <div
+                              key={ct._id}
+                              className="w-6 h-6 rounded-full bg-muted text-secondary-foreground border-2 border-card flex items-center justify-center text-[10px] font-semibold"
+                              title={`${ct.name}${ct.role ? ` — ${ct.role}` : ""}`}
+                            >
+                              {ct.name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("") || "?"}
+                            </div>
+                          ))}
+                          {overflow > 0 && (
+                            <div
+                              className="w-6 h-6 rounded-full bg-muted text-muted-foreground border-2 border-card flex items-center justify-center text-[9px] font-semibold"
+                              title={`${overflow} more contact${overflow === 1 ? "" : "s"} at ${c.name}`}
+                            >
+                              +{overflow}
+                            </div>
+                          )}
+                        </div>
+                        <span className="text-[11px] text-muted-foreground ml-1">
+                          {linkedContacts.length} contact{linkedContacts.length === 1 ? "" : "s"}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Quick-jump external research links. Glassdoor / Levels.fyi
+                     *  / Blind / careers — each opens in a new tab so the user
+                     *  doesn't lose their HireTrail context. */}
+                    {(() => {
+                      const urls = quickJumpUrls(c);
+                      return (
+                        <div className="flex items-center gap-1 mb-2.5">
+                          <a href={urls.glassdoor} target="_blank" rel="noopener noreferrer" title="Glassdoor reviews" aria-label="Glassdoor reviews" className="px-1.5 py-0.5 text-[10px] font-semibold rounded-md border border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground/50 transition-colors">GD</a>
+                          <a href={urls.levels} target="_blank" rel="noopener noreferrer" title="Levels.fyi compensation" aria-label="Levels.fyi compensation" className="px-1.5 py-0.5 text-[10px] font-semibold rounded-md border border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground/50 transition-colors">L.fyi</a>
+                          <a href={urls.blind} target="_blank" rel="noopener noreferrer" title="Blind discussions" aria-label="Blind discussions" className="px-1.5 py-0.5 text-[10px] font-semibold rounded-md border border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground/50 transition-colors">Blind</a>
+                          <a href={urls.careers} target="_blank" rel="noopener noreferrer" title="Careers page" aria-label="Careers page" className="px-1.5 py-0.5 text-[10px] font-semibold rounded-md border border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground/50 transition-colors">Careers</a>
+                        </div>
+                      );
+                    })()}
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">
+                        {c.applicationCount || 0} application{(c.applicationCount || 0) !== 1 ? "s" : ""}
+                      </span>
+                      <button onClick={() => setSidebarCompany(c)} className="text-xs text-muted-foreground hover:text-foreground hover:underline flex items-center gap-1">
+                        View apps
+                        <ChevronRight size={10} strokeWidth={2} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          )}
-        </>
-      )}
+
+            {pag.pages > 1 && (
+              <div className="flex items-center justify-center gap-2 mt-6">
+                <button disabled={page <= 1} onClick={() => setPage(page - 1)} className="px-3 py-1.5 text-sm border border-border rounded-lg disabled:opacity-30 hover:bg-muted text-secondary-foreground">Prev</button>
+                <span className="text-sm text-muted-foreground">Page {page} of {pag.pages}</span>
+                <button disabled={page >= pag.pages} onClick={() => setPage(page + 1)} className="px-3 py-1.5 text-sm border border-border rounded-lg disabled:opacity-30 hover:bg-muted text-secondary-foreground">Next</button>
+              </div>
+            )}
+          </>
+        )}
+      </PageBody>
 
       {/* Company apps list sidebar */}
       {sidebarCompany && !sidebarApp && (

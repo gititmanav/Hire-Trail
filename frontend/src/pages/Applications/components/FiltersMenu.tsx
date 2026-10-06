@@ -1,13 +1,12 @@
-/** The Filters panel in the Applications header: every filter, the current
- *  view's display options, export, and the keyboard-shortcuts help. One place
- *  for all of it — nothing filter-shaped lives out in the open on the page. */
-import { ReactNode, useRef } from "react";
-import { Building2, Download, FileText, Keyboard, Mail, PenLine, Puzzle, SlidersHorizontal } from "lucide-react";
+/** The Filters panel in the Applications header (ui/FiltersPopover): every
+ *  filter, the current view's display options, export, and the
+ *  keyboard-shortcuts help. */
+import { ReactNode } from "react";
+import { Building2, Download, FileText, Keyboard, Mail, PenLine, Puzzle } from "lucide-react";
 import CompanyLogo from "../../../components/CompanyLogo/CompanyLogo.tsx";
-import Popover, { PopoverDivider, PopoverLabel, PopoverSection } from "../../../components/ui/Popover.tsx";
+import FiltersPopover, { ANY_DOT, FilterRow as Row, FiltersFooterButton } from "../../../components/ui/FiltersPopover.tsx";
 import Select, { type SelectOption } from "../../../components/ui/Select.tsx";
 import SegmentedControl from "../../../components/ui/SegmentedControl.tsx";
-import Tooltip from "../../../components/ui/Tooltip.tsx";
 import { STAGES, STAGE_STRIPE_CLASS } from "../../../utils/stageStyles.ts";
 import { activeFilterCount, type ApplicationFilters, type AppStatus } from "../data/filters.ts";
 import { useCompanies } from "../data/queries.ts";
@@ -21,21 +20,7 @@ const SOURCE_ICON: Record<string, React.ReactNode> = {
   email: <Mail size={14} strokeWidth={1.8} className="text-muted-foreground" />,
 };
 
-/** The "any" option's mark: a hollow ring where the others have a colour. */
-const ANY_DOT = <span className="w-2 h-2 rounded-full border border-muted-foreground/60" />;
 const stageDot = (s: string) => <span className={`w-2 h-2 rounded-full ${STAGE_STRIPE_CLASS[s as keyof typeof STAGE_STRIPE_CLASS]}`} />;
-
-/** One settings row: label left, its control right (Sora-style). */
-function Row({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="flex items-center justify-between gap-3 min-h-9 px-2.5">
-      <span className="text-[13px] text-foreground shrink-0">{label}</span>
-      <div className="min-w-0 flex justify-end">{children}</div>
-    </div>
-  );
-}
-
-export { Row as FilterRow };
 
 export default function FiltersMenu({
   open, onOpenChange, filters, setFilters, onReset, canReset,
@@ -60,7 +45,6 @@ export default function FiltersMenu({
   onExport?: () => void;
   onShortcuts: () => void;
 }) {
-  const anchorRef = useRef<HTMLButtonElement>(null);
   const active = activeFilterCount({ ...filters, stage: showStage ? filters.stage : "" });
 
   const { data: companies = [] } = useCompanies();
@@ -88,43 +72,15 @@ export default function FiltersMenu({
   }
 
   return (
-    <>
-      <Tooltip label="Filters and display" shortcut="F">
-        <button
-          ref={anchorRef}
-          type="button"
-          onClick={() => onOpenChange(!open)}
-          aria-label={active ? `Filters (${active} active)` : "Filters"}
-          aria-expanded={open}
-          className={`relative w-8 h-8 inline-flex items-center justify-center rounded-lg border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-            active || open ? "border-primary/40 bg-primary/5 text-primary" : "border-border text-muted-foreground hover:text-foreground hover:bg-control"
-          }`}
-        >
-          <SlidersHorizontal size={15} strokeWidth={1.8} aria-hidden />
-          {active > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold leading-4 text-center tabular-nums">
-              {active}
-            </span>
-          )}
-        </button>
-      </Tooltip>
-
-      <Popover open={open} onOpenChange={onOpenChange} anchorRef={anchorRef} align="end" width={340} ariaLabel="Filters and display">
-        <PopoverSection>
-          <PopoverLabel
-            action={
-              <button
-                type="button"
-                onClick={onReset}
-                disabled={!canReset}
-                className="text-[12px] font-medium text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-default focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded px-1"
-              >
-                Reset
-              </button>
-            }
-          >
-            Filters
-          </PopoverLabel>
+    <FiltersPopover
+      open={open}
+      onOpenChange={onOpenChange}
+      active={active}
+      onReset={onReset}
+      canReset={canReset}
+      display={display}
+      filters={
+        <>
           <Row label="Status">
             <SegmentedControl<AppStatus>
               ariaLabel="Status"
@@ -169,40 +125,20 @@ export default function FiltersMenu({
               ]}
             />
           </Row>
-        </PopoverSection>
-
-        {display && (
-          <>
-            <PopoverDivider />
-            <PopoverSection>
-              <PopoverLabel>Display options</PopoverLabel>
-              {display}
-            </PopoverSection>
-          </>
-        )}
-
-        <PopoverDivider />
-        <PopoverSection className="flex items-center justify-between">
-          <button
-            type="button"
-            onClick={() => { onOpenChange(false); onShortcuts(); }}
-            className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-[12.5px] font-medium text-muted-foreground hover:text-foreground hover:bg-control focus:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
-          >
-            <Keyboard size={14} strokeWidth={1.8} aria-hidden />
+        </>
+      }
+      footer={
+        <>
+          <FiltersFooterButton icon={<Keyboard size={14} strokeWidth={1.8} aria-hidden />} onClick={() => { onOpenChange(false); onShortcuts(); }}>
             Keyboard shortcuts
-          </button>
+          </FiltersFooterButton>
           {onExport && (
-            <button
-              type="button"
-              onClick={() => { onOpenChange(false); onExport(); }}
-              className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-[12.5px] font-medium text-muted-foreground hover:text-foreground hover:bg-control focus:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
-            >
-              <Download size={14} strokeWidth={1.8} aria-hidden />
+            <FiltersFooterButton icon={<Download size={14} strokeWidth={1.8} aria-hidden />} onClick={() => { onOpenChange(false); onExport(); }}>
               Export CSV
-            </button>
+            </FiltersFooterButton>
           )}
-        </PopoverSection>
-      </Popover>
-    </>
+        </>
+      }
+    />
   );
 }

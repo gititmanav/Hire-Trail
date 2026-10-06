@@ -7,6 +7,7 @@ import { exportToCSV, parseCSV, downloadTemplate } from "../../utils/csv.ts";
 import type { Stage, Application, Contact } from "../../types";
 import DateInput from "../../components/ui/DateInput.tsx";
 import { dayOf } from "../../utils/dates.ts";
+import PageHeader, { PageBody } from "../../components/ui/PageHeader.tsx";
 
 const STAGES: Stage[] = ["Applied", "OA", "Interview", "Offer", "Rejected"];
 
@@ -229,16 +230,12 @@ function ImportSection({ onDone }: { onDone: () => void }) {
 
 export default function ImportExport() {
   return (
-    <div className="fade-up max-w-3xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-foreground tracking-tight">Import & Export</h1>
-        <p className="text-sm text-muted-foreground mt-1">Move your data in and out of HireTrail</p>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div>
+      <PageHeader title="Import & Export" />
+      <PageBody size="md" className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <ExportSection />
         <ImportSection onDone={() => {}} />
-      </div>
+      </PageBody>
     </div>
   );
 }

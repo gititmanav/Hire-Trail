@@ -6,6 +6,7 @@ import type { BugReport, BugReportStatus, BugReportSource } from "../../utils/ap
 import Select from "../../components/ui/Select.tsx";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "../../components/ui/Modal.tsx";
 import { Textarea } from "../../components/ui/Field.tsx";
+import PageHeader from "../../components/ui/PageHeader.tsx";
 
 const STATUS_OPTIONS: { value: BugReportStatus; label: string }[] = [
   { value: "new", label: "New" },
@@ -108,129 +109,129 @@ export default function BugReports() {
   };
 
   return (
-    <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-2xl font-bold">Bug reports</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Silent captures from server errors and frontend exceptions. Sensitive fields are redacted before storage.
-        </p>
-      </div>
+    <div>
+      <PageHeader title="Bug Reports" />
+      <p className="-mt-2 mb-6 max-w-2xl text-[13px] text-muted-foreground leading-relaxed">
+        Silent captures from server errors and frontend exceptions. Sensitive fields are redacted before storage.
+      </p>
+      <div className="space-y-6">
 
-      {/* Stat strip */}
-      {stats && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <Stat label="Total" value={stats.total} />
-          <Stat label="Open (new + triaged)" value={stats.open} tone={stats.open > 0 ? "danger" : "muted"} />
-        </div>
-      )}
-
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
-        <div className="w-44">
-          <Select
-            ariaLabel="Status"
-            value={statusFilter}
-            onChange={(v) => setStatusFilter(v as BugReportStatus | "")}
-            options={[{ value: "", label: "All statuses" }, ...STATUS_OPTIONS.map((o) => ({ value: o.value, label: o.label }))]}
-          />
-        </div>
-        <div className="w-52">
-          <Select
-            ariaLabel="Source"
-            value={sourceFilter}
-            onChange={(v) => setSourceFilter(v as BugReportSource | "")}
-            options={[{ value: "", label: "All sources" }, ...SOURCE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))]}
-          />
-        </div>
-        <input
-          type="search"
-          className="input-premium w-64"
-          placeholder="Search message or route…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </div>
-
-      {/* Table */}
-      <div className="overflow-x-auto rounded-lg border border-border">
-        <table className="w-full text-sm">
-          <thead className="text-[11px] uppercase tracking-wider text-muted-foreground bg-muted/40 border-b border-border">
-            <tr>
-              <th className="px-3 py-2 text-left">Message</th>
-              <th className="px-3 py-2 text-left">Source</th>
-              <th className="px-3 py-2 text-left">Route</th>
-              <th className="px-3 py-2 text-right">Count</th>
-              <th className="px-3 py-2 text-left">Status</th>
-              <th className="px-3 py-2 text-left">Last seen</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan={6} className="px-3 py-6 text-center text-muted-foreground">Loading…</td></tr>
-            ) : reports.length === 0 ? (
-              <tr><td colSpan={6} className="px-3 py-6 text-center text-muted-foreground">No bug reports match these filters.</td></tr>
-            ) : reports.map((r) => (
-              <tr
-                key={r._id}
-                onClick={() => setSelected(r)}
-                className="border-b border-border last:border-0 hover:bg-muted/30 cursor-pointer"
-              >
-                <td className="px-3 py-2 max-w-[420px]">
-                  <p className="font-medium text-foreground truncate" title={r.errorMessage}>{r.errorMessage || "(empty)"}</p>
-                  <p className="text-[11px] text-muted-foreground font-mono">{r.fingerprint}</p>
-                </td>
-                <td className="px-3 py-2">
-                  <span className={`px-2 py-0.5 rounded-full text-[10.5px] font-bold uppercase tracking-wider border ${SOURCE_TONE[r.source]}`}>
-                    {SOURCE_LABEL[r.source]}
-                  </span>
-                </td>
-                <td className="px-3 py-2 text-[12px] text-muted-foreground font-mono truncate max-w-[220px]" title={r.route}>
-                  {r.method ? `${r.method} ` : ""}{r.route || "—"}
-                </td>
-                <td className="px-3 py-2 text-right font-mono tabular-nums">{r.count}</td>
-                <td className="px-3 py-2">
-                  <span className={`px-2 py-0.5 rounded-full text-[10.5px] font-bold uppercase tracking-wider ${STATUS_TONE[r.status]}`}>
-                    {r.status}
-                  </span>
-                </td>
-                <td className="px-3 py-2 text-[12px] text-muted-foreground">{relativeTime(r.lastSeenAt)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Pagination */}
-      {pagination.pages > 1 && (
-        <div className="flex items-center justify-between text-sm">
-          <p className="text-muted-foreground">
-            Page {pagination.page} of {pagination.pages} · {pagination.total.toLocaleString()} reports
-          </p>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => fetchPage(pagination.page - 1)}
-              disabled={pagination.page <= 1}
-              className="px-3 py-1.5 text-xs font-medium border border-border rounded-lg hover:bg-muted disabled:opacity-50"
-            >Previous</button>
-            <button
-              type="button"
-              onClick={() => fetchPage(pagination.page + 1)}
-              disabled={pagination.page >= pagination.pages}
-              className="px-3 py-1.5 text-xs font-medium border border-border rounded-lg hover:bg-muted disabled:opacity-50"
-            >Next</button>
+        {/* Stat strip */}
+        {stats && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <Stat label="Total" value={stats.total} />
+            <Stat label="Open (new + triaged)" value={stats.open} tone={stats.open > 0 ? "danger" : "muted"} />
           </div>
-        </div>
-      )}
+        )}
 
-      {selected && (
-        <BugReportDetail
-          report={selected}
-          onClose={() => setSelected(null)}
-          onStatus={(s) => updateStatus(selected._id, s)}
-          onNotes={(n) => updateNotes(selected._id, n)}
-        />
-      )}
+        {/* Filters */}
+        <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
+          <div className="w-44">
+            <Select
+              ariaLabel="Status"
+              value={statusFilter}
+              onChange={(v) => setStatusFilter(v as BugReportStatus | "")}
+              options={[{ value: "", label: "All statuses" }, ...STATUS_OPTIONS.map((o) => ({ value: o.value, label: o.label }))]}
+            />
+          </div>
+          <div className="w-52">
+            <Select
+              ariaLabel="Source"
+              value={sourceFilter}
+              onChange={(v) => setSourceFilter(v as BugReportSource | "")}
+              options={[{ value: "", label: "All sources" }, ...SOURCE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))]}
+            />
+          </div>
+          <input
+            type="search"
+            className="input-premium w-64"
+            placeholder="Search message or route…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+
+        {/* Table */}
+        <div className="overflow-x-auto rounded-lg border border-border">
+          <table className="w-full text-sm">
+            <thead className="text-[11px] uppercase tracking-wider text-muted-foreground bg-muted/40 border-b border-border">
+              <tr>
+                <th className="px-3 py-2 text-left">Message</th>
+                <th className="px-3 py-2 text-left">Source</th>
+                <th className="px-3 py-2 text-left">Route</th>
+                <th className="px-3 py-2 text-right">Count</th>
+                <th className="px-3 py-2 text-left">Status</th>
+                <th className="px-3 py-2 text-left">Last seen</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={6} className="px-3 py-6 text-center text-muted-foreground">Loading…</td></tr>
+              ) : reports.length === 0 ? (
+                <tr><td colSpan={6} className="px-3 py-6 text-center text-muted-foreground">No bug reports match these filters.</td></tr>
+              ) : reports.map((r) => (
+                <tr
+                  key={r._id}
+                  onClick={() => setSelected(r)}
+                  className="border-b border-border last:border-0 hover:bg-muted/30 cursor-pointer"
+                >
+                  <td className="px-3 py-2 max-w-[420px]">
+                    <p className="font-medium text-foreground truncate" title={r.errorMessage}>{r.errorMessage || "(empty)"}</p>
+                    <p className="text-[11px] text-muted-foreground font-mono">{r.fingerprint}</p>
+                  </td>
+                  <td className="px-3 py-2">
+                    <span className={`px-2 py-0.5 rounded-full text-[10.5px] font-bold uppercase tracking-wider border ${SOURCE_TONE[r.source]}`}>
+                      {SOURCE_LABEL[r.source]}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 text-[12px] text-muted-foreground font-mono truncate max-w-[220px]" title={r.route}>
+                    {r.method ? `${r.method} ` : ""}{r.route || "—"}
+                  </td>
+                  <td className="px-3 py-2 text-right font-mono tabular-nums">{r.count}</td>
+                  <td className="px-3 py-2">
+                    <span className={`px-2 py-0.5 rounded-full text-[10.5px] font-bold uppercase tracking-wider ${STATUS_TONE[r.status]}`}>
+                      {r.status}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 text-[12px] text-muted-foreground">{relativeTime(r.lastSeenAt)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination */}
+        {pagination.pages > 1 && (
+          <div className="flex items-center justify-between text-sm">
+            <p className="text-muted-foreground">
+              Page {pagination.page} of {pagination.pages} · {pagination.total.toLocaleString()} reports
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => fetchPage(pagination.page - 1)}
+                disabled={pagination.page <= 1}
+                className="px-3 py-1.5 text-xs font-medium border border-border rounded-lg hover:bg-muted disabled:opacity-50"
+              >Previous</button>
+              <button
+                type="button"
+                onClick={() => fetchPage(pagination.page + 1)}
+                disabled={pagination.page >= pagination.pages}
+                className="px-3 py-1.5 text-xs font-medium border border-border rounded-lg hover:bg-muted disabled:opacity-50"
+              >Next</button>
+            </div>
+          </div>
+        )}
+
+        {selected && (
+          <BugReportDetail
+            report={selected}
+            onClose={() => setSelected(null)}
+            onStatus={(s) => updateStatus(selected._id, s)}
+            onNotes={(n) => updateNotes(selected._id, n)}
+          />
+        )}
+      </div>
     </div>
   );
 }

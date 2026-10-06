@@ -1,7 +1,7 @@
 import { useState, useEffect, useContext, useCallback, useMemo, lazy, Suspense } from "react";
 import { Responsive, WidthProvider } from "react-grid-layout";
-import { Link } from "react-router-dom";
-import { Building2, ChevronDown, Plus, Info, Lock, Unlock, LayoutGrid } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Building2, Info, Lock, Unlock, LayoutGrid } from "lucide-react";
 import toast from "../../components/ui/toast.ts";
 import { UserContext } from "../../App.tsx";
 import { applicationsAPI, authAPI, contactsAPI, deadlinesAPI, resumesAPI } from "../../utils/api.ts";
@@ -9,7 +9,10 @@ import StageSuggestionsCard from "../../components/StageSuggestionsCard/StageSug
 import { useWidgetLayout, ALL_WIDGETS } from "../../hooks/useWidgetLayout.ts";
 import { useRefetchOnFocus } from "../../hooks/useRefetchOnFocus.ts";
 import WidgetPicker from "../../components/WidgetPicker/WidgetPicker.tsx";
-import Menu from "../../components/ui/Menu.tsx";
+import PageHeader, { CreateButton, HeaderIconButton } from "../../components/ui/PageHeader.tsx";
+import FiltersPopover, { ANY_DOT, FilterRow } from "../../components/ui/FiltersPopover.tsx";
+import Select from "../../components/ui/Select.tsx";
+import { usePageShortcuts } from "../../hooks/usePageShortcuts.ts";
 import CompanyLogo from "../../components/CompanyLogo/CompanyLogo.tsx";
 import { useCompanies } from "../Applications/data/queries.ts";
 // Chart-driven widgets bring in chart.js + react-chartjs-2 (the heaviest part
@@ -56,6 +59,8 @@ export default function Dashboard() {
   const [archiving, setArchiving] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState("All");
   const [selectedStage, setSelectedStage] = useState<Stage | "All">("All");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const navigate = useNavigate();
 
   const handleTourComplete = useCallback(async () => {
     try {
@@ -151,7 +156,70 @@ export default function Dashboard() {
   const filteredRecentApps = useMemo(() => getRecentApplications(filteredApps), [filteredApps]);
   const activeStats: AnalyticsData = selectedCompany === "All" && selectedStage === "All" && stats ? stats : filteredStats;
 
-  if (loading) return <div className="fade-up"><SkeletonStats /><div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4"><SkeletonTable /><SkeletonTable rows={4} /></div></div>;
+  const createApplication = () => navigate("/applications?new=1");
+  usePageShortcuts({ f: () => setFiltersOpen(true), c: createApplication });
+
+  const filtered = selectedCompany !== "All" || selectedStage !== "All";
+  const header = (
+    <PageHeader
+      title="Dashboard"
+      meta={filtered ? [selectedCompany !== "All" && selectedCompany, selectedStage !== "All" && selectedStage].filter(Boolean).join(" · ") : undefined}
+      actions={
+        <>
+          <FiltersPopover
+            open={filtersOpen}
+            onOpenChange={setFiltersOpen}
+            active={(selectedCompany !== "All" ? 1 : 0) + (selectedStage !== "All" ? 1 : 0)}
+            canReset={filtered}
+            onReset={() => { setSelectedCompany("All"); setSelectedStage("All"); }}
+            filters={
+              <>
+                <FilterRow label="Company">
+                  <Select
+                    variant="pill"
+                    ariaLabel="Company"
+                    searchable
+                    searchPlaceholder="Search companies…"
+                    value={selectedCompany}
+                    onChange={setSelectedCompany}
+                    options={[
+                      { value: "All", label: `All companies · ${apps.length}`, icon: <Building2 size={14} strokeWidth={1.7} className="text-muted-foreground" /> },
+                      ...companyOptions.map((company) => ({
+                        value: company,
+                        label: `${company} · ${companyCounts.get(company) ?? 0}`,
+                        icon: <CompanyLogo name={company} logoUrl={logoByName.get(company.toLowerCase())} size="2xs" />,
+                      })),
+                    ]}
+                  />
+                </FilterRow>
+                <FilterRow label="Stage">
+                  <Select
+                    variant="pill"
+                    ariaLabel="Stage"
+                    value={selectedStage}
+                    onChange={(v) => setSelectedStage(v as Stage | "All")}
+                    options={[
+                      { value: "All", label: `All stages · ${STAGES.reduce((n, stage) => n + stageCounts[stage], 0)}`, icon: ANY_DOT },
+                      ...STAGES.map((stage) => ({ value: stage, label: `${stage} · ${stageCounts[stage]}`, icon: <span className={`w-2 h-2 rounded-full ${STAGE_STRIPE_CLASS[stage]}`} /> })),
+                    ]}
+                  />
+                </FilterRow>
+              </>
+            }
+          />
+          <HeaderIconButton data-tour="lock-btn" label={locked ? "Unlock dashboard" : "Lock dashboard"} active={locked} onClick={toggleLock}>
+            {locked ? <Lock size={15} strokeWidth={1.8} aria-hidden /> : <Unlock size={15} strokeWidth={1.8} aria-hidden />}
+          </HeaderIconButton>
+          <HeaderIconButton data-tour="widgets-btn" label="Widgets" onClick={() => setPickerOpen(true)}>
+            <LayoutGrid size={15} strokeWidth={1.8} aria-hidden />
+          </HeaderIconButton>
+          <CreateButton onClick={createApplication} label="New application" />
+        </>
+      }
+    />
+  );
+
+  if (loading) return <div>{header}<SkeletonStats /><div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4"><SkeletonTable /><SkeletonTable rows={4} /></div></div>;
 
   const handleFollowUp = async (id: string) => {
     try {
@@ -196,7 +264,8 @@ export default function Dashboard() {
   const title = (id: string) => ALL_WIDGETS.find((w) => w.id === id)?.title || id;
 
   return (
-    <div className="fade-up">
+    <div>
+      {header}
 
       {staleApps.length > 0 && !staleBannerDismissed && (
         <div className="mb-4 flex items-center justify-between gap-4 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/30 px-5 py-3 text-sm text-amber-800 dark:text-amber-200">
@@ -233,80 +302,6 @@ export default function Dashboard() {
       )}
 
       <StageSuggestionsCard />
-
-      <div className="flex items-start justify-between mb-6 gap-4">
-        <div className="flex flex-col gap-3 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-2xl font-bold text-foreground tracking-tight">Dashboard</h1>
-            <Menu
-              ariaLabel="Company"
-              width={248}
-              searchable
-              searchPlaceholder="Search company…"
-              trigger={
-                <button className="btn-secondary h-9 min-w-[210px] justify-between">
-                  <span className="truncate text-left">Company: {selectedCompany === "All" ? "All companies" : selectedCompany}</span>
-                  <ChevronDown size={14} strokeWidth={1.5} className="shrink-0 text-muted-foreground" />
-                </button>
-              }
-              items={[
-                {
-                  label: "All companies",
-                  icon: <Building2 size={14} strokeWidth={1.7} />,
-                  hint: <span className="tabular-nums">{apps.length}</span>,
-                  checked: selectedCompany === "All",
-                  onSelect: () => setSelectedCompany("All"),
-                },
-                ...companyOptions.map((company) => ({
-                  label: company,
-                  icon: <CompanyLogo name={company} logoUrl={logoByName.get(company.toLowerCase())} size="2xs" />,
-                  hint: <span className="tabular-nums">{companyCounts.get(company) ?? 0}</span>,
-                  checked: selectedCompany === company,
-                  onSelect: () => setSelectedCompany(company),
-                })),
-              ]}
-            />
-            <Menu
-              ariaLabel="Stage"
-              width={220}
-              trigger={
-                <button className="btn-secondary h-9 min-w-[190px] justify-between">
-                  <span className="truncate text-left">Stage: {selectedStage}</span>
-                  <ChevronDown size={14} strokeWidth={1.5} className="shrink-0 text-muted-foreground" />
-                </button>
-              }
-              items={[
-                {
-                  label: "All stages",
-                  icon: <span className="w-2 h-2 rounded-full border border-muted-foreground/60" />,
-                  hint: <span className="tabular-nums">{STAGES.reduce((n, stage) => n + stageCounts[stage], 0)}</span>,
-                  checked: selectedStage === "All",
-                  onSelect: () => setSelectedStage("All"),
-                },
-                ...STAGES.map((stage) => ({
-                  label: stage,
-                  hint: <span className="tabular-nums">{stageCounts[stage]}</span>,
-                  icon: <span className={`w-2 h-2 rounded-full ${STAGE_STRIPE_CLASS[stage]}`} />,
-                  checked: selectedStage === stage,
-                  onSelect: () => setSelectedStage(stage),
-                })),
-              ]}
-            />
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button data-tour="lock-btn" onClick={toggleLock} className={`btn-secondary !px-2.5 ${locked ? "!border-primary !text-primary dark:!text-primary" : ""}`} title={locked ? "Unlock dashboard" : "Lock dashboard"}>
-            {locked ? <Lock size={16} strokeWidth={1.5} /> : <Unlock size={16} strokeWidth={1.5} />}
-          </button>
-          <button data-tour="widgets-btn" onClick={() => setPickerOpen(true)} className="btn-secondary">
-            <LayoutGrid size={16} strokeWidth={1.5} />
-            Widgets
-          </button>
-          <Link to="/applications" className="btn-accent">
-            <Plus size={16} strokeWidth={2} />New application
-          </Link>
-        </div>
-      </div>
 
       <div className={locked ? "dashboard-locked" : "dashboard-unlocked"}>
         <RGL className="dashboard-grid" layouts={{ lg: layout }} breakpoints={{ lg: 1024, md: 768, sm: 480 }} cols={{ lg: 12, md: 8, sm: 4 }} rowHeight={50} onLayoutChange={(nl) => onLayoutChange(nl)} isDraggable={!locked} isResizable={!locked} margin={[16, 16]} containerPadding={[0, 0]}>

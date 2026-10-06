@@ -5,6 +5,7 @@ import toast from "../../components/ui/toast.ts";
 import { adminAPI } from "../../utils/api.ts";
 import type { FeedbackItem, FeedbackStatus, FeedbackSeverity, FeedbackType } from "../../utils/api.ts";
 import Select from "../../components/ui/Select.tsx";
+import PageHeader from "../../components/ui/PageHeader.tsx";
 
 const STATUS_OPTIONS: { value: FeedbackStatus; label: string }[] = [
   { value: "open", label: "Open" },
@@ -101,91 +102,91 @@ export default function FeedbackInbox() {
   };
 
   return (
-    <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-semibold text-foreground">Feedback Inbox</h1>
-        <p className="text-sm text-muted-foreground mt-1">Bug reports, suggestions, ideas, and praise from your users.</p>
-      </div>
+    <div>
+      <PageHeader title="Feedback" />
+      <p className="-mt-2 mb-6 max-w-2xl text-[13px] text-muted-foreground leading-relaxed">Bug reports, suggestions, ideas, and praise from your users.</p>
+      <div className="space-y-5">
 
-      {/* Stats strip */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <StatCard label="Total" value={stats?.total ?? "—"} tone="bg-card" />
-        <StatCard label="Open" value={stats?.open ?? "—"} tone="bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800/40" />
-        <StatCard label="Bugs" value={stats?.byType.bug ?? "—"} tone="bg-card" />
-        <StatCard label="Suggestions" value={stats?.byType.suggestion ?? "—"} tone="bg-card" />
-        <StatCard label="Ideas" value={stats?.byType.idea ?? "—"} tone="bg-card" />
-      </div>
-
-      {/* Filters */}
-      <div className="flex flex-wrap gap-2 items-center surface-card p-3">
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-          placeholder="Search title, message, or email…"
-          className="flex-1 min-w-[200px] px-3 py-1.5 text-sm bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30"
-        />
-        <FilterSelect value={filterStatus} onChange={(v) => { setFilterStatus(v); setPage(1); }} placeholder="All statuses" options={STATUS_OPTIONS.map((o) => ({ value: o.value, label: o.label }))} />
-        <FilterSelect value={filterType} onChange={(v) => { setFilterType(v); setPage(1); }} placeholder="All types" options={(["bug","suggestion","idea","praise","other"] as const).map((v) => ({ value: v, label: TYPE_META[v].label }))} />
-        <FilterSelect value={filterSeverity} onChange={(v) => { setFilterSeverity(v); setPage(1); }} placeholder="All severities" options={SEVERITY_OPTIONS.map((o) => ({ value: o.value, label: o.label }))} />
-      </div>
-
-      {/* List + detail split */}
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_420px] gap-4">
-        {/* List */}
-        <div className="surface-card overflow-hidden">
-          {loading ? (
-            <div className="p-10 text-center text-sm text-muted-foreground">Loading…</div>
-          ) : items.length === 0 ? (
-            <div className="p-10 text-center text-sm text-muted-foreground">No feedback yet matching these filters.</div>
-          ) : (
-            <ul className="divide-y divide-border">
-              {items.map((f) => (
-                <li key={f._id}>
-                  <button
-                    onClick={() => setSelected(f)}
-                    className={`w-full px-4 py-3 text-left hover:bg-muted/40 transition-colors flex items-start gap-3 ${selected?._id === f._id ? "bg-muted/40" : ""}`}
-                  >
-                    <span className={`shrink-0 mt-0.5 inline-flex items-center text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${TYPE_META[f.type].tone}`}>
-                      {TYPE_META[f.type].label}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-sm font-semibold text-foreground truncate">{f.title}</span>
-                        <span className={`shrink-0 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded ${STATUS_META[f.status].tone}`}>
-                          {STATUS_META[f.status].label}
-                        </span>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{f.message}</p>
-                      <p className="text-[11px] text-muted-foreground/80 mt-1 flex items-center gap-2">
-                        <span className="inline-flex items-center gap-1">
-                          <span className={`w-1.5 h-1.5 rounded-full ${SEVERITY_META[f.severity].dot}`} />
-                          {SEVERITY_META[f.severity].label}
-                        </span>
-                        <span>·</span>
-                        <span>{f.userName || f.userEmail}</span>
-                        <span>·</span>
-                        <span>{new Date(f.createdAt).toLocaleString()}</span>
-                      </p>
-                    </div>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-          {pages > 1 && (
-            <div className="flex items-center justify-between px-4 py-2.5 border-t border-border text-xs text-muted-foreground">
-              <span>Page {page} of {pages}</span>
-              <div className="flex gap-1">
-                <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1} className="px-2.5 py-1 border border-border rounded hover:bg-muted disabled:opacity-40">Prev</button>
-                <button onClick={() => setPage((p) => Math.min(pages, p + 1))} disabled={page >= pages} className="px-2.5 py-1 border border-border rounded hover:bg-muted disabled:opacity-40">Next</button>
-              </div>
-            </div>
-          )}
+        {/* Stats strip */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <StatCard label="Total" value={stats?.total ?? "—"} tone="bg-card" />
+          <StatCard label="Open" value={stats?.open ?? "—"} tone="bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800/40" />
+          <StatCard label="Bugs" value={stats?.byType.bug ?? "—"} tone="bg-card" />
+          <StatCard label="Suggestions" value={stats?.byType.suggestion ?? "—"} tone="bg-card" />
+          <StatCard label="Ideas" value={stats?.byType.idea ?? "—"} tone="bg-card" />
         </div>
 
-        {/* Detail */}
-        <DetailPane selected={selected} onUpdate={updateSelected} onDelete={removeItem} onClose={() => setSelected(null)} />
+        {/* Filters */}
+        <div className="flex flex-wrap gap-2 items-center surface-card p-3">
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            placeholder="Search title, message, or email…"
+            className="flex-1 min-w-[200px] px-3 py-1.5 text-sm bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30"
+          />
+          <FilterSelect value={filterStatus} onChange={(v) => { setFilterStatus(v); setPage(1); }} placeholder="All statuses" options={STATUS_OPTIONS.map((o) => ({ value: o.value, label: o.label }))} />
+          <FilterSelect value={filterType} onChange={(v) => { setFilterType(v); setPage(1); }} placeholder="All types" options={(["bug","suggestion","idea","praise","other"] as const).map((v) => ({ value: v, label: TYPE_META[v].label }))} />
+          <FilterSelect value={filterSeverity} onChange={(v) => { setFilterSeverity(v); setPage(1); }} placeholder="All severities" options={SEVERITY_OPTIONS.map((o) => ({ value: o.value, label: o.label }))} />
+        </div>
+
+        {/* List + detail split */}
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_420px] gap-4">
+          {/* List */}
+          <div className="surface-card overflow-hidden">
+            {loading ? (
+              <div className="p-10 text-center text-sm text-muted-foreground">Loading…</div>
+            ) : items.length === 0 ? (
+              <div className="p-10 text-center text-sm text-muted-foreground">No feedback yet matching these filters.</div>
+            ) : (
+              <ul className="divide-y divide-border">
+                {items.map((f) => (
+                  <li key={f._id}>
+                    <button
+                      onClick={() => setSelected(f)}
+                      className={`w-full px-4 py-3 text-left hover:bg-muted/40 transition-colors flex items-start gap-3 ${selected?._id === f._id ? "bg-muted/40" : ""}`}
+                    >
+                      <span className={`shrink-0 mt-0.5 inline-flex items-center text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${TYPE_META[f.type].tone}`}>
+                        {TYPE_META[f.type].label}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-sm font-semibold text-foreground truncate">{f.title}</span>
+                          <span className={`shrink-0 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded ${STATUS_META[f.status].tone}`}>
+                            {STATUS_META[f.status].label}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{f.message}</p>
+                        <p className="text-[11px] text-muted-foreground/80 mt-1 flex items-center gap-2">
+                          <span className="inline-flex items-center gap-1">
+                            <span className={`w-1.5 h-1.5 rounded-full ${SEVERITY_META[f.severity].dot}`} />
+                            {SEVERITY_META[f.severity].label}
+                          </span>
+                          <span>·</span>
+                          <span>{f.userName || f.userEmail}</span>
+                          <span>·</span>
+                          <span>{new Date(f.createdAt).toLocaleString()}</span>
+                        </p>
+                      </div>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {pages > 1 && (
+              <div className="flex items-center justify-between px-4 py-2.5 border-t border-border text-xs text-muted-foreground">
+                <span>Page {page} of {pages}</span>
+                <div className="flex gap-1">
+                  <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1} className="px-2.5 py-1 border border-border rounded hover:bg-muted disabled:opacity-40">Prev</button>
+                  <button onClick={() => setPage((p) => Math.min(pages, p + 1))} disabled={page >= pages} className="px-2.5 py-1 border border-border rounded hover:bg-muted disabled:opacity-40">Next</button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Detail */}
+          <DetailPane selected={selected} onUpdate={updateSelected} onDelete={removeItem} onClose={() => setSelected(null)} />
+        </div>
       </div>
     </div>
   );

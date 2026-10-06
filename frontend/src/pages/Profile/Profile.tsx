@@ -11,6 +11,8 @@ import { useDemoGate } from "../../hooks/useDemoGate.tsx";
 import { tallySkills, chipSize, experienceUsesSkill, bulletUsesSkill } from "../../utils/skillCloud.ts";
 import { Skeleton } from "../../components/Skeleton/Skeleton.tsx";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal.tsx";
+import PageHeader, { PageBody } from "../../components/ui/PageHeader.tsx";
+import Button from "../../components/ui/Button.tsx";
 import type { Resume } from "../../types";
 
 /* ------------------ Types (mirror backend MasterProfile shape) ------------------ */
@@ -233,12 +235,9 @@ export default function Profile() {
     // Mirror the post-load 2-column shape (sections card + right rail) so
     // there's no layout jump when the profile arrives.
     return (
-      <div className="fade-up max-w-6xl mx-auto">
-        <div className="mb-5">
-          <Skeleton className="h-7 w-28 mb-2" />
-          <Skeleton className="h-3 w-64" />
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px] gap-5">
+      <div>
+        <PageHeader title="Profile" />
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-5">
           <div className="bg-card border border-border rounded-xl overflow-hidden">
             <div className="border-b border-border px-5 py-3 flex gap-3 overflow-hidden">
               {[1, 2, 3, 4, 5, 6].map((i) => <Skeleton key={i} className="h-5 w-20" />)}
@@ -269,51 +268,53 @@ export default function Profile() {
 
   if (!profile) {
     return (
-      <div className="max-w-3xl mx-auto">
-        <h1 className="text-2xl font-semibold text-foreground mb-2">Profile</h1>
-        <p className="text-sm text-muted-foreground mb-6">
-          Upload a resume to build your master profile. We'll extract your experience, projects, education, and skills automatically.
-        </p>
-        <div
-          className={`relative border-2 border-dashed rounded-xl p-10 text-center transition-colors ${
-            uploading ? "border-primary bg-primary/5" : "border-border hover:border-primary/60 hover:bg-muted/40"
-          }`}
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => {
-            e.preventDefault();
-            const f = e.dataTransfer.files?.[0];
-            if (f) void handleFile(f);
-          }}
-        >
-          <input
-            ref={fileRef}
-            type="file"
-            accept="application/pdf,.pdf"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
+      <div>
+        <PageHeader title="Profile" />
+        <PageBody size="md">
+          <p className="text-sm text-muted-foreground mb-6">
+            Upload a resume to build your master profile. We'll extract your experience, projects, education, and skills automatically.
+          </p>
+          <div
+            className={`relative border-2 border-dashed rounded-xl p-10 text-center transition-colors ${
+              uploading ? "border-primary bg-primary/5" : "border-border hover:border-primary/60 hover:bg-muted/40"
+            }`}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              const f = e.dataTransfer.files?.[0];
               if (f) void handleFile(f);
-              e.target.value = "";
             }}
-          />
-          <div className="flex flex-col items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-              <UploadCloud size={22} strokeWidth={1.8} className="text-primary" />
+          >
+            <input
+              ref={fileRef}
+              type="file"
+              accept="application/pdf,.pdf"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void handleFile(f);
+                e.target.value = "";
+              }}
+            />
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                <UploadCloud size={22} strokeWidth={1.8} className="text-primary" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-foreground">Drop your resume PDF here, or</p>
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  disabled={uploading}
+                  className="mt-2 px-4 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-60"
+                >
+                  {uploading ? "Parsing…" : "Choose a PDF"}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">PDF only · parsed by your configured AI provider</p>
             </div>
-            <div>
-              <p className="text-sm font-medium text-foreground">Drop your resume PDF here, or</p>
-              <button
-                type="button"
-                onClick={() => fileRef.current?.click()}
-                disabled={uploading}
-                className="mt-2 px-4 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-60"
-              >
-                {uploading ? "Parsing…" : "Choose a PDF"}
-              </button>
-            </div>
-            <p className="text-xs text-muted-foreground">PDF only · parsed by your configured AI provider</p>
           </div>
-        </div>
+        </PageBody>
       </div>
     );
   }
@@ -322,58 +323,54 @@ export default function Profile() {
 
   return (
     <div className="profile-page w-full">
+      <PageHeader
+        title="Profile"
+        meta={
+          <>
+            {profile.lastParsedAt ? `Last import ${new Date(profile.lastParsedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}` : "Not imported from a resume yet"}
+            {profile.lastImportSnapshot?.method === "merged" ? " · combined with what you had" : ""}
+          </>
+        }
+        actions={
+          <>
+            {profile.lastImportSnapshot && !uploading && (
+              <Button variant="ghost" size="sm" onClick={() => setConfirmUndo(true)}>Undo last import</Button>
+            )}
+            <Button
+              size="sm"
+              onClick={() => fileRef.current?.click()}
+              loading={uploading}
+              title="Import another resume PDF — it's combined with your profile (or replaces it, per Settings → AI)"
+            >
+              {uploading ? "Reading…" : "Import another resume"}
+            </Button>
+          </>
+        }
+      />
+      <input
+        ref={fileRef}
+        type="file"
+        accept="application/pdf,.pdf"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) void handleFile(f);
+          e.target.value = "";
+        }}
+      />
       {profile.parseStatus === "waiting_assistant" && (
         <div className="mb-4 rounded-xl border border-border bg-card px-4 py-3 text-[13px] text-muted-foreground">
           <span className="font-medium text-foreground">Your resume import is waiting for your assistant.</span>{" "}
           Ask it to do your HireTrail AI tasks — or run imports on HireTrail in Settings → AI.
         </div>
       )}
-      <div className="flex items-start justify-between gap-4 mb-5 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">Profile</h1>
-          <p className="text-xs text-muted-foreground mt-1">
-            {profile.lastParsedAt ? `Last import ${new Date(profile.lastParsedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}` : "Not imported from a resume yet"}
-            {profile.lastImportSnapshot?.method === "merged" ? " · combined with what you had" : ""}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {profile.lastImportSnapshot && !uploading && (
-            <button
-              type="button"
-              onClick={() => setConfirmUndo(true)}
-              className="px-3 py-1.5 text-xs font-medium rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              Undo last import
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => fileRef.current?.click()}
-            disabled={uploading}
-            className="px-3 py-1.5 text-xs font-medium border border-border rounded-lg text-foreground hover:bg-muted disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            title="Import another resume PDF — it's combined with your profile (or replaces it, per Settings → AI)"
-          >
-            {uploading ? "Reading…" : "Import another resume"}
-          </button>
-        </div>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="application/pdf,.pdf"
-          className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) void handleFile(f);
-            e.target.value = "";
-          }}
-        />
-      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-5">
-        {/* ===== Main card ===== */}
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
+        {/* ===== Main card ===== (clip, not hidden: hidden would stop the tabs pinning) */}
+        <div className="bg-card border border-border rounded-xl overflow-clip">
           {/* Underline tabs */}
-          <div className="sticky top-0 z-10 bg-card border-b border-border">
+          {/* Pins under the page header. */}
+          <div className="sticky z-10 bg-card border-b border-border" style={{ top: "var(--page-header-h, 0px)" }}>
             <nav className="flex gap-1 px-5 overflow-x-auto" role="tablist">
               {SECTIONS.map((s) => (
                 <button

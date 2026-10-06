@@ -14,32 +14,9 @@ import { useApplicationsShell } from "../ApplicationsLayout.tsx";
 import { useApplicationFilters, toListParams, activeFilterCount } from "../data/filters.ts";
 import { useApplicationsPage, useContacts, useReanalyzeMutation, useResumes, useUpcomingDeadlines } from "../data/queries.ts";
 import { useCompanyResolver, useListBehavior, useOpenApplication, useRestoreListScroll } from "./shared.tsx";
-import type { Application, Pagination, Resume } from "../../../types";
+import type { Application, Resume } from "../../../types";
+import Pagination from "../../../components/ui/Pagination.tsx";
 
-function PaginationBar({ page, pag, setPage }: { page: number; pag: Pagination; setPage: (p: number) => void }) {
-  if (pag.pages <= 1) return null;
-  const btn = "h-8 px-3 text-[13px] border border-border rounded-lg text-secondary-foreground hover:bg-muted disabled:opacity-30 disabled:pointer-events-none";
-  return (
-    <div className="flex items-center justify-between mt-4">
-      <span className="text-[13px] text-muted-foreground tabular-nums">
-        {(pag.page - 1) * pag.limit + 1}–{Math.min(pag.page * pag.limit, pag.total)} of {pag.total}
-      </span>
-      <div className="flex gap-1">
-        <button disabled={page <= 1} onClick={() => setPage(page - 1)} className={btn}>Previous</button>
-        {Array.from({ length: Math.min(pag.pages, 5) }, (_, i) => {
-          const p = pag.pages <= 5 ? i + 1 : page <= 3 ? i + 1 : page >= pag.pages - 2 ? pag.pages - 4 + i : page - 2 + i;
-          return (
-            <button key={p} onClick={() => setPage(p)} aria-current={p === page ? "page" : undefined}
-              className={`w-8 h-8 text-[13px] rounded-lg tabular-nums ${p === page ? "bg-primary text-primary-foreground" : "border border-border text-secondary-foreground hover:bg-muted"}`}>
-              {p}
-            </button>
-          );
-        })}
-        <button disabled={page >= pag.pages} onClick={() => setPage(page + 1)} className={btn}>Next</button>
-      </div>
-    </div>
-  );
-}
 
 export default function ClassicList() {
   const shell = useApplicationsShell();
@@ -140,7 +117,7 @@ export default function ClassicList() {
                 );
               })
             : apps.map((a, idx) => row(a, idx))}
-          {data && <PaginationBar page={page} pag={data.pagination} setPage={setPage} />}
+          {data && <Pagination page={page} pag={data.pagination} onPage={setPage} className="mt-4" />}
         </div>
       )}
 

@@ -12,13 +12,16 @@ export interface Segment<T extends string> {
 }
 
 export default function SegmentedControl<T extends string>({
-  value, onChange, segments, ariaLabel, size = "md",
+  value, onChange, segments, ariaLabel, size = "md", countsFromSm = false,
 }: {
   value: T;
   onChange: (v: T) => void;
   segments: Segment<T>[];
   ariaLabel: string;
   size?: "sm" | "md";
+  /** Hide the counts below 640px — a page header's switch, where the title's
+   *  meta already says them and a phone needs the room. */
+  countsFromSm?: boolean;
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [pill, setPill] = useState<{ left: number; width: number } | null>(null);
@@ -75,7 +78,7 @@ export default function SegmentedControl<T extends string>({
             } ${active ? `text-foreground ${pill ? "" : "bg-control"}` : "text-muted-foreground hover:text-foreground hover:bg-control/60"}`}
           >
             {s.label}
-            {s.count != null && <span className="tabular-nums text-muted-foreground text-[11px]">{s.count}</span>}
+            {s.count != null && <span className={`tabular-nums text-muted-foreground text-[11px] ${countsFromSm ? "hidden sm:inline" : ""}`}>{s.count}</span>}
           </button>
         );
       })}
