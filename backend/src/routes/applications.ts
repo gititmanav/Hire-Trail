@@ -2,14 +2,14 @@ import { Router, Request, Response, NextFunction } from "express";
 import { Types, type PipelineStage } from "mongoose";
 import { Application, APPLICATION_SOURCES, STAGES } from "../models/Application.js";
 import { searchRegex } from "../utils/regex.js";
-import { Company } from "../models/Company.js";
 import { ensureAuth, getUser } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
 import { createApplicationSchema, updateApplicationSchema } from "../validators/applications.js";
 import { NotFoundError, ValidationError } from "../errors/AppError.js";
-import { ensureCompanyLogo } from "./companies.js";
-import { enrichAndAnalyzeOnCreate } from "../services/ai/enrichOnCreate.js";
-import { runAnalyzeWorker } from "../services/ai/autoAnalyze.js";
+import { createApplication, updateApplication, DuplicateApplicationError } from "../services/applications/write.js";
+import { startFitCheckForApplication } from "../services/ai/features/fitCheck.js";
+import { reviveAiJobs } from "../services/ai/jobs.js";
+import type { AiUser } from "../services/ai/gateway.js";
 import { blockDemoUser } from "../middleware/blockDemoUser.js";
 import { User } from "../models/User.js";
 import { MasterProfile } from "../models/MasterProfile.js";
@@ -19,9 +19,9 @@ import { Resume } from "../models/Resume.js";
 /** Thin summary of a TailorSession for inlining into Application list/get responses. */
 export interface AppFitSummary {
   sessionId: string;
-  status: "processing" | "succeeded" | "failed" | "deferred";
-  fitScore: number;
-  fitGrade: "A" | "B" | "C" | "D" | "F" | "";
+  status: "processing" | "succeeded" | "failed" | "deferred" | "waiting_assistant";
+  /** The one match score, 0–10 (null until computed). */
+  score: number | null;
   /** Omitted in list (`fields=summary`) responses — no list surface renders it. */
   summary?: string;
   matchedCount: number;
@@ -30,6 +30,9 @@ export interface AppFitSummary {
    *  a checkmark list. Capped server-side so the response stays small. */
   topMatched: string[];
   errorMessage?: string;
+  /** "ai_<reason>" behind a failure, and the lane it ran in. */
+  errorCode?: string;
+  errorLane?: string;
 }
 
 /** Resolve `fit` summaries for a list of applications in one bulk Mongo query.
@@ -43,7 +46,7 @@ export async function loadFitSummaries(
   const sessionIds = apps.map((a) => a.tailorSessionId).filter(Boolean);
   if (sessionIds.length === 0) return new Map();
   const sessions = await TailorSession.find({ _id: { $in: sessionIds } })
-    .select("_id status fitScore fitGrade summary matchedSkills missingSkills errorMessage")
+    .select("_id status matchScore summary matchedSkills missingSkills errorMessage errorCode errorLane")
     .lean();
   const byId = new Map(sessions.map((s) => [String(s._id), s]));
   const out = new Map<string, AppFitSummary>();
@@ -54,47 +57,17 @@ export async function loadFitSummaries(
     out.set(String(a._id), {
       sessionId: String(s._id),
       status: s.status,
-      fitScore: s.fitScore || 0,
-      fitGrade: s.fitGrade || "",
+      score: typeof s.matchScore === "number" ? s.matchScore : null,
       ...(withSummary && { summary: s.summary || "" }),
       matchedCount: Array.isArray(s.matchedSkills) ? s.matchedSkills.length : 0,
       missingCount: Array.isArray(s.missingSkills) ? s.missingSkills.length : 0,
       topMatched: Array.isArray(s.matchedSkills) ? s.matchedSkills.slice(0, 3) : [],
       errorMessage: s.errorMessage || undefined,
+      errorCode: s.errorCode || undefined,
+      errorLane: s.errorLane || undefined,
     });
   }
   return out;
-}
-
-import { extractDomainFromUrl, isJobBoardDomain } from "../utils/companyDomain.js";
-
-/** Local alias kept so existing call sites read naturally. */
-const extractDomain = extractDomainFromUrl;
-
-/** Domain to STORE on a Company doc derived from an Application's jobUrl.
- *  Returns "" for known job-board hosts (Workday, Greenhouse, etc.) so the
- *  logo fetcher falls back to a name-derived domain instead of pulling the
- *  ATS's logo. See utils/companyDomain.ts for context. */
-function companyDomainFromJobUrl(jobUrl?: string | null): string {
-  if (!jobUrl) return "";
-  const d = extractDomain(jobUrl);
-  if (!d || isJobBoardDomain(d)) return "";
-  return d;
-}
-
-/** Website to STORE on a Company doc derived from an Application's jobUrl.
- *  Mirrors `companyDomainFromJobUrl` — empty for job boards because storing
- *  e.g. "https://workday.com" as a company's website is just misleading. */
-function companyWebsiteFromJobUrl(jobUrl?: string | null): string {
-  if (!jobUrl) return "";
-  try {
-    const u = new URL(jobUrl);
-    const host = u.hostname.replace(/^www\./, "").toLowerCase();
-    if (isJobBoardDomain(host)) return "";
-    return u.origin;
-  } catch {
-    return "";
-  }
 }
 
 const router = Router();
@@ -205,6 +178,10 @@ router.get("/", async (req: Request, res: Response, next: NextFunction) => {
     const apps = facet?.data ?? [];
     const fitMap = await loadFitSummaries(apps, { withSummary: req.query.fields !== "summary" });
     const enriched = apps.map((a) => ({ ...a, fit: fitMap.get(String(a._id)) || null }));
+    // The list is what polls while AI work is in flight — pick up stalled jobs.
+    if (enriched.some((a) => (a as { aiExtractionStatus?: string }).aiExtractionStatus === "processing" || a.fit?.status === "processing")) {
+      await reviveAiJobs(user._id as Types.ObjectId);
+    }
 
     res.json({
       data: enriched,
@@ -241,108 +218,40 @@ router.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
     const app = await Application.findOne({ _id: req.params.id, userId: user._id }).lean();
     if (!app) throw new NotFoundError("Application");
     const fitMap = await loadFitSummaries([app]);
-    res.json({ ...app, fit: fitMap.get(String(app._id)) || null });
+    const fit = fitMap.get(String(app._id)) || null;
+    if (app.aiExtractionStatus === "processing" || fit?.status === "processing") await reviveAiJobs(user._id as Types.ObjectId);
+    res.json({ ...app, fit });
   } catch (err) { next(err); }
 });
 
-// POST create (with shared-company linking)
+// POST create (with shared-company linking) — the shared write path.
 router.post("/", validate(createApplicationSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = getUser(req);
-    // Find-or-create shared company
-    let companyId = req.body.companyId || null;
-    let createdOrFoundCompany: typeof Company.prototype | null = null;
-    if (!companyId && req.body.company) {
-      const domain = companyDomainFromJobUrl(req.body.jobUrl);
-      const website = companyWebsiteFromJobUrl(req.body.jobUrl);
-      const company = await Company.findOneAndUpdate(
-        { name: req.body.company.trim() },
-        {
-          $setOnInsert: { name: req.body.company.trim(), website, domain, createdBy: user._id },
-          $addToSet: { users: user._id },
-        },
-        { upsert: true, new: true, collation: { locale: "en", strength: 2 } }
-      );
-      companyId = company._id;
-      createdOrFoundCompany = company;
-    }
-    // Duplicate detection: if jobUrl is non-empty, check for existing
-    if (req.body.jobUrl) {
-      const existing = await Application.findOne({ userId: user._id, jobUrl: req.body.jobUrl });
-      if (existing) {
-        return res.status(409).json({ error: "Already tracked", applicationId: existing._id });
-      }
-    }
-    // The demo user is skipped entirely by the AI pipeline (seeded fake
-    // sessions instead) so we don't burn real LLM quota on the ~650 demo apps.
-    const isDemoUser = (await User.findById(user._id).select("email").lean())?.email === "demo@hiretrail.com";
-
-    // Seed the extraction status synchronously when the AI pass will run, so the
-    // create response already carries "processing" — the client shows the
-    // "Reading this posting…" indicator and starts polling immediately, instead
-    // of waiting for the next focus refetch to notice the background job.
-    const jdLen = (req.body.jobDescription || "").trim().length;
-    const willExtract = !isDemoUser && req.body.source !== "email" && jdLen >= 200;
-    const app = await Application.create({
-      ...req.body,
-      userId: user._id,
-      companyId,
-      resumeId: req.body.resumeId || null,
-      aiExtractionStatus: willExtract ? "processing" : "idle",
-    });
+    const app = await createApplication(user._id as Types.ObjectId, req.body);
     res.status(201).json(app);
-
-    // Background logo fetch — same pattern as contacts.
-    if (createdOrFoundCompany) {
-      void ensureCompanyLogo(createdOrFoundCompany).catch(() => undefined);
+  } catch (err) {
+    // The extension reads `applicationId` off this exact body.
+    if (err instanceof DuplicateApplicationError) {
+      res.status(409).json({ error: "Already tracked", applicationId: err.applicationId });
+      return;
     }
-
-    // Background AI pipeline (fire-and-forget): URL-slug company seed → AI field
-    // extraction + JD cleaning → fit auto-analysis on the cleaned JD.
-    void enrichAndAnalyzeOnCreate(app._id, { isDemoUser });
-  } catch (err) { next(err); }
+    next(err);
+  }
 });
 
-/** Manually (re)run the AI fit analysis for one application. Backs the
- *  "Run AI analysis" / "Retry" / "Run now" CTAs on the application row. Creates
- *  a fresh processing TailorSession, links it to the app, and runs the worker —
- *  bypassing the daily auto-analyze cap because the user explicitly asked. */
+/** Manually (re)run the fit check for one application. Backs the "Run fit
+ *  check" / "Retry" / "Run now" CTAs. Creates a fresh session linked to the
+ *  app — bypassing the daily automatic cap because the person asked. */
 router.post("/:id/reanalyze", blockDemoUser, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = getUser(req);
     const app = await Application.findOne({ _id: req.params.id, userId: user._id });
     if (!app) throw new NotFoundError("Application");
-
-    const jd = (app.jobDescription || "").trim();
-    if (jd.length < 50) throw new ValidationError("Add a job description before running AI analysis.");
-
-    const hasProfile = await MasterProfile.exists({ userId: user._id });
-    if (!hasProfile) throw new ValidationError("Set up your master profile first to enable AI analysis.");
-
-    const session = await TailorSession.create({
-      userId: user._id,
-      applicationId: app._id,
-      jobTitle: app.role || "",
-      company: app.company || "",
-      jobUrl: app.jobUrl || "",
-      jobDescription: jd.slice(0, 30_000),
-      status: "processing",
-      fitScore: 0,
-      fitGrade: "",
-      provider: "",
-      modelId: "",
-    });
-    await Application.updateOne({ _id: app._id }, { $set: { tailorSessionId: session._id } });
-
-    res.status(202).json({ sessionId: session._id.toString(), status: "processing" });
-
-    runAnalyzeWorker(session._id, user._id, {
-      applicationId: app._id,
-      jobTitle: app.role || "",
-      company: app.company || "",
-      url: app.jobUrl || "",
-      jobDescription: jd,
-    });
+    const owner = (await User.findById(user._id).select("email aiOverride").lean()) as AiUser | null;
+    const session = await startFitCheckForApplication(app, { trigger: "manual", user: owner ?? (user as unknown as AiUser) });
+    if (!session) throw new ValidationError("A fit check can't run for this application yet.");
+    res.status(202).json({ sessionId: session._id.toString(), status: session.status });
   } catch (err) { next(err); }
 });
 
@@ -407,55 +316,11 @@ router.post("/bulk", async (req: Request, res: Response, next: NextFunction) => 
   } catch (err) { next(err); }
 });
 
-// PUT update
+// PUT update — the shared write path.
 router.put("/:id", validate(updateApplicationSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = getUser(req);
-    const existing = await Application.findOne({ _id: req.params.id, userId: user._id });
-    if (!existing) throw new NotFoundError("Application");
-    const data = req.body;
-    if (data.stage && data.stage !== existing.stage) { existing.stageHistory.push({ stage: data.stage, date: new Date() }); existing.stage = data.stage; }
-    if (data.company !== undefined) {
-      existing.company = data.company;
-      // Re-link shared company if name changed. Same job-board guard as create
-      // — we never want a Workday/Greenhouse host stored as the canonical
-      // Company.domain. See utils/companyDomain.ts.
-      const domain = companyDomainFromJobUrl(data.jobUrl ?? existing.jobUrl);
-      const company = await Company.findOneAndUpdate(
-        { name: data.company.trim() },
-        {
-          $setOnInsert: { name: data.company.trim(), website: "", domain, createdBy: user._id },
-          $addToSet: { users: user._id },
-        },
-        { upsert: true, new: true, collation: { locale: "en", strength: 2 } }
-      );
-      existing.companyId = company._id;
-    }
-    if (data.role !== undefined) existing.role = data.role;
-    if (data.jobUrl !== undefined) existing.jobUrl = data.jobUrl;
-    if (data.applicationDate !== undefined) {
-      // YYYY-MM-DD is a picked day: stored as UTC midnight (a "plain day" —
-      // see services/calendar/days.ts), whatever zone the server runs in.
-      // An ISO datetime is a moment and is stored as given.
-      const d = /^\d{4}-\d{2}-\d{2}$/.test(data.applicationDate)
-        ? new Date(`${data.applicationDate}T00:00:00.000Z`)
-        : new Date(data.applicationDate);
-      if (!isNaN(d.getTime())) existing.applicationDate = d;
-    }
-    if (data.jobDescription !== undefined) existing.jobDescription = data.jobDescription;
-    if (data.location !== undefined) existing.location = data.location;
-    if (data.salary !== undefined) existing.salary = data.salary;
-    if (data.jobType !== undefined) existing.jobType = data.jobType;
-    if (data.notes !== undefined) existing.notes = data.notes;
-    if (data.resumeId !== undefined) existing.resumeId = data.resumeId;
-    if (data.companyId !== undefined) existing.companyId = data.companyId;
-    if (data.contactId !== undefined) existing.contactId = data.contactId;
-    if (data.outreachStatus !== undefined) existing.outreachStatus = data.outreachStatus;
-    if (data.archived !== undefined) existing.archived = data.archived;
-    if (data.archivedAt !== undefined) existing.archivedAt = data.archivedAt ? new Date(data.archivedAt) : null;
-    if (data.archivedReason !== undefined) existing.archivedReason = data.archivedReason;
-    await existing.save();
-    res.json(existing);
+    res.json(await updateApplication(user._id as Types.ObjectId, String(req.params.id), req.body));
   } catch (err) { next(err); }
 });
 

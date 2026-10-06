@@ -57,7 +57,8 @@ export interface CalendarAppDTO {
   resumeId: string | null;
   companyId: string | null;
   archived: boolean;
-  fit: { grade: string; score: number } | null;
+  /** The one match score, 0–10. */
+  fit: { score: number } | null;
   nextDeadline: { id: string; type: string; date: string } | null;
 }
 
@@ -237,7 +238,7 @@ export async function buildCalendar(
       resumeId: app.resumeId ? String(app.resumeId) : null,
       companyId: app.companyId ? String(app.companyId) : null,
       archived: !!app.archived,
-      fit: fit && fit.status === "succeeded" && fit.fitGrade ? { grade: fit.fitGrade, score: fit.fitScore } : null,
+      fit: fit && fit.status === "succeeded" && fit.score !== null ? { score: fit.score } : null,
       nextDeadline: next ? { id: String(next._id), type: next.type, date: dayIn(next.dueDate, tz) } : null,
     };
   }

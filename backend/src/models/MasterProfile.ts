@@ -67,7 +67,17 @@ export interface IContactInfo {
   portfolio: string;
 }
 
-export type ParseStatus = "idle" | "processing" | "failed";
+/** "waiting_assistant": the import runs in the user's assistant (MCP). */
+export type ParseStatus = "idle" | "processing" | "failed" | "waiting_assistant";
+
+/** The profile as it was before the last import changed it — one slot, so
+ *  "Undo import" can always put it back. */
+export interface IImportSnapshot {
+  profile: Record<string, unknown>;
+  savedAt: Date;
+  /** "merged" | "replaced" — how the import changed the profile. */
+  method: string;
+}
 
 export interface IMasterProfile extends Document {
   userId: mongoose.Types.ObjectId;
@@ -88,6 +98,7 @@ export interface IMasterProfile extends Document {
   parseError: string;
   /** When the current "processing" parse started (used to reap stale state). */
   parseStartedAt: Date | null;
+  lastImportSnapshot: IImportSnapshot | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -161,9 +172,10 @@ const masterProfileSchema = new Schema<IMasterProfile>(
     sourceResumeId: { type: Schema.Types.ObjectId, ref: "Resume", default: null },
     lastParsedAt: { type: Date, default: null },
     lastParsedProvider: { type: String, default: null },
-    parseStatus: { type: String, enum: ["idle", "processing", "failed"], default: "idle" },
+    parseStatus: { type: String, enum: ["idle", "processing", "failed", "waiting_assistant"], default: "idle" },
     parseError: { type: String, default: "" },
     parseStartedAt: { type: Date, default: null },
+    lastImportSnapshot: { type: Schema.Types.Mixed, default: null },
   },
   { timestamps: true }
 );

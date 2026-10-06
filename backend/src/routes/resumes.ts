@@ -14,20 +14,42 @@ import { loadOrBuildDocument, withDerived, snapshot } from "../services/resume/s
 import { resumeDocumentSchema } from "../validators/resumeDocument.js";
 import { composeHtml } from "../services/resume/html.js";
 import { renderHtmlToPdf } from "../services/pdf/renderHtml.js";
-import { rewriteDocument } from "../services/ai/rewrite.js";
-import { analyzeJD, type AnalysisSectionFlag } from "../services/ai/tailor.js";
+import { runFitCheck, type FitResult } from "../services/ai/features/fitCheck.js";
+import { acceptProposals, proposeRewrites, rejectProposals } from "../services/ai/features/resumeTailor.js";
+import type { AiUser } from "../services/ai/gateway.js";
 import { computeScore } from "../services/resume/score.js";
 import { buildSuggestionChips } from "../services/resume/suggestions.js";
 import { keywordCoverage, extractDocText, extractJdKeywords } from "../services/resume/keywords.js";
 import type { RewriteScope, ResumeDocument as ResumeDocShape } from "../services/resume/types.js";
+
+type SectionFlag = FitResult["sectionFlags"][number];
+
+/** The gateway's view of the signed-in user. */
+async function aiUser(req: Request): Promise<AiUser> {
+  const user = getUser(req);
+  return ((await User.findById(user._id).select("email aiOverride").lean()) ?? { _id: user._id, email: user.email }) as AiUser;
+}
+
+/** The fit shape the Studio reads (one score, the read in words). */
+function fitView(f: { matchScore?: number | null; summary: string; matchedSkills: string[]; missingSkills: string[]; strengths?: unknown[]; gaps?: unknown[]; changes?: unknown[] }) {
+  return {
+    score: typeof f.matchScore === "number" ? f.matchScore : null,
+    summary: f.summary,
+    matchedSkills: f.matchedSkills,
+    missingSkills: f.missingSkills,
+    strengths: f.strengths ?? [],
+    gaps: f.gaps ?? [],
+    changes: f.changes ?? [],
+  };
+}
 
 const router = Router();
 router.use(ensureAuth);
 
 /** Map the brain's section-type-keyed flags onto the live document's section
  *  ids + titles for the Studio "See the gap" step. */
-function mapSectionFlags(doc: ResumeDocShape, flags: AnalysisSectionFlag[]) {
-  const out: { sectionId: string; title: string; severity: AnalysisSectionFlag["severity"]; note: string }[] = [];
+function mapSectionFlags(doc: ResumeDocShape, flags: SectionFlag[]) {
+  const out: { sectionId: string; title: string; severity: SectionFlag["severity"]; note: string }[] = [];
   for (const f of flags) {
     const sec = doc.sections.find((s) => s.type === f.section);
     if (sec) out.push({ sectionId: sec.id, title: sec.title, severity: f.severity, note: f.note });
@@ -203,14 +225,14 @@ router.get("/:id/rewrite-suggestions", async (req: Request, res: Response, next:
   } catch (err) { next(err); }
 });
 
-/** POST /:id/analyze-gap {jobDescription} — Step 1 "See the gap", AI-driven.
- *  The LLM brain (analyzeJD) extracts the role's REAL requirements (noise
- *  stripped), a per-section read, and the fit; we persist the cleaned keyword
- *  set on the document AND on the doc's TailorSession (one per doc, updated in
- *  place so re-analysis doesn't spam sessions). The COVERAGE ring + match score
- *  stay deterministic — computed against the actual document with those keywords
- *  — so the number never lies. With no/short JD we fall back to the document's
- *  stored keywords (no LLM). AI failure surfaces as an error (fail-in-place). */
+/** POST /:id/analyze-gap {jobDescription} — Step 1 "See the gap".
+ *  The fit check (the caller waits) names the role's real requirements, the
+ *  per-section read and the read in words; we persist the requirement set on
+ *  the document AND on the doc's TailorSession (one per doc, updated in place
+ *  so re-analysis doesn't spam sessions). The coverage ring + match score stay
+ *  deterministic — computed against the actual document — so the number never
+ *  lies. With no/short JD we fall back to the document's stored keywords (no
+ *  AI). An AI refusal or failure is an error with words (fail in place). */
 const analyzeGapSchema = z.object({ jobDescription: z.string().max(40_000).optional().default("") });
 router.post("/:id/analyze-gap", blockDemoUser, async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -221,28 +243,35 @@ router.post("/:id/analyze-gap", blockDemoUser, async (req: Request, res: Respons
     if (!resume) throw new NotFoundError("Resume");
     const docModel = await loadOrBuildDocument(user._id.toString(), resume);
 
-    let flags: AnalysisSectionFlag[] = [];
-    let fit: { fitScore: number; fitGrade: string; summary: string; matchedSkills: string[]; missingSkills: string[] } | null = null;
+    let flags: SectionFlag[] = [];
+    let fit: ReturnType<typeof fitView> | null = null;
 
     if (jd.length >= 20) {
-      const { analysis } = await analyzeJD(user._id, { jobDescription: jd, jobTitle: resume.targetRole || "" });
-      const kws = analysis.jdKeywords.length ? analysis.jdKeywords : extractJdKeywords(jd);
-
+      const result = await runFitCheck(await aiUser(req), { jobDescription: jd, jobTitle: resume.targetRole || "" });
+      const kws = result.jdKeywords.length ? result.jdKeywords : extractJdKeywords(jd);
       const fields = {
         userId: user._id,
         jobTitle: resume.targetRole || "",
         jobDescription: jd.slice(0, 30_000),
         status: "succeeded" as const,
-        fitScore: analysis.fitScore,
-        fitGrade: analysis.fitGrade,
-        summary: analysis.summary,
+        errorMessage: "",
+        errorCode: "",
+        errorLane: "",
+        matchScore: result.matchScore,
+        summary: result.summary,
         jdKeywords: kws,
-        matchedSkills: analysis.matchedSkills,
-        missingSkills: analysis.missingSkills,
-        sectionFlags: analysis.sectionFlags,
-        suggestions: analysis.suggestions.map((s) => ({ ...s, decision: null })),
+        matchedSkills: result.matchedSkills,
+        missingSkills: result.missingSkills,
+        strengths: result.strengths,
+        gaps: result.gaps,
+        changes: result.changes,
+        sectionFlags: result.sectionFlags,
+        suggestions: [],
+        fitScore: 0,
+        fitGrade: "" as const,
+        provider: result.provider,
+        modelId: result.model,
       };
-
       const existing = docModel.tailorSessionId
         ? await TailorSession.findOne({ _id: docModel.tailorSessionId, userId: user._id })
         : null;
@@ -253,14 +282,10 @@ router.post("/:id/analyze-gap", blockDemoUser, async (req: Request, res: Respons
         const created = await TailorSession.create({ ...fields, applicationId: null });
         docModel.tailorSessionId = created._id;
       }
-
       docModel.jdKeywords = kws;
       await docModel.save();
-      flags = analysis.sectionFlags;
-      fit = {
-        fitScore: analysis.fitScore, fitGrade: analysis.fitGrade, summary: analysis.summary,
-        matchedSkills: analysis.matchedSkills, missingSkills: analysis.missingSkills,
-      };
+      flags = result.sectionFlags;
+      fit = fitView(result);
     }
 
     const gap = keywordCoverage(docModel.jdKeywords, extractDocText(docModel.document));
@@ -275,10 +300,10 @@ router.post("/:id/analyze-gap", blockDemoUser, async (req: Request, res: Respons
 });
 
 /** POST /:id/document/bind-session {tailorSessionId} — bind a resume's document
- *  to an application's analysis: copy the session's cleaned JD keywords onto the
- *  document so the deterministic coverage/score target the APPLICATION's posting,
- *  not whatever the resume was last tailored against. Lets the Applications
- *  tailoring drawer reuse a succeeded analysis (skip Step 1) honestly. */
+ *  to an application's analysis: copy the session's requirement keywords onto
+ *  the document so the deterministic coverage/score target the APPLICATION's
+ *  posting, not whatever the resume was last tailored against. Lets the
+ *  Applications tailoring drawer reuse a succeeded analysis (skip Step 1). */
 const bindSessionSchema = z.object({ tailorSessionId: z.string().min(1) });
 router.post("/:id/document/bind-session", async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -307,16 +332,14 @@ router.post("/:id/document/bind-session", async (req: Request, res: Response, ne
       gap,
       sectionFlags: mapSectionFlags(docModel.document, session.sectionFlags),
       score: computeScore(docModel.document, docModel.jdKeywords),
-      fit: {
-        fitScore: session.fitScore, fitGrade: session.fitGrade, summary: session.summary,
-        matchedSkills: session.matchedSkills, missingSkills: session.missingSkills,
-      },
+      fit: fitView(session),
     });
   } catch (err) { next(err); }
 });
 
-/** POST /:id/ai-rewrite — section-scoped rewrite (strict no-fabrication).
- *  Returns the new document + a field-level diff + {before,after} score. */
+/** POST /:id/ai-rewrite — PROPOSE rewrites of the bullets in scope (strict
+ *  no-fabrication, numbers checked). Nothing in the document changes: the
+ *  proposals are stored on it and returned; the person accepts or rejects. */
 const aiRewriteSchema = z.object({
   scope: z.union([
     z.literal("all"),
@@ -336,33 +359,48 @@ router.post("/:id/ai-rewrite", blockDemoUser, async (req: Request, res: Response
     const resume = await Resume.findOne({ _id: req.params.id, userId: user._id });
     if (!resume) throw new NotFoundError("Resume");
     const docModel = await loadOrBuildDocument(user._id.toString(), resume);
-
-    const before = computeScore(docModel.document, docModel.jdKeywords);
-    const result = await rewriteDocument({
-      userId: user._id,
-      document: docModel.document,
+    const { proposals, dropped } = await proposeRewrites(await aiUser(req), docModel, {
       scope: parsed.data.scope as RewriteScope | "all",
       instruction: parsed.data.instruction,
       preset: parsed.data.preset,
-      jdKeywords: docModel.jdKeywords,
       targetRole: resume.targetRole || "",
     });
+    res.json({ proposals, dropped, document: withDerived(docModel) });
+  } catch (err) { next(err); }
+});
 
-    if (result.changedPaths.length > 0) {
-      // Snapshot the pre-rewrite doc so the UI can undo this rewrite.
-      snapshot(docModel, `Before AI rewrite${typeof parsed.data.scope === "object" ? "" : " (all)"}`);
-      docModel.document = result.document;
-      docModel.version += 1;
-      await docModel.save();
+/** POST /:id/proposals/accept {ids | "all"} — apply proposals whose bullet
+ *  still reads as proposed (one undo snapshot); returns the document + score. */
+const proposalIdsSchema = z.object({ ids: z.union([z.literal("all"), z.array(z.string()).min(1).max(200)]) });
+router.post("/:id/proposals/accept", blockDemoUser, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = getUser(req);
+    const parsed = proposalIdsSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.flatten().fieldErrors });
+      return;
     }
-    const after = computeScore(docModel.document, docModel.jdKeywords);
+    const resume = await Resume.findOne({ _id: req.params.id, userId: user._id });
+    if (!resume) throw new NotFoundError("Resume");
+    const docModel = await loadOrBuildDocument(user._id.toString(), resume);
+    const result = await acceptProposals(docModel, parsed.data.ids);
+    res.json({ ...result, document: withDerived(docModel) });
+  } catch (err) { next(err); }
+});
 
-    res.json({
-      document: withDerived(docModel),
-      changes: result.changes,
-      changedPaths: result.changedPaths,
-      score: { before, after },
-    });
+router.post("/:id/proposals/reject", blockDemoUser, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = getUser(req);
+    const parsed = proposalIdsSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.flatten().fieldErrors });
+      return;
+    }
+    const resume = await Resume.findOne({ _id: req.params.id, userId: user._id });
+    if (!resume) throw new NotFoundError("Resume");
+    const docModel = await loadOrBuildDocument(user._id.toString(), resume);
+    await rejectProposals(docModel, parsed.data.ids);
+    res.json({ document: withDerived(docModel) });
   } catch (err) { next(err); }
 });
 

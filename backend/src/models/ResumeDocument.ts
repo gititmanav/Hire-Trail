@@ -28,6 +28,22 @@ export interface IResumeDocVersion {
   createdAt: Date;
 }
 
+/** A proposed rewrite of one bullet or the summary. Nothing in the document
+ *  changes until the person accepts it (services/ai/features/resumeTailor.ts). */
+export interface IResumeProposal {
+  id: string;
+  /** Element id in the document (a bullet id, or the summary entry id). */
+  path: string;
+  kind: "bullet" | "summary";
+  /** The text it was proposed against — accepting is refused if it changed. */
+  before: string;
+  after: string;
+  reason: string;
+  /** "ai" = HireTrail ran it; "assistant" = the user's assistant over MCP. */
+  source: "ai" | "assistant";
+  createdAt: Date;
+}
+
 export interface IResumeDocument extends Document {
   resumeId: mongoose.Types.ObjectId;
   userId: mongoose.Types.ObjectId;
@@ -40,6 +56,7 @@ export interface IResumeDocument extends Document {
   /** Tailor session that seeded this document, when applicable. */
   tailorSessionId: mongoose.Types.ObjectId | null;
   history: IResumeDocVersion[];
+  proposals: IResumeProposal[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -64,6 +81,19 @@ const resumeDocumentSchema = new Schema<IResumeDocument>(
     jdKeywords: { type: [String], default: [] },
     tailorSessionId: { type: Schema.Types.ObjectId, ref: "TailorSession", default: null },
     history: { type: [versionSchema], default: [] },
+    proposals: {
+      type: [new Schema<IResumeProposal>({
+        id: { type: String, required: true },
+        path: { type: String, required: true },
+        kind: { type: String, enum: ["bullet", "summary"], required: true },
+        before: { type: String, default: "" },
+        after: { type: String, required: true },
+        reason: { type: String, default: "" },
+        source: { type: String, enum: ["ai", "assistant"], default: "ai" },
+        createdAt: { type: Date, default: Date.now },
+      }, { _id: false })],
+      default: [],
+    },
   },
   { timestamps: true, minimize: false }
 );

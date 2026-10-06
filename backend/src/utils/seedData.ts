@@ -149,7 +149,7 @@ export interface SeedResult {
 /* ------------------------- Demo date window -------------------------
  *
  * The demo rolls with the calendar, so whoever pokes at it sees a live search
- * whenever an admin last pressed "Run seed":
+ * whenever an admin last pressed "Reset demo" (Admin → Settings):
  *
  *   - applicationDate / stage history / contact.lastContactDate:
  *       the last ~8 months → today (nothing dated in the future);
@@ -273,7 +273,9 @@ export async function runSeed(): Promise<SeedResult> {
   const GRADES = ["A", "B", "C", "D", "F"] as const;
   // Weighted distribution: skew toward B/C for realism (most apps are "good not great")
   const GRADE_WEIGHTS = [0.15, 0.40, 0.30, 0.10, 0.05];
-  const GRADE_TO_SCORE = { A: 5, B: 4, C: 3, D: 2, F: 1 } as const;
+  // The seed still thinks in five bands; the product shows one 0–10 score.
+  const BAND: Record<"A" | "B" | "C" | "D" | "F", [number, number]> = { A: [8, 9.4], B: [6.5, 7.9], C: [5, 6.4], D: [3, 4.9], F: [1, 2.9] };
+  const scoreIn = ([lo, hi]: [number, number]) => Math.round((lo + Math.random() * (hi - lo)) * 10) / 10;
   const SUGGESTION_STUBS = [
     { section: "experience" as const, kind: "rewrite" as const, suggested: "Lead the redesign of the API layer to cut p99 latency by 40%.", rationale: "Mirrors the JD's focus on platform performance work." },
     { section: "summary" as const, kind: "rewrite" as const, suggested: "Senior backend engineer with 5+ years scaling distributed systems.", rationale: "Reframes summary around scale + ownership emphasis." },
@@ -304,8 +306,7 @@ export async function runSeed(): Promise<SeedResult> {
       jobUrl: a.jobUrl,
       jobDescription: "(seeded — synthetic JD)",
       status: "succeeded" as const,
-      fitScore: GRADE_TO_SCORE[grade],
-      fitGrade: grade,
+      matchScore: scoreIn(BAND[grade]),
       summary: `${grade === "A" || grade === "B" ? "Strong" : grade === "C" ? "Mixed" : "Weak"} match. The role aligns with your ${grade === "A" ? "primary strengths" : "secondary skill set"}.`,
       matchedSkills: pickSkills(grade === "A" ? 6 : grade === "B" ? 5 : grade === "C" ? 4 : 2),
       missingSkills: pickSkills(grade === "F" ? 5 : grade === "D" ? 4 : 2),

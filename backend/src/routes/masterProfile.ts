@@ -11,78 +11,23 @@
  *                                              and set it as primary if user has none.
  */
 import { Router, Request, Response, NextFunction } from "express";
-import { z } from "zod";
 
 import { ensureAuth, getUser } from "../middleware/auth.js";
 import { blockDemoUser } from "../middleware/blockDemoUser.js";
 import { upload } from "../middleware/upload.js";
-import { MasterProfile, type IMasterProfile } from "../models/MasterProfile.js";
+import { MasterProfile } from "../models/MasterProfile.js";
 import { Resume } from "../models/Resume.js";
 import { User } from "../models/User.js";
-import { parseResumePdf, resumeProfileSchema } from "../services/ai/resumeParser.js";
-import { mergeProfilesAI } from "../services/ai/mergeProfiles.js";
-import { NotFoundError } from "../errors/AppError.js";
+import { resumeProfileSchema, startResumeImport, undoLastImport } from "../services/ai/features/resumeImport.js";
+import { reviveAiJobs } from "../services/ai/jobs.js";
+import type { AiUser } from "../services/ai/gateway.js";
+import { AppError, NotFoundError } from "../errors/AppError.js";
 import { env } from "../config/env.js";
 
 const router = Router();
 router.use(ensureAuth);
 
-/** A master profile counts as "having content" once at least one section has data —
- *  used to decide whether a parse should overwrite (first time) or merge (subsequent). */
-function hasContent(p: {
-  summary: string;
-  experiences: unknown[];
-  projects: unknown[];
-  education: unknown[];
-  skills: unknown[];
-  certifications: unknown[];
-}): boolean {
-  return (
-    !!p.summary?.trim() ||
-    p.experiences.length > 0 ||
-    p.projects.length > 0 ||
-    p.education.length > 0 ||
-    p.skills.length > 0 ||
-    p.certifications.length > 0
-  );
-}
-
 const cloudinaryEnabled = () => !!(env.CLOUDINARY_CLOUD_NAME && env.CLOUDINARY_API_KEY && env.CLOUDINARY_API_SECRET);
-
-type ProfileSlice = {
-  contact: unknown;
-  summary: string;
-  experiences: unknown[];
-  projects: unknown[];
-  education: unknown[];
-  skills: unknown[];
-  certifications: unknown[];
-};
-
-/** Some models (esp. on free tiers) return degenerate empty arrays despite the merge
- *  prompt's "never drop" rule. If the merge would drop content the master already had,
- *  reject it and keep the master untouched. Returns true if the merge is safe to apply. */
-function mergeIsSafe(master: ProfileSlice, merged: ProfileSlice): boolean {
-  const fields: (keyof ProfileSlice)[] = ["experiences", "projects", "education", "skills", "certifications"];
-  for (const f of fields) {
-    const m = (master[f] as unknown[]).length;
-    const out = (merged[f] as unknown[]).length;
-    if (m > 0 && out < m) return false;
-  }
-  return true;
-}
-
-function profileFromMaster(master: ProfileSlice): ProfileSlice {
-  return {
-    contact: master.contact,
-    summary: master.summary,
-    experiences: master.experiences,
-    projects: master.projects,
-    education: master.education,
-    skills: master.skills,
-    certifications: master.certifications,
-  };
-}
 
 async function uploadResumeToCloudinary(buffer: Buffer, originalName: string, userId: string): Promise<{ url: string; publicId: string }> {
   const { cloudinary } = await import("../config/cloudinary.js");
@@ -105,28 +50,26 @@ async function uploadResumeToCloudinary(buffer: Buffer, originalName: string, us
 
 /* ----------------- GET / PUT ----------------- */
 
-/** Stale processing reaper — protects against the rare case where the LLM worker died
- *  mid-parse (e.g. Vercel function timeout). 90s is generous: an LLM parse typically
- *  finishes in 10–30 seconds. */
-const PARSE_TIMEOUT_MS = 90_000;
-
-async function reapStaleParse(profile: IMasterProfile): Promise<IMasterProfile> {
-  if (profile.parseStatus !== "processing") return profile;
-  const started = profile.parseStartedAt ? new Date(profile.parseStartedAt).getTime() : 0;
-  if (Date.now() - started < PARSE_TIMEOUT_MS) return profile;
-  profile.parseStatus = "failed";
-  profile.parseError = "Parse took too long — please retry.";
-  await profile.save();
-  return profile;
-}
-
 router.get("/", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = getUser(req);
-    const doc = await MasterProfile.findOne({ userId: user._id });
+    let doc = await MasterProfile.findOne({ userId: user._id });
     if (!doc) { res.json(null); return; }
-    const profile = await reapStaleParse(doc);
-    res.json(profile.toObject());
+    // The Profile page polls this during an import: pick up a stalled job.
+    if (doc.parseStatus === "processing") {
+      await reviveAiJobs(user._id);
+      doc = (await MasterProfile.findOne({ userId: user._id })) ?? doc;
+    }
+    res.json(doc.toObject());
+  } catch (err) { next(err); }
+});
+
+/** POST /undo-import — put the profile back as it was before the last import. */
+router.post("/undo-import", blockDemoUser, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = getUser(req);
+    if (!(await undoLastImport(user._id))) throw new AppError("There's no import to undo.", 404);
+    res.json((await MasterProfile.findOne({ userId: user._id }))?.toObject() ?? null);
   } catch (err) { next(err); }
 });
 
@@ -150,68 +93,10 @@ router.put("/", async (req: Request, res: Response, next: NextFunction) => {
   } catch (err) { next(err); }
 });
 
-/* ----------------- Parse worker (shared by both endpoints) ----------------- */
-
-/** Runs the LLM parse + merge against an existing master profile in the background
- *  and writes the result back. Always flips parseStatus to "idle" (success) or
- *  "failed" with parseError. Designed to be invoked after the HTTP response was
- *  already sent — never throws to the caller. */
-async function runParseWorker(
-  userId: string,
-  resumeId: string,
-  buffer: Buffer
-): Promise<void> {
-  try {
-    const { profile, provider, modelId } = await parseResumePdf(buffer, userId);
-
-    const existing = await MasterProfile.findOne({ userId });
-    let finalProfile = profile;
-    let finalProvider = provider;
-    let finalModelId = modelId;
-    let mergeUsed = false;
-    const dbUserForMerge = await User.findById(userId).select("mergeResumesEnabled");
-    const mergeEnabled = dbUserForMerge?.mergeResumesEnabled !== false;
-    if (existing && hasContent(existing) && mergeEnabled) {
-      const merged = await mergeProfilesAI(userId, existing, profile);
-      if (mergeIsSafe(existing, merged.merged)) {
-        finalProfile = merged.merged;
-        finalProvider = merged.provider;
-        finalModelId = merged.modelId;
-        mergeUsed = true;
-      } else {
-        console.warn(`[master-profile] merge dropped content for user ${userId}; keeping master`);
-        finalProfile = profileFromMaster(existing) as typeof profile;
-      }
-    }
-
-    await MasterProfile.findOneAndUpdate(
-      { userId },
-      {
-        $set: {
-          ...finalProfile,
-          sourceResumeId: resumeId,
-          lastParsedAt: new Date(),
-          lastParsedProvider: `${finalProvider}:${finalModelId}${mergeUsed ? " (merged)" : existing && hasContent(existing) && mergeEnabled ? " (merge-rejected)" : ""}`,
-          parseStatus: "idle",
-          parseError: "",
-          parseStartedAt: null,
-        },
-      },
-      { new: true, upsert: true, setDefaultsOnInsert: true }
-    );
-  } catch (err) {
-    let message = "Failed to parse resume.";
-    if (err instanceof z.ZodError) {
-      message = "AI returned invalid resume structure. Try a different model or upload a cleaner PDF.";
-    } else if (err instanceof Error) {
-      message = err.message;
-    }
-    await MasterProfile.findOneAndUpdate(
-      { userId },
-      { $set: { parseStatus: "failed", parseError: message, parseStartedAt: null } }
-    );
-    console.error(`[master-profile] parse worker failed for user ${userId}:`, err);
-  }
+/** The gateway's view of the signed-in user. */
+async function aiUser(req: Request): Promise<AiUser> {
+  const user = getUser(req);
+  return ((await User.findById(user._id).select("email aiOverride").lean()) ?? { _id: user._id, email: user.email }) as AiUser;
 }
 
 /* ----------------- Parse from existing resume ----------------- */
@@ -235,16 +120,10 @@ router.post("/parse-from-resume/:resumeId", blockDemoUser, async (req: Request, 
     }
     const buffer = Buffer.from(await response.arrayBuffer());
 
-    // 2. Mark the master profile as processing + return immediately.
-    const profile = await MasterProfile.findOneAndUpdate(
-      { userId: user._id },
-      { $set: { parseStatus: "processing", parseError: "", parseStartedAt: new Date() } },
-      { new: true, upsert: true, setDefaultsOnInsert: true }
-    );
-    res.status(202).json(profile);
-
-    // 3. Run LLM in background.
-    void runParseWorker(user._id.toString(), resume._id.toString(), buffer);
+    // 2. Read the PDF and queue the import — a scan or a refused lane is
+    //    answered here, before anything is marked "processing".
+    await startResumeImport(await aiUser(req), resume._id, buffer);
+    res.status(202).json(await MasterProfile.findOne({ userId: user._id }));
   } catch (err) {
     next(err);
   }
@@ -298,17 +177,12 @@ router.post("/upload-and-parse", blockDemoUser, upload.single("file"), async (re
       await User.findByIdAndUpdate(user._id, { primaryResumeId: resume._id });
     }
 
-    // 3. Flip the master profile into "processing" so the frontend can poll for
-    //    completion (and resume polling after a page refresh).
-    const profile = await MasterProfile.findOneAndUpdate(
-      { userId: user._id },
-      { $set: { parseStatus: "processing", parseError: "", parseStartedAt: new Date(), sourceResumeId: resume._id } },
-      { new: true, upsert: true, setDefaultsOnInsert: true }
-    );
+    // 3. Read the PDF and queue the import (the profile flips to "processing";
+    //    the frontend polls it, and resumes polling after a refresh). A scan
+    //    or a refused lane is answered here — the resume itself stays saved.
+    await startResumeImport(await aiUser(req), resume._id, buffer);
+    const profile = await MasterProfile.findOne({ userId: user._id });
     res.status(202).json({ profile, resume });
-
-    // 4. Run LLM in background.
-    void runParseWorker(user._id.toString(), resume._id.toString(), buffer);
   } catch (err) {
     next(err);
   }

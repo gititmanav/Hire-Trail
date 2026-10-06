@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from "express";
 import { Notification } from "../models/Notification.js";
 import { Application, STAGES, type Stage } from "../models/Application.js";
 import { ensureAuth, getUser } from "../middleware/auth.js";
+import { reviveAiJobs } from "../services/ai/jobs.js";
 
 const router = Router();
 router.use(ensureAuth);
@@ -35,7 +36,13 @@ router.get("/", async (req: Request, res: Response, next: NextFunction) => {
 router.get("/unread-count", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = getUser(req);
-    const count = await Notification.countDocuments({ userId: user._id, read: false, resolved: false });
+    // The bell polls this from anywhere in the app — the one read that's
+    // always running, so it also picks up AI work whose continuation was lost
+    // (a long inbox scan keeps going while the person is on another page).
+    const [count] = await Promise.all([
+      Notification.countDocuments({ userId: user._id, read: false, resolved: false }),
+      reviveAiJobs(user._id).catch((err) => console.warn("[ai-jobs] revive on poll failed:", err instanceof Error ? err.message : err)),
+    ]);
     res.json({ count });
   } catch (err) { next(err); }
 });

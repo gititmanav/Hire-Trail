@@ -73,6 +73,7 @@ export async function loadOrBuildDocument(
 export function withDerived(docModel: IResumeDocument): ResumeDocShape & {
   version: number;
   availableVersions: number[];
+  proposals: IResumeDocument["proposals"];
 } {
   const doc = docModel.document;
   const gap = keywordCoverage(docModel.jdKeywords, extractDocText(doc));
@@ -82,6 +83,7 @@ export function withDerived(docModel: IResumeDocument): ResumeDocShape & {
     suggestions: buildSuggestionChips(doc, gap),
     version: docModel.version,
     availableVersions: docModel.history.map((h) => h.version),
+    proposals: docModel.proposals ?? [],
   };
 }
 
