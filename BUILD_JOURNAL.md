@@ -4,6 +4,37 @@ Append a dated entry every session: decisions, what was built, what was verified
 
 ---
 
+## 2026-10-05 — AI revamp: one door, three lanes, MCP, Connectors, Admin; one toast; map reset
+
+Owner: agreed to the whole blueprint (Revamp.md → "2026-10-05 — AI revamp", decisions 1–14). Later the same day: one stacked toast used everywhere, and "Reset to defaults" on the AI map (the default = what the admin set).
+
+### Built
+- **AI core** (`backend/src/services/ai/`): registry, direct adapters for Google, Anthropic, OpenAI, xAI, DeepSeek, Mistral, Groq and OpenRouter (the Vercel AI Gateway is gone), error codes + copy, pricing (OpenRouter catalog → curated → most expensive known), keys (`AiKey`, AES-GCM, tested on save), routes (`AiRoute`), policy (`AiSettings`), reserve-then-settle ledger (`AiUsage`), jobs (`AiJob`: lease, steps with a deadline, signed self-continuation, revive on read, `waiting_assistant`), the gateway (`runAiObject` / `runAiText`). Every AI call moved onto it; the old services and mock fallbacks deleted. Boot migrations copy legacy keys and the admin default key.
+- **Features rebuilt**: posting read (cut by line ranges, never re-typed), fit check (one deterministic 0–10 score; the AI's read is words), resume import + profile merge (undo the last import), Studio rewrites as proposals (accept per change or all; numbers must be grounded), inbox sort (review queue only; the auto-apply pipeline removed; Outlook hidden).
+- **My AI** (Settings → AI): the map (provider hub in the centre, features orbiting, drag to re-route), keys, allowance, the assistant connection; **Reset to defaults** (`DELETE /api/ai/features`, with Undo).
+- **Admin → AI**: Map (platform keys), Rules (master switch, pause message, lanes, per-feature rules, MCP limits), Spend (budget, allowance, usage lens), per-user overrides.
+- **MCP** (`/api/mcp`): stateless Streamable HTTP; `ht_mcp_` tokens (sha256, scoped, revocable); read / write / AI tools sharing the REST services; prompts (`do_my_ai_tasks`, `tailor_resume`, `weekly_review`).
+- **Connectors** (Settings → Connectors): Gmail; OAuth state signed and bound to the session user. Legacy `/settings/mailboxes` redirects.
+- **Admin revamp**: 8 sidebar pages + 2 unlinked pages removed, with their routes (Revamp.md list); Users rebuilt (no impersonation; GET /:id returns a fixed field list — it used to include refresh tokens), Dashboard rebuilt (zero-filled 30-day series, excludes demo + deleted), Settings = maintenance + 3 feature flags + Reset demo, Mailboxes = 30-day scan stats.
+- **Account deletion**: reason + DELETE + password (or email) → 14 days → full purge of every user collection + Cloudinary files + Gmail revoke + sessions; any sign-in cancels. Privacy and Terms rewritten to match.
+- **Extension 1.5.0**: the analyze/LLM/Auto Tags paths removed (the posting read does it server-side); `frontend/public/extension.zip` repacked.
+- **One toast** (`components/ui/toast.ts` + `ui/Toaster.tsx`): our own stacked toaster — bottom-right, newest in front, older tucked behind and peeking, hover/focus fans out and pauses, swipe down to close, three at most; title + description + one action; default / success / warning / error / loading. react-hot-toast uninstalled; 60 files moved; the hand-built toasts (Undo, "Open AI settings", deadline follow-up, Dashboard tip) rewritten as plain ones.
+
+### Verified (HOW)
+- Gates: backend `tsc --noEmit` 0; frontend `tsc -b` 0; `npm run build` green; `node --test src/utils/theme.test.ts` 8/8.
+- AI layer: mock-model e2e scripts (AI SDK `MockLanguageModelV3`, local DB, no real keys) — 32/32 (lanes, policy, budget holds, failed-parse billing, cache rule, jobs, continuation); deletion 8/8.
+- MCP over curl against local: initialize, tools/list, whoami, list_applications, 401/405; add_application → an assistant task → start/finish with schema validation → match score 6.1; propose_resume_changes 2 proposed / 1 dropped (ungrounded number).
+- Browser (in-app pane, `dev@hiretrail.local`): My AI light/dark/phone; Admin AI Map · Rules · Spend; Connectors; Applications fit section; Studio proposals accept; Admin Dashboard, Users, Settings. Toasts: each tone, a stack of three collapsed and fanned out, loading → success in place, Undo action, light mode, 375 px phone. Map reset: two choices made → Reset → all on the admin default → Undo → both back (checked via `GET /api/ai/me`).
+- NOT verified: any real provider call (no real keys used); the Gmail OAuth round trip; MCP from a real Claude Code client; the toast swipe on a real touch screen; reduced-motion toasts; prod.
+
+### Sharp edges
+- **Feature ids contain dots** — Mongo `$set: { "features.resume.tailor": … }` nests the path. Feature rules are an array keyed by `feature`.
+- **`model` is a Mongoose Document method** — the route field is `modelId`.
+- Vite dev: importing a changed module by its bare URL from devtools loads a second instance — use the `?t=` URL from `performance.getEntriesByType("resource")` to reach the app's toast store.
+- A ResizeObserver started in an effect dies under StrictMode's double mount — own it in a callback ref (the AI map, the toast cards).
+
+---
+
 ## 2026-10-04 — Landing round 3: an audit, a font, and the moves between hero and footer
 
 Owner: audit the landing by code and visuals, research the best sites, "apply your brains in between" (hero and footer stay); "if something you decided looks cheap now, rethink it". Approved all eight proposed moves, one shipped font, no signature (the MK monogram instead). Decisions: **Revamp.md → "Landing round 3"**.

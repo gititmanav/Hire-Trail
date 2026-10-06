@@ -1,6 +1,6 @@
 # handoff.md — for the next session
 
-_Last updated: 2026-10-04 — landing round 3 (Inter, the card-becomes-the-page dive, the light sweep, streaming / ⌘K / theme wipe, progress, receipts, hand-off footer, og:image), on master._
+_Last updated: 2026-10-05 — the AI revamp (AI layer, My AI, Admin AI, MCP, Connectors, admin cleanup, account deletion, extension 1.5.0), one toast system, and AI map "Reset to defaults" — on `master`, pushed._
 
 ## Current state
 
@@ -10,14 +10,23 @@ _Last updated: 2026-10-04 — landing round 3 (Inter, the card-becomes-the-page 
 - **On `master` (pushed, 2026-09-26):** the Calendar revamp, the row-highlight fix, the Back-to-HireTrail fix and the full Filters Reset — BUILD_JOURNAL "2026-09-26", Revamp.md "2026-09-26 — Calendar revamp".
 - **Also on `master`:** long menus scroll inside a 360px panel with the search pinned (shared `ui/Menu`); Dashboard Company/Stage filters show counts (5a08f5c — Revamp.md "2026-09-25 (late) — Dashboard filter menus").
 - **Also on `master` (pushed):** landing round 3 — BUILD_JOURNAL "2026-10-04", Revamp.md "2026-10-04 — Landing round 3".
+- **On `master` (pushed, 2026-10-05):** the toast system (1f74771), the AI revamp in 14 slices (c6fe98d … 74ee7e1: AI core, endpoints, features, inbox, MCP, account deletion, admin API, boot wiring, My AI, Admin, Connectors, the app's AI surfaces, deletion + legal + landing, extension 1.5.0) and the map reset (000bf25) — BUILD_JOURNAL "2026-10-05", Revamp.md "2026-10-05 — AI revamp" (Built / Added). The slices were split from one working tree: the tip builds; the commits in between aren't each guaranteed to (the toast commit was checked on its own and does).
 
 ## Ship blockers — land these before `master` goes to `main`
 
-The landing makes three claims by owner decision; the owner is building what backs them. Until they land, the page over-promises:
+1. **JSON export** — the landing (FAQ, "And everything else" → Import, the Import vignette) says "CSV or JSON". Export is CSV only (applications, contacts) on `/import-export`, and since the admin cleanup removed Backups, JSON exists nowhere. Build a user-facing JSON export or change the copy.
+2. ~~"40+ AI providers"~~ — done 2026-10-05: the landing says 8 providers + your assistant, which is what `services/ai/providers.ts` ships.
+3. ~~Account deletion removes everything~~ — done 2026-10-05: `services/account/deletion.ts purgeUser` erases every user collection, Cloudinary files, revokes Gmail, ends sessions (Outlook is hidden; its tokens are cleared).
 
-1. **JSON export** — the landing (FAQ, "And everything else" → Import, the Import vignette) says "CSV or JSON". Today export is CSV only (applications, contacts) on `/import-export`; JSON exists only in Admin backups.
-2. **"40+ AI providers"** — hero facts row, the comparison table, "Your AI". The built-in BYOK catalog has 11 providers (`backend/src/models/AIProviderConfig.ts`, `services/ai/catalog.ts`); the gateway's public model list has 38 model makers today. Also confirm BYOK works in prod (it needed paid gateway credits in July).
-3. **Account deletion removes everything** — promises ("Gone when you say"), FAQ, Privacy §7. `DELETE /auth/me` (`backend/src/routes/auth.ts` ~492) skips `AIProviderConfig` (encrypted keys), `ResumeDocument`, `EmailScanJob` / `EmailScanCandidate` (sender, subject, snippet), `AiUsage`, and Cloudinary resume files; Outlook tokens are cleared in our DB but not revoked at Microsoft (the Graph scopes we hold can't revoke).
+## Before the AI revamp goes to prod (owner)
+
+- ~~`ENCRYPTION_KEY`~~ — set in Vercel's env (owner, 2026-10-05). Never change it without re-encrypting: AI keys and Gmail tokens are AES-GCM under it.
+- **Vercel plan + function duration** — job steps budget min(200 s, 70% of `FUNCTION_MAX_DURATION_S`); the default assumes 300 s (Hobby with Fluid compute). If prod allows less, set `FUNCTION_MAX_DURATION_S`.
+- **`API_PUBLIC_URL`** — the public origin of the API, for job self-continuation (falls back to the `GOOGLE_CALLBACK_URL` origin). No cron is needed: due deletions and stuck jobs are swept at boot, hourly on `/auth/me`, and on status reads.
+- **Add a platform key in Admin → AI → Map** after deploy (the boot migration copies the old admin default key if one exists — check it shows up and passes its health check). Included AI does nothing without one.
+- **Extension 1.5.0** — `frontend/public/extension.zip` is repacked; publish it on the Chrome Web Store.
+- **Provider / Gmail logos** — the map uses neutral glyphs; the official marks would come from Iconify (needs your OK to fetch).
+- Press **Admin → Settings → Reset demo** after deploy (was "Run seed") so the demo account gets the rolling window.
 
 ## Immediate next step
 
@@ -25,9 +34,9 @@ The landing makes three claims by owner decision; the owner is building what bac
 
 1. **Owner hand-check in a visible browser and on a real phone** (the in-app pane stayed hidden, so real frame timing was never seen; phones were emulated): scroll the whole landing on a laptop and on an iPhone + an Android — the story (rise → dock, the three beats, the dive), the theme dock, the word list, the sign-in bottom sheet; scroll far enough for Safari's toolbars to tuck away (no strip under a white chapter); rotate the phone once. Safari + Firefox. Reduced motion should keep the fades and drop every move.
 2. **Landing round 3 in a real browser** — Chrome, Safari 26+ (the headings' sweep runs on scroll timelines), Firefox (sweep falls back to plain ink), Windows/Android (the Inter font); the dive (pick Dark → lift → grow), ⌘K, the theme wipe, the founder sweep, the closing beams, and the footer rising over the last ask. Frames so far came from headless Chrome only. If the share image needs refreshing after copy changes, `frontend/public/og.jpg` is a 1200×630 capture of the hero.
-3. **Privacy / Terms facts** (wording untouched — owner's text): `hiretrail.vercel.app` → the live domain; the Outlook revocation claim; "all associated data" (ship blocker 3).
+3. **Terms** still names `hiretrail.vercel.app` (`pages/Legal/Terms.tsx` §1) — swap in the live domain when you confirm it. (Privacy was rewritten with the AI revamp.)
 4. Earlier owner calls still open: Dark mirrors charcoal (keep?), "Table" vs "Minimal", tag chips 4.2:1, white on `bg-amber-600` 3.2:1 (Revamp.md → "Noted, not changed").
-5. Queued engineering: the six hand-rolled switches → `ui/Toggle`; the other hand-rolled overlays → `ui/Modal`; `GET /deadlines` status tabs need the viewer's zone (a picked day counts as overdue from 00:00 UTC on its due day — with the Deadlines revamp); analytics bucket applied dates with Date math (Dashboard revamp); drop the old `{userId, completed}` Deadline index in Atlas; press Admin → "Run seed" on prod after deploy so the demo gets the rolling window.
+5. Queued engineering: the six hand-rolled switches → `ui/Toggle`; the other hand-rolled overlays → `ui/Modal`; `GET /deadlines` status tabs need the viewer's zone (a picked day counts as overdue from 00:00 UTC on its due day — with the Deadlines revamp); analytics bucket applied dates with Date math (Dashboard revamp); drop the old `{userId, completed}` Deadline index in Atlas; `FeedbackModal` hand-rolls a `fixed inset-0` overlay (→ `ui/Modal`); the Classic application card clips its left edge at phone width (seen at 375 px, 2026-10-05).
 
 ## How the landing works (short)
 
@@ -46,6 +55,18 @@ The landing makes three claims by owner decision; the owner is building what bac
 - `frontend/src/utils/calendarGrid.ts` is the pure engine (tested: `TZ=… node --test src/utils/dates.test.ts src/utils/calendarGrid.test.ts`). UI in `pages/Applications/views/calendar/`: `CalendarView` (scale, URL anchor `?d=`, data, drag, popovers), `MonthView` / `WeekView` / `DayView`, `parts.tsx` (chip + hover card), `DeadlinePopover`, `DayPeek`, `TitlePicker`, `useCalendarDrag`, `data.ts` (queries + optimistic mutations with Undo).
 - Shared: `ui/MonthGrid` (every month grid), `ui/CalendarPicker` (DateInput + the title picker), `components/DeadlineFormModal`, `widgets/DashboardCalendarCard`.
 
+## How the AI layer works (short)
+
+- One door: `services/ai/gateway.ts` `runAiObject` / `runAiText` — lane (`routing.ts decideLane`) → route + key → cache (public posting reads only) → budget hold (`ledger.ts`) → the provider adapter with a deadline → settle → key health. Features live in `services/ai/features/`, each registered in `registry.ts`.
+- Long work = an AI job (`jobs.ts`): `registerJobHandler(kind, …)`, steps that save state and continue themselves, revived on status reads; assistant-lane jobs wait for the person's MCP client (`waiting_assistant`).
+- Policy = `AiSettings` (Admin → AI → Rules); a person's choices = their `AiRoute`s (Settings → AI; "Reset to defaults" deletes them). Copy for every refusal = `errors.ts`; the client acts on `code`.
+- MCP = `routes/mcp.ts` + `services/mcp/server.ts`; tokens in Settings → AI → Your assistant.
+- Test with the mock model (`MockLanguageModelV3`) on the local DB — never real keys.
+
+## Toasts (short)
+
+- `components/ui/toast.ts` is the API and the store (timers, ids, the three-toast limit); `ui/Toaster.tsx` draws the stack; CSS under "Toasts" in `App.css`. Words only: title, optional description, one action. `toastWithUndo` for reversible changes.
+
 ## How the theme works (short)
 
 - Presets live only in `App.css` (`:root` / `.dark`; `.theme-light` / `.theme-dark` for previews). Palette classes read `--palette-*` (Tailwind's exact values).
@@ -55,7 +76,7 @@ The landing makes three claims by owner decision; the owner is building what bac
 
 ## Still open from earlier sessions
 
-- Gmail OAuth roundtrip on prod should land on `/settings/mailboxes?gmail=success`.
+- Gmail OAuth roundtrip on prod should land on `/settings/connectors?gmail=success`.
 - Create/edit a real application, deadline, and contact end-to-end on prod.
 - The old `{userId, archived}` index still exists in Atlas — drop it manually.
 - Prod soak for the 500 fix; Board drag with a real mouse; Export CSV; real account with JDs.

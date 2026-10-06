@@ -381,7 +381,7 @@ Owner: after the FAQ the page looked finished (a screen of white); after the div
 - `utils/dates.ts` (the only day↔Date conversions: `parseYmd`, `formatYmd`, `dayOf`, `addDaysYmd`, `diffDaysYmd`, week helpers, locale week start) and `utils/calendarGrid.ts` (6×7 month grids, rank order, measured overflow, repeat ghosts, drag rules, anchor carry) — both pure, tested under several time zones.
 - `ui/MonthGrid` (the one month grid) and `ui/CalendarPicker` (days → months → years, full keyboard). `DateInput` is rebuilt on the picker (same value contract; now follows the locale week start and drills to months/years).
 - The Calendar (`views/calendar/`): Month (measured "N more" → day peek over the cell; hover ＋; double-click to add; roving keyboard focus), Week (seven columns, two-line chips, no overflow), Day (a list; today pins every overdue deadline first; complete / reschedule / ⋯ on the row; a week strip on phones). Chips: deadlines = type glyph + **type** · company (overdue = destructive, the one urgency signal); records = stage dot + company (stage entries add "→ Interview"); repeat ghosts dashed at 45%. Hover card (above); clicking a deadline opens its popover (complete + Undo, reschedule, edit, open application, delete with the one light confirm); clicking a record opens the application (J/K and Back work). Pointer-events drag (4 px threshold; the preview is the truth; Esc cancels; an applied date can't move into the future; stage entries and ghosts don't drag). Optimistic edits with Undo and rollback. Paging slides the keyed grid (no out-in, reduced-motion safe); neighbours prefetched; first load is a calendar-shaped skeleton. The anchor lives in the URL (`?d=`); the scale is remembered. Phones: Month is dots (deadlines a dash, records a dot — Rejected is red too), a tap opens Day.
-- Shell: the shared search + Filters now apply in Calendar view (Stage included); Display options → **Show: Deadlines · Applied · Stage changes**. `Layout`/`AdminLayout` let the calendar own its height (no page scroll). `/admin/calendar` = `pages/Admin/AdminCalendar.tsx`.
+- Shell: the shared search + Filters now apply in Calendar view (Stage included); Display options → **Show: Deadlines · Applied · Stage changes**. `Layout` lets the calendar own its height (no page scroll). (`/admin/calendar` was removed in the 2026-10-05 admin revamp — admins use their own Applications calendar.)
 - Dashboard: the FullCalendar mini widget → `widgets/DashboardCalendarCard` (MonthGrid; hover a day for its list; ‹ Today › pages the card only).
 - Shared deadline dialog (`components/DeadlineFormModal`) for the Deadlines page and the calendar; `DeadlineTypeIcon` (offer decision is a handshake, not a check that reads as "done").
 - `SegmentedControl` has the sliding pill everywhere (measured; off under reduced motion). `HoverCard` gained `className` / `disabled` / `closeOnClick`.
@@ -401,7 +401,7 @@ Owner: after the FAQ the page looked finished (a screen of white); after the div
 - **Deadlines page tabs are still bucketed on the server by instants** (`dueDate >= now`): a picked day counts as "overdue" from 00:00 UTC on its own due day (7 pm the evening before in Chicago). The fix needs the viewer's zone on `GET /deadlines` — do it with the Deadlines page revamp.
 - Analytics (`dashboardInsights`, `stageStats`, `companyAggregates`) still bucket applied dates with Date math — a picked day can land in the neighbouring week for US users. Low impact; with the Dashboard revamp.
 - The old `{userId, completed}` Deadline index stays in Atlas until dropped by hand (Mongoose doesn't drop indexes).
-- The rolling demo window reaches prod only when an admin presses "Run seed".
+- The rolling demo window reaches prod only when an admin presses Admin → Settings → "Reset demo" (was "Run seed").
 - Applications past the 1,000-document cap were never on the old calendar either; the new one is range-bounded and has no cap.
 
 ## 2026-09-26 (later) — Table columns: a reorderable dropdown
@@ -438,3 +438,62 @@ Owner: after the FAQ the page looked finished (a screen of white); after the div
 ### Noted, not changed
 - Real-browser feel (Safari's scroll timelines, Firefox's plain-ink fallback, Windows/Android font rendering) and a real phone are still to be seen — the pane was hidden; frames came from headless Chrome.
 - The three owner-held claims are unchanged (handoff "Ship blockers"); the "Gone when you say" receipt shows the real delete path, but the deletion itself is still incomplete.
+
+---
+
+## 2026-10-05 — AI revamp: the AI layer, My AI, MCP, Connectors, Admin
+
+Plan of record for rebuilding HireTrail's AI end to end. Audit + blueprint: the AI audit (session of 2026-10-04) and the "HireTrail AI Blueprint" artifact (claude.ai/artifact/MSLLTJJHxkUSayMEgT1QtX). Reference implementation (read-only): Sora — `shared/ai.ts`, `server/utils/ai/*`, `app/components/app/AiMapDialog.vue`, `server/utils/mcp-server.ts`, `app/pages/settings/connectors.vue`.
+
+### Decided (owner, 2026-10-05)
+1. **The blueprint's short answer, all of it.** Rebuild the AI layer in Sora's shape and keep HireTrail's plumbing (AI SDK, retries, caching, encryption). Long work becomes saved, resumable jobs — no new server, **no Cloud Run worker**. Three lanes per feature — **Included** (HireTrail pays), **My key** (the user's provider key), **My assistant** (the user's own Claude/Gemini over MCP) — plus Off. Free Gemini keys allowed with a privacy line, never for email. The laptop stays out of production.
+2. **Drop the Vercel AI Gateway.** Our own adapter per provider: Google Gemini, Anthropic, OpenAI, xAI (Grok), plus DeepSeek, Mistral, Groq, OpenRouter.
+3. **The AI budget is configured in Admin** (monthly cap, per-user allowance, per-feature included limits) — nothing hardcoded.
+4. **Admin governs the AI map.** Turn the user map off; force a lane per feature (e.g. "tailoring needs your own key"); limit which lanes a feature may use; kill switches; per-user overrides. Engineering to extend this to everything that needs a control.
+5. **MCP, built properly, Claude Code first.** OpenAI/ChatGPT only if it comes cheap.
+6. **Connectors page like Sora's** (Settings → Connectors). Gmail only for now; the catalog is data so more can follow.
+7. **The AI map is Sora's web**: the key's provider mark at the centre, features orbiting it on lines; drag a feature onto another key's cluster to move it. For users (their keys + Included + assistant + off) and for the admin (platform keys).
+8. **Admin panel: full revamp** — remove pages that don't earn their place, add AI configuration and budget.
+9. **One score:** the deterministic 0–10 match score is the only number; the AI's read becomes words (strengths, gaps, what to change). The A–F grade goes.
+10. **Studio rewrites are proposals** — a diff the user accepts per change (or all); nothing lands until accepted.
+11. **Inbox: review queue only.** The old auto-apply pipeline goes; every scan lands in the review queue. Outlook is hidden until it joins the queue.
+12. **Account deletion stays possible but deliberately a little harder** (retention).
+13. **Trust & legal:** engineering may update Privacy and Terms as the product needs.
+14. Owner-held: the Vercel plan (owner checking — design for Hobby's 300 s), the production `ENCRYPTION_KEY` (owner checks; remind at the end).
+
+### Engineering decisions
+- **AI SDK stays, on the v6 line** (latest v6 patch + the `ai-v6` provider packages). `generateObject` is deprecated in v6 → `generateText` + `Output.object`. The v7 upgrade is a separate, later task.
+- **Model ids are never trusted from memory.** The landscape moves monthly (on 2026-10-05 Gemini 2.5 is legacy-only, so today's defaults are already stale). Every key lists its live models; curated defaults are hints validated against that list at add time, with a tier heuristic as fallback.
+- **Prices never read as free.** Price = OpenRouter's public catalog (464 models, all eight providers' models, cached 6 h) → curated table → the provider's most expensive known model. Stamped at write time.
+- **The registry** (`services/ai/registry.ts`) is the one list of AI features: id, label, one-line description, icon, tier, time budget, lanes it may use, default lane, personal-data class (posting / resume / email), whether it runs in the background, prompt version. Admin pages, the maps, the ledger and MCP all derive from it. Unknown feature id = throw.
+- **One door:** `runAiTask(user, featureId, input)` → policy (global/feature/user override) → lane → route (key + model) → budget reservation → adapter call with a time budget → normalized error code → ledger settle → key health stamp. Nothing else imports an SDK.
+- **Error vocabulary:** one set of codes with one copy table (`services/ai/errors.ts`); the client never parses provider text.
+- **Ledger** (`AiUsage`, extended in place): every call, refusal, cache hit and failure — feature, lane, key, model, tokens, latency, ok, error code, cost, prompt version, job id. Reserve-then-settle for Included spend so parallel calls can't overshoot the cap.
+- **Jobs** (`AiJob`): queued → running (lease + heartbeat) → succeeded / failed / waiting_for_assistant; started with `waitUntil`; a status read revives an expired lease; long work (inbox scan) runs in ≤60 s steps that start the next step themselves.
+- **Keys** (`AiKey`, replaces `AIProviderConfig`): platform keys (admin) and user keys, AES-GCM, last4, health (`lastCheckedAt`, `lastError`), tested on save, rotate, check now. One-time migration copies supported legacy keys and the admin default key.
+- **Routes** (`AiRoute`): platform route per feature + a platform default (Sora's asymmetry: the default lends its key, the feature keeps its own model); user route per feature (lane + key + model).
+- **MCP:** `/api/mcp`, stateless Streamable HTTP with JSON responses (serverless-safe); personal tokens (`ht_mcp_…`, SHA-256 at rest, scoped, shown once, revocable, expiring) — works with Claude Code, Gemini CLI and Claude.ai's fixed-token connectors; OAuth later. Tools share service functions with the REST routes. Assistant-lane work waits in the job queue for the assistant to claim.
+
+### Build order (each slice ships on its own, gates green)
+1. AI core: registry, adapters ×8, errors, pricing, keys, routes, policy, budget, ledger, jobs, gateway; every current AI call moved onto it; the gateway removed; the Phase-0 bugs (waitUntil, cache key, double save, parse-failure-as-success, drawer side effect, mock fallbacks) fixed on the way.
+2. Admin AI: platform keys, the admin map, policies + budget, usage lens, MCP settings.
+3. My AI (Settings → AI): user keys, the user map, allowance, assistant connect.
+4. MCP server, tokens, tools, prompts, assistant work queue.
+5. Connectors page (Gmail), chunked scan jobs, the old pipeline removed, OAuth state fixed.
+6. Admin panel revamp (pages audited; keep / merge / remove), per-user AI overrides.
+7. Feature rebuilds: posting reader (cut, don't copy), fit (one score), Studio proposals with grounding, profile import/merge.
+8. Account deletion (scheduled, re-authenticated, complete purge), Privacy and Terms.
+9. Extension cleanup; docs (CLAUDE.md AI rules, contracts, journal, handoff).
+
+### Built (2026-10-05, on `master`)
+All nine slices. Where the build differs from the plan above:
+- **The door is two functions**, `runAiObject` / `runAiText` (`services/ai/gateway.ts`), not one `runAiTask` — structured answers and prose have different retry/parse rules.
+- **Job steps are up to 200 s** (min(200 s, 70% of `FUNCTION_MAX_DURATION_S`)), not 60 s — fewer hand-offs on Hobby's 300 s; a step past its deadline saves state and continues through a signed internal call.
+- **Only public posting reads are cached.** A content-keyed cache held parsed resumes beyond account deletion; resumes and email are never cached now.
+- **Admin pages removed:** Calendar, Invites, Content, Email templates, Storage, Backup, Seed data (→ Settings → Reset demo, a true reset), AI Providers (→ AI); the unlinked Gmail and Platform analytics pages; the backend routes for performance, integrations and roles (Users & Roles → Users). Kept: Dashboard (rebuilt; excludes demo + deleted accounts), Users, Announcements, Broadcasts, Notifications, Mailboxes (30-day scan stats), Feedback, Bug reports, AI (Map · Rules · Spend), Settings, Audit logs.
+- **Admin backups were the only JSON export** — gone with the Backups page. Ship blocker 1 (the landing's "CSV or JSON") is now fully unbacked until a user-facing JSON export lands.
+
+### Added (owner, same day)
+- **One toast system.** Owner: a stacked toast that rises from the bottom, used everywhere, uniformly (reference: Sonner-style rich colours — default / success / error / warning). Built our own (`components/ui/toast.ts` + `ui/Toaster.tsx`) instead of a library: bottom-right, the newest in front, older ones tucked behind (narrower, peeking 10 px), hover or keyboard focus fans the stack out and holds the timers, swipe down to close, at most three. Title + optional description + one action; tone colours are palette classes (emerald / amber / red, 700 on light, 400 on dark for contrast). react-hot-toast removed; every call site (60 files) moved; the hand-built ones (Undo, "Open AI settings", the deadline follow-up prompt, the Dashboard drag tip) are plain toasts now.
+- **AI map → "Reset to defaults".** Owner: the default is what the admin set in Admin → AI → Rules. The button (top-right of the map, only when the person has a choice of their own and may make choices) deletes their per-feature routes; their default key stays (it's theirs, not a default). Undo re-applies the choices as they were shown.
+
