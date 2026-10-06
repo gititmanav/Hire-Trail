@@ -11,7 +11,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, CloudOff, Download, Loader2 } from "lucide-react";
 import toast from "../../components/ui/toast.ts";
-import { readStudioSession, writeStudioSession, useStudioDocument } from "./useStudioDocument.ts";
+import { readStudioSession, writeStudioSession } from "./useStudioDocument.ts";
 import GapStep from "./steps/GapStep.tsx";
 import AlignStep, { defaultAlignConfig, buildAlignInstruction, type AlignConfig } from "./steps/AlignStep.tsx";
 import ReviewStep from "./steps/ReviewStep.tsx";
@@ -131,6 +131,25 @@ export default function StudioWizard({
           {downloading ? "Generating…" : "Download"}
         </button>
       </div>
+
+      {/* Suggestions waiting (from HireTrail's AI or the person's assistant)
+          open the Review step directly — they shouldn't hide behind Step 1. */}
+      {step !== "review" && studio.proposals.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setStep("review")}
+          className="w-full mb-5 flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3 text-left hover:bg-control/40 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <span className="text-sm text-foreground">
+            {studio.proposals.length} suggested rewrite{studio.proposals.length === 1 ? "" : "s"}
+            {studio.proposals.every((p) => p.source === "assistant") ? " from your assistant" : ""} waiting for you
+          </span>
+          <span className="text-xs font-semibold text-foreground shrink-0 inline-flex items-center gap-1">
+            Review {studio.proposals.length === 1 ? "it" : "them"}
+            <ArrowRight size={11} strokeWidth={2.5} aria-hidden />
+          </span>
+        </button>
+      )}
 
       {/* Stepper */}
       <div className="flex items-center gap-2 mb-6">

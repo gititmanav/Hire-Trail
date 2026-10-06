@@ -5,17 +5,69 @@
  *   • match-score gauge (0–10) that animates before→after on each rewrite
  *   • contextual suggestion chips (doc.suggestions) → preset+scope rewrite
  *   • section targeting: the active target chip (chosen from the preview) +
- *     a free-text instruction → scoped ai-rewrite (defaults to scope "all")
- *   • "See What's Changed": the changes[] changelog from every rewrite
+ *     a free-text instruction → scoped rewrite proposals (scope "all" default)
+ *   • "Suggested rewrites": proposals, before → after with the reason; the
+ *     person accepts or dismisses each (or all) — nothing changes until then
+ *   • "See what's changed": what was accepted
  *   • Undo/revert
  */
 import { useEffect, useState } from "react";
-import { ArrowRight, RotateCcw, Sparkles, Target, Undo2, X } from "lucide-react";
+import { ArrowRight, Check, RotateCcw, Sparkles, Target, Undo2, X } from "lucide-react";
 import AiPulse from "../../../components/AiIndicator/AiPulse.tsx";
+import Button from "../../../components/ui/Button.tsx";
 import MatchScoreGauge from "./MatchScoreGauge.tsx";
 import { useDemoGate } from "../../../hooks/useDemoGate.tsx";
 import type { StudioController } from "../useStudioDocument.ts";
-import type { AISuggestion } from "../../../utils/resumeDocument.ts";
+import type { AIProposal, AISuggestion, ResumeDocument } from "../../../utils/resumeDocument.ts";
+
+/** Where a proposal's text lives, in words ("Engineer · Stripe", "Summary"). */
+function whereIs(doc: ResumeDocument, p: AIProposal): string {
+  for (const s of doc.sections) {
+    for (const e of s.entries) {
+      if (p.kind === "summary" ? e.id === p.path : e.bullets.some((b) => b.id === p.path)) {
+        if (s.type === "summary") return "Summary";
+        return [e.title, e.org].filter(Boolean).join(" · ") || s.title;
+      }
+    }
+  }
+  return "Your resume";
+}
+
+function ProposalItem({ p, doc, onAccept, onReject, disabled }: {
+  p: AIProposal;
+  doc: ResumeDocument;
+  onAccept: () => void;
+  onReject: () => void;
+  disabled: boolean;
+}) {
+  return (
+    <li className="py-3 first:pt-0 last:pb-0">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[11.5px] font-medium text-muted-foreground truncate">
+          {whereIs(doc, p)}
+          {p.source === "assistant" && <span className="ml-1.5 text-muted-foreground/80">· from your assistant</span>}
+        </p>
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            type="button"
+            onClick={onReject}
+            disabled={disabled}
+            aria-label="Dismiss this suggestion"
+            className="w-7 h-7 grid place-items-center rounded-md text-muted-foreground hover:text-foreground hover:bg-control disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <X size={14} strokeWidth={2} aria-hidden />
+          </button>
+          <Button size="sm" onClick={onAccept} disabled={disabled} className="h-7 px-2.5">
+            <Check size={13} strokeWidth={2.25} aria-hidden />Accept
+          </Button>
+        </div>
+      </div>
+      <p className="mt-1.5 text-[12.5px] leading-relaxed text-muted-foreground line-through decoration-red-400/50">{p.before}</p>
+      <p className="mt-1 text-[13px] leading-relaxed text-foreground">{p.after}</p>
+      {p.reason && <p className="mt-1 text-[11.5px] text-muted-foreground">{p.reason}</p>}
+    </li>
+  );
+}
 
 export default function AIRewriteTab({
   studio,
@@ -24,7 +76,10 @@ export default function AIRewriteTab({
   studio: StudioController;
   seedInstruction?: string;
 }) {
-  const { doc, target, clearTarget, runRewrite, rewriting, changes, scoreAnim, canUndo, undo } = studio;
+  const {
+    doc, target, clearTarget, runRewrite, rewriting, changes, scoreAnim, canUndo, undo,
+    proposals, settling, acceptProposals, rejectProposals,
+  } = studio;
   const { requireRealAccount } = useDemoGate();
   const [instruction, setInstruction] = useState(seedInstruction ?? "");
 
@@ -57,7 +112,7 @@ export default function AIRewriteTab({
         <div className="min-w-0 flex-1">
           <h3 className="text-sm font-semibold text-foreground">Match score</h3>
           <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-            Apply a suggestion or describe a tweak — the score updates as your resume gets closer to the role.
+            Ask for rewrites, keep the ones you like — the score updates as your resume gets closer to the role.
           </p>
           {canUndo && (
             <button
@@ -76,7 +131,7 @@ export default function AIRewriteTab({
           <h3 className="text-sm font-semibold text-foreground inline-flex items-center gap-1.5">
             <Target size={14} strokeWidth={2} className="text-primary" /> Edit with AI
           </h3>
-          {rewriting && <AiPulse size={14} label="Rewriting…" labelSize={12} />}
+          {rewriting && <AiPulse size={14} label="Suggesting rewrites…" labelSize={12} />}
         </div>
 
         {/* Active target chip (chosen by hovering a section in the preview) */}
@@ -111,16 +166,48 @@ export default function AIRewriteTab({
             className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg disabled:opacity-50"
           >
             <Sparkles size={15} strokeWidth={2} />
-            {rewriting ? "Working…" : "Edit With AI"}
+            {rewriting ? "Working…" : "Suggest rewrites"}
           </button>
         </div>
       </div>
+
+      {/* Suggested rewrites — nothing changes until one is accepted */}
+      {proposals.length > 0 && (
+        <div className="bg-card border border-border rounded-xl p-4">
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <div className="min-w-0">
+              <h3 className="text-sm font-semibold text-foreground">
+                {proposals.length} suggested rewrite{proposals.length === 1 ? "" : "s"}
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">Nothing changes until you accept. Numbers are only ever ones already in your resume.</p>
+            </div>
+            {proposals.length > 1 && (
+              <div className="flex items-center gap-1.5 shrink-0">
+                <Button size="sm" variant="ghost" onClick={() => void rejectProposals("all")} disabled={settling}>Dismiss all</Button>
+                <Button size="sm" variant="primary" onClick={() => void acceptProposals("all")} loading={settling}>Accept all</Button>
+              </div>
+            )}
+          </div>
+          <ul className="divide-y divide-border">
+            {proposals.map((p) => (
+              <ProposalItem
+                key={p.id}
+                p={p}
+                doc={doc}
+                disabled={settling}
+                onAccept={() => void acceptProposals([p.id])}
+                onReject={() => void rejectProposals([p.id])}
+              />
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Suggestion chips */}
       {suggestions.length > 0 && (
         <div className="bg-card border border-border rounded-xl p-4">
           <h3 className="text-sm font-semibold text-foreground mb-1">Suggested improvements</h3>
-          <p className="text-xs text-muted-foreground mb-3">One click applies the change and updates your score.</p>
+          <p className="text-xs text-muted-foreground mb-3">One click suggests rewrites — you choose what to keep.</p>
           <div className="flex flex-wrap gap-2">
             {suggestions.map((s) => (
               <button
@@ -146,7 +233,7 @@ export default function AIRewriteTab({
           <h3 className="text-sm font-semibold text-foreground">See what's changed</h3>
         </div>
         {changes.length === 0 ? (
-          <p className="text-xs text-muted-foreground mt-1">No AI edits yet. Your changelog will appear here.</p>
+          <p className="text-xs text-muted-foreground mt-1">Nothing accepted yet. What you accept appears here.</p>
         ) : (
           <ul className="mt-2 space-y-2.5">
             {changes.map((c, i) => (

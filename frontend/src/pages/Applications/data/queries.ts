@@ -242,7 +242,7 @@ export function useReanalyzeMutation() {
       const snap = snapshot(qc, id);
       patchEverywhere(qc, id, (a) => ({
         ...a,
-        fit: { sessionId: a.fit?.sessionId ?? "", status: "processing", fitScore: 0, fitGrade: "", matchedCount: 0, missingCount: 0, topMatched: [] },
+        fit: { sessionId: a.fit?.sessionId ?? "", status: "processing", score: null, matchedCount: 0, missingCount: 0, topMatched: [] },
       }));
       return { snap };
     },

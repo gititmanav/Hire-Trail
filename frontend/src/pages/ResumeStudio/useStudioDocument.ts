@@ -6,8 +6,10 @@
  * Responsibilities:
  *   - load the document (+ keyword-gap) for a resume
  *   - debounced autosave with a status indicator (PUT /resumes/:id/document)
- *   - AI rewrite (POST .../ai-rewrite): swap doc, highlight changedPaths green,
- *     bump the score (before→after), append to the "What's Changed" log
+ *   - AI rewrites as proposals (POST .../ai-rewrite): nothing changes until the
+ *     person accepts; accepting applies on the server (re-checked against the
+ *     current text), highlights what moved, bumps the score before→after and
+ *     appends to the "What's changed" log
  *   - undo / revert (restore the prior doc; best-effort POST .../revert)
  *   - the active AI target (section/entry chosen from the preview)
  *   - the non-destructive "fit to one page" density toggle
@@ -16,10 +18,11 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import toast from "../../components/ui/toast.ts";
-import { resumeStudioAPI } from "../../utils/studioApi.ts";
+import { resumeStudioAPI, toDottedPaths } from "../../utils/studioApi.ts";
+import { aiErrorCode, aiErrorFixableInSettings } from "../../utils/aiErrors.ts";
 import {
   cloneDoc, normalizeOrders,
-  type ResumeDocument, type AIChange, type AIRewriteRequest, type GapAnalysis, type RewriteScope,
+  type ResumeDocument, type AIChange, type AIProposal, type AIRewriteRequest, type GapAnalysis, type RewriteScope,
 } from "../../utils/resumeDocument.ts";
 
 export type SaveState = "idle" | "saving" | "saved" | "error";
@@ -43,8 +46,8 @@ function targetKey(scope: RewriteScope): string | null {
 
 export interface GapError {
   message: string;
-  /** True when the failure is a credentials/credit issue → show "Add a key". */
-  isKeyIssue: boolean;
+  /** The fix is in Settings → AI (no key, allowance used, feature off…). */
+  fixInSettings: boolean;
 }
 
 /* ---------- per-tab session persistence (survives reloads/tab discards) ---------- */
@@ -81,15 +84,13 @@ export function writeStudioSession(resumeId: string, patch: StudioSessionState):
   }
 }
 
-/** Classify an analyze-gap failure for fail-in-place UX (message + whether to
- *  surface an "Add a key" CTA). */
+/** An analyze-gap failure for fail-in-place UX: the server's sentence, and
+ *  whether its fix lives in Settings → AI (decided by the error code). */
 function parseGapError(err: unknown): GapError {
-  const e = err as { response?: { status?: number; data?: { error?: unknown } }; message?: string };
-  const status = e?.response?.status;
+  const e = err as { response?: { data?: { error?: unknown; details?: { lane?: string } } } };
   const dataErr = e?.response?.data?.error;
-  const message = typeof dataErr === "string" ? dataErr : (e?.message || "Couldn't analyze the job description. Please try again.");
-  const isKeyIssue = status === 402 || /add (a |your )?(own )?key|no active key|api key|server key|rejected .*key|quota|credit|billing|exhausted|verification/i.test(message);
-  return { message, isKeyIssue };
+  const message = typeof dataErr === "string" && dataErr ? dataErr : "Couldn't check the job description. Please try again.";
+  return { message, fixInSettings: aiErrorFixableInSettings(aiErrorCode(err), e?.response?.data?.details?.lane) };
 }
 
 export function useStudioDocument(resumeId: string, initialJd: string, initialGap: GapAnalysis | null = null) {
@@ -133,6 +134,8 @@ export function useStudioDocument(resumeId: string, initialJd: string, initialGa
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
 
   const [rewriting, setRewriting] = useState(false);
+  const [proposals, setProposals] = useState<AIProposal[]>([]);
+  const [settling, setSettling] = useState(false);
   const [changedPaths, setChangedPaths] = useState<Set<string>>(new Set());
   const [changes, setChanges] = useState<AIChange[]>([]);
   const [scoreAnim, setScoreAnim] = useState<{ before: number; after: number } | null>(null);
@@ -145,6 +148,11 @@ export function useStudioDocument(resumeId: string, initialJd: string, initialGa
   const saveTimer = useRef<number | null>(null);
   const highlightTimer = useRef<number | null>(null);
   const skipNextSave = useRef(true);
+  // The latest document and whether an autosave is pending — accepting a
+  // proposal flushes first, so the server applies it to what's on screen.
+  const docRef = useRef<ResumeDocument | null>(null);
+  docRef.current = doc;
+  const savePending = useRef(false);
 
   /* ---------- initial load ---------- */
   useEffect(() => {
@@ -152,7 +160,7 @@ export function useStudioDocument(resumeId: string, initialJd: string, initialGa
     let cancelled = false;
     setLoading(true);
     resumeStudioAPI.getDocument(resumeId)
-      .then((d) => { if (!cancelled) { skipNextSave.current = true; setDoc(d); } })
+      .then((d) => { if (!cancelled) { skipNextSave.current = true; setDoc(d); setProposals(d.proposals ?? []); } })
       .catch(() => { if (!cancelled) toast.error("Could not load the resume document."); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
@@ -201,8 +209,10 @@ export function useStudioDocument(resumeId: string, initialJd: string, initialGa
     if (!doc || !resumeId) return;
     if (skipNextSave.current) { skipNextSave.current = false; return; }
     setSaveState("saving");
+    savePending.current = true;
     if (saveTimer.current) window.clearTimeout(saveTimer.current);
     saveTimer.current = window.setTimeout(async () => {
+      savePending.current = false;
       try {
         await resumeStudioAPI.saveDocument(resumeId, doc);
         setSaveState("saved");
@@ -237,54 +247,120 @@ export function useStudioDocument(resumeId: string, initialJd: string, initialGa
     });
   }, []);
 
-  /* ---------- AI rewrite ---------- */
+  /** Save now if an edit is waiting on the debounce. */
+  const flushSave = useCallback(async () => {
+    if (!savePending.current || !docRef.current) return;
+    if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    savePending.current = false;
+    await resumeStudioAPI.saveDocument(resumeId, docRef.current);
+    setSaveState("saved");
+    setLastSavedAt(new Date());
+  }, [resumeId]);
+
+  /** Take the server's document as the truth (it's already saved there). */
+  const adopt = useCallback((next: ResumeDocument) => {
+    skipNextSave.current = true;
+    setDoc(next);
+    setProposals(next.proposals ?? []);
+  }, []);
+
+  /* ---------- AI rewrite: propose, then accept ---------- */
   const runRewrite = useCallback(async (req: AIRewriteRequest) => {
     if (!doc) return;
     setRewriting(true);
-    const snapshot: HistorySnapshot = { doc: cloneDoc(doc), changes: [...changes] };
     try {
-      const result = await resumeStudioAPI.aiRewrite(resumeId, req, doc);
-      historyRef.current.push(snapshot);
-      setCanUndo(true);
-      skipNextSave.current = false; // persist the AI result via autosave
-      setDoc(result.document);
-      setChanges((prev) => [...result.changes, ...prev]);
-      setScoreAnim(result.score);
-
-      // transient green highlight
-      const paths = new Set(result.changedPaths);
-      setChangedPaths(paths);
-      if (highlightTimer.current) window.clearTimeout(highlightTimer.current);
-      highlightTimer.current = window.setTimeout(() => setChangedPaths(new Set()), 4500);
-
-      const delta = result.score.after - result.score.before;
-      toast.success(
-        delta > 0 ? `Rewrote ${result.changedPaths.length || "the"} item${result.changedPaths.length === 1 ? "" : "s"} · match ${result.score.before.toFixed(1)}→${result.score.after.toFixed(1)}`
-          : "Rewrite applied",
-      );
-    } catch (err) {
-      const e = err as { response?: { data?: { error?: string } }; message?: string };
-      const msg = e?.response?.data?.error || e?.message || "AI rewrite failed.";
-      toast.error(msg, { id: msg }); // same id as the interceptor's toast → no duplicate
+      const result = await resumeStudioAPI.propose(resumeId, req);
+      setProposals(result.document.proposals ?? result.proposals);
+      const n = result.proposals.length;
+      if (n) toast.success(`${n} suggested rewrite${n === 1 ? "" : "s"} — review ${n === 1 ? "it" : "them"} below`);
+      else if (result.dropped) toast("No rewrite passed the checks — each one added a number that isn't in your resume.", { duration: 6000 });
+      else toast("Nothing to change — this already reads well.");
+    } catch {
+      // The API layer's toast carries the reason (and the way to fix it).
     } finally {
       setRewriting(false);
     }
-  }, [doc, changes, resumeId]);
+  }, [doc, resumeId]);
+
+  const acceptProposals = useCallback(async (ids: string[] | "all") => {
+    const current = docRef.current;
+    if (!current) return;
+    const accepted = proposals.filter((p) => ids === "all" || ids.includes(p.id));
+    if (!accepted.length) return;
+    setSettling(true);
+    try {
+      await flushSave();
+      const snapshot: HistorySnapshot = { doc: cloneDoc(current), changes: [...changes] };
+      const result = await resumeStudioAPI.acceptProposals(resumeId, ids);
+      adopt(result.document);
+      if (result.applied.length) {
+        // Undo restores the server's snapshot from just before this accept —
+        // its version is one below the document's now (autosave may have
+        // moved the server past the version this tab loaded).
+        snapshot.doc.version = Math.max(1, (result.document.version ?? 1) - 1);
+        historyRef.current.push(snapshot);
+        setCanUndo(true);
+        const applied = accepted.filter((p) => result.applied.includes(p.id));
+        setChanges((prev) => [
+          ...applied.map((p) => ({
+            path: p.path,
+            summary: `${p.kind === "summary" ? "Rewrote the summary" : "Rewrote a bullet"}${p.reason ? ` — ${p.reason}` : ""}`,
+            before: p.before,
+            after: p.after,
+          })),
+          ...prev,
+        ]);
+        if (result.score) setScoreAnim(result.score);
+        setChangedPaths(new Set(toDottedPaths(result.document, applied.map((p) => p.path))));
+        if (highlightTimer.current) window.clearTimeout(highlightTimer.current);
+        highlightTimer.current = window.setTimeout(() => setChangedPaths(new Set()), 4500);
+        const s = result.score;
+        toast.success(
+          s && s.after !== s.before
+            ? `Applied ${result.applied.length} · match ${s.before.toFixed(1)} → ${s.after.toFixed(1)}`
+            : `Applied ${result.applied.length} rewrite${result.applied.length === 1 ? "" : "s"}`,
+        );
+      }
+      if (result.stale.length) {
+        toast(`${result.stale.length} suggestion${result.stale.length === 1 ? " was" : "s were"} out of date — that text changed since — and skipped.`, { duration: 6000 });
+      }
+    } catch {
+      // The API layer's toast carries the reason; nothing was applied.
+    } finally {
+      setSettling(false);
+    }
+  }, [proposals, changes, resumeId, flushSave, adopt]);
+
+  const rejectProposals = useCallback(async (ids: string[] | "all") => {
+    // Optimistic: they leave the list now; a failure brings them back.
+    const prev = proposals;
+    setProposals((ps) => (ids === "all" ? [] : ps.filter((p) => !ids.includes(p.id))));
+    try {
+      const { document } = await resumeStudioAPI.rejectProposals(resumeId, ids);
+      setProposals(document.proposals ?? []);
+    } catch {
+      setProposals(prev);
+    }
+  }, [proposals, resumeId]);
 
   /* ---------- undo / revert ---------- */
   const undo = useCallback(async () => {
     const snap = historyRef.current.pop();
     if (!snap) return;
     setCanUndo(historyRef.current.length > 0);
-    skipNextSave.current = false;
-    setDoc(snap.doc);
     setChanges(snap.changes);
     setChangedPaths(new Set());
     setScoreAnim(null);
-    // Best-effort server revert; the local restore is authoritative for the UI.
-    try { await resumeStudioAPI.revert(resumeId, snap.doc.version ?? 1, snap.doc); } catch { /* ignore */ }
-    toast("Reverted the last AI change");
-  }, [resumeId]);
+    try {
+      // The server keeps a snapshot from before every accept — restore it,
+      // and take what it returns as the truth.
+      adopt(await resumeStudioAPI.revert(resumeId, snap.doc.version ?? 1));
+    } catch {
+      skipNextSave.current = false;
+      setDoc(snap.doc);
+    }
+    toast("Undid the last change");
+  }, [resumeId, adopt]);
 
   /* ---------- target selection ---------- */
   const setTarget = useCallback((scope: RewriteScope, label: string) => {
@@ -299,6 +375,7 @@ export function useStudioDocument(resumeId: string, initialJd: string, initialGa
     saveState, lastSavedAt,
     applyEdit, patchStyle,
     rewriting, runRewrite,
+    proposals, settling, acceptProposals, rejectProposals,
     changedPaths, changes,
     scoreAnim,
     canUndo, undo,

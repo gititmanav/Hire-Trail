@@ -15,6 +15,7 @@ import CompanyLogo from "../../../../components/CompanyLogo/CompanyLogo.tsx";
 import { DeadlineTypeIcon } from "../../../../components/DeadlineFormModal/DeadlineFormModal.tsx";
 import { STAGE_COLOR } from "../../../../utils/stageStyles.ts";
 import { diffDaysYmd, formatDay, relativeDay, type Ymd } from "../../../../utils/dates.ts";
+import { formatScore } from "../../../../utils/matchScore.ts";
 import type { CalendarEvent } from "../../../../utils/calendarGrid.ts";
 import type { CalendarApp } from "../../../../utils/api.ts";
 import { useCompanies, useContacts, useResumes } from "../../data/queries.ts";
@@ -190,7 +191,7 @@ export function EventCard({ event, today, app }: { event: CalendarEvent; today: 
         {(app.location || app.jobType) && <Field label="Location" to={openApp!}>{[app.location, app.jobType].filter(Boolean).join(" · ")}</Field>}
         {app.salary && <Field label="Salary" to={openApp!}>{app.salary}</Field>}
         {resume && <Field label="Resume" to={openApp!}>{resume.name}</Field>}
-        {app.fit && <Field label="Fit" to={openApp!}>{app.fit.grade} · {app.fit.score}/5</Field>}
+        {typeof app.fit?.score === "number" && <Field label="Fit" to={openApp!}>{formatScore(app.fit.score)} / 10</Field>}
       </div>
       {app.nextDeadline && event.kind !== "deadline" && (
         <>

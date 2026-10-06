@@ -5,6 +5,7 @@ import { Check, Copy } from "lucide-react";
 import toast from "../../../components/ui/toast.ts";
 import { tailorAPI } from "../../../utils/api.ts";
 import Button from "../../../components/ui/Button.tsx";
+import ScoreChip from "../../../components/MatchScore/ScoreChip.tsx";
 
 function Section({ title, action, children }: { title: string; action?: React.ReactNode; children: React.ReactNode }) {
   return (
@@ -117,7 +118,8 @@ export function NotesSection({ notes, onEdit }: { notes: string; onEdit: () => v
 
 const STATUS_LABEL: Record<string, { label: string; cls: string }> = {
   succeeded: { label: "Done", cls: "text-emerald-700 dark:text-emerald-300" },
-  processing: { label: "Analyzing", cls: "text-primary" },
+  processing: { label: "Checking", cls: "text-primary" },
+  waiting_assistant: { label: "With your assistant", cls: "text-muted-foreground" },
   deferred: { label: "Waiting", cls: "text-amber-700 dark:text-amber-300" },
   failed: { label: "Failed", cls: "text-red-600 dark:text-red-400" },
 };
@@ -137,11 +139,11 @@ export function TailoringHistorySection({ applicationId, onOpen }: { application
             <li key={s._id}>
               <button type="button" onClick={onOpen} className="w-full flex items-center justify-between gap-3 py-2.5 text-left hover:bg-muted/40 -mx-2 px-2 rounded-md transition-colors">
                 <span className="min-w-0">
-                  <span className="text-[13px] text-foreground truncate block">{s.jobTitle || "Analysis"}</span>
+                  <span className="text-[13px] text-foreground truncate block">{s.jobTitle || "Fit check"}</span>
                   {s.status === "failed" && s.errorMessage && <span className="text-[12px] text-muted-foreground truncate block">{s.errorMessage}</span>}
                 </span>
                 <span className="shrink-0 flex items-center gap-3 text-[12px] tabular-nums">
-                  {s.fitGrade && <span className="font-semibold text-foreground">{s.fitGrade} · {s.fitScore}/5</span>}
+                  {s.status === "succeeded" && typeof s.matchScore === "number" && <ScoreChip score={s.matchScore} />}
                   <span className={st.cls}>{st.label}</span>
                   <span className="text-muted-foreground">{new Date(s.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
                 </span>

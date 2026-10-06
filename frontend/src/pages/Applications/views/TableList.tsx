@@ -13,6 +13,7 @@ import { ChevronRight } from "lucide-react";
 import CompanyLogo from "../../../components/CompanyLogo/CompanyLogo.tsx";
 import Collapse from "../../../components/ui/Collapse.tsx";
 import AiPulse from "../../../components/AiIndicator/AiPulse.tsx";
+import ScoreChip from "../../../components/MatchScore/ScoreChip.tsx";
 import { usePersistentState } from "../../../hooks/usePersistentState.ts";
 import { STAGES, STAGE_STRIPE_CLASS } from "../../../utils/stageStyles.ts";
 import { computeAppHealth, suggestNextAction, HEALTH_DOT_CLASS } from "../../../utils/applicationHealth.ts";
@@ -26,14 +27,6 @@ import { useCompanyResolver, useListBehavior, useOpenApplication, useRestoreList
 import { COLUMNS, tableColumns, type ColumnDef, type ColumnId } from "./table/columns.ts";
 import type { Application, Company, Deadline, Resume, Stage } from "../../../types";
 import { dayDate, dayOf, diffDaysYmd, todayYmd } from "../../../utils/dates.ts";
-
-const GRADE_TONE: Record<string, string> = {
-  A: "text-emerald-700 bg-emerald-50 ring-emerald-200 dark:text-emerald-300 dark:bg-emerald-900/30 dark:ring-emerald-800/60",
-  B: "text-sky-700 bg-sky-50 ring-sky-200 dark:text-sky-300 dark:bg-sky-900/30 dark:ring-sky-800/60",
-  C: "text-amber-700 bg-amber-50 ring-amber-200 dark:text-amber-300 dark:bg-amber-900/30 dark:ring-amber-800/60",
-  D: "text-orange-700 bg-orange-50 ring-orange-200 dark:text-orange-300 dark:bg-orange-900/30 dark:ring-orange-800/60",
-  F: "text-red-700 bg-red-50 ring-red-200 dark:text-red-300 dark:bg-red-900/30 dark:ring-red-800/60",
-};
 
 const SOURCE_LABEL: Record<string, string> = { manual: "Manual", extension: "Extension", email: "Inbox scan" };
 
@@ -122,12 +115,10 @@ const TableRow = memo(function TableRow({
         );
       case "fit":
         if (app.fit?.status === "processing") return <AiPulse size={13} tone="subtle" />;
-        if (app.fit?.status === "succeeded" && app.fit.fitGrade) {
-          return (
-            <span className={`inline-flex items-center justify-center w-6 h-6 rounded-md text-[12px] font-semibold ring-1 ring-inset ${GRADE_TONE[app.fit.fitGrade]}`} title={`Fit ${app.fit.fitGrade} · ${app.fit.fitScore}/5`}>
-              {app.fit.fitGrade}
-            </span>
-          );
+        // typeof, not !== null: fit summaries written before the 0–10 score have no field at all.
+        if (app.fit?.status === "succeeded" && typeof app.fit.score === "number") return <ScoreChip score={app.fit.score} />;
+        if (app.fit?.status === "waiting_assistant") {
+          return <span className="text-[12px] text-muted-foreground truncate" title="Waiting for your assistant">Assistant</span>;
         }
         return <Muted>—</Muted>;
       case "next":

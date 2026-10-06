@@ -3,7 +3,7 @@
  *  the user re-analyze against a different posting. */
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { AlertTriangle, CheckCircle2, ChevronDown, Circle, KeyRound, RotateCcw } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronDown, Circle, RotateCcw, Settings2 } from "lucide-react";
 import AiPulse from "../../../components/AiIndicator/AiPulse.tsx";
 import { useDemoGate } from "../../../hooks/useDemoGate.tsx";
 import type { StudioController } from "../useStudioDocument.ts";
@@ -70,9 +70,9 @@ export default function GapStep({ studio }: { studio: StudioController }) {
                 >
                   <RotateCcw size={13} strokeWidth={2} /> {gapLoading ? "Retrying…" : "Retry"}
                 </button>
-                {gapError.isKeyIssue && (
+                {gapError.fixInSettings && (
                   <Link to="/settings/ai" className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg">
-                    <KeyRound size={13} strokeWidth={2} /> Add a key
+                    <Settings2 size={13} strokeWidth={2} /> Open AI settings
                   </Link>
                 )}
               </div>

@@ -1,7 +1,7 @@
 /** Profile page — single-card, scroll-spy tab layout for the user's master profile.
  *  Right sidebar shows the source-resume preview + quick stats. */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { UploadCloud, FileText, ChevronRight, MapPin, Mail, Phone, Globe, Pencil } from "lucide-react";
+import { UploadCloud, FileText, MapPin, Mail, Phone, Globe, Pencil } from "lucide-react";
 import toast from "../../components/ui/toast.ts";
 import { masterProfileAPI, resumesAPI, pollMasterProfileParse } from "../../utils/api.ts";
 import ResumePreview from "../../components/ResumePreview/ResumePreview.tsx";
@@ -10,6 +10,7 @@ import { useBackgroundTasks } from "../../hooks/useBackgroundTasks.tsx";
 import { useDemoGate } from "../../hooks/useDemoGate.tsx";
 import { tallySkills, chipSize, experienceUsesSkill, bulletUsesSkill } from "../../utils/skillCloud.ts";
 import { Skeleton } from "../../components/Skeleton/Skeleton.tsx";
+import ConfirmModal from "../../components/ConfirmModal/ConfirmModal.tsx";
 import type { Resume } from "../../types";
 
 /* ------------------ Types (mirror backend MasterProfile shape) ------------------ */
@@ -47,6 +48,9 @@ interface MasterProfile {
   sourceResumeId: string | null;
   lastParsedAt: string | null;
   lastParsedProvider: string | null;
+  parseStatus?: "idle" | "processing" | "failed" | "waiting_assistant";
+  /** Present when the last import changed an existing profile — it can be undone. */
+  lastImportSnapshot?: { savedAt: string; method: string } | null;
 }
 
 type SectionKey = "personal" | "experience" | "projects" | "education" | "skills" | "certifications";
@@ -91,6 +95,7 @@ export default function Profile() {
     personal: null, experience: null, projects: null, education: null, skills: null, certifications: null,
   });
   const fileRef = useRef<HTMLInputElement>(null);
+  const [confirmUndo, setConfirmUndo] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -135,13 +140,16 @@ export default function Profile() {
       onResult: (p) => {
         const profile = p as { parseStatus: string; parseError?: string };
         if (profile.parseStatus === "failed") {
-          return { successLabel: profile.parseError || "Parse failed." };
+          return { successLabel: profile.parseError || "Couldn't read this resume." };
         }
-        return { successLabel: "Profile built", ctaLabel: "View", ctaPath: "/profile" };
+        if (profile.parseStatus === "waiting_assistant") {
+          return { successLabel: "Waiting for your assistant — ask it to do your HireTrail AI tasks.", ctaLabel: "View", ctaPath: "/profile" };
+        }
+        return { successLabel: "Profile updated", ctaLabel: "View", ctaPath: "/profile" };
       },
       onError: (err) => {
         const e = err as { response?: { data?: { error?: string } }; message?: string };
-        return e?.response?.data?.error || e?.message || "Failed to parse. Check your AI key in Settings.";
+        return e?.response?.data?.error || e?.message || "Couldn't read this resume.";
       },
       onSettled: (r) => { if (r.ok) void load(); },
     });
@@ -160,7 +168,10 @@ export default function Profile() {
         onResult: (p: unknown) => {
           const profile = p as { parseStatus: string; parseError?: string };
           if (profile.parseStatus === "failed") {
-            return { successLabel: profile.parseError || "Parse failed." };
+            return { successLabel: profile.parseError || "Couldn't read this resume." };
+          }
+          if (profile.parseStatus === "waiting_assistant") {
+            return { successLabel: "Waiting for your assistant — ask it to do your HireTrail AI tasks.", ctaLabel: "View", ctaPath: "/profile" };
           }
           return { successLabel: "Profile updated", ctaLabel: "View", ctaPath: "/profile" };
         },
@@ -311,23 +322,40 @@ export default function Profile() {
 
   return (
     <div className="profile-page w-full">
+      {profile.parseStatus === "waiting_assistant" && (
+        <div className="mb-4 rounded-xl border border-border bg-card px-4 py-3 text-[13px] text-muted-foreground">
+          <span className="font-medium text-foreground">Your resume import is waiting for your assistant.</span>{" "}
+          Ask it to do your HireTrail AI tasks — or run imports on HireTrail in Settings → AI.
+        </div>
+      )}
       <div className="flex items-start justify-between gap-4 mb-5 flex-wrap">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Profile</h1>
           <p className="text-xs text-muted-foreground mt-1">
-            Last parsed {profile.lastParsedAt ? new Date(profile.lastParsedAt).toLocaleString() : "—"}
-            {profile.lastParsedProvider ? ` · ${profile.lastParsedProvider}` : ""}
+            {profile.lastParsedAt ? `Last import ${new Date(profile.lastParsedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}` : "Not imported from a resume yet"}
+            {profile.lastImportSnapshot?.method === "merged" ? " · combined with what you had" : ""}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => fileRef.current?.click()}
-          disabled={uploading}
-          className="px-3 py-1.5 text-xs font-medium border border-border rounded-lg text-foreground hover:bg-muted disabled:opacity-60"
-          title="Replace by parsing a new resume PDF"
-        >
-          {uploading ? "Parsing…" : "Re-parse from PDF"}
-        </button>
+        <div className="flex items-center gap-2">
+          {profile.lastImportSnapshot && !uploading && (
+            <button
+              type="button"
+              onClick={() => setConfirmUndo(true)}
+              className="px-3 py-1.5 text-xs font-medium rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              Undo last import
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading}
+            className="px-3 py-1.5 text-xs font-medium border border-border rounded-lg text-foreground hover:bg-muted disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            title="Import another resume PDF — it's combined with your profile (or replaces it, per Settings → AI)"
+          >
+            {uploading ? "Reading…" : "Import another resume"}
+          </button>
+        </div>
         <input
           ref={fileRef}
           type="file"
@@ -504,6 +532,26 @@ export default function Profile() {
           </div>
         </aside>
       </div>
+
+      {confirmUndo && (
+        <ConfirmModal
+          title="Undo the last import?"
+          message="Your profile goes back to how it was before you imported that resume. Edits you made since then are undone too."
+          confirmLabel="Undo import"
+          danger={false}
+          onConfirm={async () => {
+            setConfirmUndo(false);
+            try {
+              const restored = (await masterProfileAPI.undoImport()) as unknown as MasterProfile | null;
+              if (restored) setProfile(restored);
+              toast.success("Import undone");
+            } catch {
+              // The API layer says why.
+            }
+          }}
+          onCancel={() => setConfirmUndo(false)}
+        />
+      )}
 
       {showPreview && sourceResume && (
         <ResumePreview

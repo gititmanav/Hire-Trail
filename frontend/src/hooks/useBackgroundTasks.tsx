@@ -34,7 +34,7 @@ export interface BackgroundTask {
   /** Optional 0..1 progress — if undefined the UI shows an indeterminate animation. */
   progress?: number;
   error?: string;
-  /** Shown in place of `label` once the task succeeds, e.g. "Fit score 4/5 (B)". */
+  /** Shown in place of `label` once the task succeeds, e.g. "Profile updated". */
   successLabel?: string;
   /** CTA after success: button label + path to navigate to. */
   ctaLabel?: string;

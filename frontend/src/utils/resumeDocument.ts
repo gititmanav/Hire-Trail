@@ -125,9 +125,11 @@ export interface ResumeDocument {
   /** Monotonic version the autosave + revert flow tracks. Local mirror of the
    *  server's document version. */
   version?: number;
+  /** Pending AI proposals, server-held (they survive a reload). */
+  proposals?: AIProposal[];
 }
 
-/** One row in the "See What's Changed" changelog returned by ai-rewrite. */
+/** One row in the "See what's changed" changelog — an accepted proposal. */
 export interface AIChange {
   path: string;
   summary: string;
@@ -135,11 +137,35 @@ export interface AIChange {
   after: string;
 }
 
-export interface AIRewriteResult {
+/** A proposed rewrite of one bullet or the summary (backend
+ *  services/ai/features/resumeTailor.ts). Nothing changes until it's
+ *  accepted; accepting is refused if the text changed since. */
+export interface AIProposal {
+  id: string;
+  /** The element id: a bullet id, or the summary entry id. */
+  path: string;
+  kind: "bullet" | "summary";
+  before: string;
+  after: string;
+  reason: string;
+  /** "ai" = HireTrail's AI; "assistant" = the person's assistant over MCP. */
+  source: "ai" | "assistant";
+  createdAt: string;
+}
+
+export interface ProposeResult {
+  proposals: AIProposal[];
+  /** Answers dropped by the checks (a number that wasn't in the original). */
+  dropped: number;
   document: ResumeDocument;
-  changes: AIChange[];
-  changedPaths: string[];
-  score: { before: number; after: number };
+}
+
+export interface AcceptResult {
+  applied: string[];
+  /** Proposals whose text changed since — not applied. */
+  stale: string[];
+  score: { before: number; after: number } | null;
+  document: ResumeDocument;
 }
 
 export interface AIRewriteRequest {
@@ -167,15 +193,16 @@ export interface GapAnalysis {
   sectionFlags: SectionFlag[];
 }
 
-/** The AI brain's per-application "fit" read (1–5 score + matched/missing
- *  skills). Surfaced on the Applications fit panel and the tailoring drawer's
- *  Step 1 header. Separate from the deterministic 0–10 match score. */
+/** The fit check's read of one posting against the profile: the one 0–10
+ *  score (deterministic), the read in words, and what the role asks for. */
 export interface FitSummary {
-  fitScore: number;
-  fitGrade: "A" | "B" | "C" | "D" | "F" | "";
+  score: number | null;
   summary: string;
   matchedSkills: string[];
   missingSkills: string[];
+  strengths: { point: string; evidence: string }[];
+  gaps: { point: string; severity: "major" | "minor" }[];
+  changes: { section: string; target: string; change: string; why: string }[];
 }
 
 /* ---------- defaults ---------- */
