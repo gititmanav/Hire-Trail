@@ -310,17 +310,17 @@ function RegisterForm({ onLogin, onSwitchMode }: { onLogin: (u: User) => void; o
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <Field label="First name" htmlFor={ids.first}>
-            <Input id={ids.first} autoComplete="given-name" data-autofocus value={firstName} onChange={(e) => setFirstName(e.target.value)} required disabled={maintenance} className="!h-11" />
+            <Input id={ids.first} autoComplete="given-name" data-autofocus value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="Ada" required disabled={maintenance} className="!h-11" />
           </Field>
           <Field label="Last name" htmlFor={ids.last}>
-            <Input id={ids.last} autoComplete="family-name" value={lastName} onChange={(e) => setLastName(e.target.value)} required disabled={maintenance} className="!h-11" />
+            <Input id={ids.last} autoComplete="family-name" value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Lovelace" required disabled={maintenance} className="!h-11" />
           </Field>
         </div>
         <Field label="Email" htmlFor={ids.email}>
           <Input id={ids.email} type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" required disabled={maintenance} className="!h-11" />
         </Field>
         <Field label="Password" htmlFor={ids.password} hint="At least 6 characters.">
-          <Input id={ids.password} type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={6} required disabled={maintenance} className="!h-11" />
+          <Input id={ids.password} type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="6 characters or more" minLength={6} required disabled={maintenance} className="!h-11" />
         </Field>
         <Button type="submit" variant="primary" loading={loading} disabled={loading || maintenance} className="w-full !h-11 mt-1">
           {loading ? "Creating your account…" : "Create account"}

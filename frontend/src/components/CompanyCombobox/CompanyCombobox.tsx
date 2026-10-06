@@ -10,6 +10,7 @@ import { Plus } from "lucide-react";
 import { companiesAPI } from "../../utils/api.ts";
 import { ComboboxList, handleComboboxKey, type ComboboxOption } from "../ui/Combobox.tsx";
 import type { Company } from "../../types";
+import { useControlClass } from "../ui/fieldLook.ts";
 
 interface Props {
   name: string;
@@ -17,6 +18,7 @@ interface Props {
   onChange: (next: { name: string; companyId: string }) => void;
   placeholder?: string;
   required?: boolean;
+  /** Defaults to the surrounding field look (plain in a dialog, boxed on a page). */
   inputClassName?: string;
 }
 
@@ -28,6 +30,7 @@ export default function CompanyCombobox({
   required,
   inputClassName,
 }: Props) {
+  const controlClass = useControlClass();
   const [open, setOpen] = useState(false);
   const [results, setResults] = useState<Company[]>([]);
   const [loading, setLoading] = useState(false);
@@ -87,7 +90,7 @@ export default function CompanyCombobox({
   return (
     <div ref={wrapRef} className="relative">
       <input
-        className={inputClassName}
+        className={inputClassName ?? controlClass}
         value={name}
         onChange={(e) => {
           // Typing invalidates a previously-picked companyId — server will

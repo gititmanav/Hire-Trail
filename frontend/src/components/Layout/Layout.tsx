@@ -48,10 +48,12 @@ export default function Layout({ user, onLogout }: Props) {
   return (
     <AnnouncementsProvider>
     <div className="flex h-dvh overflow-hidden bg-sidebar">
-      {/* Mobile backdrop */}
-      {mobileOpen && (
-        <div className="fixed inset-0 bg-scrim/50 backdrop-blur-sm z-40 md:hidden" onClick={() => setMobileOpen(false)} />
-      )}
+      {/* Mobile backdrop — always there on phones, so it fades with the drawer's slide. */}
+      <div
+        className={`fixed inset-0 bg-scrim/50 backdrop-blur-sm z-40 md:hidden transition-opacity duration-200 motion-reduce:transition-none ${mobileOpen ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+        onClick={() => setMobileOpen(false)}
+        aria-hidden
+      />
 
       {/* Sidebar: off-canvas overlay on mobile, fixed on desktop. The wrapper
        *  needs an explicit width on mobile so `-translate-x-full` (100% of

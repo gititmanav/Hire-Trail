@@ -16,7 +16,7 @@
  *  attached — the copy is only inserted if the node is really gone by the
  *  next microtask. Skipped for prefers-reduced-motion. */
 import { useCallback, useRef } from "react";
-import { EXIT_MS, SOFT_EXIT_MS, prefersReducedMotion } from "../utils/motion.ts";
+import { EXIT_MS, MODAL_EXIT_MS, SOFT_EXIT_MS, prefersReducedMotion } from "../utils/motion.ts";
 
 interface ExitOptions {
   /** Class on the ghost's root that plays the exit (App.css `.modal-exit`). */
@@ -93,6 +93,6 @@ export function useExitAnimation<T extends HTMLElement = HTMLDivElement>(options
 
 /** The exit every dialog-shaped overlay uses: backdrop fades, panel
  *  ([role=dialog] or [data-modal-panel]) fades + settles down. */
-export const MODAL_EXIT: ExitOptions = { exitClass: "modal-exit", entryClasses: ["modal-overlay-in", "animate-in"] };
+export const MODAL_EXIT: ExitOptions = { exitClass: "modal-exit", entryClasses: ["modal-overlay-in", "modal-panel-in", "animate-in"], durationMs: MODAL_EXIT_MS };
 /** The soft dialog's exit: a slower fade and settle (App.css `.modal-soft-exit`). */
 export const MODAL_SOFT_EXIT: ExitOptions = { exitClass: "modal-soft-exit", entryClasses: ["modal-soft-overlay-in", "modal-soft-panel-in"], durationMs: SOFT_EXIT_MS };

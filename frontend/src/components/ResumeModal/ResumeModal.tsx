@@ -4,7 +4,7 @@ import { X, Tag, FileText, CheckCircle2, UploadCloud } from "lucide-react";
 import toast from "../ui/toast.ts";
 import type { Resume } from "../../types";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "../ui/Modal.tsx";
-import { TextField } from "../ui/Field.tsx";
+import { Field, TextField } from "../ui/Field.tsx";
 import Button from "../ui/Button.tsx";
 import { ComboboxList } from "../ui/Combobox.tsx";
 
@@ -103,10 +103,11 @@ export default function ResumeModal({ resume, existingTags = [], onSave, onClose
 
           {/* Tags input with autocomplete */}
           <div className="relative">
-            <label className="block text-[13px] font-medium text-foreground mb-1.5">Tags</label>
+            <Field label="Tags" htmlFor="resume-tag-input">
             <div
               ref={tagBoxRef}
-              className="w-full min-h-[40px] px-3 py-1.5 text-sm bg-background border border-border rounded-lg flex flex-wrap items-center gap-1.5 cursor-text transition-shadow focus-within:ring-2 focus-within:ring-ring/25 focus-within:border-ring"
+              // In a dialog: plain like its fields (a soft fill on hover / focus), no box.
+              className="w-full min-h-8 text-sm rounded-md flex flex-wrap items-center gap-1.5 cursor-text transition-[background-color,box-shadow] duration-150 hover:bg-control/55 hover:shadow-[0_0_0_6px_hsl(var(--control)/0.55)] focus-within:bg-control/85 focus-within:shadow-[0_0_0_6px_hsl(var(--control)/0.85)]"
               onClick={() => tagInputRef.current?.focus()}
             >
               {tags.map((t, i) => (
@@ -119,7 +120,8 @@ export default function ResumeModal({ resume, existingTags = [], onSave, onClose
               ))}
               <input
                 ref={tagInputRef}
-                className="flex-1 min-w-[80px] bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none border-none"
+                id="resume-tag-input"
+                className="flex-1 min-w-[80px] h-8 bg-transparent text-[14px] text-foreground placeholder:text-muted-foreground/55 outline-none border-none"
                 value={tagInput}
                 onChange={(e) => { setTagInput(e.target.value); setShowSuggestions(true); setHighlightIdx(-1); }}
                 onFocus={() => setShowSuggestions(true)}
@@ -134,6 +136,7 @@ export default function ResumeModal({ resume, existingTags = [], onSave, onClose
                 placeholder={tags.length === 0 ? "e.g. SDE, Frontend (press Enter)" : "Add tag..."}
               />
             </div>
+            </Field>
 
             {/* Suggestions dropdown */}
             <ComboboxList

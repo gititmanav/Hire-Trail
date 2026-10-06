@@ -303,14 +303,17 @@ html.vt-shell::view-transition-new(shell-main) {
 /* Modal overlay fade (panel uses .animate-in). Kept separate from the panel
  * so the dim layer never scales. */
 @keyframes overlay-in { from { opacity: 0; } to { opacity: 1; } }
-.modal-overlay-in { animation: overlay-in 0.15s ease-out; }
+.modal-overlay-in { animation: overlay-in 220ms var(--ease-out); }
+/* Every dialog (ui/Modal) rises softly into place — never a blink. */
+@keyframes modal-panel-in { from { opacity: 0; transform: translateY(8px) scale(0.985); } to { opacity: 1; transform: none; } }
+.modal-panel-in { animation: modal-panel-in 320ms var(--ease-out) both; }
 /* Exit — played on the inert copy useExitAnimation leaves behind as a dialog
- * unmounts. Must finish within EXIT_MS (utils/motion.ts). */
+ * unmounts. Must finish within MODAL_EXIT_MS (utils/motion.ts). */
 @keyframes overlay-out { from { opacity: 1; } to { opacity: 0; } }
-@keyframes panel-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(4px) scale(0.97); } }
-.modal-exit { animation: overlay-out 140ms ease-in forwards; }
+@keyframes panel-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(6px) scale(0.985); } }
+.modal-exit { animation: overlay-out 200ms cubic-bezier(0.4, 0, 1, 1) forwards; }
 .modal-exit > [role="dialog"],
-.modal-exit > [data-modal-panel] { animation: panel-out 140ms ease-in forwards; }
+.modal-exit > [data-modal-panel] { animation: panel-out 200ms cubic-bezier(0.4, 0, 1, 1) forwards; }
 /* The soft dialog (ui/Modal motion="soft"): the backdrop and its blur fade
  * in slowly, the sheet rises into place; leaving, both drift out together.
  * Exit timing = SOFT_EXIT_MS (utils/motion.ts). */
@@ -320,9 +323,10 @@ html.vt-shell::view-transition-new(shell-main) {
 .modal-soft-overlay-in { animation: modal-soft-overlay-in 380ms cubic-bezier(0.16, 1, 0.3, 1) both; }
 .modal-soft-panel-in { animation: modal-soft-panel-in 520ms cubic-bezier(0.16, 1, 0.3, 1) 40ms both; }
 .modal-soft-exit { animation: overlay-out 260ms cubic-bezier(0.4, 0, 0.2, 1) forwards; }
-.modal-soft-exit > [role="dialog"] { animation: modal-soft-panel-out 240ms cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+.modal-soft-exit > [role="dialog"],
+.modal-soft-exit > [data-modal-panel] { animation: modal-soft-panel-out 240ms cubic-bezier(0.4, 0, 0.2, 1) forwards; }
 @media (prefers-reduced-motion: reduce) {
-  .modal-overlay-in, .animate-in, .fade-up, .modal-exit, .modal-exit > [role="dialog"], .modal-exit > [data-modal-panel] { animation: none; }
+  .modal-overlay-in, .modal-panel-in, .animate-in, .fade-up, .modal-exit, .modal-exit > [role="dialog"], .modal-exit > [data-modal-panel] { animation: none; }
   .modal-soft-overlay-in, .modal-soft-panel-in, .modal-soft-exit, .modal-soft-exit > [role="dialog"] { animation: none; }
 }
 

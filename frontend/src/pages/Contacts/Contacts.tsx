@@ -11,7 +11,7 @@ import Menu from "../../components/ui/Menu.tsx";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal.tsx";
 import CompanyCombobox from "../../components/CompanyCombobox/CompanyCombobox.tsx";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "../../components/ui/Modal.tsx";
-import { Field, TextField, Textarea, controlCls } from "../../components/ui/Field.tsx";
+import { Field, TextField, Textarea } from "../../components/ui/Field.tsx";
 import Select from "../../components/ui/Select.tsx";
 import DateInput from "../../components/ui/DateInput.tsx";
 import Button from "../../components/ui/Button.tsx";
@@ -82,7 +82,6 @@ function ContactFormModal({ contact, onSave, onClose }: { contact: Contact | nul
                 name={form.company}
                 companyId={form.companyId}
                 onChange={({ name, companyId }) => setForm({ ...form, company: name, companyId })}
-                inputClassName={controlCls}
                 required
               />
             </Field>

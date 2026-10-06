@@ -11,11 +11,15 @@
  *  Motion: the overlay fades and the panel scales in; on close — however the
  *  dialog is closed — it fades/scales out (useExitAnimation), so every dialog
  *  animates both ways without its call site doing anything. */
-import { useEffect, useRef, ReactNode } from "react";
+import { createContext, useContext, useEffect, useId, useRef, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { pushLayer, popLayer, isTopLayer, layerCount } from "./layers.ts";
 import { MODAL_EXIT, MODAL_SOFT_EXIT, useExitAnimation } from "../../hooks/useExitAnimation.ts";
+import { FieldLookContext } from "./fieldLook.ts";
+
+/** The header's title id, so a dialog without an ariaLabel is named by its title. */
+const TitleIdContext = createContext<string | undefined>(undefined);
 
 const SIZES = {
   sm: "max-w-[420px]",
@@ -48,6 +52,7 @@ export function Modal({
   const exitRef = useExitAnimation(soft ? MODAL_SOFT_EXIT : MODAL_EXIT);
   const restoreRef = useRef<HTMLElement | null>(null);
   const pressStartedOnOverlay = useRef(false);
+  const titleId = useId();
 
   const isTop = () => idRef.current !== null && isTopLayer(idRef.current);
 
@@ -120,12 +125,16 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         aria-label={ariaLabel}
+        aria-labelledby={ariaLabel ? undefined : titleId}
         tabIndex={-1}
-        className={`w-full ${SIZES[size]} max-h-[88vh] flex flex-col bg-card border border-border rounded-2xl shadow-2xl ${soft ? "modal-soft-panel-in" : "animate-in"} outline-none ${className}`}
+        className={`w-full ${SIZES[size]} max-h-[88vh] flex flex-col bg-card border border-border rounded-2xl shadow-2xl ${soft ? "modal-soft-panel-in" : "modal-panel-in"} outline-none ${className}`}
         onMouseDown={(e) => e.stopPropagation()}
         onMouseUp={(e) => e.stopPropagation()}
       >
-        {children}
+        {/* Inside a dialog every field draws plain, and every select / date is the chip. */}
+        <FieldLookContext.Provider value="plain">
+          <TitleIdContext.Provider value={titleId}>{children}</TitleIdContext.Provider>
+        </FieldLookContext.Provider>
       </div>
     </div>,
     document.body,
@@ -140,12 +149,13 @@ export function ModalHeader({
   onClose?: () => void;
   icon?: ReactNode;
 }) {
+  const titleId = useContext(TitleIdContext);
   return (
     <div className="flex items-start justify-between gap-4 px-6 pt-5 pb-4 shrink-0">
       <div className="flex items-start gap-3 min-w-0">
         {icon && <span className="mt-0.5 shrink-0">{icon}</span>}
         <div className="min-w-0">
-          <h2 className="text-[15px] font-semibold text-foreground leading-6">{title}</h2>
+          <h2 id={titleId} className="text-[15px] font-semibold text-foreground leading-6">{title}</h2>
           {description && <p className="text-[13px] text-muted-foreground mt-0.5 leading-relaxed">{description}</p>}
         </div>
       </div>
@@ -154,7 +164,7 @@ export function ModalHeader({
           type="button"
           onClick={onClose}
           aria-label="Close dialog"
-          className="w-8 h-8 -mr-1.5 -mt-0.5 shrink-0 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
+          className="w-8 h-8 -mr-1.5 -mt-0.5 shrink-0 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-control focus:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
         >
           <X size={16} strokeWidth={2} aria-hidden />
         </button>

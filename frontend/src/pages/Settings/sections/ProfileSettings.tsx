@@ -84,7 +84,7 @@ function DeleteAccountModal({ email, hasPassword, onClose }: { email: string; ha
               })}
             </div>
             <Field label="Anything we could have done better?" hint="Optional — only the HireTrail team reads it.">
-              <Textarea rows={2} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
+              <Textarea rows={2} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Tell us what didn't work for you…" />
             </Field>
             <p className="text-[12.5px] text-muted-foreground leading-relaxed">
               Just taking a break? You can sign out instead — nothing is deleted, and your tracker is here when you're back.
@@ -105,7 +105,7 @@ function DeleteAccountModal({ email, hasPassword, onClose }: { email: string; ha
               </p>
             </div>
             {hasPassword ? (
-              <TextField label="Your password" type="password" value={proof} onChange={(e) => setProof(e.target.value)} autoComplete="current-password" disabled={submitting} data-autofocus />
+              <TextField label="Your password" type="password" value={proof} onChange={(e) => setProof(e.target.value)} placeholder="Your current password" autoComplete="current-password" disabled={submitting} data-autofocus />
             ) : (
               <TextField label="Type your email address" type="email" value={proof} onChange={(e) => setProof(e.target.value)} placeholder={email} autoComplete="off" disabled={submitting} data-autofocus />
             )}

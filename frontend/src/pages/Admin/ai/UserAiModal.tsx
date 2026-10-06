@@ -105,7 +105,7 @@ export default function UserAiModal({ userId, label, onClose }: { userId: string
             </div>
 
             <Field label="Note" hint="Only admins see this.">
-              <Textarea rows={2} maxLength={280} value={draft.note} onChange={(e) => setDraft({ ...draft, note: e.target.value })} />
+              <Textarea rows={2} maxLength={280} value={draft.note} onChange={(e) => setDraft({ ...draft, note: e.target.value })} placeholder="Why this override — for the next admin…" />
             </Field>
 
           </div>

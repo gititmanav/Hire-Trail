@@ -123,6 +123,7 @@ import { JobSearchContext, defaultState } from "./hooks/useJobSearchState.ts";
 import { registerNavigate } from "./utils/appNavigate.ts";
 import toast from "./components/ui/toast.ts";
 import type { JobSearchState } from "./hooks/useJobSearchState.ts";
+import { MODAL_EXIT, useExitAnimation } from "./hooks/useExitAnimation.ts";
 
 export const UserContext = createContext<{ user: User | null; setUser: Dispatch<SetStateAction<User | null>> }>({ user: null, setUser: () => {} });
 
@@ -172,6 +173,7 @@ function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [authActionLoading, setAuthActionLoading] = useState(false);
+  const signOutExit = useExitAnimation(MODAL_EXIT);
   const [jobSearchState, setJobSearchState] = useState<JobSearchState>(defaultState);
 
   const checkAuth = useCallback(async () => {
@@ -335,8 +337,8 @@ function App() {
         </Routes>
         </Suspense>
         {authActionLoading && (
-          <div className="fixed inset-0 z-[100] bg-background/70 backdrop-blur-sm flex items-center justify-center">
-            <div className="card-premium px-6 py-4 flex items-center gap-3">
+          <div ref={signOutExit} className="fixed inset-0 z-[100] bg-background/70 backdrop-blur-sm flex items-center justify-center modal-overlay-in">
+            <div data-modal-panel className="card-premium px-6 py-4 flex items-center gap-3 modal-panel-in">
               <div className="spinner" />
               <span className="text-sm text-foreground">Signing you out...</span>
             </div>

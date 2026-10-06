@@ -56,7 +56,7 @@ export default function EditKeyModal({ k, provider, onSave, onClose }: {
       />
       <ModalBody>
         <form id="edit-ai-key" onSubmit={(e) => { e.preventDefault(); void save(); }} className="space-y-5">
-          <TextField label="Nickname" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
+          <TextField label="Nickname" value={name} placeholder="What it's called on the map" maxLength={60} onChange={(e) => setName(e.target.value)} />
           <Field
             label="Replace the key"
             htmlFor={secretId}

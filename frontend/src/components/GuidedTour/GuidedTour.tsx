@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import type { User } from "../../types";
+import { MODAL_EXIT, useExitAnimation } from "../../hooks/useExitAnimation.ts";
 
 interface Step {
   target: string;
@@ -39,6 +40,7 @@ interface Props {
 export default function GuidedTour({ user, onComplete }: Props) {
   const [active, setActive] = useState(-1);
   const [rect, setRect] = useState<DOMRect | null>(null);
+  const exitRef = useExitAnimation(MODAL_EXIT);
 
   useEffect(() => {
     if (user.tourCompleted) return;
@@ -81,7 +83,9 @@ export default function GuidedTour({ user, onComplete }: Props) {
   const padding = 8;
 
   return (
-    <div className="fixed inset-0 z-[100]">
+    // The whole tour fades in and out (the card keeps its own entrance: it
+    // positions itself with a transform an entry animation would fight).
+    <div ref={exitRef} className="fixed inset-0 z-[100] modal-overlay-in">
       <div className="absolute inset-0 bg-scrim/50" onClick={finish} />
 
       {rect && (

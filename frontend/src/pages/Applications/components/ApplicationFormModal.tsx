@@ -1,16 +1,19 @@
 /** Create / edit an application. Shared by the Applications views and the
- *  application detail page. Includes the job description — the input the AI
- *  fit analysis needs (the extension fills it automatically; manual entries
- *  previously had no way to add one outside the old sidebar). */
+ *  application detail page. Sora's composer: the role as the headline, the
+ *  company and the link under it, then the details as chips (stage, resume,
+ *  location, salary, type), notes as plain text, and the job description —
+ *  the input the AI fit check needs — one chip away. */
 import { FormEvent, useState } from "react";
-import { Plus } from "lucide-react";
+import { Briefcase, DollarSign, FileText, Link2, MapPin, Plus } from "lucide-react";
 import toast from "../../../components/ui/toast.ts";
 import { useQueryClient } from "@tanstack/react-query";
 import { resumesAPI } from "../../../utils/api.ts";
-import { STAGES } from "../../../utils/stageStyles.ts";
+import { STAGES, STAGE_STRIPE_CLASS } from "../../../utils/stageStyles.ts";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "../../../components/ui/Modal.tsx";
-import { Field, TextField, Textarea } from "../../../components/ui/Field.tsx";
+import { Input, Textarea } from "../../../components/ui/Field.tsx";
 import Select from "../../../components/ui/Select.tsx";
+import ChipInput from "../../../components/ui/ChipInput.tsx";
+import { chipCls } from "../../../components/ui/fieldLook.ts";
 import Button from "../../../components/ui/Button.tsx";
 import ResumeModal from "../../../components/ResumeModal/ResumeModal.tsx";
 import { useResumes, useSaveApplication } from "../data/queries.ts";
@@ -73,74 +76,78 @@ export default function ApplicationFormModal({ app, onClose, onSaved }: {
   return (
     <>
       <Modal onClose={onClose} size="lg" ariaLabel={app ? "Edit application" : "New application"}>
-        <ModalHeader
-          title={app ? "Edit application" : "New application"}
-          description={app ? `${app.company} — ${app.role}` : "Track a role you're pursuing."}
-          onClose={onClose}
-        />
+        <ModalHeader title={app ? "Edit application" : "New application"} onClose={onClose} />
         <form className="flex flex-col min-h-0" onSubmit={submit}>
-          <ModalBody className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <TextField label="Company" required value={form.company} onChange={(e) => u("company", e.target.value)} placeholder="e.g. Stripe" data-autofocus />
-              <TextField label="Role" required value={form.role} onChange={(e) => u("role", e.target.value)} placeholder="e.g. Software Engineer Intern" />
+          <ModalBody className="space-y-3">
+            <Input
+              required
+              value={form.role}
+              onChange={(e) => u("role", e.target.value)}
+              placeholder="Role — e.g. Software Engineer Intern"
+              aria-label="Role"
+              data-autofocus
+              className="!h-9 !text-[19px] font-semibold tracking-tight"
+            />
+            <Input
+              required
+              value={form.company}
+              onChange={(e) => u("company", e.target.value)}
+              placeholder="Company"
+              aria-label="Company"
+              className="!text-[15px] font-medium"
+            />
+            <div className="flex items-center gap-2.5">
+              <Link2 size={15} strokeWidth={1.8} className="shrink-0 text-muted-foreground" aria-hidden />
+              <Input type="url" value={form.jobUrl} onChange={(e) => u("jobUrl", e.target.value)} placeholder="Paste the job link" aria-label="Job URL" />
             </div>
-            <TextField label="Job URL" type="url" value={form.jobUrl} onChange={(e) => u("jobUrl", e.target.value)} placeholder="https://…" />
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <TextField label="Location" value={form.location || ""} onChange={(e) => u("location", e.target.value)} placeholder="City or remote" />
-              <TextField label="Salary" value={form.salary || ""} onChange={(e) => u("salary", e.target.value)} placeholder="$120k–$150k" />
-              <TextField label="Job type" value={form.jobType || ""} onChange={(e) => u("jobType", e.target.value)} placeholder="Internship" />
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="Stage">
+
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <Select
+                value={form.stage}
+                onChange={(v) => u("stage", v as Stage)}
+                ariaLabel="Stage"
+                options={STAGES.map((st) => ({ value: st, label: st, icon: <span className={`w-2 h-2 rounded-full ${STAGE_STRIPE_CLASS[st]}`} /> }))}
+              />
+              <span className="inline-flex items-center gap-1">
                 <Select
-                  value={form.stage}
-                  onChange={(v) => u("stage", v as Stage)}
-                  ariaLabel="Stage"
-                  options={STAGES.map((s) => ({ value: s, label: s }))}
+                  value={form.resumeId || ""}
+                  onChange={(v) => u("resumeId", v)}
+                  ariaLabel="Resume"
+                  searchable
+                  searchPlaceholder="Search resumes…"
+                  options={[
+                    { value: "", label: "No resume", icon: <FileText size={13} strokeWidth={1.9} /> },
+                    ...resumes.map((r) => ({ value: r._id, label: r.name, icon: <FileText size={13} strokeWidth={1.9} /> })),
+                  ]}
                 />
-              </Field>
-              <Field label="Resume">
-                <div className="flex gap-1.5">
-                  <div className="flex-1 min-w-0">
-                    <Select
-                      value={form.resumeId || ""}
-                      onChange={(v) => u("resumeId", v)}
-                      ariaLabel="Resume"
-                      placeholder="None"
-                      searchable
-                      searchPlaceholder="Search resumes…"
-                      options={[{ value: "", label: "None" }, ...resumes.map((r) => ({ value: r._id, label: r.name }))]}
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowResumeModal(true)}
-                    title="Add new resume"
-                    aria-label="Add new resume"
-                    className="w-10 h-10 shrink-0 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    <Plus size={16} strokeWidth={2} aria-hidden />
-                  </button>
-                </div>
-              </Field>
+                <button
+                  type="button"
+                  onClick={() => setShowResumeModal(true)}
+                  title="Add a resume"
+                  aria-label="Add a resume"
+                  className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-border text-muted-foreground transition-colors hover:border-muted-foreground/40 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <Plus size={13} strokeWidth={2} aria-hidden />
+                </button>
+              </span>
+              <ChipInput icon={<MapPin size={13} strokeWidth={1.9} />} value={form.location || ""} onChange={(v) => u("location", v)} placeholder="Location" />
+              <ChipInput icon={<DollarSign size={13} strokeWidth={1.9} />} value={form.salary || ""} onChange={(v) => u("salary", v)} placeholder="Salary" />
+              <ChipInput icon={<Briefcase size={13} strokeWidth={1.9} />} value={form.jobType || ""} onChange={(v) => u("jobType", v)} placeholder="Job type" />
+              {!showJd && (
+                <button type="button" onClick={() => setShowJd(true)} className={`${chipCls} pl-2.5 pr-3 border-dashed bg-transparent text-muted-foreground hover:text-foreground`}>
+                  <Plus size={13} strokeWidth={2} aria-hidden />
+                  Job description
+                </button>
+              )}
             </div>
-            {showJd ? (
-              <Field label="Job description" hint="Paste the posting to unlock AI fit analysis and resume tailoring.">
-                <Textarea rows={6} value={form.jobDescription} onChange={(e) => u("jobDescription", e.target.value)} placeholder="Paste the full job description…" />
-              </Field>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setShowJd(true)}
-                className="inline-flex items-center gap-1.5 text-[13px] font-medium text-primary hover:underline underline-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
-              >
-                <Plus size={14} strokeWidth={2.2} aria-hidden />
-                Add job description
-              </button>
+
+            <Textarea value={form.notes} onChange={(e) => u("notes", e.target.value)} placeholder="Add notes — a referral, the recruiter, next steps…" aria-label="Notes" className="!mt-4" />
+            {showJd && (
+              <div className="pt-1">
+                <p className="mb-1.5 text-[12.5px] font-medium text-muted-foreground">Job description <span className="font-normal">— paste the posting; the AI fit check and tailoring read it.</span></p>
+                <Textarea rows={6} value={form.jobDescription} onChange={(e) => u("jobDescription", e.target.value)} placeholder="Paste the full job description…" aria-label="Job description" />
+              </div>
             )}
-            <Field label="Notes">
-              <Textarea value={form.notes} onChange={(e) => u("notes", e.target.value)} placeholder="Referral, recruiter contact, next steps…" />
-            </Field>
           </ModalBody>
           <ModalFooter>
             <Button variant="ghost" onClick={onClose}>Cancel</Button>

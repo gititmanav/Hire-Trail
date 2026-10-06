@@ -1,9 +1,12 @@
 /** Form field idiom: label (+ required mark), control, optional hint/error.
- *  Inputs are h-10 — roomier than the old h-9 — with one shared focus style. */
+ *  On a page the control is a bordered h-10 field; inside a dialog it's plain
+ *  text on the surface (ui/fieldLook.ts — ui/Modal switches it). */
 import { InputHTMLAttributes, ReactNode, TextareaHTMLAttributes, forwardRef, useId } from "react";
 
-export const controlCls =
-  "w-full h-10 px-3 text-sm bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground/60 transition-shadow focus:outline-none focus:ring-2 focus:ring-ring/25 focus:border-ring disabled:opacity-50 disabled:cursor-not-allowed";
+import { boxControlCls, useControlClass, useFieldLook } from "./fieldLook.ts";
+
+/** The bordered field's classes, for the few page controls built by hand. */
+export const controlCls = boxControlCls;
 
 export function Field({
   label, required, hint, error, children, htmlFor,
@@ -15,9 +18,10 @@ export function Field({
   children: ReactNode;
   htmlFor?: string;
 }) {
+  const plain = useFieldLook() === "plain";
   return (
     <div className="min-w-0">
-      <label htmlFor={htmlFor} className="block text-[13px] font-medium text-foreground mb-1.5">
+      <label htmlFor={htmlFor} className={plain ? "block text-[12.5px] font-medium text-muted-foreground mb-1.5" : "block text-[13px] font-medium text-foreground mb-1.5"}>
         {label}
         {required && <span className="text-muted-foreground/70 ml-0.5" aria-hidden>*</span>}
       </label>
@@ -33,17 +37,21 @@ export function Field({
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(
   function Input({ className = "", ...rest }, ref) {
-    return <input ref={ref} className={`${controlCls} ${className}`} {...rest} />;
+    const control = useControlClass();
+    return <input ref={ref} className={`${control} ${className}`} {...rest} />;
   },
 );
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(
   function Textarea({ className = "", rows = 3, ...rest }, ref) {
+    const plain = useFieldLook() === "plain";
+    const control = useControlClass();
     return (
       <textarea
         ref={ref}
         rows={rows}
-        className={`${controlCls} h-auto py-2.5 resize-y leading-relaxed ${className}`}
+        // Plain: grows with its text (field-sizing), from its rows' height.
+        className={`${control} h-auto leading-relaxed ${plain ? "py-0 resize-none [field-sizing:content] min-h-[4.5rem]" : "py-2.5 resize-y"} ${className}`}
         {...rest}
       />
     );

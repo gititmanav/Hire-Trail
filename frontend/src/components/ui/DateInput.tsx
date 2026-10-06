@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from "react";
 import { Calendar as CalendarIcon, X } from "lucide-react";
 import Popover from "./Popover.tsx";
 import CalendarPicker, { type CalendarPickerHandle } from "./CalendarPicker.tsx";
+import { chipCls, useFieldLook } from "./fieldLook.ts";
 import { formatDay, isYmd, todayYmd } from "../../utils/dates.ts";
 
 export default function DateInput({
@@ -30,6 +31,19 @@ export default function DateInput({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const pickerRef = useRef<CalendarPickerHandle>(null);
   const valid = isYmd(value) ? value : "";
+  // In a dialog the trigger is the chip: the calendar mark, then the day.
+  const chip = useFieldLook() === "plain";
+  const clear = valid && !required && !disabled && (
+    <span
+      role="button"
+      tabIndex={-1}
+      aria-label="Clear date"
+      onClick={(e) => { e.stopPropagation(); onChange(""); }}
+      className={`${chip ? "w-4 h-4 -mr-0.5" : "w-5 h-5"} flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-control`}
+    >
+      <X size={chip ? 11 : 12} strokeWidth={2.5} aria-hidden />
+    </span>
+  );
 
   // The picker takes focus once the panel is on screen (it remounts per open,
   // so it always starts on the selected day, or today).
@@ -56,25 +70,27 @@ export default function DateInput({
         aria-expanded={open}
         aria-label={ariaLabel ?? "Choose date"}
         onClick={() => setOpen((o) => !o)}
-        className={`w-full ${size === "sm" ? "h-8 px-2.5 text-[13px]" : "h-10 px-3 text-sm"} flex items-center justify-between gap-2 bg-background border border-border rounded-lg text-left text-foreground transition-shadow hover:border-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-ring/25 focus:border-ring disabled:opacity-50 disabled:cursor-not-allowed`}
+        className={chip ? `${chipCls} pl-2.5` : `w-full ${size === "sm" ? "h-8 px-2.5 text-[13px]" : "h-10 px-3 text-sm"} flex items-center justify-between gap-2 bg-background border border-border rounded-lg text-left text-foreground transition-shadow hover:border-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-ring/25 focus:border-ring disabled:opacity-50 disabled:cursor-not-allowed`}
       >
-        <span className={`truncate ${valid ? "" : "text-muted-foreground/60"}`}>
-          {valid ? formatDay(valid, { month: "short", day: "numeric", year: "numeric" }) : placeholder}
-        </span>
-        <span className="flex items-center gap-1 shrink-0">
-          {valid && !required && !disabled && (
-            <span
-              role="button"
-              tabIndex={-1}
-              aria-label="Clear date"
-              onClick={(e) => { e.stopPropagation(); onChange(""); }}
-              className="w-5 h-5 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-control"
-            >
-              <X size={12} strokeWidth={2.5} aria-hidden />
+        {chip ? (
+          <>
+            <CalendarIcon size={13} strokeWidth={1.9} className="shrink-0 text-muted-foreground" aria-hidden />
+            <span className={`truncate ${valid ? "" : "text-muted-foreground"}`}>
+              {valid ? formatDay(valid, { month: "short", day: "numeric", year: "numeric" }) : placeholder}
             </span>
-          )}
-          <CalendarIcon size={15} strokeWidth={1.8} className="text-muted-foreground" aria-hidden />
-        </span>
+            {clear}
+          </>
+        ) : (
+          <>
+            <span className={`truncate ${valid ? "" : "text-muted-foreground/60"}`}>
+              {valid ? formatDay(valid, { month: "short", day: "numeric", year: "numeric" }) : placeholder}
+            </span>
+            <span className="flex items-center gap-1 shrink-0">
+              {clear}
+              <CalendarIcon size={15} strokeWidth={1.8} className="text-muted-foreground" aria-hidden />
+            </span>
+          </>
+        )}
       </button>
 
       <Popover

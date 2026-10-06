@@ -3,11 +3,13 @@
  *  so it never fights a scrollable modal body and Escape closes it, not the
  *  dialog underneath. Keyboard: arrows/Home/End/Enter/Escape, optional search.
  *
- *  Two looks: "field" (default) matches form inputs and fills its container;
- *  "pill" is a compact rounded control for settings rows ("Group · Stage"). */
+ *  Two looks: "field" matches page form inputs and fills its container;
+ *  "pill" is the chip (settings rows, filters — and every select in a dialog,
+ *  where it's the default: ui/fieldLook.ts). */
 import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, Search } from "lucide-react";
 import Popover, { itemClass } from "./Popover.tsx";
+import { chipCls, useFieldLook } from "./fieldLook.ts";
 
 export interface SelectOption {
   value: string;
@@ -20,7 +22,7 @@ export interface SelectOption {
 
 export default function Select({
   value, options, onChange, placeholder = "Select…", searchable, searchPlaceholder = "Search…",
-  disabled, id, ariaLabel, renderValue, size = "md", variant = "field",
+  disabled, id, ariaLabel, renderValue, size = "md", variant,
 }: {
   value: string;
   options: SelectOption[];
@@ -95,9 +97,10 @@ export default function Select({
     }
   };
 
-  const pill = variant === "pill";
+  const inDialog = useFieldLook() === "plain";
+  const pill = (variant ?? (inDialog ? "pill" : "field")) === "pill";
   const triggerClass = pill
-    ? "max-w-full h-7 pl-3 pr-2 text-[13px] inline-flex items-center gap-1.5 rounded-full bg-control border border-border text-foreground font-medium hover:border-muted-foreground/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+    ? chipCls
     : `w-full ${size === "sm" ? "h-8 px-2.5 text-[13px]" : "h-10 px-3 text-sm"} flex items-center justify-between gap-2 bg-background border border-border rounded-lg text-left text-foreground transition-shadow hover:border-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-ring/25 focus:border-ring disabled:opacity-50 disabled:cursor-not-allowed`;
 
   return (
@@ -126,8 +129,8 @@ export default function Select({
         onOpenChange={setOpen}
         anchorRef={triggerRef}
         matchAnchorWidth={!pill}
-        width={pill ? 220 : undefined}
-        align={pill ? "end" : "start"}
+        width={pill ? (inDialog ? 240 : 220) : undefined}
+        align={pill && !inDialog ? "end" : "start"}
         maxHeight={340}
         role="listbox"
         ariaLabel={ariaLabel}
