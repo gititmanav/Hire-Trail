@@ -21,10 +21,13 @@ npm run dev
 npm run db:stop:local
 ```
 
-## Dev login
-`dev@hiretrail.local` / `devpass123` (a non-demo user with a master profile, so
-AI features — Studio, fit analysis, the tailoring drawer — work). Re-run
-`npm run db:seed` any time to reset it.
+## Dev logins
+- `dev@hiretrail.local` / `devpass123` — a normal (non-admin, non-demo) user with a
+  master profile, so AI features — Studio, fit analysis, the tailoring drawer — work.
+- `admin@hiretrail.local` / `devpass123` — the local admin (Admin panel).
+
+`npm run db:seed` recreates the dev user with fresh data and resets the admin's
+password and role; `npm run db:seed -- --admin-only` resets just the admin.
 
 ## AI Gateway
 `AI_GATEWAY_API_KEY` in `.env` enables all gateway providers/models + BYOK. In

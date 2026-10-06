@@ -3,6 +3,10 @@
  * application with a JD, so the AI features (Studio, fit analysis, the tailoring
  * drawer) are usable against a LOCAL database. Idempotent.
  *
+ * Two accounts: the dev user (a normal user — recreated with fresh data) and a
+ * local admin (kept as it is, with its password and role reset). Run with
+ * `--admin-only` to reset just the admin without touching the dev user.
+ *
  *   npm run db:seed            (from backend/, uses MONGO_URI from .env.local)
  *
  * Refuses to run against anything that isn't localhost — never touches Atlas.
@@ -16,6 +20,18 @@ import { Application } from "../src/models/Application.js";
 
 const EMAIL = "dev@hiretrail.local";
 const PASSWORD = "devpass123";
+const ADMIN_EMAIL = "admin@hiretrail.local";
+const ADMIN_PASSWORD = PASSWORD; // one password for both local accounts
+
+/** The local admin: created once, then only its password and role are reset. */
+async function ensureAdmin() {
+  const admin = (await User.findOne({ email: ADMIN_EMAIL }).setOptions({ includeDeleted: true }))
+    ?? new User({ name: "Admin Tester", email: ADMIN_EMAIL });
+  admin.password = ADMIN_PASSWORD;
+  admin.role = "admin";
+  await admin.save();
+  console.log("admin:", ADMIN_EMAIL, "/", ADMIN_PASSWORD);
+}
 
 async function main() {
   if (!/127\.0\.0\.1|localhost/.test(env.MONGO_URI)) {
@@ -23,6 +39,12 @@ async function main() {
   }
   await mongoose.connect(env.MONGO_URI);
   console.log("connected:", env.MONGO_URI);
+
+  await ensureAdmin();
+  if (process.argv.includes("--admin-only")) {
+    await mongoose.disconnect();
+    return;
+  }
 
   const prior = await User.findOne({ email: EMAIL }).setOptions({ includeDeleted: true });
   if (prior) {
