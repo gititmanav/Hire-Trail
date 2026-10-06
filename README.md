@@ -67,7 +67,7 @@ HireTrail's tailoring is **one engine, two shells**, both over a single editable
 ### Analytics, feedback & admin
 - Draggable/resizable dashboard widgets; pipeline funnel, conversion rates, resume metrics; CSV import/export; theme-aware charts.
 - In-app feedback widget + an Admin Feedback Inbox.
-- Admin: Dashboard, Users, Announcements, Broadcasts, Notifications, Mailboxes, Feedback, Bug reports, **AI** (Map · Rules · Spend), Settings (maintenance mode, feature switches, reset the demo) and Audit logs.
+- Admin: Dashboard, Users, Announcements, Broadcasts, Notifications, Feedback, Bug reports, **Connectors** (who connected what, 30-day scan results), **AI** (Map · Rules · Spend), Settings (maintenance mode, feature switches, reset the demo) and Audit logs.
 
 ### Browser extension (Chrome, Manifest V3)
 - One-click job tracking from LinkedIn, Indeed, Greenhouse, Lever, Glassdoor, and Workday; smart page scraping; auto-track on apply.
@@ -207,7 +207,7 @@ PRs welcome — see **[CONTRIBUTING.md](CONTRIBUTING.md)** for the dev setup, pr
 | One match score (2026-10) | The A–F fit grade is gone; the fit check's number is the deterministic 0–10 score. |
 | Inbox auto-apply removed (2026-10) | Every Gmail scan lands in the review queue. `/settings/mailboxes` → `/settings/connectors` (redirects). |
 | `/api/resume-profile/*` → `/api/master-profile/*` | Old `ResumeProfile` docs are orphaned; re-parse from the Profile page. |
-| `/admin/gmail` → `/admin/mailbox` | Gmail + Outlook unified. |
+| `/admin/gmail`, `/admin/mailbox` → `/admin/connectors` | One Connectors page for every connector (both old paths redirect). |
 
 ## License
 MIT — see [LICENSE](LICENSE).

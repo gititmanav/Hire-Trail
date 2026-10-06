@@ -160,7 +160,7 @@ export default function Notifications() {
         tab === "current" ? (
           <EmptyState
             title="You're all caught up"
-            description="Connected-mailbox detections and inbox-scan results show up here."
+            description="Inbox scans ready for review and other updates show up here."
             actions={[{ label: "Open Settings", href: "/settings" }]}
           />
         ) : (

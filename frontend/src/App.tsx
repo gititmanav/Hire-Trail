@@ -109,7 +109,7 @@ const SystemConfig        = lazy(() => import("./pages/Admin/SystemConfig.tsx"))
 const AdminAI             = lazy(() => import("./pages/Admin/ai/AdminAI.tsx"));
 const Announcements       = lazy(() => import("./pages/Admin/Announcements.tsx"));
 const UserManagement      = lazy(() => import("./pages/Admin/UserManagement.tsx"));
-const MailboxManagement   = lazy(() => import("./pages/Admin/MailboxManagement.tsx"));
+const AdminConnectors     = lazy(() => import("./pages/Admin/AdminConnectors.tsx"));
 const NotificationCenter  = lazy(() => import("./pages/Admin/NotificationCenter.tsx"));
 const FeedbackInbox       = lazy(() => import("./pages/Admin/FeedbackInbox.tsx"));
 const BugReports          = lazy(() => import("./pages/Admin/BugReports.tsx"));
@@ -280,8 +280,9 @@ function App() {
             <Route path="/admin/ai" element={<AdminAI />} />
             <Route path="/admin/announcements" element={<Announcements />} />
             <Route path="/admin/audit-logs" element={<AuditLogs />} />
-            <Route path="/admin/mailbox" element={<MailboxManagement />} />
-            <Route path="/admin/gmail" element={<MailboxManagement />} />
+            <Route path="/admin/connectors" element={<AdminConnectors />} />
+            <Route path="/admin/mailbox" element={<Navigate to="/admin/connectors" replace />} />
+            <Route path="/admin/gmail" element={<Navigate to="/admin/connectors" replace />} />
             <Route path="/admin/notifications" element={<NotificationCenter />} />
             <Route path="/admin/feedback" element={<FeedbackInbox />} />
             <Route path="/admin/bugs" element={<BugReports />} />

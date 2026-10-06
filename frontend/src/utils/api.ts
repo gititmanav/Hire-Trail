@@ -652,8 +652,6 @@ export const adminAPI = {
   getMailboxUsers: (params?: { page?: number; limit?: number; search?: string; provider?: MailboxProvider | "all" }) =>
     api.get<PaginatedResponse<AdminMailboxUser>>("/admin/mailbox/users", { params }).then((r) => r.data),
   getMailboxStats: () => api.get<AdminMailboxStats>("/admin/mailbox/stats").then((r) => r.data),
-  triggerMailboxScan: (userId: string, provider: MailboxProvider) =>
-    api.post<{ message: string; scanned: number; applied: number }>(`/admin/mailbox/${userId}/scan`, null, { params: { provider } }).then((r) => r.data),
   disconnectMailbox: (userId: string, provider: MailboxProvider) =>
     api.post(`/admin/mailbox/${userId}/disconnect`, null, { params: { provider } }).then((r) => r.data),
 

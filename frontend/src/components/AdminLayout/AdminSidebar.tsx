@@ -1,6 +1,6 @@
 import { NavLink } from "react-router-dom";
 import {
-  LayoutDashboard, Users, Mail, Bell, MessageSquare, Bug, Settings, Megaphone, FileText, Send, Sparkles,
+  LayoutDashboard, Users, Plug, Bell, MessageSquare, Bug, Settings, Megaphone, FileText, Send, Sparkles,
   type LucideIcon,
 } from "lucide-react";
 import { CollapseToggle, GroupLabel, ICON_ROW, fade, navTone } from "../Sidebar/navParts.tsx";
@@ -41,12 +41,6 @@ const groups: AdminNavGroup[] = [
     ],
   },
   {
-    label: "Inbox",
-    items: [
-      { to: "/admin/mailbox", label: "Mailboxes", Icon: Mail },
-    ],
-  },
-  {
     label: "Support",
     items: [
       { to: "/admin/feedback", label: "Feedback",    Icon: MessageSquare },
@@ -54,9 +48,10 @@ const groups: AdminNavGroup[] = [
     ],
   },
   {
-    label: "AI",
+    label: "Integrations",
     items: [
-      { to: "/admin/ai", label: "AI", Icon: Sparkles },
+      { to: "/admin/connectors", label: "Connectors", Icon: Plug },
+      { to: "/admin/ai",         label: "AI",         Icon: Sparkles },
     ],
   },
   {

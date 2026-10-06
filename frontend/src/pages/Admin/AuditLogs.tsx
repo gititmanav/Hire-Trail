@@ -25,7 +25,7 @@ const resourceLabels: Record<string, string> = {
   tailor_session: "Tailor Session",
   feedback: "Feedback",
   ai_provider: "AI Provider",
-  mailbox: "Mailbox",
+  mailbox: "Connector",
   email_template: "Email Template",
 };
 

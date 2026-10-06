@@ -5,7 +5,7 @@
 import type { ReactNode } from "react";
 import {
   ArrowLeft, ArrowLeftRight, Bell, Building2, ChevronDown, ChevronLeft, ChevronRight, ClipboardList, Clock,
-  FileText, Info, LayoutDashboard, Lock, Mail, Palette, PanelLeftClose, Puzzle, RotateCw, Search,
+  FileText, Info, LayoutDashboard, Lock, Palette, PanelLeftClose, Plug, Puzzle, RotateCw, Search,
   Sparkles, User as UserIcon, Users, Wand2, type LucideIcon,
 } from "lucide-react";
 import { GroupLabel, ICON_ROW, navTone } from "../../../components/Sidebar/navParts.tsx";
@@ -136,7 +136,7 @@ export function AppShell({ active, children }: { active: string; children: React
 
 const SETTINGS_NAV: { label: string; items: NavRow[] }[] = [
   { label: "Account", items: [{ label: "Profile", Icon: UserIcon }, { label: "Personalize", Icon: Palette }, { label: "Clipboard", Icon: ClipboardList }] },
-  { label: "Integrations", items: [{ label: "Mailboxes", Icon: Mail }, { label: "AI & Models", Icon: Sparkles }] },
+  { label: "Integrations", items: [{ label: "Connectors", Icon: Plug }, { label: "AI", Icon: Sparkles }] },
 ];
 
 export function SettingsShell({ active, children }: { active: string; children: ReactNode }) {
