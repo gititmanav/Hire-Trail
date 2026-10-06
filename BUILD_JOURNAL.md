@@ -4,6 +4,46 @@ Append a dated entry every session: decisions, what was built, what was verified
 
 ---
 
+## 2026-10-06 (night, last) — Contacts / Deadlines on phones; the board stops flickering
+
+- **Phones:** contact cards and deadline rows lay out by their own width (App.css "Contact cards" / "Deadline rows", container queries): narrow → the details drop into a footer (contacts) or under the title (deadlines), the hover-only tools fold into an always-visible "⋯" menu; hover-only tools also show under `@media (hover: none)`. One shared `ui/Pagination` (was three copies) goes ‹ Page 3 of 11 › when narrow. Verified at 375px (no horizontal scroll, was 386px wide) and 1440 (unchanged).
+- **Board flicker (owner recording):** two root causes — the hover preview moved the card into the target column, then `stageOf` read the card under the pointer by its stored stage and moved it back (oscillation); and columns were sortable, so dnd-kit displaced the other cards on top of the moved preview (Acme pushed out of its column). Now cards are `useDraggable`, columns `useDroppable`, nothing moves until the drop: the held card stays dimmed, the target shows a card-sized slot, a move skips the fly-back drop animation. Verified with real pointer events (slot steady in the right column every step; drop lands). The owner's recording was the old bundle — reload picks up the fix.
+
+---
+
+## 2026-10-06 (late night, later) — Assistant connect: watch it connect
+
+Owner ran the `claude mcp add` command and saw no acknowledgement — "is it connected?". It was: `claude mcp list` → hiretrail ✔ Connected, and the token recorded `claude-code 2.1.280`; the page just never looked. Now it watches (Revamp.md → "Watching the assistant connect").
+- **Built:** `McpToken` helloAt / firstTool / firstToolAt (`touchToken` stamps helloAt via `$ifNull`, `noteFirstTool` once); `routes/mcp.ts` reads the tool name off `tools/call`; `AssistantSection` rebuilt — ConnectFlow (three live steps, 2 s polling while open, nudge after 40 s, starter prompts, toast + MY_AI refresh on hello), status rows.
+- **Verified (HOW):** `claude mcp list` against local → the owner's token got helloAt (the pipeline update works on this Mongoose). Headless as dev: Connect another → copy (clipboard stubbed) → the page read its own new secret and POSTed a real `initialize` (clientInfo claude-code 2.1.280) → step 2 + toast within one poll → a real `tools/call whoami` (200, the dev user's summary) → step 3 "First request: who you are" → Done → rows "Connected · Claude Code 2.1.280"; dark mode. The test token was revoked afterwards. Gates: frontend `tsc -b` + build, backend `tsc --noEmit`.
+- **Not verified:** a real Claude Code session's first tool call landing as step 3 (simulated with the same request shape), a visible browser.
+
+---
+
+## 2026-10-06 (late night) — One page header, everywhere
+
+Owner (queued earlier, "now do the page sub-headers"): the Applications sub-header on every page, full card width, consistent heading sizes; Deadlines tabs as a switch; Contacts / Companies with search, Display options and Filters; "Add a resume" inside the Resume dropdown. Details and the decisions taken: **Revamp.md → "2026-10-06 — One page header, everywhere"**.
+
+### Built
+- `ui/PageHeader` kit (`PageBody`, `PageSearch`, `HeaderIconButton`, `CreateButton`), `ui/FiltersPopover` (Applications' FiltersMenu rebuilt on it), `SegmentedControl countsFromSm`, `Select action`; `Layout` no longer caps pages at 1200px.
+- Pages: Dashboard, Applications (+ detail), Deadlines, Contacts, Companies, Resumes, Resume Studio, Notifications, Profile, Job Search, Import & Export, Inbox review; Admin Announcements, Broadcasts, Notifications, Feedback, Bug Reports, Audit Logs.
+- Backend: `GET /contacts` search / status / statusCounts (+ limit cap 1000); `GET /companies` stage / sort / stageCounts.
+
+### Verified (HOW)
+- Headless Chrome over CDP (scratch `shots.mjs`), signed in locally as demo (650 apps, 220 contacts, 50 companies, 180 deadlines), dev and the local admin:
+  - At 1920px every page's header was measured against the scroll card: all 13 app pages 1px from each edge (the card's border), 57px tall, 16px title.
+  - Filters panels (Contacts, Companies, Dashboard, Resumes) opened with "f"; Contacts "/" + "goo" → "2 found" from the server; Deadlines "2" → Overdue, scrolled — the section strip pins under the header; Profile (dev, a 520px-tall window) scrolled 84px — the tab bar's top = the header's bottom (122px).
+  - New application → Resume: "Add a resume" pinned under nine resumes; End + Enter opens the resume dialog over the form.
+  - Light + dark (Contacts, Deadlines); 375px (Contacts, Deadlines, Dashboard): Deadlines' switch fits once the counts hide below 640px.
+- API (as demo): contacts 220 with statusCounts (all legacy → not_contacted), status=responded → 0, search=goo → 2 Google, limit=1000 → 220; companies 50, stageCounts, sort=applications (MongoDB 24, Cloudflare 20…), stage=Offer → 40, sort=recent + search=s → 19.
+- Gates: frontend `tsc -b` 0, `npm run build` green; backend `tsc --noEmit` 0.
+- **Not verified:** a visible browser (headless frames only), Safari / Firefox, a screen reader, every admin page at phone width.
+
+### Found, not fixed (logged in handoff)
+- At 375px the Contacts card squeezes its text and the duplicated `PaginationBar` overflows by 11px — page-body issues older than this work (a task chip was offered).
+
+---
+
 ## 2026-10-06 (night) — Dialogs: plain fields, one Modal, one Drawer
 
 Owner: drop the boxes around text in dialogs (Sora's look), use the shared dropdown inside dialogs, and every modal opens and closes softly ("never blip"); then "apply it to all modals — make a common modal component". Details: **Revamp.md → "2026-10-06 — Dialogs and drawers"**.

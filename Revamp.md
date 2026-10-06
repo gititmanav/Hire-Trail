@@ -561,3 +561,37 @@ Owner (screenshots, Sora vs ours): lines showed under the HireTrail mark at the 
 - Focus on open: `[data-autofocus]`, else the panel itself. Focusing the header's X (the old default) drew a ring on it whenever a dialog opened from the keyboard.
 - Gmail scan wizard: closing mid-scan just closes (the scan runs on; banner + notification bring the person back) — only the review asks before dropping results. This matches the step's own copy and the background banner; the old "lose results" prompt mid-scan contradicted both.
 
+## 2026-10-06 — One page header, everywhere
+
+### Decided (owner)
+- Every page gets the Applications sub-header: the same title size and weight, meta beside it, controls on the right, spanning the **full width of the page card**.
+- Deadlines: Upcoming | Overdue | Completed as a tab switch like List · Board · Calendar.
+- Contacts and Companies: the Applications header itself — search, Display options, Filters — so the page body gets cleaner.
+- Resumes, Resume Studio and the rest: the same header design; heading sizes stop differing page to page.
+- New application: "Add a resume" lives inside the Resume dropdown, not beside it.
+
+### Root cause of the short dividers
+`Layout` wrapped every page except Applications, Dashboard, Profile and Studio in a `max-w-[1200px] mx-auto` column, so a page's full-bleed header could only bleed to that column's edges — on a wide screen the hairline stopped short of the card. Pages that centred themselves (Notifications, Resumes, Applications' Classic list, the detail page) had the same problem one level down. Now the shell gives every page the card, the header is always the page's first element, and the page caps only its body (`PageBody`).
+
+### Built
+- **The kit** (`ui/PageHeader.tsx`): `PageHeader`, `PageBody`, `PageSearch` (moved from Applications), `HeaderIconButton`, `CreateButton`; `ui/FiltersPopover` — the button + panel (Filters · Display options · footer) that Applications' Filters menu now composes; `SegmentedControl countsFromSm`; `Select action` (a row pinned under the list, reached by the arrow keys).
+- **Pages:** Dashboard (Company and Stage move into Filters; lock and widgets become icon buttons; create opens the new-application dialog), Applications (the header leaves the Classic 1200px column), the application detail page, Deadlines (the tab switch, counts in the meta with overdue in red, keys 1–4; the old tab strip and summary row go; section strips pin under the header), Contacts, Companies, Resumes (title "Resumes", matching the sidebar — was "My Documents"; Studio's copy follows), Resume Studio (the "Back to Documents" link goes — the sidebar and the variant note link back), Notifications (Current | Past in the header, "Mark all as read" as an icon button), Profile (import actions in the header; the section tabs pin under it), Job Search, Import & Export, Inbox review (a "Connectors /" breadcrumb), and Admin's Announcements, Broadcasts, Notifications, Feedback, Bug Reports, Audit Logs (titles match the admin sidebar; descriptions kept as a line under the header, like Connectors).
+- **Contacts:** Filters = Status (with counts per status) + Source (manual · extension · inbox scan); Display = Group by Person | Company (remembered). **Companies:** Filters = Stage (companies where one of your applications is at that stage, with counts); Display = Sort: Name A–Z · Most applications · Latest application (remembered). Engineering's call on what Companies filters by — the page had only a search, and these are the two the data answers cheaply and truthfully.
+- **Server:** `GET /contacts` takes `search` (name or company) and `status`, returns `statusCounts` (a contact saved before outreach tracking counts as not contacted); `GET /companies` takes `stage` and `sort`, returns `stageCounts`.
+
+### Found along the way (fixed)
+- Contacts' search and status filter ran in the browser over the current page of 20 — a contact on page 2 was unfindable, and the status counts described one page.
+- `GET /contacts` capped `limit` at 100 while the CSV export asked for 999 (and Companies / search for 500): exports silently stopped at 100 contacts. The cap is 1000.
+- Profile's section tabs were `sticky` inside an `overflow-hidden` card, so they never pinned; the card clips with `overflow: clip` now.
+
+## 2026-10-06 — Watching the assistant connect
+
+### Decided (owner)
+- After running the `claude mcp add` command there was no acknowledgement. The page should know when Claude Code connects and say so — like Sora's agent wizard (waits for the machine's hello, flips green) — "even better than Sora".
+
+### Built
+- **Server stamps, not guesses:** each token keeps `helloAt` (the client's first MCP `initialize`, with its name/version) and `firstTool` / `firstToolAt` (its first `tools/call`), read off the request in `routes/mcp.ts`. Tokens from before keep working: a recorded client counts as a hello.
+- **The connect card is three live steps** (Sora has one flip): copy the command → "Claude Code 2.1.280 said hello" → "First request: who you are" — the last proves the whole path, not just the handshake. A green edge fills by thirds; the step rail turns green as each lands; one toast on the hello; the AI map refreshes so the My assistant lane wakes; the button becomes Done.
+- **It tells the truth about Claude Code:** `claude mcp add` only saves the setting, so step 2 says Claude Code connects when a session starts (or `claude mcp list` checks now); after 40 s without a hello it explains what `claude mcp list` should show and what Failed means. Starter prompts to copy for step 3.
+- **Connection rows** show state: a green dot + "Connected", the client in words ("Claude Code 2.1.280" from "claude-code 2.1.280"), last use, last four.
+

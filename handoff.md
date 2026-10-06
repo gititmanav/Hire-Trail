@@ -18,12 +18,11 @@ _Last updated: 2026-10-06 — the header search (Spotlight), the radius scale, a
 
 **Dialog follow-ups (small, not started):** page controls still on `.input-premium` (Admin → Bug reports search, the Broadcasts composer, the Companies search) → `ui/Input`; the Import dialog's dropzone is a clickable `<div>` keyboard users can't reach; when a dialog swaps steps (Import, the scan wizard) the focused button disappears and focus drops to the page — move it to the new step's first control; `WidgetPicker/AdminWidgetPicker.tsx` is imported nowhere (delete, or wire it if Admin's dashboard should have one).
 
-**Queued (owner, 2026-10-06 — "queue this for later"):** one page sub-header, everywhere.
-- Every page gets the Applications sub-header's design: same title size and weight, meta beside it, controls on the right, and the bar spans the **full width of the page card** (today some sub-headers sit in an inset container with a short divider).
-- **Deadlines:** Upcoming | Overdue | Completed becomes a tab switcher styled like Applications' List · Board · Calendar.
-- **Contacts** and **Companies:** the Applications sub-header itself — search, a Display options menu and a Filters button — so the page body gets cleaner.
-- **Resumes, Resume Studio and the rest:** where the exact controls don't apply, the same header design anyway (today the heading font sizes differ page to page).
-- **New application's Resume chip:** "Add a resume" moves *inside* the dropdown (a row at the end of the list) instead of the separate "+" circle beside it.
+**Uncommitted on master's working tree (2026-10-06, later):** one page sub-header everywhere — `ui/PageHeader` + `PageBody` + `PageSearch` / `HeaderIconButton` / `CreateButton`, `ui/FiltersPopover`, `Select` action rows, `Layout` without the 1200px cap; every app page and six admin pages on it; Contacts search/status and Companies stage/sort moved to the server — BUILD_JOURNAL "2026-10-06 (late night)", Revamp.md "2026-10-06 — One page header, everywhere". Checked in headless frames only (1920 / 1440 / 375, light + dark).
+
+**Also uncommitted (2026-10-06, later):** the assistant connect card — Settings → AI → Your assistant walks copy → "Claude Code said hello" → first request, live (BUILD_JOURNAL "Assistant connect: watch it connect").
+
+**Follow-ups from the header work (not started):** Companies refetches resumes/contacts/deadlines/apps on every search keystroke (only the company list depends on it); the application detail page's loading skeleton has no header (a jump when it loads).
 
 **Queued earlier (not started):** per-feature model switching from the AI map's hover card — the person's own keys only (never Included), and the same for HireTrail's platform keys in Admin → AI (Sora's "Switch model" with a searchable list of the key's live models). Then, if the owner says go: the control/field/surface radius tokens (pill controls), mocked on the Applications toolbar + header first.
 
