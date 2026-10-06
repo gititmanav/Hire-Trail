@@ -62,6 +62,10 @@ export default function ApplicationTailorDrawer({ applicationId, onClose }: { ap
   const [jd, setJd] = useState("");
   const [initialGap, setInitialGap] = useState<GapAnalysis | null>(null);
   const pollRef = useRef<number | null>(null);
+  // Callers pass an inline onClose; read it through a ref so a parent
+  // re-render never re-runs init (which would restart the fit check).
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   // Drag-resizable width (default ~78vw), persisted across opens.
   const [width, setWidth] = useState<number>(() => {
@@ -129,7 +133,7 @@ export default function ApplicationTailorDrawer({ applicationId, onClose }: { ap
   }, [bindAndReady]);
 
   const startAnalysis = useCallback(async () => {
-    if (!requireRealAccount("AI resume tailoring")) { onClose(); return; }
+    if (!requireRealAccount("AI resume tailoring")) { onCloseRef.current(); return; }
     setPhase("analyzing");
     setErrorMsg("");
     setFixInSettings(false);
@@ -141,7 +145,7 @@ export default function ApplicationTailorDrawer({ applicationId, onClose }: { ap
       setFixInSettings(fixableFrom(e));
       setPhase("failed");
     }
-  }, [requireRealAccount, onClose, applicationId, pollSession]);
+  }, [requireRealAccount, applicationId, pollSession]);
 
   const routeBySession = useCallback(async (session: TailorSession) => {
     if (session.status === "succeeded") { await bindAndReady(session); return; }
