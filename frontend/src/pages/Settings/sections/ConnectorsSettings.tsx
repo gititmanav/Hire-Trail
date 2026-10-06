@@ -12,14 +12,14 @@
 import { useContext, useEffect, useState, FormEvent, lazy, Suspense } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "../../../components/ui/toast.ts";
-import { ArrowRight, Mail } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 
 import { UserContext } from "../../../App.tsx";
 import { useDemoGate } from "../../../hooks/useDemoGate.tsx";
 import { applicationsAPI, emailAPI, type EmailStatusResponse, type ScanJob } from "../../../utils/api.ts";
 import { aiApi, LANE_LABEL } from "../../../utils/aiApi.ts";
-import { cssPalette } from "../../../utils/palette.ts";
 import { Skeleton } from "../../../components/Skeleton/Skeleton.tsx";
+import BrandTile from "../../../components/BrandLogo/BrandLogo.tsx";
 import { Modal, ModalBody, ModalFooter, ModalHeader } from "../../../components/ui/Modal.tsx";
 import { Field, TextField } from "../../../components/ui/Field.tsx";
 import DateInput from "../../../components/ui/DateInput.tsx";
@@ -37,22 +37,7 @@ const SCAN_KEY = ["email", "scan-latest"] as const;
 /** A connector's mark in a tile. Interim: a tinted glyph — the official
  *  marks drop in here without touching a caller. */
 function ConnectorMark({ size = 32 }: { size?: number }) {
-  return (
-    <span
-      aria-hidden
-      className="inline-grid place-items-center shrink-0"
-      style={{
-        width: size,
-        height: size,
-        borderRadius: Math.round(size * 0.28),
-        background: cssPalette("red-500", 0.1),
-        color: cssPalette("red-500"),
-        boxShadow: `inset 0 0 0 1px ${cssPalette("red-500", 0.2)}`,
-      }}
-    >
-      <Mail size={Math.round(size * 0.5)} strokeWidth={1.8} />
-    </span>
-  );
+  return <BrandTile brand="gmail" size={size} />;
 }
 
 function ReportRejectionModal({ onClose }: { onClose: () => void }) {

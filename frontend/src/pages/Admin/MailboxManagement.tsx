@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { Mail } from "lucide-react";
 import toast from "../../components/ui/toast.ts";
 import { adminAPI } from "../../utils/api";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal";
 import { useConfirm } from "../../hooks/useConfirm";
+import { BrandLogo } from "../../components/BrandLogo/BrandLogo.tsx";
 import type { AdminMailboxUser, AdminMailboxStats, Pagination, MailboxProvider } from "../../types";
 
 const fmt = (d: string | null) => d ? new Date(d).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }) : "Never";
@@ -165,8 +165,8 @@ export default function MailboxManagement() {
                   <td className="px-4 py-3 text-sm">
                     {u.gmailConnected ? (
                       <div className="space-y-1">
-                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-medium rounded-full bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20">
-                          <Mail width={10} height={10} strokeWidth={2} />
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-medium rounded-full bg-control text-foreground border border-border">
+                          <BrandLogo brand="gmail" size={11} />
                           Connected
                         </span>
                         <div className="text-xs text-secondary-foreground">{u.gmailEmail || "—"}</div>
@@ -177,8 +177,8 @@ export default function MailboxManagement() {
                   <td className="px-4 py-3 text-sm">
                     {u.outlookConnected ? (
                       <div className="space-y-1">
-                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-medium rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
-                          <Mail width={10} height={10} strokeWidth={2} />
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-medium rounded-full bg-control text-foreground border border-border">
+                          <BrandLogo brand="outlook" size={11} />
                           Connected
                         </span>
                         <div className="text-xs text-secondary-foreground">{u.outlookEmail || "—"}</div>

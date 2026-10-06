@@ -2,6 +2,7 @@
  *  drawn with the app's dark tokens (the chapter is dark). Decorative. */
 import { Building2, Check, Clock, FileSpreadsheet, FileText, Mail, Search, Sparkles, Users } from "lucide-react";
 import { STAGE_BADGE_CLASS, STAGE_COLOR } from "../../../utils/stageStyles.ts";
+import { BrandLogo, type Brand } from "../../../components/BrandLogo/BrandLogo.tsx";
 
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return <div className={`rounded-2xl border border-border bg-card shadow-floating overflow-hidden ${className}`}>{children}</div>;
@@ -171,7 +172,10 @@ export function ImportVignette() {
 }
 
 export function AIVignette() {
-  const providers = ["Google", "Anthropic", "OpenAI", "xAI", "DeepSeek", "Mistral", "Groq", "OpenRouter"];
+  const providers: [Brand, string][] = [
+    ["google", "Google"], ["anthropic", "Anthropic"], ["openai", "OpenAI"], ["xai", "xAI"],
+    ["deepseek", "DeepSeek"], ["mistral", "Mistral"], ["groq", "Groq"], ["openrouter", "OpenRouter"],
+  ];
   return (
     <Card className="p-5">
       <div className="flex items-center gap-3">
@@ -182,8 +186,11 @@ export function AIVignette() {
         </div>
       </div>
       <div className="mt-4 flex flex-wrap gap-1.5">
-        {providers.map((p) => (
-          <span key={p} className="h-7 px-2.5 rounded-full border border-border text-[12px] font-medium text-foreground/90 inline-flex items-center">{p}</span>
+        {providers.map(([brand, name]) => (
+          <span key={brand} className="h-7 pl-2 pr-2.5 rounded-full border border-border text-[12px] font-medium text-foreground/90 inline-flex items-center gap-1.5">
+            <BrandLogo brand={brand} size={13} />
+            {name}
+          </span>
         ))}
         <span className="h-7 px-2.5 rounded-full text-[12px] font-medium text-muted-foreground inline-flex items-center">+ Claude Code over MCP</span>
       </div>

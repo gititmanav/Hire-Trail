@@ -15,8 +15,12 @@ import SegmentedControl from "../../components/ui/SegmentedControl.tsx";
 import ConfirmModal from "../../components/ConfirmModal/ConfirmModal.tsx";
 import { sinceLabel } from "../../components/ai/format.ts";
 import { getApiBaseURL } from "../../config/apiBase.ts";
+import BrandTile from "../../components/BrandLogo/BrandLogo.tsx";
 import { mcpApi, type McpConnection } from "../../utils/aiApi.ts";
 import { MY_AI_KEY } from "./useMyAi.ts";
+
+/** A connection from Claude (Claude Code, Claude.ai) shows Claude's mark. */
+const isClaude = (t: McpConnection) => /claude/i.test(`${t.lastClient} ${t.name}`);
 
 const TOKENS_KEY = ["ai", "mcp-tokens"] as const;
 
@@ -126,9 +130,7 @@ export default function AssistantSection({ enabled }: { enabled: boolean }) {
         {list.length === 0 && !secret && (
           <div className="px-5 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-start gap-3 min-w-0">
-              <span className="w-9 h-9 shrink-0 grid place-items-center rounded-xl bg-control text-foreground/80">
-                <SquareTerminal size={18} strokeWidth={1.8} aria-hidden />
-              </span>
+              <BrandTile brand="anthropic" size={36} />
               <div className="min-w-0">
                 <p className="text-sm font-medium text-foreground">Use HireTrail from Claude Code</p>
                 <p className="text-[12.5px] text-muted-foreground mt-0.5 leading-relaxed max-w-md">
@@ -142,9 +144,13 @@ export default function AssistantSection({ enabled }: { enabled: boolean }) {
 
         {list.map((t) => (
           <div key={t.id} className="flex items-center gap-3.5 px-5 py-4">
-            <span className="w-8 h-8 shrink-0 grid place-items-center rounded-lg bg-control text-foreground/75">
-              <SquareTerminal size={16} strokeWidth={1.8} aria-hidden />
-            </span>
+            {isClaude(t) ? (
+              <BrandTile brand="anthropic" size={32} />
+            ) : (
+              <span className="w-8 h-8 shrink-0 grid place-items-center rounded-lg bg-control text-foreground/75">
+                <SquareTerminal size={16} strokeWidth={1.8} aria-hidden />
+              </span>
+            )}
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium text-foreground truncate">{t.name}</p>
               <p className="text-[12.5px] text-muted-foreground mt-0.5 truncate">

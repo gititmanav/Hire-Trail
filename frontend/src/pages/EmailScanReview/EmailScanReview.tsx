@@ -12,9 +12,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import toast from "../../components/ui/toast.ts";
-import { ChevronLeft, Check, ArrowRight, Mail } from "lucide-react";
+import { ChevronLeft, Check, ArrowRight } from "lucide-react";
 import { emailAPI, type ScanCandidate, type ScanJob } from "../../utils/api.ts";
 import { STAGE_TONE_CLASS } from "../../utils/stageStyles.ts";
+import BrandTile from "../../components/BrandLogo/BrandLogo.tsx";
 
 const POLL_MS = 3500;
 
@@ -433,9 +434,7 @@ function CandidateCard({ c, onImport, onSkip, onMerge }: {
 function EmptyState({ title, body, ctaLabel, ctaHref }: { title: string; body: string; ctaLabel: string; ctaHref: string }) {
   return (
     <div className="max-w-md mx-auto text-center py-20 px-5">
-      <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4">
-        <Mail size={22} strokeWidth={1.8} className="text-muted-foreground" />
-      </div>
+      <BrandTile brand="gmail" size={48} className="mx-auto mb-4" />
       <h2 className="text-base font-semibold text-foreground">{title}</h2>
       <p className="text-sm text-muted-foreground mt-1.5 mb-5">{body}</p>
       <Link

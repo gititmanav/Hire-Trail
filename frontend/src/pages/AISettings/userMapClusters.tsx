@@ -7,6 +7,7 @@ import { PauseCircle, PowerOff, SquareTerminal } from "lucide-react";
 import BrandMark from "../../components/BrandMark/BrandMark.tsx";
 import FeatureGlyph from "../../components/ai/FeatureGlyph.tsx";
 import ProviderMark from "../../components/ai/ProviderMark.tsx";
+import { BrandLogo } from "../../components/BrandLogo/BrandLogo.tsx";
 import KeyHealth from "../../components/ai/KeyHealth.tsx";
 import { activeToday, count, shortDate, sinceLabel, usd } from "../../components/ai/format.ts";
 import { providerColor } from "../../components/ai/providerStyle.ts";
@@ -173,7 +174,10 @@ export function buildUserClusters(map: UserAiMap, h: UserMapHandlers): MapCluste
         id: "hub:assistant",
         face: "Assistant",
         sub: assistant.connected ? assistant.client ?? "Connected" : "Not connected",
-        glyph: <SquareTerminal size={22} strokeWidth={1.7} className="text-foreground/80" />,
+        // Claude connected → Claude's mark; any other assistant → a terminal.
+        glyph: /claude/i.test(assistant.client ?? "")
+          ? <BrandLogo brand="anthropic" size={22} />
+          : <SquareTerminal size={22} strokeWidth={1.7} className="text-foreground/80" />,
         hub: true,
         ariaLabel: "Your AI assistant",
         muted: !assistant.connected,
