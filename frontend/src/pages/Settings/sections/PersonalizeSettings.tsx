@@ -247,7 +247,7 @@ function ClassicPreview() {
 function TablePreview() {
   return (
     <div className="h-full flex flex-col p-2.5">
-      <div className="h-3.5 rounded-sm bg-sidebar border-y border-border/60 flex items-center gap-1 px-1.5">
+      <div className="h-3.5 rounded-[2px] bg-sidebar border-y border-border/60 flex items-center gap-1 px-1.5">
         <span className="w-1.5 h-1.5 rounded-full bg-primary" />
         <span className="h-1 w-8 rounded-full bg-muted-foreground/40" />
       </div>

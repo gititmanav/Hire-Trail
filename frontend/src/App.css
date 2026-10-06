@@ -60,7 +60,10 @@
      * visible on the card and on popovers in both themes (`--muted` is too
      * close to white to read as a state). */
     --control: 0 0% 94%;
-    --radius: 0.375rem;
+    /* One radius, stepped by role (Sora's, made concentric): controls, fields
+     * and rows 10 · small controls 8 · tiny 6 · panels and cards 14 (a 10px row
+     * + 4px of padding) · dialogs 18. Chips and triggers that are chips: full. */
+    --radius: 0.625rem;
     --shadow-panel: 0 1px 2px hsl(0 0% 10% / 0.04), 0 1px 6px -1px hsl(0 0% 10% / 0.05);
     --shadow-floating: 0 1px 2px hsl(0 0% 10% / 0.04), 0 10px 32px -6px hsl(0 0% 10% / 0.14);
     /* The selected nav item: a raised pill on the backdrop. */

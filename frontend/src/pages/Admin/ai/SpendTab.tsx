@@ -71,7 +71,7 @@ function DailyBars({ period, data }: { period: string; data: { day: string; cost
       {days.map((d) => (
         <div
           key={d.day}
-          className={`flex-1 rounded-sm ${d.costUsd > 0 ? "bg-foreground/60" : "bg-control"}`}
+          className={`flex-1 rounded-[2px] ${d.costUsd > 0 ? "bg-foreground/60" : "bg-control"}`}
           style={{ height: d.costUsd > 0 ? `${Math.max(8, (d.costUsd / max) * 100)}%` : "2px" }}
           title={`${shortDate(`${d.day}T00:00:00Z`)} · ${usd(d.costUsd)} · ${count(d.calls, "call")}`}
         />
