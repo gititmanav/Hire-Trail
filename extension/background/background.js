@@ -15,7 +15,6 @@ const ERROR_CODES = {
   API_ERROR: "API_ERROR",
   UNKNOWN_ERROR: "UNKNOWN_ERROR",
 };
-const ENRICHMENT_CONFIG_KEYS = ["llmEnrichmentEnabled", "llmEnrichmentEndpoint"];
 
 // Google OAuth config — same client ID as the web app
 const GOOGLE_CLIENT_ID = "15875098947-v3ki4761r0f9d2co11f1kef87oj0ocar.apps.googleusercontent.com";
@@ -46,10 +45,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
   if (msg.type === "CLEAR_TELEMETRY") {
     clearTelemetry().then(sendResponse);
-    return true;
-  }
-  if (msg.type === "ANALYZE_JD") {
-    analyzeJD(msg.data).then(sendResponse);
     return true;
   }
   if (msg.type === "TAILOR_INIT") {
@@ -215,36 +210,6 @@ async function tailorInit(data) {
   }
 }
 
-async function analyzeJD(data) {
-  const { token } = await chrome.storage.local.get(["token"]);
-  if (!token) return { success: false, error: "Not signed in. Open the popup and sign in first.", code: ERROR_CODES.AUTH_MISSING };
-  try {
-    const res = await fetchWithTimeout(`${API_BASE}/tailor/analyze`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({
-        jobDescription: data.jobDescription || "",
-        jobTitle: data.title || "",
-        company: data.company || "",
-        url: data.url || "",
-      }),
-    });
-    if (res.status === 401) return { success: false, error: "Session expired — sign in again.", code: ERROR_CODES.AUTH_EXPIRED };
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      const errMsg = typeof body?.error === "string"
-        ? body.error
-        : "Analysis failed. Make sure your master profile is set up (Profile page in HireTrail).";
-      return { success: false, error: errMsg, code: ERROR_CODES.API_ERROR };
-    }
-    const session = await res.json();
-    return { success: true, session };
-  } catch (err) {
-    if (err?.name === "AbortError") return { success: false, error: "Timed out.", code: ERROR_CODES.NETWORK_TIMEOUT };
-    return { success: false, error: err?.message || "Network error", code: ERROR_CODES.NETWORK_ERROR };
-  }
-}
-
 async function fetchWithTimeout(url, options = {}, timeoutMs = 15000) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -352,159 +317,6 @@ function normalizeIncomingJob(data) {
     normalized.jobUrl = "";
   }
   return normalized;
-}
-
-function detectFirstKeyword(text, keywords) {
-  const lower = (text || "").toLowerCase();
-  return keywords.find((keyword) => lower.includes(keyword)) || "";
-}
-
-function inferJobEnrichment(normalizedJob) {
-  const combined = [
-    normalizedJob.role,
-    normalizedJob.jobDescription,
-    normalizedJob.location,
-    normalizedJob.jobType,
-  ].filter(Boolean).join(" ");
-
-  const seniorityKeyword = detectFirstKeyword(combined, [
-    "intern", "entry level", "junior", "associate", "mid-level", "senior",
-    "lead", "staff", "principal", "manager", "director",
-  ]);
-
-  const seniorityMap = {
-    "intern": "Intern",
-    "entry level": "Entry Level",
-    "junior": "Junior",
-    "associate": "Associate",
-    "mid-level": "Mid Level",
-    "senior": "Senior",
-    "lead": "Lead",
-    "staff": "Staff",
-    "principal": "Principal",
-    "manager": "Manager",
-    "director": "Director",
-  };
-
-  const workModeKeyword = detectFirstKeyword(combined, [
-    "remote", "hybrid", "on-site", "onsite", "in-office", "office-based",
-  ]);
-  const workModeMap = {
-    "remote": "Remote",
-    "hybrid": "Hybrid",
-    "on-site": "On-site",
-    "onsite": "On-site",
-    "in-office": "In-office",
-    "office-based": "In-office",
-  };
-
-  const employmentKeyword = detectFirstKeyword(combined, [
-    "full-time", "part-time", "contract", "contractor", "internship", "temporary", "freelance",
-  ]);
-  const employmentTypeMap = {
-    "full-time": "Full-time",
-    "part-time": "Part-time",
-    "contract": "Contract",
-    "contractor": "Contract",
-    "internship": "Internship",
-    "temporary": "Temporary",
-    "freelance": "Freelance",
-  };
-
-  const visaKeyword = detectFirstKeyword(combined, [
-    "visa sponsorship", "sponsorship available", "h1b", "h-1b", "work authorization required", "no sponsorship",
-  ]);
-  let visaSignal = "";
-  if (visaKeyword) {
-    visaSignal = visaKeyword === "no sponsorship" ? "No sponsorship mentioned" : "Potential sponsorship signal";
-  }
-
-  return {
-    seniority: seniorityMap[seniorityKeyword] || "Unknown",
-    workMode: workModeMap[workModeKeyword] || "Unknown",
-    employmentType: employmentTypeMap[employmentKeyword] || "Unknown",
-    visaSignal: visaSignal || "Unknown",
-  };
-}
-
-function buildEnrichmentNote(enrichment) {
-  return [
-    "[Auto Tags]",
-    `Seniority: ${enrichment.seniority}`,
-    `Work Mode: ${enrichment.workMode}`,
-    `Employment: ${enrichment.employmentType}`,
-    `Visa: ${enrichment.visaSignal}`,
-  ].join("\n");
-}
-
-function buildLlmEnrichmentNote(llmEnrichment) {
-  if (!llmEnrichment) return "";
-  const lines = ["[LLM Tags]"];
-  if (llmEnrichment.seniority) lines.push(`Seniority: ${llmEnrichment.seniority}`);
-  if (llmEnrichment.workMode) lines.push(`Work Mode: ${llmEnrichment.workMode}`);
-  if (llmEnrichment.employmentType) lines.push(`Employment: ${llmEnrichment.employmentType}`);
-  if (llmEnrichment.roleFamily) lines.push(`Role Family: ${llmEnrichment.roleFamily}`);
-  if (typeof llmEnrichment.confidence === "number") lines.push(`Confidence: ${llmEnrichment.confidence}`);
-  return lines.join("\n");
-}
-
-function mergeNotes(ruleNote, llmNote) {
-  if (!llmNote) return ruleNote;
-  return `${ruleNote}\n\n${llmNote}`;
-}
-
-async function getEnrichmentConfig() {
-  const config = await chrome.storage.local.get(ENRICHMENT_CONFIG_KEYS);
-  return {
-    llmEnrichmentEnabled: Boolean(config.llmEnrichmentEnabled),
-    llmEnrichmentEndpoint: String(config.llmEnrichmentEndpoint || "").trim(),
-  };
-}
-
-function normalizeLlmEnrichment(payload) {
-  if (!payload || typeof payload !== "object") return null;
-  return {
-    seniority: truncate(payload.seniority || "", 50),
-    workMode: truncate(payload.workMode || "", 50),
-    employmentType: truncate(payload.employmentType || "", 50),
-    roleFamily: truncate(payload.roleFamily || "", 80),
-    confidence: Number.isFinite(payload.confidence) ? Math.max(0, Math.min(1, payload.confidence)) : undefined,
-  };
-}
-
-async function tryLlmEnrichment(normalizedJob, token) {
-  const { llmEnrichmentEnabled, llmEnrichmentEndpoint } = await getEnrichmentConfig();
-  if (!llmEnrichmentEnabled || !llmEnrichmentEndpoint) {
-    return { used: false, enrichment: null, reason: "disabled_or_not_configured" };
-  }
-
-  try {
-    const response = await fetchWithTimeout(llmEnrichmentEndpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        title: normalizedJob.role,
-        company: normalizedJob.company,
-        description: normalizedJob.jobDescription,
-        location: normalizedJob.location,
-        jobType: normalizedJob.jobType,
-      }),
-    }, 8000);
-
-    if (!response.ok) {
-      return { used: false, enrichment: null, reason: `http_${response.status}` };
-    }
-
-    const data = await response.json().catch(() => null);
-    const normalized = normalizeLlmEnrichment(data?.enrichment || data);
-    if (!normalized) return { used: false, enrichment: null, reason: "invalid_response" };
-    return { used: true, enrichment: normalized, reason: "ok" };
-  } catch (error) {
-    return { used: false, enrichment: null, reason: error?.name === "AbortError" ? "timeout" : "request_failed" };
-  }
 }
 
 /**
@@ -615,14 +427,9 @@ async function trackJob(data) {
       message: "Track request started",
     });
 
-    const enrichment = inferJobEnrichment(normalizedJob);
-    const llmAttempt = await tryLlmEnrichment(normalizedJob, token);
-    const llmEnrichment = llmAttempt.enrichment;
-    const payload = {
-      ...normalizedJob,
-      resumeId,
-      notes: mergeNotes(buildEnrichmentNote(enrichment), buildLlmEnrichmentNote(llmEnrichment)),
-    };
+    // Just the job: HireTrail reads the posting server-side and fills in the
+    // company, role, location, pay and type — nothing is written into notes.
+    const payload = { ...normalizedJob, resumeId };
     const res = await retryRequest(async () => {
       const response = await fetchWithTimeout(`${API_BASE}/applications`, {
         method: "POST",
@@ -707,9 +514,6 @@ async function trackJob(data) {
       type: "track_success",
       message: "Job tracked successfully",
       url: normalizedJob.jobUrl,
-      enrichment,
-      llmEnrichmentUsed: llmAttempt.used,
-      llmEnrichmentReason: llmAttempt.reason,
     });
     await setTelemetryStatus({
       successCount: (status.successCount || 0) + 1,

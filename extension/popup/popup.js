@@ -18,8 +18,6 @@ const logoutBtn = document.getElementById("logout-btn");
 const diagSummary = document.getElementById("diag-summary");
 const diagLastError = document.getElementById("diag-last-error");
 const clearDiagnosticsBtn = document.getElementById("clear-diagnostics");
-const llmEnabledInput = document.getElementById("llm-enabled");
-const llmEndpointInput = document.getElementById("llm-endpoint");
 
 function initials(name) {
   return name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
@@ -85,13 +83,6 @@ async function renderDiagnostics() {
   } else {
     diagLastError.textContent = "No recent errors";
   }
-
-  const { llmEnrichmentEnabled = false, llmEnrichmentEndpoint = "" } = await chrome.storage.local.get([
-    "llmEnrichmentEnabled",
-    "llmEnrichmentEndpoint",
-  ]);
-  if (llmEnabledInput) llmEnabledInput.checked = Boolean(llmEnrichmentEnabled);
-  if (llmEndpointInput) llmEndpointInput.value = String(llmEnrichmentEndpoint || "");
 }
 
 /**
@@ -211,18 +202,6 @@ if (clearDiagnosticsBtn) {
   clearDiagnosticsBtn.addEventListener("click", async () => {
     await chrome.runtime.sendMessage({ type: "CLEAR_TELEMETRY" });
     await renderDiagnostics();
-  });
-}
-
-if (llmEnabledInput) {
-  llmEnabledInput.addEventListener("change", async () => {
-    await chrome.storage.local.set({ llmEnrichmentEnabled: llmEnabledInput.checked });
-  });
-}
-
-if (llmEndpointInput) {
-  llmEndpointInput.addEventListener("blur", async () => {
-    await chrome.storage.local.set({ llmEnrichmentEndpoint: llmEndpointInput.value.trim() });
   });
 }
 
