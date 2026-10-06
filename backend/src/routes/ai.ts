@@ -6,6 +6,7 @@
  *                                           included, assistant, usage
  *   PUT    /api/ai/features/:feature     {lane, keyId?, model?} → move it
  *   DELETE /api/ai/features/:feature     → back to the default
+ *   DELETE /api/ai/features              → every feature back to the defaults
  *   PUT    /api/ai/default-key           {keyId}
  *   POST   /api/ai/keys                  {provider, name, secret, freeTier?} → tested on save
  *   PATCH  /api/ai/keys/:id              {name?, freeTier?, secret?} (secret = rotate, tested first)
@@ -36,7 +37,7 @@ import { ensureDefaultRoute } from "../services/ai/routing.js";
 import { getAiSettings } from "../services/ai/settings.js";
 import { userUsage } from "../services/ai/ledger.js";
 import { cancelAiJob, jobView, reviveAiJobs } from "../services/ai/jobs.js";
-import { resetUserFeatureRoute, setUserDefaultKey, setUserFeatureRoute, userAiMap } from "../services/ai/map.js";
+import { resetUserFeatureRoute, resetUserMap, setUserDefaultKey, setUserFeatureRoute, userAiMap } from "../services/ai/map.js";
 import type { AiUser } from "../services/ai/gateway.js";
 
 const router = Router();
@@ -83,6 +84,14 @@ router.delete("/features/:feature", async (req: Request, res: Response, next: Ne
   try {
     const user = await aiUser(req);
     await resetUserFeatureRoute(user, String(req.params.feature));
+    res.json(await userAiMap(user));
+  } catch (err) { next(err); }
+});
+
+router.delete("/features", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = await aiUser(req);
+    await resetUserMap(user);
     res.json(await userAiMap(user));
   } catch (err) { next(err); }
 });

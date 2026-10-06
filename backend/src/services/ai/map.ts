@@ -234,6 +234,13 @@ export async function resetUserFeatureRoute(user: AiUser, featureId: string): Pr
   await AiRoute.deleteOne({ scope: "user", userId: user._id, feature: featureId });
 }
 
+/** Every feature back to the admin's default lane (Admin → AI → Rules).
+ *  The default key — which of their own keys "My key" means — is the
+ *  person's, not a default, and stays. */
+export async function resetUserMap(user: AiUser): Promise<void> {
+  await AiRoute.deleteMany({ scope: "user", userId: user._id, feature: { $ne: AI_DEFAULT_ROUTE } });
+}
+
 export async function setUserDefaultKey(user: AiUser, keyId: string): Promise<void> {
   const key = mongoose.isValidObjectId(keyId) ? await AiKey.findOne({ _id: keyId, owner: "user", userId: user._id }) : null;
   if (!key) throw new AppError("That key isn't one of yours.", 404);

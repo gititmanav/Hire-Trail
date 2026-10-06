@@ -12,7 +12,7 @@
  * too); the admin can lock features or the whole map, which the map shows.
  */
 import { useCallback, useContext, useMemo, useRef, useState } from "react";
-import { AlertTriangle, Lock, X } from "lucide-react";
+import { AlertTriangle, Lock, RotateCcw, X } from "lucide-react";
 import toast from "../../components/ui/toast.ts";
 
 import { UserContext } from "../../App.tsx";
@@ -31,7 +31,7 @@ import SegmentedControl from "../../components/ui/SegmentedControl.tsx";
 import Button from "../../components/ui/Button.tsx";
 import { SettingsCard, SettingsHeader, SettingsRow, SettingsSection } from "../Settings/ui.tsx";
 import { buildUserClusters, moveForDrop } from "./userMapClusters.tsx";
-import { useMoveFeature, useMyAi, useRefreshMyAi, useResetFeature, useSetDefaultKey } from "./useMyAi.ts";
+import { useMoveFeature, useMyAi, useRefreshMyAi, useResetFeature, useResetMap, useSetDefaultKey } from "./useMyAi.ts";
 import UsageSection from "./UsageSection.tsx";
 import AssistantSection from "./AssistantSection.tsx";
 
@@ -99,6 +99,7 @@ export default function AISettings() {
   const { data: map, isPending, isError, refetch } = useMyAi();
   const move = useMoveFeature();
   const reset = useResetFeature();
+  const resetMap = useResetMap();
   const setDefault = useSetDefaultKey();
   const refresh = useRefreshMyAi();
   const { dark } = useContext(ThemeContext);
@@ -154,6 +155,8 @@ export default function AISettings() {
     };
   }, [map]);
 
+  // Shown when there's a choice of your own to clear and you may make choices.
+  const canResetMap = Boolean(map && map.policy.userMapEnabled && !isDemo && map.features.some((f) => f.userChoice && !f.lock));
   const focusName = focusId?.startsWith("hub:key:") ? map?.keys.find((k) => `hub:key:${k.id}` === focusId)?.name : null;
 
   return (
@@ -188,7 +191,7 @@ export default function AISettings() {
             </div>
           ) : (
             <div className="surface-card px-4 sm:px-6 pt-5 pb-4">
-              {(focusName || !map.policy.userMapEnabled || isDemo) && (
+              {(focusName || !map.policy.userMapEnabled || isDemo || canResetMap) && (
                 <div className="mb-3 flex flex-wrap items-center gap-2">
                   {focusName && (
                     <button
@@ -205,6 +208,19 @@ export default function AISettings() {
                       <Lock size={12} strokeWidth={2} aria-hidden />
                       {isDemo ? "Read-only on the demo account" : "Set by HireTrail"}
                     </span>
+                  )}
+                  {canResetMap && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="ml-auto"
+                      loading={resetMap.isPending}
+                      onClick={() => resetMap.mutate()}
+                      title="Put every feature back where HireTrail runs it by default. Your keys stay."
+                    >
+                      <RotateCcw size={13} strokeWidth={2} aria-hidden />
+                      Reset to defaults
+                    </Button>
                   )}
                 </div>
               )}

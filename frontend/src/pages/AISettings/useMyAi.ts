@@ -4,7 +4,7 @@
  *  the server's answer (the whole map) replaces it; a refusal rolls it back
  *  and the API layer's toast says why. */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import toast from "../../components/ui/toast.ts";
+import toast, { toastWithUndo } from "../../components/ui/toast.ts";
 
 import { aiApi, type AiLane, type UserAiMap } from "../../utils/aiApi.ts";
 
@@ -73,6 +73,37 @@ export function useResetFeature() {
     onSuccess: (map) => {
       qc.setQueryData(MY_AI_KEY, map);
       toast.success("Back to the default");
+    },
+  });
+}
+
+/** Every feature back to HireTrail's defaults (what the admin set). Undo puts
+ *  each choice back as it was shown. */
+export function useResetMap() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => aiApi.resetMap(),
+    onMutate: () => {
+      const prev = qc.getQueryData<UserAiMap>(MY_AI_KEY);
+      const choices = (prev?.features ?? []).flatMap((f) =>
+        f.userChoice && f.lane
+          ? [{ feature: f.id, lane: f.lane, keyId: f.pinnedKey ? f.keyId : null, model: f.pinnedModel ? f.model : null }]
+          : [],
+      );
+      return { choices };
+    },
+    onSuccess: (map, _v, ctx) => {
+      qc.setQueryData(MY_AI_KEY, map);
+      toastWithUndo("Back to the defaults", async () => {
+        for (const c of ctx?.choices ?? []) {
+          try {
+            await aiApi.setFeature(c.feature, { lane: c.lane, keyId: c.keyId, model: c.model });
+          } catch {
+            // a choice that's no longer allowed stays on the default (the API toast says why)
+          }
+        }
+        void qc.invalidateQueries({ queryKey: MY_AI_KEY });
+      });
     },
   });
 }

@@ -139,6 +139,7 @@ export const aiApi = {
   setFeature: (feature: string, body: { lane: AiLane; keyId?: string | null; model?: string | null }) =>
     api.put<UserAiMap>(`/ai/features/${encodeURIComponent(feature)}`, body).then((r) => r.data),
   resetFeature: (feature: string) => api.delete<UserAiMap>(`/ai/features/${encodeURIComponent(feature)}`).then((r) => r.data),
+  resetMap: () => api.delete<UserAiMap>("/ai/features").then((r) => r.data),
   setDefaultKey: (keyId: string) => api.put<UserAiMap>("/ai/default-key", { keyId }).then((r) => r.data),
   addKey: (body: { provider: AiProviderId; name: string; secret: string; freeTier?: boolean }) =>
     api.post<AiKeyResult>("/ai/keys", body).then((r) => r.data),
