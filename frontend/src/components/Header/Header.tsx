@@ -4,14 +4,13 @@ import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Menu as MenuIcon, Puzzle, Download, Info, ChevronDown, User as UserIcon,
-  Settings as SettingsIcon, LogOut, Wrench, Megaphone,
+  Settings as SettingsIcon, LogOut, Megaphone,
 } from "lucide-react";
 import Menu from "../ui/Menu.tsx";
 import HoverCard from "../ui/HoverCard.tsx";
 import NotificationBell from "./NotificationBell.tsx";
 import GlobalSearch from "./GlobalSearch.tsx";
 import { useAnnouncements } from "../Announcements/AnnouncementsProvider.tsx";
-import { useAIKeyStatus } from "../../hooks/useAIKeyStatus.tsx";
 import type { User } from "../../types";
 
 const EXT_DISMISSED_KEY = "hiretrail-ext-banner-dismissed";
@@ -28,7 +27,6 @@ const SUPPORTED_SITES = [
 interface Props { user: User; onLogout: () => Promise<void>; onMobileMenuToggle?: () => void; }
 
 export default function Header({ user, onLogout, onMobileMenuToggle }: Props) {
-  const { hasActiveKey, ready } = useAIKeyStatus();
   const { hasAnnouncements, reopenAll } = useAnnouncements();
   const navigate = useNavigate();
   const initials = user.name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
@@ -116,19 +114,6 @@ export default function Header({ user, onLogout, onMobileMenuToggle }: Props) {
         </div>
         <div className="flex items-center gap-2">
           <GlobalSearch />
-          {/* No active AI key → persistent reminder (red wrench). Clears the
-           *  moment a key is activated. Links to AI settings. */}
-          {ready && !hasActiveKey && (
-            <button
-              onClick={() => navigate("/settings/ai")}
-              className="relative w-9 h-9 flex items-center justify-center rounded-lg text-red-500 hover:bg-red-500/10"
-              title="No AI key connected — add one to unlock full AI features"
-              aria-label="No AI key connected — open AI settings"
-            >
-              <Wrench size={18} strokeWidth={1.8} />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500 ring-2 ring-sidebar" aria-hidden />
-            </button>
-          )}
           {/* Announcements: only present when there's an active announcement.
            *  This is where a dismissed banner "lives" — click to re-open it. */}
           {hasAnnouncements && (

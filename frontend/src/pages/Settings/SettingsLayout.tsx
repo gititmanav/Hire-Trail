@@ -8,10 +8,7 @@ import { useMemo, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { navTone } from "../../components/Sidebar/navParts.tsx";
 import { appReturnPath } from "../../utils/returnPath.ts";
-import {
-  ArrowLeft, ClipboardList, Mail, Palette, Search, Sparkles, User as UserIcon,
-  type LucideIcon,
-} from "lucide-react";
+import { ArrowLeft, ClipboardList, Palette, Search, Sparkles, User as UserIcon, type LucideIcon, Plug } from "lucide-react";
 
 interface SettingsNavItem {
   to: string;
@@ -35,8 +32,8 @@ const NAV: SettingsNavGroup[] = [
   {
     label: "Integrations",
     items: [
-      { to: "/settings/mailboxes", label: "Mailboxes", Icon: Mail, aliases: ["gmail", "outlook", "google", "microsoft", "inbox", "scan", "email", "rejection"] },
-      { to: "/settings/ai", label: "AI & Models", Icon: Sparkles, aliases: ["api key", "openai", "anthropic", "gpt", "claude", "gemini", "byok", "provider", "model", "usage", "profile sync", "merge"] },
+      { to: "/settings/connectors", label: "Connectors", Icon: Plug, aliases: ["gmail", "google", "inbox", "scan", "email", "mailbox", "mailboxes", "rejection", "integrations"] },
+      { to: "/settings/ai", label: "AI", Icon: Sparkles, aliases: ["ai map", "api key", "my key", "openai", "anthropic", "gpt", "claude", "claude code", "mcp", "assistant", "gemini", "grok", "deepseek", "mistral", "groq", "openrouter", "provider", "model", "usage", "allowance", "import", "merge"] },
     ],
   },
 ];

@@ -7,7 +7,6 @@ import { queryClient } from "./utils/queryClient.ts";
 import ProtectedRoute from "./components/ProtectedRoute/ProtectedRoute.tsx";
 import { BackgroundTasksProvider } from "./hooks/useBackgroundTasks.tsx";
 import { DemoGateProvider } from "./hooks/useDemoGate.tsx";
-import { AIKeyStatusProvider } from "./hooks/useAIKeyStatus.tsx";
 import BackgroundTaskCenter from "./components/BackgroundTaskCenter/BackgroundTaskCenter.tsx";
 import { BOOT_KEY } from "./utils/themeDom.ts";
 
@@ -51,7 +50,6 @@ const ListView = lazy(loadListView);
 // Signed-in only overlays.
 const GlobalShortcuts = lazy(() => import("./components/GlobalShortcuts/GlobalShortcuts.tsx"));
 const IdleWarningModal = lazy(() => import("./components/IdleWarningModal/IdleWarningModal.tsx"));
-const AIKeyNudges = lazy(() => import("./components/AIKeyNudges/AIKeyNudges.tsx"));
 // Factories so we can BOTH lazy-load via React.lazy AND fire the same import
 // from a post-mount warmer to preload chunks the sidebar links to. Idempotent:
 // the underlying module cache means calling the import a second time is free.
@@ -85,7 +83,7 @@ const SettingsLayout = lazy(loadSettingsLayout);
 const ProfileSettings = lazy(() => import("./pages/Settings/sections/ProfileSettings.tsx"));
 const PersonalizeSettings = lazy(() => import("./pages/Settings/sections/PersonalizeSettings.tsx"));
 const ClipboardSettings = lazy(() => import("./pages/Settings/sections/ClipboardSettings.tsx"));
-const MailboxSettings = lazy(() => import("./pages/Settings/sections/MailboxSettings.tsx"));
+const ConnectorsSettings = lazy(() => import("./pages/Settings/sections/ConnectorsSettings.tsx"));
 const AISettings   = lazy(loadAISettings);
 const ResumeStudio = lazy(loadResumeStudio);
 const EmailScanReview = lazy(loadEmailScanReview);
@@ -106,18 +104,11 @@ function preloadSidebarRoutes(): void {
 // Admin routes — lazy-loaded so non-admin users don't ship the admin bundle.
 // Each route is its own chunk; vite collocates small ones automatically.
 const AdminDashboard      = lazy(() => import("./pages/Admin/AdminDashboard.tsx"));
-const AdminCalendar       = lazy(() => import("./pages/Admin/AdminCalendar.tsx"));
 const AuditLogs           = lazy(() => import("./pages/Admin/AuditLogs.tsx"));
-const ContentModeration   = lazy(() => import("./pages/Admin/ContentModeration.tsx"));
-const StorageManagement   = lazy(() => import("./pages/Admin/StorageManagement.tsx"));
 const SystemConfig        = lazy(() => import("./pages/Admin/SystemConfig.tsx"));
-const AISystemConfig      = lazy(() => import("./pages/Admin/AISystemConfig.tsx"));
+const AdminAI             = lazy(() => import("./pages/Admin/ai/AdminAI.tsx"));
 const Announcements       = lazy(() => import("./pages/Admin/Announcements.tsx"));
-const EmailTemplates      = lazy(() => import("./pages/Admin/EmailTemplates.tsx"));
-const InviteSystem        = lazy(() => import("./pages/Admin/InviteSystem.tsx"));
-const BackupManagement    = lazy(() => import("./pages/Admin/BackupManagement.tsx"));
-const RBACManagement      = lazy(() => import("./pages/Admin/RBACManagement.tsx"));
-const SeedManagement      = lazy(() => import("./pages/Admin/SeedManagement.tsx"));
+const UserManagement      = lazy(() => import("./pages/Admin/UserManagement.tsx"));
 const MailboxManagement   = lazy(() => import("./pages/Admin/MailboxManagement.tsx"));
 const NotificationCenter  = lazy(() => import("./pages/Admin/NotificationCenter.tsx"));
 const FeedbackInbox       = lazy(() => import("./pages/Admin/FeedbackInbox.tsx"));
@@ -129,9 +120,21 @@ import { FeatureFlagsProvider, useFeatureFlags } from "./hooks/useFeatureFlags.t
 import type { AxiosError } from "axios";
 import type { User } from "./types";
 import { JobSearchContext, defaultState } from "./hooks/useJobSearchState.ts";
+import { registerNavigate } from "./utils/appNavigate.ts";
+import toast from "./components/ui/toast.ts";
 import type { JobSearchState } from "./hooks/useJobSearchState.ts";
 
 export const UserContext = createContext<{ user: User | null; setUser: Dispatch<SetStateAction<User | null>> }>({ user: null, setUser: () => {} });
+
+/** Lets code outside React (the API layer's toasts) navigate inside the SPA. */
+function NavigationBridge() {
+  const navigate = useNavigate();
+  useEffect(() => {
+    registerNavigate((to) => navigate(to));
+    return () => registerNavigate(null);
+  }, [navigate]);
+  return null;
+}
 
 function FeatureRoute({ flag, children }: { flag: string; children: React.ReactNode }) {
   const { isEnabled, loading } = useFeatureFlags();
@@ -140,18 +143,24 @@ function FeatureRoute({ flag, children }: { flag: string; children: React.ReactN
   return <>{children}</>;
 }
 
+/** /settings/mailboxes → Connectors, with ?gmail=… / ?outlook=… intact. */
+function LegacyMailboxesRedirect() {
+  const location = useLocation();
+  return <Navigate to={{ pathname: "/settings/connectors", search: location.search }} replace />;
+}
+
 /** /settings landing: routes legacy deep links to the right section page.
- *  OAuth callbacks (?gmail=… / ?outlook=…) → Mailboxes with params intact;
+ *  OAuth callbacks (?gmail=… / ?outlook=…) → Connectors with params intact;
  *  old scroll-spy hashes (#clipboard etc.) → their section; else Profile. */
 function SettingsIndexRedirect() {
   const location = useLocation();
   const params = new URLSearchParams(location.search);
   if (params.has("gmail") || params.has("outlook")) {
-    return <Navigate to={{ pathname: "/settings/mailboxes", search: location.search }} replace />;
+    return <Navigate to={{ pathname: "/settings/connectors", search: location.search }} replace />;
   }
   const hash = location.hash.replace(/^#/, "");
   const legacyHashMap: Record<string, string> = {
-    account: "profile", password: "profile", email: "mailboxes",
+    account: "profile", password: "profile", email: "connectors",
     ai: "ai", profileSync: "ai", clipboard: "clipboard",
   };
   return <Navigate to={`/settings/${legacyHashMap[hash] ?? "profile"}`} replace />;
@@ -184,6 +193,27 @@ function App() {
     }
   }, [navigate]);
   useEffect(() => { checkAuth(); }, [checkAuth]);
+
+  // Account deletion, said once: scheduled (the delete dialog leaves a note
+  // before the reload) or cancelled by signing in with Google (?deletionCancelled=1).
+  useEffect(() => {
+    let scheduled: string | null = null;
+    try {
+      scheduled = sessionStorage.getItem("ht-deletion-scheduled");
+      if (scheduled) sessionStorage.removeItem("ht-deletion-scheduled");
+    } catch { /* storage blocked — nothing to say */ }
+    if (scheduled) {
+      const when = new Date(scheduled).toLocaleDateString(undefined, { month: "long", day: "numeric" });
+      toast(`Your account will be deleted on ${when}. Sign in before then to keep it.`, { duration: 9000 });
+    }
+    const params = new URLSearchParams(window.location.search);
+    if (params.has("deletionCancelled")) {
+      toast.success("Welcome back — your account is no longer scheduled for deletion.", { duration: 7000 });
+      params.delete("deletionCancelled");
+      const qs = params.toString();
+      window.history.replaceState({}, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
+    }
+  }, []);
 
   // index.html painted black for a likely visitor; a session means the app, not the landing.
   useEffect(() => {
@@ -220,7 +250,7 @@ function App() {
       <FeatureFlagsProvider authenticated={!!user}>
       <JobSearchContext.Provider value={{ state: jobSearchState, setState: setJobSearchState }}>
       <BackgroundTasksProvider>
-      <AIKeyStatusProvider>
+      <NavigationBridge />
 
         <Suspense fallback={<div className="spinner" style={{ minHeight: "60vh" }} aria-label="Loading page" />}>
         <Routes>
@@ -245,24 +275,17 @@ function App() {
             try { await authAPI.logout(); } catch { } finally { setUser(null); setAuthActionLoading(false); }
           }} /> : <Navigate to="/" replace />}</ProtectedRoute>}>
             <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="/admin/users" element={<RBACManagement />} />
-            <Route path="/admin/content" element={<ContentModeration />} />
-            <Route path="/admin/storage" element={<StorageManagement />} />
+            <Route path="/admin/users" element={<UserManagement />} />
             <Route path="/admin/settings" element={<SystemConfig />} />
-            <Route path="/admin/ai" element={<AISystemConfig />} />
+            <Route path="/admin/ai" element={<AdminAI />} />
             <Route path="/admin/announcements" element={<Announcements />} />
             <Route path="/admin/audit-logs" element={<AuditLogs />} />
-            <Route path="/admin/email-templates" element={<EmailTemplates />} />
-            <Route path="/admin/invites" element={<InviteSystem />} />
-            <Route path="/admin/backup" element={<BackupManagement />} />
-            <Route path="/admin/seed" element={<SeedManagement />} />
             <Route path="/admin/mailbox" element={<MailboxManagement />} />
             <Route path="/admin/gmail" element={<MailboxManagement />} />
             <Route path="/admin/notifications" element={<NotificationCenter />} />
             <Route path="/admin/feedback" element={<FeedbackInbox />} />
             <Route path="/admin/bugs" element={<BugReports />} />
             <Route path="/admin/broadcasts" element={<Broadcasts />} />
-            <Route path="/admin/calendar" element={<AdminCalendar />} />
           </Route>
 
           {/* Main app layout */}
@@ -301,7 +324,9 @@ function App() {
             <Route path="profile" element={<ProfileSettings />} />
             <Route path="personalize" element={<PersonalizeSettings />} />
             <Route path="clipboard" element={<ClipboardSettings />} />
-            <Route path="mailboxes" element={<MailboxSettings />} />
+            <Route path="connectors" element={<ConnectorsSettings />} />
+            {/* Pre-2026-10 path (bookmarks, old OAuth redirects) — query kept. */}
+            <Route path="mailboxes" element={<LegacyMailboxesRedirect />} />
             <Route path="ai" element={<AISettings />} />
             <Route path="*" element={<Navigate to="/settings/profile" replace />} />
           </Route>
@@ -324,11 +349,8 @@ function App() {
             <GlobalShortcuts />
             {/* Idle warning fires after 60 minutes of no input — soft, non-blocking. */}
             <IdleWarningModal />
-            {/* BYOK onboarding modal + one-time no-key warning (header badge lives in Header). */}
-            <AIKeyNudges />
           </Suspense>
         )}
-      </AIKeyStatusProvider>
       </BackgroundTasksProvider>
       </JobSearchContext.Provider>
       </FeatureFlagsProvider>

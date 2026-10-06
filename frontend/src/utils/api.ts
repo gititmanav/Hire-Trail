@@ -7,14 +7,15 @@ import axios, { AxiosError } from "axios";
 import toast from "../components/ui/toast.ts";
 import { getApiBaseURL } from "../config/apiBase.ts";
 import { reportClientBug } from "./bugReporter.ts";
+import { aiErrorFixableInSettings } from "./aiErrors.ts";
+import { appNavigate } from "./appNavigate.ts";
 import type {
-  User, Application, Resume, Contact, Deadline, AnalyticsData, AdminOverview,
+  User, Application, Resume, Contact, Deadline, AnalyticsData,
   ApplicationFormData, ContactFormData, DeadlineFormData, PaginatedResponse,
   Company, CompanyDetail, CompanyFormData,
-  AdminDashboardData, AdminUserDetail, PlatformAnalyticsData, AuditLog,
-  Announcement, SystemSetting, Invite, EmailTemplate,
-  StorageStats, RoleDefinition, SeedResult, Notification,
-  AdminGmailUser, AdminGmailStats, AdminNotificationItem, AdminNotificationStats,
+  AdminDashboardData, AdminUserDetail, AuditLog,
+  Announcement, SystemSetting, SeedResult, Notification,
+  AdminNotificationItem, AdminNotificationStats,
   AdminMailboxUser, AdminMailboxStats, MailboxProvider,
   BroadcastEmailItem, BroadcastRecipientType, MailerStatus, Stage,
 } from "../types";
@@ -41,7 +42,7 @@ export const api = axios.create({
 
 api.interceptors.response.use(
   (r) => r,
-  (error: AxiosError<{ error: string | { code?: string; message?: string }; code?: string }>) => {
+  (error: AxiosError<{ error: string | { code?: string; message?: string }; code?: string; details?: { lane?: string } }>) => {
     const code = error.response?.data?.code;
     if (code === "MAINTENANCE") return Promise.reject(error);
     const status = error.response?.status;
@@ -75,7 +76,13 @@ api.interceptors.response.use(
     if (error.config?.quiet) return Promise.reject(error);
     // id = message: identical errors collapse into one toast, including when a
     // local catch handler toasts the same message this interceptor already did.
-    if (status === 429) toast.error("Too many requests. Please slow down.", { id: "rate-limit" });
+    // An AI refusal the person can fix (no key, allowance used, feature off…)
+    // carries its own sentence; the toast adds the way to fix it.
+    if (code?.startsWith("ai_") && aiErrorFixableInSettings(code, error.response?.data?.details?.lane)) {
+      toast.error(msg, { id: msg, duration: 7000, action: { label: "Open AI settings", onClick: () => appNavigate("/settings/ai") } });
+      return Promise.reject(error);
+    }
+    if (status === 429 && !code?.startsWith("ai_")) toast.error("Too many requests. Please slow down.", { id: "rate-limit" });
     else if (status !== 401) toast.error(msg, { id: msg });
     return Promise.reject(error);
   }
@@ -112,9 +119,13 @@ export const authAPI = {
     }).catch(() => { /* page is gone */ });
   },
   completeTour: () => api.put("/auth/tour").then((r) => r.data),
-  deleteAccount: (confirm: string) =>
-    api.delete<{ message: string }>("/auth/me", { data: { confirm } }).then((r) => r.data),
+  /** Schedule deletion (14 days; signing in before then keeps the account).
+   *  Signs out everywhere. */
+  requestDeletion: (body: { reason: DeletionReason; note?: string; confirm: string; password?: string; email?: string }) =>
+    api.post<{ scheduledFor: string }>("/auth/me/deletion", body).then((r) => r.data),
 };
+
+export type DeletionReason = "found_job" | "not_useful" | "privacy" | "too_much" | "other";
 
 /** Server-side list filters (see backend routes/applications.ts `listFilters`). */
 export interface ApplicationListParams {
@@ -149,10 +160,10 @@ export const applicationsAPI = {
     api.put<Application>(`/applications/${id}`, data).then((r) => r.data),
   delete: (id: string) => api.delete(`/applications/${id}`).then((r) => r.data),
   bulkImport: (applications: any[]) => api.post<{ message: string; count: number }>("/applications/bulk", { applications }).then((r) => r.data),
-  /** Manually (re)run AI fit analysis for one application. Returns the new
-   *  processing session id. */
+  /** Manually (re)run the fit check for one application. Returns the new
+   *  session id and where it stands (processing, or waiting for the assistant). */
   reanalyze: (id: string) =>
-    api.post<{ sessionId: string; status: "processing" }>(`/applications/${id}/reanalyze`).then((r) => r.data),
+    api.post<{ sessionId: string; status: TailorStatus }>(`/applications/${id}/reanalyze`).then((r) => r.data),
   /** Ensure a per-application tailored variant resume exists; returns its id.
    *  Each application tailors its own document (never clobbers the primary). */
   tailorResume: (id: string) =>
@@ -184,7 +195,8 @@ export interface CalendarApp {
   resumeId: string | null;
   companyId: string | null;
   archived: boolean;
-  fit: { grade: string; score: number } | null;
+  /** The one match score, 0–10. */
+  fit: { score: number } | null;
   nextDeadline: { id: string; type: string; date: string } | null;
 }
 
@@ -349,7 +361,6 @@ export interface ScanCandidate {
 
 export const emailAPI = {
   status: () => api.get<EmailStatusResponse>("/email/status").then((r) => r.data),
-  scan: () => api.post<{ message: string; applied: number; scanned: number; errors: string[] }>("/email/scan").then((r) => r.data),
   // Gmail
   connectGmail: () => api.post<{ url: string }>("/email/gmail/connect").then((r) => r.data),
   disconnectGmail: () => api.post("/email/gmail/disconnect").then((r) => r.data),
@@ -433,154 +444,6 @@ export const announcementsAPI = {
   getActive: () => api.get<Announcement[]>("/announcements/active").then((r) => r.data),
 };
 
-/** A gateway provider id — curated or dynamic (the gateway routes to 40+). */
-export type AIProvider = string;
-
-/** Credential collection shape for a provider (from GET /api/ai/providers). */
-export type CredentialFormat = "apiKey" | "fields" | "json";
-export interface CredentialField { key: string; label: string; type: "text" | "password"; optional?: boolean; }
-export interface AICatalogModel { id: string; label: string; capability: "fast" | "smart" }
-export interface AICatalogProvider {
-  id: string;
-  label: string;
-  models: AICatalogModel[];
-  freeTier: boolean;
-  getKeyUrl: string;
-  keyKind: "single" | "aws";
-  gatewayOnly: boolean;
-  credentialFormat: CredentialFormat;
-  credentialFields: CredentialField[] | null;
-}
-export interface AIModel { id: string; provider: string; label: string; contextWindow: number | null; pricing: { input?: number; output?: number } | null }
-
-export interface AIKey {
-  _id: string;
-  provider: AIProvider;
-  name: string;
-  isActive: boolean;
-  modelOverride: string | null;
-  /** Last 4 chars of the key, for display (backend never returns the full key). */
-  last4?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-/** AI status (GET /api/ai/status) — which provider the user's AI requests resolve to. */
-export interface AIStatusResponse {
-  mode: "byok" | "default" | "none";
-  provider: string | null;
-  model: string | null;
-  ok: boolean;
-  message: string;
-}
-
-/** AI usage (GET /api/ai/usage). BYOK accounts report tokens + est $; default
- *  (shared) accounts report a used/limit meter with a reset date. */
-export interface UsageOpBreakdown { opType: string; tokens: number; estCostUsd: number; calls: number }
-export interface AIUsageResponse {
-  mode: "byok" | "default";
-  tokens?: { input: number; output: number; total: number };
-  estimatedCostUsd?: number;
-  used?: number;
-  limit?: number;
-  resetsAt?: string | null;
-  period?: string;
-  totalTokens?: number;
-  byOp?: UsageOpBreakdown[];
-}
-
-/** Backend key view (AI_RESUME_CONTRACT.md). The full key is never returned. */
-type RawAIKey = { id: string; provider: string; label: string; last4: string; isActive: boolean; createdAt: string };
-
-/** Map the backend's key view → the frontend's internal AIKey shape. */
-function mapAIKey(k: RawAIKey): AIKey {
-  return {
-    _id: k.id,
-    provider: k.provider,
-    name: k.label ?? "",
-    isActive: k.isActive,
-    modelOverride: null,
-    last4: k.last4,
-    createdAt: k.createdAt,
-    updatedAt: k.createdAt,
-  };
-}
-
-/* Adapter layer: the backend (AI_RESUME_CONTRACT.md) uses {key,label,id,hasActiveKey,tokensIn…};
- * the UI was built around {apiKey,name,_id,…}. These wrappers translate at the boundary so
- * the components stay unchanged. */
-export const aiAPI = {
-  /** Full provider catalog (curated + every dynamic gateway provider), plus
-   *  whether the platform AI Gateway is configured (gateway-only providers need it). */
-  getCatalog: async (): Promise<{ providers: AICatalogProvider[]; gatewayConfigured: boolean }> => {
-    const { data } = await api.get<{ gatewayConfigured?: boolean; providers: AICatalogProvider[] }>("/ai/providers");
-    return { providers: data.providers ?? [], gatewayConfigured: Boolean(data.gatewayConfigured) };
-  },
-  /** Live gateway model list (cached server-side). Powers the searchable model picker. */
-  listModels: async (): Promise<{ models: AIModel[]; gatewayConfigured: boolean }> => {
-    const { data } = await api.get<{ gatewayConfigured?: boolean; models: AIModel[] }>("/ai/models");
-    return { models: data.models ?? [], gatewayConfigured: Boolean(data.gatewayConfigured) };
-  },
-  /** Cached brand logos { providerId: cloudinaryUrl }. Missing → UI monogram. */
-  getProviderLogos: async (): Promise<Record<string, string>> => {
-    const { data } = await api.get<{ logos?: Record<string, string> }>("/ai/provider-logos");
-    return data.logos ?? {};
-  },
-  listKeys: async () => (await api.get<RawAIKey[]>("/ai/keys")).data.map(mapAIKey),
-  createKey: async (data: { provider: AIProvider; apiKey: string; name?: string; modelOverride?: string | null; activate?: boolean }) =>
-    mapAIKey((await api.post<RawAIKey>("/ai/keys", { provider: data.provider, key: data.apiKey, label: data.name, modelOverride: data.modelOverride ?? null, activate: data.activate ?? true })).data),
-  /** Best-effort: ping the provider with the candidate key (and the chosen model,
-   *  so we test what they'll actually run) and report whether it works, WITHOUT
-   *  persisting anything. Optional AbortSignal cancels in-flight. */
-  validateKey: (data: { provider: AIProvider; apiKey: string; model?: string }, signal?: AbortSignal) =>
-    api.post<{ ok: boolean; reason?: string; modelTested?: string }>("/ai/keys/validate", { provider: data.provider, key: data.apiKey, model: data.model }, { signal }).then((r) => r.data),
-  updateKey: async (id: string, data: { name?: string; modelOverride?: string | null; isActive?: boolean }) =>
-    mapAIKey((await api.put<RawAIKey>(`/ai/keys/${id}`, { label: data.name, modelOverride: data.modelOverride, isActive: data.isActive })).data),
-  /** Exactly-one-active activation (POST /api/ai/keys/:id/activate). Server deactivates the others. */
-  activateKey: async (id: string) => mapAIKey((await api.post<RawAIKey>(`/ai/keys/${id}/activate`)).data),
-  deleteKey: (id: string) => api.delete(`/ai/keys/${id}`).then((r) => r.data),
-  getStatus: async (): Promise<AIStatusResponse> => {
-    const { data } = await api.get<{ hasActiveKey: boolean; mode: "byok" | "default" | "disabled" }>("/ai/status");
-    const mode: AIStatusResponse["mode"] = data.mode === "disabled" ? "none" : data.mode;
-    const message =
-      mode === "byok" ? "Using your own API key."
-      : mode === "default" ? "Using the shared default key (subject to rate limits)."
-      : "No AI key configured — add your own to enable AI features.";
-    return { mode, provider: null, model: null, ok: data.hasActiveKey || data.mode === "default", message };
-  },
-  getUsage: async (): Promise<AIUsageResponse> => {
-    const { data } = await api.get<Record<string, unknown>>("/ai/usage");
-    const byOp = Array.isArray(data.byOp) ? (data.byOp as UsageOpBreakdown[]) : [];
-    const totalTokens = Number(data.totalTokens ?? 0);
-    if (data.mode === "byok") {
-      const input = Number(data.tokensIn ?? 0);
-      const output = Number(data.tokensOut ?? 0);
-      return { mode: "byok", tokens: { input, output, total: input + output }, estimatedCostUsd: Number(data.estCostUsd ?? 0), period: String(data.period ?? ""), totalTokens, byOp };
-    }
-    return { mode: "default", used: Number(data.used ?? 0), limit: Number(data.limit ?? 0), resetsAt: (data.resetsAt as string) ?? null, period: String(data.period ?? ""), totalTokens, byOp };
-  },
-};
-
-/* ---------- Admin AI control (role: admin) ---------- */
-export interface AdminAiConfig {
-  enabled: boolean;
-  defaultProvider: string;
-  defaultModel: string;
-  usesGatewayCredits: boolean;
-  monthlyTokenLimit: number;
-  hasDefaultKey: boolean;
-  defaultKeyLast4: string;
-}
-export const adminAiAPI = {
-  getConfig: () => api.get<{ config: AdminAiConfig; gatewayConfigured: boolean }>("/admin/ai").then((r) => r.data),
-  updateConfig: (patch: Partial<Pick<AdminAiConfig, "enabled" | "defaultProvider" | "defaultModel" | "usesGatewayCredits" | "monthlyTokenLimit">>) =>
-    api.put<{ config: AdminAiConfig }>("/admin/ai", patch).then((r) => r.data.config),
-  setKey: (provider: string, key: string, skipValidation = false) =>
-    api.put<{ config: AdminAiConfig }>("/admin/ai/key", { provider, key, skipValidation }).then((r) => r.data.config),
-  deleteKey: () => api.delete<{ config: AdminAiConfig }>("/admin/ai/key").then((r) => r.data.config),
-  getUsage: (period?: string) => api.get(`/admin/ai/usage${period ? `?period=${period}` : ""}`).then((r) => r.data),
-};
-
 /* ---------- Tailor (JD analysis + accept/reject suggestions) ---------- */
 
 export type TailorSection = "summary" | "experience" | "project" | "skills";
@@ -599,7 +462,17 @@ export interface TailorSuggestion {
   decision: TailorDecision;
 }
 
-export type TailorStatus = "processing" | "succeeded" | "failed" | "deferred";
+/** "waiting_assistant": the fit check runs in the person's assistant (MCP). */
+export type TailorStatus = "processing" | "succeeded" | "failed" | "deferred" | "waiting_assistant";
+
+export interface FitStrength { point: string; evidence: string }
+export interface FitGap { point: string; severity: "major" | "minor" }
+export interface FitChange {
+  section: "summary" | "experience" | "projects" | "skills" | "education";
+  target: string;
+  change: string;
+  why: string;
+}
 
 export interface TailorSession {
   _id: string;
@@ -613,11 +486,19 @@ export interface TailorSession {
    *  sessions created before async mode default to "succeeded" server-side. */
   status: TailorStatus;
   errorMessage?: string;
-  fitScore: number;
-  fitGrade: "A" | "B" | "C" | "D" | "F" | "";
+  /** "ai_<reason>" behind a failure, and the lane it ran in — act on these. */
+  errorCode?: string;
+  errorLane?: string;
+  /** The one match score, 0–10 (deterministic). Null on old sessions until backfilled. */
+  matchScore: number | null;
+  /** The AI's read in words. */
   summary: string;
   matchedSkills: string[];
   missingSkills: string[];
+  strengths?: FitStrength[];
+  gaps?: FitGap[];
+  changes?: FitChange[];
+  /** LEGACY (pre-2026-10) accept/reject suggestions; new checks return none. */
   suggestions: TailorSuggestion[];
   provider: string;
   modelId: string;
@@ -647,13 +528,16 @@ export const tailorAPI = {
 };
 
 /** Master profile — one canonical career history per user. */
-export type MasterProfileParseStatus = "idle" | "processing" | "failed";
+/** "waiting_assistant": the import runs in the person's assistant (MCP). */
+export type MasterProfileParseStatus = "idle" | "processing" | "failed" | "waiting_assistant";
 
 export interface MasterProfileShape {
   _id?: string;
   parseStatus?: MasterProfileParseStatus;
   parseError?: string;
   parseStartedAt?: string | null;
+  /** Present when the last import changed an existing profile — "Undo import" is available. */
+  lastImportSnapshot?: { savedAt: string; method: string } | null;
   sourceResumeId?: string | null;
   lastParsedAt?: string | null;
   // ...plus the structured profile fields (contact/experiences/etc) — typed as unknown
@@ -665,6 +549,8 @@ export const masterProfileAPI = {
   get: () => api.get<MasterProfileShape | null>("/master-profile").then((r) => r.data),
   update: (data: unknown) => api.put<MasterProfileShape>("/master-profile", data).then((r) => r.data),
   parseFromResume: (resumeId: string) => api.post<MasterProfileShape>(`/master-profile/parse-from-resume/${resumeId}`).then((r) => r.data),
+  /** Put the profile back as it was before the last import. */
+  undoImport: () => api.post<MasterProfileShape>("/master-profile/undo-import").then((r) => r.data),
   uploadAndParse: (file: File, name?: string) => {
     const fd = new FormData();
     fd.append("file", file);
@@ -674,8 +560,9 @@ export const masterProfileAPI = {
 };
 
 /** Poll the master profile until parseStatus flips out of "processing". */
-const MASTER_POLL_INTERVAL_MS = 2_000;
-const MASTER_POLL_MAX_ATTEMPTS = 90;
+const MASTER_POLL_INTERVAL_MS = 2_500;
+/** ~6 minutes: a long resume is read in several job steps. */
+const MASTER_POLL_MAX_ATTEMPTS = 144;
 
 export async function pollMasterProfileParse(): Promise<MasterProfileShape> {
   for (let i = 0; i < MASTER_POLL_MAX_ATTEMPTS; i++) {
@@ -721,8 +608,6 @@ export const feedbackAPI = {
 };
 
 export const adminAPI = {
-  getOverview: () => api.get<AdminOverview>("/admin/overview").then((r) => r.data),
-
   // Dashboard
   getDashboard: () => api.get<AdminDashboardData>("/admin/dashboard").then((r) => r.data),
 
@@ -735,23 +620,10 @@ export const adminAPI = {
   unsuspendUser: (id: string) => api.put(`/admin/users/${id}/unsuspend`).then((r) => r.data),
   deleteUser: (id: string) => api.delete(`/admin/users/${id}`).then((r) => r.data),
   hardDeleteUser: (id: string) => api.delete(`/admin/users/${id}/hard`).then((r) => r.data),
-  impersonateUser: (id: string) => api.post(`/admin/users/${id}/impersonate`).then((r) => r.data),
   exportUsers: () => api.get("/admin/users/export", { responseType: "blob" }).then((r) => r.data),
 
-  // Analytics
-  getPlatformAnalytics: () => api.get<PlatformAnalyticsData>("/admin/analytics/platform").then((r) => r.data),
-
-  // Content
-  getContentApplications: (params?: Record<string, unknown>) => api.get<PaginatedResponse<Application & { userId: { _id: string; name: string; email: string } }>>("/admin/content/applications", { params }).then((r) => r.data),
-  getContentContacts: (params?: Record<string, unknown>) => api.get<PaginatedResponse<Contact & { userId: { _id: string; name: string; email: string } }>>("/admin/content/contacts", { params }).then((r) => r.data),
-  getContentDeadlines: (params?: Record<string, unknown>) => api.get<PaginatedResponse<Deadline & { userId: { _id: string; name: string; email: string } }>>("/admin/content/deadlines", { params }).then((r) => r.data),
-  getContentResumes: (params?: Record<string, unknown>) => api.get<PaginatedResponse<Resume & { userId: { _id: string; name: string; email: string } }>>("/admin/content/resumes", { params }).then((r) => r.data),
-
-  // Storage
-  getStorage: () => api.get<StorageStats>("/admin/storage").then((r) => r.data),
-
   // Settings
-  getSettings: () => api.get<{ settings: SystemSetting[]; grouped: Record<string, SystemSetting[]> }>("/admin/settings").then((r) => r.data),
+  getSettings: () => api.get<{ settings: SystemSetting[] }>("/admin/settings").then((r) => r.data),
   updateSetting: (key: string, value: unknown, valueType?: string) => api.put("/admin/settings", { key, value, valueType }).then((r) => r.data),
 
   // Announcements
@@ -764,36 +636,8 @@ export const adminAPI = {
   getAuditLogs: (params?: { page?: number; limit?: number; action?: string; resourceType?: string; userId?: string; startDate?: string; endDate?: string }) =>
     api.get<PaginatedResponse<AuditLog>>("/admin/audit-logs", { params }).then((r) => r.data),
 
-  // Email Templates
-  getEmailTemplates: (params?: { page?: number; limit?: number }) => api.get<PaginatedResponse<EmailTemplate>>("/admin/email-templates", { params }).then((r) => r.data),
-  getEmailTemplate: (id: string) => api.get<EmailTemplate>(`/admin/email-templates/${id}`).then((r) => r.data),
-  createEmailTemplate: (data: Partial<EmailTemplate>) => api.post<EmailTemplate>("/admin/email-templates", data).then((r) => r.data),
-  updateEmailTemplate: (id: string, data: Partial<EmailTemplate>) => api.put<EmailTemplate>(`/admin/email-templates/${id}`, data).then((r) => r.data),
-  deleteEmailTemplate: (id: string) => api.delete(`/admin/email-templates/${id}`).then((r) => r.data),
-
-  // Invites
-  getInvites: (params?: { page?: number; limit?: number }) => api.get<PaginatedResponse<Invite>>("/admin/invites", { params }).then((r) => r.data),
-  createInvite: (data: { email?: string; maxUses?: number; expiresAt: string }) => api.post<Invite>("/admin/invites", data).then((r) => r.data),
-  deleteInvite: (id: string) => api.delete(`/admin/invites/${id}`).then((r) => r.data),
-
-  // Backup
-  exportBackup: () => api.post("/admin/backup/export", {}, { responseType: "blob" }).then((r) => r.data),
-  getBackupList: () => api.get("/admin/backup/list").then((r) => r.data),
-  exportUserData: (userId: string) => api.post(`/admin/backup/user-export/${userId}`, {}, { responseType: "blob" }).then((r) => r.data),
-
-  // Roles
-  getRoles: () => api.get<{ roles: RoleDefinition[] }>("/admin/roles").then((r) => r.data),
-
-  // Seed
-  runSeed: () => api.post<SeedResult>("/admin/seed/run").then((r) => r.data),
-  clearSeed: () => api.post("/admin/seed/clear").then((r) => r.data),
-
-  // Gmail Management (legacy)
-  getGmailUsers: (params?: { page?: number; limit?: number; search?: string }) =>
-    api.get<PaginatedResponse<AdminGmailUser>>("/admin/gmail/users", { params }).then((r) => r.data),
-  getGmailStats: () => api.get<AdminGmailStats>("/admin/gmail/stats").then((r) => r.data),
-  triggerGmailScan: (userId: string) => api.post<{ message: string; count: number }>(`/admin/gmail/${userId}/scan`).then((r) => r.data),
-  disconnectUserGmail: (userId: string) => api.post(`/admin/gmail/${userId}/disconnect`).then((r) => r.data),
+  // Demo account
+  resetDemo: () => api.post<SeedResult>("/admin/seed/run").then((r) => r.data),
 
   // Broadcasts
   getBroadcastMailerStatus: () => api.get<MailerStatus>("/admin/broadcasts/status").then((r) => r.data),

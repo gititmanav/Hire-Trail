@@ -286,6 +286,17 @@ html.vt-shell::view-transition-new(shell-main) {
   .shell-sidebar, .shell-column, .shell-fade { transition: none; }
 }
 
+/* The AI map (components/ai/AiMap.tsx). Motion is decoration here — the
+   legend carries every fact without it. */
+.ai-map-node { transition: left 260ms cubic-bezier(0.16,1,0.3,1), top 260ms cubic-bezier(0.16,1,0.3,1), opacity 200ms ease, box-shadow 200ms ease; }
+.ai-map-edge { transition: opacity 200ms ease; }
+@keyframes ai-edge-flow { to { stroke-dashoffset: -32; } }
+.ai-edge-pulse { stroke-dasharray: 7 9; animation: ai-edge-flow 1.1s linear infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .ai-map-node, .ai-map-edge { transition: none; }
+  .ai-edge-pulse { animation: none; }
+}
+
 /* Modal overlay fade (panel uses .animate-in). Kept separate from the panel
  * so the dim layer never scales. */
 @keyframes overlay-in { from { opacity: 0; } to { opacity: 1; } }

@@ -1,4 +1,5 @@
 import type { Preferences } from "../utils/preferences.ts";
+import type { AiProviderId } from "../utils/aiApi.ts";
 
 export type UserRole = "user" | "admin";
 export interface User {
@@ -13,6 +14,10 @@ export interface User {
   gmailLastSyncAt?: string | null;
   /** When false, re-parsing a resume overwrites the master profile instead of AI-merging. Default true. */
   mergeResumesEnabled?: boolean;
+  /** The account signs in with a password (Google-only accounts don't). */
+  hasPassword?: boolean;
+  /** Set on a sign-in response when signing in cancelled a pending deletion. */
+  deletionCancelled?: boolean;
   /** When true, the extension also copies the JD to the clipboard each time the user tracks a job. Default false. */
   clipboardCopyOnTrack?: boolean;
   /** Shape of the text the extension's clipboard copy writes. Default "metadata". */
@@ -48,37 +53,18 @@ export interface Notification {
   readAt: string | null;
   createdAt: string;
 }
-export interface AdminLoginEvent {
-  _id: string;
-  userId: string;
-  email: string;
-  name: string;
-  provider: "local" | "google";
-  ipAddress: string;
-  userAgent: string;
-  loggedInAt: string;
-}
-export interface AdminOverview {
-  stats: {
-    totalUsers: number;
-    adminUsers: number;
-    regularUsers: number;
-    totalLoginsTracked: number;
-  };
-  users: (Pick<User, "_id" | "name" | "email" | "role"> & { createdAt: string; updatedAt: string })[];
-  recentLogins: AdminLoginEvent[];
-}
 export type Stage = "Drafting" | "Applied" | "OA" | "Interview" | "Offer" | "Rejected";
 export type OutreachStatus = "none" | "reached_out" | "referred" | "response_received";
 export type ArchiveReason = "auto_stale" | "rejected" | "manual";
 export type ApplicationSource = "manual" | "extension" | "email";
 
-export type FitStatus = "processing" | "succeeded" | "failed" | "deferred";
+/** "waiting_assistant": the fit check runs in the person's assistant (MCP). */
+export type FitStatus = "processing" | "succeeded" | "failed" | "deferred" | "waiting_assistant";
 export interface AppFit {
   sessionId: string;
   status: FitStatus;
-  fitScore: number;
-  fitGrade: "A" | "B" | "C" | "D" | "F" | "";
+  /** The one match score, 0–10 (null until computed). */
+  score: number | null;
   /** Absent in list (`fields=summary`) responses. */
   summary?: string;
   matchedCount: number;
@@ -87,6 +73,9 @@ export interface AppFit {
    *  the Application row's AI Fit panel. */
   topMatched?: string[];
   errorMessage?: string;
+  /** "ai_<reason>" behind a failure, and the lane it ran in — act on these. */
+  errorCode?: string;
+  errorLane?: string;
 }
 export type ContactOutreachStatus = "not_contacted" | "reached_out" | "responded" | "meeting_scheduled" | "follow_up_needed" | "gone_cold";
 export interface StageEntry { stage: Stage; date: string; }
@@ -236,74 +225,55 @@ export interface SystemSetting {
   updatedAt: string;
 }
 
-export interface Invite {
-  _id: string;
-  code: string;
-  email: string | null;
-  maxUses: number;
-  usedCount: number;
-  expiresAt: string;
-  createdBy: { _id: string; name: string; email: string } | string;
-  usedBy: { userId: string; usedAt: string }[];
-  active: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface EmailTemplate {
-  _id: string;
-  name: string;
-  subject: string;
-  bodyHtml: string;
-  variables: string[];
-  type: "welcome" | "reset" | "suspend" | "reminder" | "digest";
-  active: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
 export interface AdminDashboardData {
-  stats: {
-    // Users
-    totalUsers: number;
-    adminUsers: number;
-    regularUsers: number;
+  users: {
+    /** Not deleted, not the demo account. */
+    total: number;
+    admins: number;
     signupsToday: number;
     signupsThisWeek: number;
     signupsThisMonth: number;
-    activeUsers7d: number;
-    // App tracking
-    totalApplications: number;
-    totalResumes: number;
-    totalContacts: number;
-    totalDeadlines: number;
-    // Integrations
-    gmailConnectedUsers: number;
-    outlookConnectedUsers: number;
-    anyMailboxConnected: number;
-    // AI
-    aiByokUserCount: number;
-    // Master profile + tailor
-    masterProfileUsers: number;
-    tailorSessionsTotal: number;
-    tailorSessionsThisWeek: number;
-    avgFitScore: number | null;
-    // Feedback
-    feedbackOpen: number;
+    signedInThisWeek: number;
   };
-  breakdowns: {
+  tracking: {
+    applications: number;
     applicationsByStage: Record<string, number>;
-    aiKeysByProvider: Record<string, number>;
-    tailorFitDistribution: Record<string, number>;
-    signalsThisMonth: Record<string, number>;
-    feedbackByType: Record<string, number>;
+    resumes: number;
+    contacts: number;
+    masterProfileUsers: number;
   };
+  mailboxes: { gmail: number; outlook: number; any: number };
+  ai: {
+    ownKeyUsers: number;
+    /** Their own keys (not people), most-used provider first. */
+    ownKeysByProvider: { provider: AiProviderId; label: string; count: number }[];
+    /** This UTC month: settled cost plus open holds — what the cap counts. */
+    includedSpendUsd: number;
+    runsThisMonth: number;
+    assistantConnections: number;
+  };
+  fit: {
+    sessionsTotal: number;
+    sessionsThisWeek: number;
+    scored30d: number;
+    avgMatchScore: number | null;
+    /** Half-point buckets of the last 30 days' match scores ("7.5" → [7.5, 8)). */
+    scoreBuckets: Record<string, number>;
+  };
+  inbox: {
+    foundThisMonth: number;
+    importedThisMonth: number;
+    mergedThisMonth: number;
+    /** Imported + merged this month, by the stage the scan read. */
+    addedByStage: Record<string, number>;
+  };
+  feedback: { open: number; byType: Record<string, number> };
   recentActivity: AuditLog[];
   charts: {
     userGrowth: { _id: string; count: number }[];
     appsPerDay: { _id: string; count: number }[];
     tailorPerDay: { _id: string; count: number }[];
-    rejectionsPerDay: { _id: string; count: number }[];
+    aiRunsPerDay: { _id: string; count: number }[];
   };
 }
 
@@ -318,22 +288,15 @@ export interface AdminUserDetail extends User {
   hasMasterProfile?: boolean;
   /** Number of resume-tailor sessions this user has run. */
   tailorSessionCount?: number;
-  /** Number of active BYOK AI provider keys. */
+  /** Number of their own AI keys (My key). */
   aiKeyCount?: number;
   outlookConnected?: boolean;
   outlookEmail?: string | null;
+  outlookLastSyncAt?: string | null;
+  /** Set while a deletion they asked for is pending. */
+  deletion?: { requestedAt: string; scheduledFor: string } | null;
   createdAt: string;
   updatedAt: string;
-}
-
-export interface AdminGmailUser {
-  _id: string;
-  name: string;
-  email: string;
-  gmailConnected: boolean;
-  gmailEmail: string | null;
-  gmailLastSyncAt: string | null;
-  createdAt: string;
 }
 
 export type NotificationSignalType =
@@ -341,7 +304,9 @@ export type NotificationSignalType =
   | "interview_detected"
   | "offer_detected"
   | "follow_up_detected"
-  | "info";
+  | "info"
+  /** An inbox scan finished and its review queue is ready. */
+  | "scan_ready";
 
 export interface AdminNotificationItem {
   _id: string;
@@ -369,12 +334,6 @@ export interface AdminNotificationStats {
   todayCount: number;
   resolvedCount: number;
   unresolvedSignals: number;
-}
-
-export interface AdminGmailStats {
-  gmailConnectedCount: number;
-  totalRejectionsDetected: number;
-  totalScansToday: number;
 }
 
 export type MailboxProvider = "gmail" | "outlook";
@@ -433,92 +392,13 @@ export interface AdminMailboxStats {
     bothConnected: number;
     anyConnected: number;
   };
-  signals: {
-    rejections: number;
-    interviews: number;
-    offers: number;
-    followUps: number;
+  /** Inbox scans in the last 30 days — the review queue. */
+  scans30d: {
+    scans: number;
+    failed: number;
+    found: number;
+    imported: number;
   };
-  signalsToday: number;
-}
-
-export interface PlatformAnalyticsData {
-  funnel: { _id: string; count: number }[];
-  topCompanies: { _id: string; count: number }[];
-  topRoles: { _id: string; count: number }[];
-  totalApplications: number;
-  totalUsers: number;
-  avgAppsPerUser: number;
-  conversionRates: {
-    oaRate: number;
-    interviewRate: number;
-    offerRate: number;
-    rejectionRate: number;
-  };
-  trends: {
-    weeklySignups: { _id: { year: number; week: number }; count: number }[];
-    weeklyRejections: { _id: { year: number; week: number }; count: number }[];
-  };
-  tailor: {
-    totalSessions: number;
-    last30Days: number;
-    avgFitScore: number;
-    gradeBreakdown: { _id: "A" | "B" | "C" | "D" | "F"; count: number }[];
-  };
-  masterProfile: {
-    total: number;
-    adoptionRate: number;
-    coverage: {
-      personal: number;
-      experience: number;
-      projects: number;
-      education: number;
-      skills: number;
-      certifications: number;
-    };
-  };
-  aiProviders: { _id: string; count: number }[];
-  mailbox: {
-    connectedUsers: number;
-    adoptionRate: number;
-    signalsLast30: { _id: string; count: number }[];
-  };
-}
-
-export interface StorageStats {
-  stats: {
-    totalFiles: number;
-    orphanedFiles: number;
-    cloudinary: {
-      totalStorage: number;
-      storageLimit: number;
-      bandwidth: number;
-      bandwidthLimit: number;
-      transformations: number;
-    } | null;
-  };
-  files: {
-    _id: string;
-    name: string;
-    fileName: string;
-    targetRole: string;
-    fileUrl: string;
-    filePublicId: string;
-    user: { _id: string; name: string; email: string };
-    createdAt: string;
-  }[];
-  orphans: {
-    _id: string;
-    name: string;
-    filePublicId: string;
-    user: { _id: string; name: string; email: string };
-  }[];
-}
-
-export interface RoleDefinition {
-  role: string;
-  description: string;
-  permissions: string[];
 }
 
 export interface SeedResult {
