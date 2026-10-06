@@ -42,11 +42,16 @@ import emailRoutes from "./routes/email.js";
 import notificationRoutes from "./routes/notifications.js";
 import bugRoutes from "./routes/bugs.js";
 import announcementRoutes from "./routes/announcements.js";
-import { startEmailScanJob } from "./services/emailScanJob.js";
-import { reapStalledScanJobs } from "./services/email/firstScan.js";
+import internalRoutes from "./routes/internal.js";
+import mcpRoutes from "./routes/mcp.js";
+import mcpTokenRoutes from "./routes/mcpTokens.js";
+import { reapOrphanScans } from "./services/email/inboxScan.js";
+import { purgeDueDeletions } from "./services/account/deletion.js";
+// Every AI feature registers its job handler on import — before any job runs.
+import "./services/ai/features/index.js";
 import { backfillResumeVersions } from "./services/migrations/backfillResumeVersions.js";
 import { seedClipboardNudgeForAll } from "./services/migrations/seedClipboardNudge.js";
-import { seedAiSettings, migrateAiProviderConfigs, SEED_AI_SETTINGS_MIGRATION } from "./services/migrations/aiPlatform.js";
+import { migrateAiKeys, backfillMatchScores, AI_KEYS_MIGRATION, MATCH_SCORE_MIGRATION } from "./services/migrations/aiLayer.js";
 import { runBootMigrations } from "./services/migrations/runBootMigrations.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -98,6 +103,13 @@ if (env.NODE_ENV === "production") {
 
 app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ extended: false }));
+
+// Server-to-server (signed): mounted before sessions, rate limits and the
+// maintenance gate, which are all about people.
+app.use("/api/internal", internalRoutes);
+// MCP (bearer tokens, not cookies): its own auth, per-token limits and
+// maintenance check — the session/limiter stack below is for browsers.
+app.use("/api/mcp", mcpRoutes);
 
 // Sessions are scoped to /api: static assets, the landing page, and the SPA
 // fallback must never depend on the session store — a Mongo hiccup was 500-ing
@@ -154,6 +166,7 @@ app.use("/api/applications", applicationRoutes);
 app.use("/api/resumes", resumeRoutes);
 app.use("/api/master-profile", masterProfileRoutes);
 app.use("/api/ai", aiRoutes);
+app.use("/api/mcp-tokens", mcpTokenRoutes);
 app.use("/api/tailor", tailorRoutes);
 app.use("/api/feedback", feedbackRoutes);
 app.use("/api/contacts", contactRoutes);
@@ -211,13 +224,12 @@ app.use(errorHandler);
 async function start(): Promise<void> {
   await connectDB();
   configurePassport();
-  // Start email scan cron job only if encryption key is configured
-  if (env.ENCRYPTION_KEY && env.ENCRYPTION_KEY !== "0000000000000000000000000000000000000000000000000000000000000000") {
-    startEmailScanJob();
-  }
-  // Rescue any first-scan jobs that were mid-flight when the server stopped.
-  // Marks them failed with a retryable error so the user can kick a new scan.
-  reapStalledScanJobs().catch((err) => console.error("[firstScan] reaper failed:", err));
+  // Accounts whose 14-day deletion grace period is over are erased now (and
+  // hourly from /auth/me) — no host cron needed.
+  purgeDueDeletions().catch((err) => console.error("[account] due-deletion sweep failed:", err));
+  // Scans from before the AI job engine can't resume — end their spinners.
+  // (Scans with a job behind them are revived by the next status read.)
+  reapOrphanScans().catch((err) => console.error("[inbox.scan] reaper failed:", err));
 
   // One-time data migrations. Each runs once per database — the `migrations`
   // ledger is checked in one read — instead of scanning collections on every
@@ -229,9 +241,10 @@ async function start(): Promise<void> {
     // Discovery notification telling existing users the extension can copy a
     // JD to the clipboard (new users get it via /auth/me).
     { name: "seed-clipboard-nudge", run: seedClipboardNudgeForAll },
-    // AI platform: the ai_* settings rows, and one active key per user.
-    { name: SEED_AI_SETTINGS_MIGRATION, run: seedAiSettings },
-    { name: "migrate-ai-provider-configs", run: migrateAiProviderConfigs },
+    // The 2026-10 AI layer: keys and default routes from the old provider
+    // configs + platform default key, then the one 0–10 score on old fit checks.
+    { name: AI_KEYS_MIGRATION, run: migrateAiKeys },
+    { name: MATCH_SCORE_MIGRATION, run: backfillMatchScores },
   ]).catch((err) => console.error("[migrate] could not read the migrations ledger:", err));
 
   app.listen(env.PORT, () => {
