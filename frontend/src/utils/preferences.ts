@@ -9,7 +9,12 @@ export type Lch = [number, number, number];
 export interface CustomTheme { base: Lch; accent: Lch; contrast: number }
 export interface ThemePrefs { mode: ThemeMode; custom?: CustomTheme }
 export type ListDesign = "classic" | "table";
-export interface Preferences { theme?: ThemePrefs; listDesign?: ListDesign }
+/** Pages the header search can pin as quick links — mirrors the backend's QUICK_LINK_IDS. */
+export type QuickLinkId = "ai" | "personalize" | "board" | "list" | "resumes" | "calendar" | "notifications";
+export const QUICK_LINK_IDS: readonly QuickLinkId[] = ["ai", "personalize", "board", "list", "resumes", "calendar", "notifications"];
+export const QUICK_LINK_MAX = 3;
+export const DEFAULT_QUICK_LINKS: readonly QuickLinkId[] = ["ai", "notifications", "calendar"];
+export interface Preferences { theme?: ThemePrefs; listDesign?: ListDesign; quickLinks?: QuickLinkId[] }
 
 export const DEFAULT_LIST_DESIGN: ListDesign = "classic";
 export const LIST_DESIGNS: readonly ListDesign[] = ["classic", "table"];
@@ -60,6 +65,17 @@ export function isListDesign(v: unknown): v is ListDesign {
   return typeof v === "string" && (LIST_DESIGNS as readonly string[]).includes(v);
 }
 
+export function isQuickLinkId(v: unknown): v is QuickLinkId {
+  return typeof v === "string" && (QUICK_LINK_IDS as readonly string[]).includes(v);
+}
+
+/** Known ids, each once, at most QUICK_LINK_MAX. An empty list is a choice;
+ *  anything that isn't a list is "not set" (the defaults). */
+export function normalizeQuickLinks(v: unknown): QuickLinkId[] | undefined {
+  if (!Array.isArray(v)) return undefined;
+  return [...new Set(v.filter(isQuickLinkId))].slice(0, QUICK_LINK_MAX);
+}
+
 export function normalizePreferences(v: unknown): Preferences {
   if (!v || typeof v !== "object") return {};
   const o = v as Record<string, unknown>;
@@ -67,5 +83,7 @@ export function normalizePreferences(v: unknown): Preferences {
   const theme = normalizeThemePrefs(o.theme);
   if (theme) out.theme = theme;
   if (isListDesign(o.listDesign)) out.listDesign = o.listDesign;
+  const links = normalizeQuickLinks(o.quickLinks);
+  if (links) out.quickLinks = links;
   return out;
 }

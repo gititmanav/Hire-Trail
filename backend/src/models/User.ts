@@ -53,7 +53,7 @@ export interface IUser extends Document {
   clipboardNudgeSeeded: boolean;
   /** Settings → Personalize. Follows the user across devices. Missing on
    *  documents that predate it — always read through normalizePreferences. */
-  preferences?: { theme?: unknown; listDesign?: string };
+  preferences?: { theme?: unknown; listDesign?: string; quickLinks?: string[] };
   /** Admin's per-user AI rules (Admin → Users). Missing on most documents —
    *  read through services/ai/routing.ts, which treats absence as "no override". */
   aiOverride?: {
@@ -156,6 +156,8 @@ const userSchema = new Schema<IUser>(
           // Shape enforced by validators/preferences.ts on write.
           theme: { type: Schema.Types.Mixed },
           listDesign: { type: String, enum: ["classic", "table"] },
+          // undefined = the defaults; [] = every link removed (see validators/preferences.ts).
+          quickLinks: { type: [String], default: undefined },
         },
         { _id: false },
       ),
