@@ -1,7 +1,7 @@
 /** Public privacy policy. Linked from the landing, the sign-in sheet and Settings; required for Google OAuth verification. */
 import LegalLayout from "./LegalLayout.tsx";
 
-const LAST_UPDATED = "May 27, 2026";
+const LAST_UPDATED = "October 5, 2026";
 const CONTACT_EMAIL = "manavkaneria@gmail.com";
 
 export default function Privacy() {
@@ -17,7 +17,7 @@ export default function Privacy() {
         <p>
           HireTrail (&ldquo;we&rdquo;, &ldquo;us&rdquo;) is a personal job-application tracker that helps you manage applications,
           tailor resumes, and keep your tracker in sync with your inbox. This policy explains what we collect, why we
-          collect it, and the choices you have. It applies to HireTrail at <span className="font-medium">hiretrail.vercel.app</span>,
+          collect it, and the choices you have. It applies to HireTrail at <span className="font-medium">hiretrail.manavkaneria.me</span>,
           the HireTrail browser extension, and any backend services that power them.
         </p>
       </section>
@@ -27,8 +27,9 @@ export default function Privacy() {
         <ul>
           <li><span className="font-medium">Account information</span> &mdash; name, email address, and a password hash (we never store passwords in plain text). If you sign in with Google, we receive your name, email, and Google account ID.</li>
           <li><span className="font-medium">Job-search data you create</span> &mdash; applications, companies, contacts, deadlines, notes, resume files, and the structured master profile you build.</li>
-          <li><span className="font-medium">AI provider keys</span> &mdash; if you bring your own Anthropic, OpenAI, Google, or OpenRouter API key, we store it encrypted at rest and only use it to make requests on your behalf.</li>
-          <li><span className="font-medium">Gmail / Outlook connection</span> &mdash; if you connect a mailbox, we store an encrypted refresh token. We request the minimum scope (read-only) and use it only to detect interview / rejection / offer signals and propose stage updates to your tracker. We never read mail outside of this scope, send mail on your behalf, or store full message bodies; only the message ID, signal, and a short summary are retained.</li>
+          <li><span className="font-medium">AI keys and settings</span> &mdash; if you add your own API key (Google, Anthropic, OpenAI, xAI, DeepSeek, Mistral, Groq or OpenRouter), we store it encrypted at rest, show only its nickname and last four characters, and use it only for the AI features you put on it. We also keep where each AI feature runs for you, and a usage record of each AI call (which feature, which provider and model, tokens and estimated cost &mdash; not the content).</li>
+          <li><span className="font-medium">Assistant connections</span> &mdash; if you connect an AI assistant such as Claude Code (MCP), we store a hash of its access token (never the token itself) and when it was last used.</li>
+          <li><span className="font-medium">Gmail connection</span> &mdash; if you connect Gmail, we store an encrypted refresh token for the read-only scope. A scan reads only messages that look like job applications and puts what it finds in a review queue; nothing changes in your tracker until you import it. For each item in the queue we keep the sender, subject, a short snippet (up to 280 characters) and the detected company, role and stage. We never send mail, change your inbox, or keep full message bodies.</li>
           <li><span className="font-medium">Operational data</span> &mdash; session cookies, audit logs of administrative actions, and basic error logs needed to keep the service running.</li>
         </ul>
       </section>
@@ -41,7 +42,8 @@ export default function Privacy() {
           including the Limited Use requirements.
         </p>
         <ul>
-          <li>We request the <code>gmail.readonly</code> scope only to scan recent messages for job-application signals you can confirm or revert in-app.</li>
+          <li>We request the <code>gmail.readonly</code> scope only to scan recent messages you choose (a window you pick, or &ldquo;Scan now&rdquo;) for job applications, which you review before anything is added.</li>
+          <li>To work out which job a thread is about, a short slice of each matching thread is sent to the AI provider that runs inbox sorting for you (HireTrail&apos;s included AI, or your own key if you chose that). It is never sent to a key marked free-tier, and never to an AI assistant.</li>
           <li>We do not use Gmail data to serve ads, for resale, or for any purpose other than the user-facing features you enable.</li>
           <li>We do not transfer Gmail data to third parties except as needed to provide or improve user-facing features, comply with applicable law, or as part of a merger / acquisition with notice to you.</li>
           <li>We do not allow humans to read your Gmail data except (a) with your explicit consent, (b) for security investigations, (c) to comply with applicable law, or (d) where the data is aggregated and used for internal operations in accordance with the Limited Use policy.</li>
@@ -52,13 +54,13 @@ export default function Privacy() {
         <h2>3. How your data is used</h2>
         <ul>
           <li>To operate the application tracker, calendar, and analytics features in your account.</li>
-          <li>To tailor your resume to a job description when you trigger the AI Tailor feature.</li>
-          <li>To classify connected-mailbox messages and suggest stage updates, which you can confirm or revert.</li>
+          <li>To run the AI features you use &mdash; reading a job posting, checking your fit, importing a resume, proposing resume rewrites you accept or reject, and sorting inbox email &mdash; wherever you set each one to run.</li>
+          <li>To find application emails in a connected Gmail inbox and put them in a review queue for you.</li>
           <li>To send transactional email (account verification, password reset, security alerts).</li>
           <li>To debug, secure, and improve the service.</li>
         </ul>
         <p>
-          We do not sell your personal data. We do not use your application data, resumes, or mailbox content to train AI models.
+          We do not sell your personal data. We do not use your application data, resumes, or mailbox content to train AI models. HireTrail&apos;s included AI uses providers&apos; paid APIs, which don&apos;t train on what they receive; on your own key, your provider&apos;s terms apply.
         </p>
       </section>
 
@@ -68,8 +70,9 @@ export default function Privacy() {
         <ul>
           <li><span className="font-medium">MongoDB Atlas</span> &mdash; primary database for your account data.</li>
           <li><span className="font-medium">Cloudinary</span> &mdash; storage for uploaded resume files.</li>
-          <li><span className="font-medium">Google &amp; Microsoft</span> &mdash; OAuth sign-in and (optional) mailbox connection.</li>
-          <li><span className="font-medium">AI providers (Anthropic, OpenAI, Google, OpenRouter)</span> &mdash; only when you invoke an AI feature. Content sent is limited to the job description, the relevant parts of your resume profile, and the email being classified. Each vendor&apos;s own retention policy applies once the request leaves us. If you bring your own API key, requests are billed to and governed by your provider account.</li>
+          <li><span className="font-medium">Google</span> &mdash; OAuth sign-in and (optional) Gmail connection.</li>
+          <li><span className="font-medium">AI providers</span> &mdash; only when an AI feature runs. Content sent is limited to what that feature needs: the job posting, the relevant parts of your profile or resume, or the slice of email being sorted. HireTrail&apos;s included AI runs on providers we choose (Settings &rarr; AI shows which); your own key sends requests under your account with that provider, billed to you and governed by its terms.</li>
+          <li><span className="font-medium">Your AI assistant</span> &mdash; if you connect one (MCP), it can read the HireTrail data you ask it about and make the changes you ask for. What it receives is then governed by your agreement with that assistant&apos;s provider.</li>
         </ul>
       </section>
 
@@ -109,28 +112,43 @@ export default function Privacy() {
                 <td>United States</td>
               </tr>
               <tr>
-                <td>Microsoft Corporation</td>
-                <td>Outlook OAuth and Microsoft Graph mail API (when you connect Outlook).</td>
+                <td>Google AI (Gemini)</td>
+                <td>AI features run on Gemini models (when HireTrail&apos;s included AI uses it, or your own key is a Google key).</td>
                 <td>United States</td>
               </tr>
               <tr>
                 <td>Anthropic, PBC</td>
-                <td>Claude models for resume parsing, JD matching, and email classification (when invoked).</td>
+                <td>AI features run on Claude models (included AI, or your own key).</td>
                 <td>United States</td>
               </tr>
               <tr>
                 <td>OpenAI, OpCo, LLC</td>
-                <td>GPT models for resume parsing, JD matching, and email classification (when invoked).</td>
+                <td>AI features run on GPT models (included AI, or your own key).</td>
                 <td>United States</td>
               </tr>
               <tr>
-                <td>Google AI (Gemini)</td>
-                <td>Gemini models for resume parsing, JD matching, and email classification (when invoked).</td>
+                <td>xAI Corp.</td>
+                <td>AI features run on Grok models (included AI, or your own key).</td>
                 <td>United States</td>
+              </tr>
+              <tr>
+                <td>Mistral AI</td>
+                <td>AI features run on Mistral models (included AI, or your own key).</td>
+                <td>European Union</td>
+              </tr>
+              <tr>
+                <td>Groq, Inc.</td>
+                <td>AI features run on open models hosted by Groq (included AI, or your own key).</td>
+                <td>United States</td>
+              </tr>
+              <tr>
+                <td>DeepSeek</td>
+                <td>AI features run on DeepSeek models &mdash; only if you add your own DeepSeek key.</td>
+                <td>China</td>
               </tr>
               <tr>
                 <td>OpenRouter</td>
-                <td>Model gateway for additional AI providers (only when explicitly selected).</td>
+                <td>Routes AI requests to the model you choose (included AI, or your own key).</td>
                 <td>United States</td>
               </tr>
               <tr>
@@ -142,7 +160,7 @@ export default function Privacy() {
           </table>
         </div>
         <p className="lp-note mt-6">
-          AI subprocessors are only invoked when you trigger an AI feature (Tailor, resume parse, email scan). If you provide your own API key for a provider, requests for that feature are sent under your own account with that vendor and billed to you.
+          An AI provider receives your data only when an AI feature runs on it &mdash; you can see, and change, where each feature runs in Settings &rarr; AI. On your own key, requests are sent under your account with that provider and billed to you.
         </p>
       </section>
 
@@ -150,7 +168,7 @@ export default function Privacy() {
         <h2>6. Storage and security</h2>
         <ul>
           <li>Passwords are hashed with bcrypt; we never store or transmit plain-text passwords.</li>
-          <li>OAuth refresh tokens and BYOK API keys are encrypted at rest with AES-256-GCM before being written to the database.</li>
+          <li>OAuth refresh tokens and your AI keys are encrypted at rest with AES-256-GCM before being written to the database. Assistant access tokens are stored only as a one-way hash.</li>
           <li>All traffic between your browser, the extension, and our servers is encrypted in transit (HTTPS).</li>
           <li>Access to production data is limited to the developer maintaining the service.</li>
         </ul>
@@ -160,10 +178,17 @@ export default function Privacy() {
         <h2>7. Data retention</h2>
         <p>
           We retain your data for as long as your account is active. You can delete individual records (applications, resumes,
-          contacts, etc.) at any time from inside the app. You can disconnect Gmail / Outlook from the Settings page, which
-          revokes our access at the provider and deletes the stored refresh token. To delete your entire account and all
-          associated data, use the &ldquo;Delete account&rdquo; button under Settings &rarr; Account; this is immediate and
-          irreversible, revokes any connected mailbox tokens, and removes your data from our database.
+          contacts, etc.) at any time from inside the app. You can disconnect Gmail in Settings &rarr; Connectors, which
+          revokes our access at Google and deletes the stored refresh token; review-queue items from a scan are kept until you
+          finish or dismiss that review. AI answers about public job postings may be cached for up to 30 days so the same
+          posting isn&apos;t read twice; answers about your resume or email are never cached.
+        </p>
+        <p>
+          To delete your entire account, use &ldquo;Delete account&rdquo; in Settings &rarr; Profile. Your account is scheduled
+          for deletion 14 days later and you&apos;re signed out everywhere; signing in before then keeps it. On that day,
+          everything in it is erased &mdash; applications, resumes and their files, your profile, contacts, deadlines,
+          notifications, AI keys, settings and usage records, assistant connections, and inbox scans &mdash; and Google&apos;s
+          access to your Gmail is revoked.
         </p>
       </section>
 

@@ -41,7 +41,7 @@ export default function HeroCopy({ copyRef }: { copyRef: RefObject<HTMLDivElemen
           </button>
         </div>
         <p data-lp-line className="lp-rise mt-6 lg:mt-8 flex flex-wrap justify-center gap-x-2 sm:gap-x-3 gap-y-1 text-[12px] sm:text-[13px] text-white/55" style={{ ["--lp-delay" as string]: "280ms" }}>
-          <span>6 job boards</span><span aria-hidden>·</span><span>40+ AI providers</span><span aria-hidden>·</span><span>100% open source</span>
+          <span>6 job boards</span><span aria-hidden>·</span><span>8 AI providers</span><span aria-hidden>·</span><span>100% open source</span>
         </p>
       </div>
     </div>

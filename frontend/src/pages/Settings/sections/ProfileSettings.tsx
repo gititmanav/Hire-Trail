@@ -1,70 +1,132 @@
 /** Settings → Profile: identity, password, and account deletion. */
 import { useContext, useMemo, useState, FormEvent } from "react";
 import toast from "../../../components/ui/toast.ts";
-import { api, authAPI } from "../../../utils/api.ts";
+import { api, authAPI, type DeletionReason } from "../../../utils/api.ts";
 import type { User } from "../../../types";
 import { UserContext } from "../../../App.tsx";
 import { useDemoGate } from "../../../hooks/useDemoGate.tsx";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "../../../components/ui/Modal.tsx";
-import { TextField } from "../../../components/ui/Field.tsx";
+import { Field, TextField, Textarea } from "../../../components/ui/Field.tsx";
 import Button from "../../../components/ui/Button.tsx";
 import { SettingsCard, SettingsHeader, SettingsRow, SettingsSection, inputCls } from "../ui.tsx";
 
 const fieldCls = `${inputCls} sm:w-80`;
 
-function DeleteAccountModal({ email, onClose }: { email: string; onClose: () => void }) {
+const REASONS: { value: DeletionReason; label: string }[] = [
+  { value: "found_job", label: "I found a job" },
+  { value: "not_useful", label: "It isn't useful for me" },
+  { value: "privacy", label: "Privacy" },
+  { value: "too_much", label: "Too many emails or notifications" },
+  { value: "other", label: "Something else" },
+];
+
+/** Deleting an account takes two steps on purpose: why (with the gentler
+ *  option of just signing out), then proof and the word DELETE. The account
+ *  is scheduled for deletion in 14 days — signing in before then keeps it. */
+function DeleteAccountModal({ email, hasPassword, onClose }: { email: string; hasPassword: boolean; onClose: () => void }) {
+  const [step, setStep] = useState<"why" | "confirm">("why");
+  const [reason, setReason] = useState<DeletionReason | null>(null);
+  const [note, setNote] = useState("");
+  const [proof, setProof] = useState("");
   const [confirm, setConfirm] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = async (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (confirm !== "DELETE") return;
+    if (!reason || confirm !== "DELETE" || !proof) return;
     setSubmitting(true);
     try {
-      await authAPI.deleteAccount(confirm);
-      toast.success("Account deleted.");
-      // Full reload so AuthContext and any in-memory state reset cleanly.
+      const { scheduledFor } = await authAPI.requestDeletion({
+        reason,
+        note: note.trim() || undefined,
+        confirm,
+        ...(hasPassword ? { password: proof } : { email: proof }),
+      });
+      // The session is gone — a full reload lands signed out; the landing says what happens next.
+      try { sessionStorage.setItem("ht-deletion-scheduled", scheduledFor); } catch { /* best-effort */ }
       window.location.href = "/";
-    } catch (err) {
-      const e = err as { response?: { data?: { error?: string } } };
-      toast.error(e.response?.data?.error || "Account deletion failed");
+    } catch {
+      // The API layer says why (a wrong password, most often).
       setSubmitting(false);
     }
   };
 
-  const canSubmit = confirm === "DELETE" && !submitting;
-
   return (
-    <Modal onClose={() => !submitting && onClose()} size="sm" ariaLabel="Delete account">
-      <ModalHeader title="Delete account" description={email} onClose={submitting ? undefined : onClose} />
-      <form className="flex flex-col min-h-0" onSubmit={handleSubmit}>
-        <ModalBody className="space-y-4">
-          <div className="rounded-lg border border-red-300 dark:border-red-900/60 bg-red-50 dark:bg-red-950/30 p-3">
-            <p className="text-sm text-red-900 dark:text-red-200 font-medium">This is permanent.</p>
-            <ul className="text-xs text-red-900/85 dark:text-red-200/85 mt-1.5 space-y-0.5 list-disc pl-4">
-              <li>All applications, contacts, resumes, deadlines, notifications, and your master profile.</li>
-              <li>Your Gmail / Outlook connection (tokens revoked at the provider).</li>
-              <li>Your account and all sessions across devices.</li>
-            </ul>
-          </div>
-          <TextField
-            label={<>Type <span className="font-mono font-semibold text-red-600 dark:text-red-400">DELETE</span> to confirm</>}
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-            placeholder="DELETE"
-            autoComplete="off"
-            spellCheck={false}
-            disabled={submitting}
-            data-autofocus
-          />
-        </ModalBody>
-        <ModalFooter>
-          <Button variant="ghost" onClick={onClose} disabled={submitting}>Cancel</Button>
-          <Button type="submit" variant="danger" disabled={!canSubmit} loading={submitting}>
-            Delete account permanently
-          </Button>
-        </ModalFooter>
-      </form>
+    <Modal onClose={() => !submitting && onClose()} size="sm" ariaLabel="Delete your account">
+      <ModalHeader
+        title={step === "why" ? "Before you go" : "Delete your account"}
+        description={step === "why" ? "What's making you leave? It helps us make HireTrail better." : email}
+        onClose={submitting ? undefined : onClose}
+      />
+      {step === "why" ? (
+        <>
+          <ModalBody className="space-y-4">
+            <div role="radiogroup" aria-label="Why are you deleting your account?" className="space-y-1.5">
+              {REASONS.map((r) => {
+                const on = reason === r.value;
+                return (
+                  <button
+                    key={r.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                    onClick={() => setReason(r.value)}
+                    className={`w-full flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left text-[13.5px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                      on ? "border-foreground/25 bg-control text-foreground" : "border-border text-foreground hover:bg-control/50"
+                    }`}
+                  >
+                    <span aria-hidden className={`w-4 h-4 shrink-0 rounded-full border grid place-items-center ${on ? "border-primary" : "border-input"}`}>
+                      {on && <span className="w-2 h-2 rounded-full bg-primary" />}
+                    </span>
+                    {r.label}
+                  </button>
+                );
+              })}
+            </div>
+            <Field label="Anything we could have done better?" hint="Optional — only the HireTrail team reads it.">
+              <Textarea rows={2} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
+            </Field>
+            <p className="text-[12.5px] text-muted-foreground leading-relaxed">
+              Just taking a break? You can sign out instead — nothing is deleted, and your tracker is here when you're back.
+            </p>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" onClick={onClose}>Keep my account</Button>
+            <Button variant="secondary" disabled={!reason} onClick={() => setStep("confirm")}>Continue</Button>
+          </ModalFooter>
+        </>
+      ) : (
+        <form className="flex flex-col min-h-0" onSubmit={submit}>
+          <ModalBody className="space-y-4">
+            <div className="rounded-lg border border-red-300 dark:border-red-900/60 bg-red-50 dark:bg-red-950/30 p-3 space-y-1.5">
+              <p className="text-sm text-red-900 dark:text-red-200 font-medium">Your account is deleted in 14 days.</p>
+              <p className="text-xs text-red-900/85 dark:text-red-200/85 leading-relaxed">
+                You're signed out everywhere now. Sign in any time in the next 14 days and everything is kept. After that it's erased for good: applications, resumes and their files, your profile, contacts, deadlines, AI keys and settings, assistant connections, and inbox scans. Google's access to your Gmail is revoked.
+              </p>
+            </div>
+            {hasPassword ? (
+              <TextField label="Your password" type="password" value={proof} onChange={(e) => setProof(e.target.value)} autoComplete="current-password" disabled={submitting} data-autofocus />
+            ) : (
+              <TextField label="Type your email address" type="email" value={proof} onChange={(e) => setProof(e.target.value)} placeholder={email} autoComplete="off" disabled={submitting} data-autofocus />
+            )}
+            <TextField
+              label={<>Type <span className="font-mono font-semibold text-red-600 dark:text-red-400">DELETE</span> to confirm</>}
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              placeholder="DELETE"
+              autoComplete="off"
+              spellCheck={false}
+              disabled={submitting}
+            />
+          </ModalBody>
+          <ModalFooter start={<Button variant="ghost" onClick={() => setStep("why")} disabled={submitting}>Back</Button>}>
+            <Button variant="ghost" onClick={onClose} disabled={submitting}>Keep my account</Button>
+            <Button type="submit" variant="danger" disabled={confirm !== "DELETE" || !proof || submitting} loading={submitting}>
+              Delete my account
+            </Button>
+          </ModalFooter>
+        </form>
+      )}
     </Modal>
   );
 }
@@ -172,7 +234,7 @@ export default function ProfileSettings() {
         <div className="rounded-xl border border-red-300/70 dark:border-red-900/60 bg-card shadow-panel overflow-hidden">
           <SettingsRow
             title={<span className="text-red-700 dark:text-red-300">Delete account</span>}
-            description="Permanently delete your account and all associated data. Gmail / Outlook tokens are revoked at the provider. This cannot be undone."
+            description="Schedule your account for deletion. It's erased 14 days later, with everything in it — sign in before then to keep it."
           >
             <button
               type="button"
@@ -188,7 +250,7 @@ export default function ProfileSettings() {
         </div>
       </SettingsSection>
 
-      {deleteModal && user && <DeleteAccountModal email={user.email} onClose={() => setDeleteModal(false)} />}
+      {deleteModal && user && <DeleteAccountModal email={user.email} hasPassword={user.hasPassword !== false} onClose={() => setDeleteModal(false)} />}
     </div>
   );
 }

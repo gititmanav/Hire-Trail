@@ -171,21 +171,21 @@ export function ImportVignette() {
 }
 
 export function AIVignette() {
-  const providers = ["Anthropic", "OpenAI", "Google", "Mistral", "Groq", "DeepSeek", "xAI", "Perplexity", "Cohere", "OpenRouter", "Amazon Bedrock"];
+  const providers = ["Google", "Anthropic", "OpenAI", "xAI", "DeepSeek", "Mistral", "Groq", "OpenRouter"];
   return (
     <Card className="p-5">
       <div className="flex items-center gap-3">
         <span className="lp-ai-glow w-10 h-10 rounded-xl bg-control text-foreground flex items-center justify-center"><Sparkles size={17} strokeWidth={1.8} /></span>
         <div>
           <p className="text-[14px] font-semibold text-foreground">Built-in AI</p>
-          <p className="text-[12px] text-muted-foreground">Free to use — or bring your own key</p>
+          <p className="text-[12px] text-muted-foreground">Free to use — or your own key, or your assistant</p>
         </div>
       </div>
       <div className="mt-4 flex flex-wrap gap-1.5">
         {providers.map((p) => (
           <span key={p} className="h-7 px-2.5 rounded-full border border-border text-[12px] font-medium text-foreground/90 inline-flex items-center">{p}</span>
         ))}
-        <span className="h-7 px-2.5 rounded-full text-[12px] font-medium text-muted-foreground inline-flex items-center">and more</span>
+        <span className="h-7 px-2.5 rounded-full text-[12px] font-medium text-muted-foreground inline-flex items-center">+ Claude Code over MCP</span>
       </div>
     </Card>
   );

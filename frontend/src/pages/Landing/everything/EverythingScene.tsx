@@ -21,7 +21,7 @@ const ITEMS = [
   { word: "Deadlines", line: "OA due dates, follow-ups and thank-you notes, sorted by what’s next.", Vignette: DeadlinesVignette },
   { word: "Contacts", line: "Recruiters and referrals, tied to the companies you’re applying to.", Vignette: ContactsVignette },
   { word: "Import", line: "Bring your spreadsheet in. Take everything with you as CSV or JSON.", Vignette: ImportVignette },
-  { word: "Your AI", line: "Free built-in AI — or bring your own key from 40+ providers.", Vignette: AIVignette },
+  { word: "Your AI", line: "Free built-in AI — or your own key, or your own Claude Code.", Vignette: AIVignette },
 ];
 
 export default function EverythingScene() {

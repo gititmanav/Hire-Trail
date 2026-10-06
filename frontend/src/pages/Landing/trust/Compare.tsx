@@ -12,7 +12,7 @@ const ROWS: { label: string; sheet: Cell; tracker: Cell; us: Cell }[] = [
   { label: "Tailors your resume to each job", sheet: false, tracker: "Often a paid plan", us: "Included" },
   { label: "Updates from your inbox", sheet: false, tracker: "Rarely", us: "You confirm each change" },
   { label: "Saves jobs in one click", sheet: false, tracker: true, us: "Six job boards" },
-  { label: "Your choice of AI", sheet: false, tracker: false, us: "40+ providers" },
+  { label: "Your choice of AI", sheet: false, tracker: false, us: "8 providers + your assistant" },
   { label: "Open source", sheet: false, tracker: false, us: true },
   { label: "Price", sheet: "Free", tracker: "Freemium", us: "Free" },
 ];

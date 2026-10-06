@@ -163,7 +163,10 @@ function LoginForm({ onLogin, onSwitchMode }: { onLogin: (u: User) => void; onSw
       const u = await authAPI.login(email, password);
       // Logging in never carries a landing theme — that's for new accounts.
       setLandingThemeIntent(false);
-      toast.success(`Welcome back, ${u.name}!`);
+      toast.success(
+        u.deletionCancelled ? `Welcome back, ${u.name} — your account is no longer scheduled for deletion.` : `Welcome back, ${u.name}!`,
+        u.deletionCancelled ? { duration: 7000 } : undefined,
+      );
       onLogin(u);
     } catch (error) {
       const ax = error as AxiosError<{ error?: string; code?: string }>;

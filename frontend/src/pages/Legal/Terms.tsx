@@ -2,7 +2,7 @@
 import { Link } from "react-router-dom";
 import LegalLayout from "./LegalLayout.tsx";
 
-const LAST_UPDATED = "May 16, 2026";
+const LAST_UPDATED = "October 5, 2026";
 const CONTACT_EMAIL = "manavkaneria@gmail.com";
 
 export default function Terms() {
@@ -27,8 +27,8 @@ export default function Terms() {
         <h2>1. The Service</h2>
         <p>
           HireTrail helps you organize a job search: track applications, manage deadlines, store a structured resume profile,
-          tailor a resume to a job description with AI, and (optionally) sync stage changes from a connected Gmail or Outlook
-          inbox. Features evolve over time and may be added, changed, or removed.
+          tailor a resume to a job description with AI, find application emails in a connected Gmail inbox for you to review,
+          and use HireTrail from your own AI assistant. Features evolve over time and may be added, changed, or removed.
         </p>
       </section>
 
@@ -59,33 +59,35 @@ export default function Terms() {
         <p>
           You retain ownership of the resumes, application records, notes, and other content you upload or create
           (&ldquo;Your Content&rdquo;). You grant us a limited license to store, process, and display Your Content solely so we
-          can provide the Service to you (for example, rendering your resume, classifying a connected-mailbox message, or
-          running the AI Tailor). We do not use Your Content to train AI models.
+          can provide the Service to you (for example, rendering your resume, sorting a connected inbox&apos;s application
+          emails, or proposing resume rewrites). We do not use Your Content to train AI models.
         </p>
       </section>
 
       <section id="ai-features">
         <h2>5. AI features</h2>
         <p>
-          AI-generated suggestions (resume rewrites, fit scores, email classifications) are produced by third-party language
-          models and may be incorrect, incomplete, or biased. You are responsible for reviewing AI output before relying on
-          it or sending it to anyone. We make no representation that AI-generated content is accurate or suitable for any
-          particular job application.
+          AI output (posting reads, fit checks, proposed resume rewrites, inbox sorting) comes from third-party language
+          models and may be incorrect, incomplete, or biased. Resume rewrites are proposals: nothing changes until you accept
+          one, and you are responsible for reviewing what you accept before relying on it or sending it to anyone. We make no
+          representation that AI-generated content is accurate or suitable for any particular job application.
         </p>
         <p>
-          When you bring your own API key, requests run on your provider account and incur charges according to that
-          provider&apos;s pricing; we are not responsible for those charges.
+          HireTrail&apos;s included AI is free within a monthly allowance and may be limited, changed, or paused. When you use
+          your own API key, requests run on your provider account and incur charges at that provider&apos;s prices; we are not
+          responsible for those charges. When a feature runs in your own AI assistant, it runs under your agreement with that
+          assistant&apos;s provider.
         </p>
       </section>
 
       <section id="connected-accounts">
         <h2>6. Connected accounts</h2>
         <p>
-          If you connect Google or Microsoft sign-in or a Gmail / Outlook mailbox, you authorize HireTrail to access the data
-          described in our <Link to="/privacy">Privacy Policy</Link> and only for the
-          purposes described there. You can disconnect at any time from the Settings page or by revoking access in your
-          Google / Microsoft account dashboard. Your use of Google data is also subject to the Google API Services User Data
-          Policy.
+          If you sign in with Google, connect Gmail, or connect an AI assistant, you authorize HireTrail to access the data
+          described in our <Link to="/privacy">Privacy Policy</Link> and only for the purposes described there. You can
+          disconnect Gmail in Settings &rarr; Connectors (or revoke access in your Google account), and remove an assistant
+          connection in Settings &rarr; AI, at any time. HireTrail&apos;s use of Google data follows the Google API Services
+          User Data Policy, including its Limited Use requirements.
         </p>
       </section>
 
@@ -100,9 +102,10 @@ export default function Terms() {
       <section id="termination">
         <h2>8. Termination</h2>
         <p>
-          You can stop using HireTrail and delete your data at any time. We may suspend or terminate accounts that violate
-          these Terms or that abuse the Service. On termination, the rights granted to you in these Terms end and we will
-          delete your account data within 30 days, except for what we are required to retain by law.
+          You can stop using HireTrail at any time. Deleting your account from Settings &rarr; Profile schedules it for
+          deletion 14 days later; signing in before then keeps it, and after that everything in it is erased. We may suspend
+          or terminate accounts that violate these Terms or that abuse the Service; on termination, the rights granted to you
+          in these Terms end and we delete your account data within 30 days, except for what we are required to retain by law.
         </p>
       </section>
 
