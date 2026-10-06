@@ -17,7 +17,10 @@ import { EmailScanCandidate } from "../models/EmailScanCandidate.js";
 import { Notification } from "../models/Notification.js";
 import { AppError } from "../errors/AppError.js";
 import { env } from "../config/env.js";
-import { kickoffFirstScan } from "../services/email/firstScan.js";
+import { assertInboxSortAvailable, startInboxScan } from "../services/email/inboxScan.js";
+import { verifyOAuthState } from "../utils/oauthState.js";
+import { reviveAiJobs } from "../services/ai/jobs.js";
+import type { AiUser } from "../services/ai/gateway.js";
 import * as gmail from "../services/gmailService.js";
 import * as outlook from "../services/outlookService.js";
 
@@ -41,12 +44,14 @@ async function handleGmailCallback(req: Request, res: Response) {
   try {
     const code = req.query.code as string;
     const state = req.query.state as string;
-    if (!code || !state) return res.redirect(`${env.CLIENT_URL}/settings/mailboxes?gmail=error`);
-    await gmail.handleCallback(code, state);
-    res.redirect(`${env.CLIENT_URL}/settings/mailboxes?gmail=success`);
+    const sessionUser = (req.user as { _id?: { toString(): string } } | undefined)?._id?.toString() ?? null;
+    const userId = code && state ? verifyOAuthState(state, "gmail", sessionUser) : null;
+    if (!userId) return res.redirect(`${env.CLIENT_URL}/settings/connectors?gmail=error`);
+    await gmail.handleCallback(code, userId);
+    res.redirect(`${env.CLIENT_URL}/settings/connectors?gmail=success`);
   } catch (err) {
     console.error("[Gmail] Callback error:", err);
-    res.redirect(`${env.CLIENT_URL}/settings/mailboxes?gmail=error`);
+    res.redirect(`${env.CLIENT_URL}/settings/connectors?gmail=error`);
   }
 }
 
@@ -54,12 +59,14 @@ router.get("/outlook/callback", async (req: Request, res: Response) => {
   try {
     const code = req.query.code as string;
     const state = req.query.state as string;
-    if (!code || !state) return res.redirect(`${env.CLIENT_URL}/settings/mailboxes?outlook=error`);
-    await outlook.handleCallback(code, state);
-    res.redirect(`${env.CLIENT_URL}/settings/mailboxes?outlook=success`);
+    const sessionUser = (req.user as { _id?: { toString(): string } } | undefined)?._id?.toString() ?? null;
+    const userId = code && state ? verifyOAuthState(state, "outlook", sessionUser) : null;
+    if (!userId) return res.redirect(`${env.CLIENT_URL}/settings/connectors?outlook=error`);
+    await outlook.handleCallback(code, userId);
+    res.redirect(`${env.CLIENT_URL}/settings/connectors?outlook=success`);
   } catch (err) {
     console.error("[Outlook] Callback error:", err);
-    res.redirect(`${env.CLIENT_URL}/settings/mailboxes?outlook=error`);
+    res.redirect(`${env.CLIENT_URL}/settings/connectors?outlook=error`);
   }
 });
 
@@ -69,7 +76,7 @@ router.use(ensureAuth);
 // "Not connected" rows.
 router.post(/.*/, blockDemoUser);
 
-/* ------------------ Combined status + scan ------------------ */
+/* ------------------ Combined status ------------------ */
 
 router.get("/status", async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -93,50 +100,6 @@ router.get("/status", async (req: Request, res: Response, next: NextFunction) =>
         configured: outlook.isOutlookConfigured(),
       },
     });
-  } catch (err) { next(err); }
-});
-
-router.post("/scan", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const user = getUser(req);
-    const dbUser = await User.findById(user._id);
-    if (!dbUser) return res.status(404).json({ error: "User not found" });
-
-    let totalApplied = 0;
-    let totalScanned = 0;
-    const errors: string[] = [];
-
-    if (dbUser.gmailConnected) {
-      try {
-        const r = await gmail.scanUserInbox(dbUser, { windowDays: 7 });
-        totalApplied += r.applied;
-        totalScanned += r.scanned;
-      } catch (err) {
-        const e = err as { message?: string };
-        errors.push(`Gmail: ${e.message || "failed"}`);
-      }
-    }
-
-    if (dbUser.outlookConnected) {
-      try {
-        const r = await outlook.scanUserInbox(dbUser, { windowDays: 7 });
-        totalApplied += r.applied;
-        totalScanned += r.scanned;
-      } catch (err) {
-        const e = err as { message?: string };
-        errors.push(`Outlook: ${e.message || "failed"}`);
-      }
-    }
-
-    if (!dbUser.gmailConnected && !dbUser.outlookConnected) {
-      return res.status(400).json({ error: "No mailbox connected" });
-    }
-
-    const summary = totalApplied > 0
-      ? `Scan complete. ${totalApplied} application${totalApplied === 1 ? "" : "s"} updated.`
-      : `Scan complete. No new signals in ${totalScanned} emails.`;
-
-    res.json({ message: summary, applied: totalApplied, scanned: totalScanned, errors });
   } catch (err) { next(err); }
 });
 
@@ -225,6 +188,7 @@ router.post("/first-scan", async (req: Request, res: Response, next: NextFunctio
     if (dbUser.gmailFirstScanCompleted) {
       throw new AppError("First-time inbox scan has already been performed.", 409);
     }
+    await assertInboxSortAvailable(dbUser as unknown as AiUser);
 
     // Reject if a non-terminal job is already pending. Avoids accidental dup runs.
     const existing = await EmailScanJob.findOne({
@@ -253,7 +217,7 @@ router.post("/first-scan", async (req: Request, res: Response, next: NextFunctio
       consentSnapshot: { ...consentRecord, windowDays },
     });
 
-    kickoffFirstScan(job._id.toString());
+    await startInboxScan(job);
     res.status(202).json({ scanJobId: job._id.toString(), status: "pending" });
   } catch (err) {
     next(err);
@@ -276,6 +240,7 @@ router.post("/rescan", async (req: Request, res: Response, next: NextFunction) =
     if (!dbUser.gmailConnected || !dbUser.gmailRefreshToken) {
       throw new AppError("Connect Gmail before scanning.", 400);
     }
+    await assertInboxSortAvailable(dbUser as unknown as AiUser);
 
     // Clamp the client-supplied lower bound: never in the future, never older
     // than 7 days (a manual catch-up scan shouldn't silently turn into a deep
@@ -309,7 +274,7 @@ router.post("/rescan", async (req: Request, res: Response, next: NextFunction) =
       consentSnapshot: { acceptedAt: consent.acceptedAt, scopeAcknowledged: consent.scopeAcknowledged, windowDays: 1 },
     });
 
-    kickoffFirstScan(job._id.toString());
+    await startInboxScan(job);
     res.status(202).json({ scanJobId: job._id.toString(), status: "pending" });
   } catch (err) {
     next(err);
@@ -320,8 +285,13 @@ router.post("/rescan", async (req: Request, res: Response, next: NextFunction) =
 router.get("/scan-jobs/latest", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = getUser(req);
-    const job = await EmailScanJob.findOne({ userId: user._id }).sort({ createdAt: -1 }).lean();
+    let job = await EmailScanJob.findOne({ userId: user._id }).sort({ createdAt: -1 }).lean();
     if (!job) return res.json({ job: null });
+    // The scan UI polls this while a scan runs: pick up a stalled step.
+    if (["pending", "scanning", "filtering", "classifying"].includes(job.status)) {
+      await reviveAiJobs(user._id);
+      job = (await EmailScanJob.findById(job._id).lean()) ?? job;
+    }
     res.json({
       job: {
         _id: job._id.toString(),
