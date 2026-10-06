@@ -4,6 +4,27 @@ Append a dated entry every session: decisions, what was built, what was verified
 
 ---
 
+## 2026-10-05 (later) — Committed in slices; real brand logos; local accounts; gateway-era docs
+
+Owner: commit stepwise and push; "use real company logos, not make-ups, everywhere"; a normal local user plus an admin, both `devpass123`; `ENCRYPTION_KEY` is set in Vercel.
+
+### Built
+- **History:** the toast system first (1f74771, built from HEAD so it stands alone), the AI revamp in 14 slices (c6fe98d … 74ee7e1), the map reset (000bf25) split out of the files it shares, docs (a0d4856). Pushed to `origin/master`.
+- **Real logos** (`components/BrandLogo`): the brands' own SVGs inline (LobeHub AI icons, MIT; Gmail — Iconify logos; Outlook — Simple Icons), per-instance gradient ids, ink marks in `text-foreground`. `ProviderMark` draws through it (key picker, key lists, both maps, Admin); plus Connectors' Gmail tile, the review page's empty state, Admin Mailboxes pills, Claude Code connections + the assistant hub when Claude is the client, the landing's provider chips. The letter monograms are gone.
+- **Local accounts:** `scripts/devSeed.ts` ensures `admin@hiretrail.local` (password = the dev user's; `--admin-only` resets just it). Local DB: `dev@hiretrail.local` set back to a normal user (data kept).
+- **Gateway-era leftovers:** `AI_GATEWAY_API_KEY` and the four per-provider env keys removed from `env.ts` / `.env.example` (nothing read them); README, CONTRIBUTING, DEV_LOCAL rewritten to what ships.
+
+### Verified (HOW)
+- Gates: backend `tsc --noEmit` 0, `scripts/devSeed.ts` typechecked on its own (backend tsc doesn't include `scripts/`), frontend `tsc -b` 0, `npm run build` green. The toast commit's tree was exported and built in isolation (tsc + vite build).
+- Browser: the Add-key provider grid (dark + light), Connectors (Gmail), the review empty state, the landing's AI vignette chips — all real marks. Both local logins return 200 (`POST /api/auth/login`); roles checked in mongosh.
+- NOT verified: Admin Mailboxes pills (no connected mailbox locally), the map hubs with a real key (same `ProviderMark` as the picker), the assistant hub with a Claude client.
+
+### Sharp edges
+- **`components/BrandMark` is HireTrail's own logo** — a new brand-logo file there overwrote it once (restored from git). Brand logos live in `components/BrandLogo`.
+- Splitting one working tree into commits: write each slice's index with `git hash-object -w` + `git update-index --cacheinfo` when a file has to land in two steps; export the index (`git checkout-index -a --prefix=…`, node_modules symlinked) to build a slice on its own.
+
+---
+
 ## 2026-10-05 — AI revamp: one door, three lanes, MCP, Connectors, Admin; one toast; map reset
 
 Owner: agreed to the whole blueprint (Revamp.md → "2026-10-05 — AI revamp", decisions 1–14). Later the same day: one stacked toast used everywhere, and "Reset to defaults" on the AI map (the default = what the admin set).

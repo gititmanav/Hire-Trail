@@ -10,7 +10,7 @@ _Last updated: 2026-10-05 — the AI revamp (AI layer, My AI, Admin AI, MCP, Con
 - **On `master` (pushed, 2026-09-26):** the Calendar revamp, the row-highlight fix, the Back-to-HireTrail fix and the full Filters Reset — BUILD_JOURNAL "2026-09-26", Revamp.md "2026-09-26 — Calendar revamp".
 - **Also on `master`:** long menus scroll inside a 360px panel with the search pinned (shared `ui/Menu`); Dashboard Company/Stage filters show counts (5a08f5c — Revamp.md "2026-09-25 (late) — Dashboard filter menus").
 - **Also on `master` (pushed):** landing round 3 — BUILD_JOURNAL "2026-10-04", Revamp.md "2026-10-04 — Landing round 3".
-- **On `master` (pushed, 2026-10-05):** the toast system (1f74771), the AI revamp in 14 slices (c6fe98d … 74ee7e1: AI core, endpoints, features, inbox, MCP, account deletion, admin API, boot wiring, My AI, Admin, Connectors, the app's AI surfaces, deletion + legal + landing, extension 1.5.0) and the map reset (000bf25) — BUILD_JOURNAL "2026-10-05", Revamp.md "2026-10-05 — AI revamp" (Built / Added). The slices were split from one working tree: the tip builds; the commits in between aren't each guaranteed to (the toast commit was checked on its own and does).
+- **On `master` (pushed, 2026-10-05):** the toast system (1f74771), the AI revamp in 14 slices (c6fe98d … 74ee7e1: AI core, endpoints, features, inbox, MCP, account deletion, admin API, boot wiring, My AI, Admin, Connectors, the app's AI surfaces, deletion + legal + landing, extension 1.5.0) and the map reset (000bf25), then the local seed accounts (f44679d), real brand logos (1584394) and the gateway-era env/README cleanup (237e101) — BUILD_JOURNAL "2026-10-05", Revamp.md "2026-10-05 — AI revamp" (Built / Added). The slices were split from one working tree: the tip builds; the commits in between aren't each guaranteed to (the toast commit was checked on its own and does).
 
 ## Ship blockers — land these before `master` goes to `main`
 
@@ -25,8 +25,8 @@ _Last updated: 2026-10-05 — the AI revamp (AI layer, My AI, Admin AI, MCP, Con
 - **`API_PUBLIC_URL`** — the public origin of the API, for job self-continuation (falls back to the `GOOGLE_CALLBACK_URL` origin). No cron is needed: due deletions and stuck jobs are swept at boot, hourly on `/auth/me`, and on status reads.
 - **Add a platform key in Admin → AI → Map** after deploy (the boot migration copies the old admin default key if one exists — check it shows up and passes its health check). Included AI does nothing without one.
 - **Extension 1.5.0** — `frontend/public/extension.zip` is repacked; publish it on the Chrome Web Store.
-- **Provider / Gmail logos** — the map uses neutral glyphs; the official marks would come from Iconify (needs your OK to fetch).
 - Press **Admin → Settings → Reset demo** after deploy (was "Run seed") so the demo account gets the rolling window.
+- `docker-compose.yml`'s `full` profile still passes `AI_GATEWAY_API_KEY` / `GOOGLE_GENERATIVE_AI_API_KEY` (no longer read — harmless; tooling, left for you).
 
 ## Immediate next step
 
