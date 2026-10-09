@@ -198,7 +198,9 @@ const DayCell = memo(function DayCell({ info, list = EMPTY, apps, today, slots, 
       tabIndex={focusable ? 0 : -1}
       aria-label={label}
       onFocus={(e) => { if (e.target === e.currentTarget) onFocusDay(day); }}
-      onDoubleClick={(e) => { if (!(e.target as HTMLElement).closest("button")) actions.onAdd(day); }}
+      // Portaled hover cards bubble React events through the cell — only a
+      // double-click physically inside it (and not on a control) adds.
+      onDoubleClick={(e) => { if (e.currentTarget.contains(e.target as Node) && !(e.target as HTMLElement).closest("button")) actions.onAdd(day); }}
       className={`group/day relative min-w-0 overflow-hidden border-r border-border/70 last:border-r-0 focus:outline-none focus-visible:shadow-[inset_0_0_0_2px_hsl(var(--ring)/0.5)] ${tone}`}
     >
       <div className="flex items-center justify-between pl-2 pr-1 pt-1" style={{ height: DATE_STRIP }}>
@@ -208,7 +210,7 @@ const DayCell = memo(function DayCell({ info, list = EMPTY, apps, today, slots, 
           tabIndex={-1}
           onClick={() => actions.onAdd(day)}
           aria-label={`New deadline on ${formatDay(day, { month: "long", day: "numeric" })}`}
-          className="w-5 h-5 grid place-items-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-control hover:text-foreground focus-visible:opacity-100 group-hover/day:opacity-100"
+          className="w-5 h-5 grid place-items-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-control hover:text-foreground focus-visible:opacity-100 group-hover/day:opacity-100 [@media(hover:none)]:opacity-100"
         >
           <Plus size={14} strokeWidth={2} aria-hidden />
         </button>

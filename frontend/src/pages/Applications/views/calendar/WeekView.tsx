@@ -38,7 +38,7 @@ export default function WeekView({ start, today, byDay, apps, animClass, drag, c
               type="button"
               onClick={() => actions.onAdd(d)}
               aria-label={`New deadline on ${formatDay(d, { month: "long", day: "numeric" })}`}
-              className="absolute right-1 top-1/2 -translate-y-[calc(50%+3px)] w-5 h-5 grid place-items-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-control hover:text-foreground focus-visible:opacity-100 group-hover/day:opacity-100"
+              className="absolute right-1 top-1/2 -translate-y-[calc(50%+3px)] w-5 h-5 grid place-items-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-control hover:text-foreground focus-visible:opacity-100 group-hover/day:opacity-100 [@media(hover:none)]:opacity-100"
             >
               <Plus size={14} strokeWidth={2} aria-hidden />
             </button>
@@ -54,7 +54,7 @@ export default function WeekView({ start, today, byDay, apps, animClass, drag, c
                 key={d}
                 role="group"
                 aria-label={formatDay(d, { weekday: "long", month: "long", day: "numeric" })}
-                onDoubleClick={(e) => { if (!(e.target as HTMLElement).closest("button")) actions.onAdd(d); }}
+                onDoubleClick={(e) => { if (e.currentTarget.contains(e.target as Node) && !(e.target as HTMLElement).closest("button")) actions.onAdd(d); }}
                 className={`min-w-0 flex flex-col gap-0.5 p-1 border-r border-border/70 last:border-r-0 ${weekend(d) ? "bg-control/35" : ""} ${target(d)}`}
               >
                 {list.map((e) => (

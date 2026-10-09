@@ -144,6 +144,12 @@ function FeatureRoute({ flag, children }: { flag: string; children: React.ReactN
   return <>{children}</>;
 }
 
+/** An old URL (/kanban, /calendar) → its view now, filters in the query intact. */
+function RedirectKeepingSearch({ to }: { to: string }) {
+  const location = useLocation();
+  return <Navigate to={{ pathname: to, search: location.search }} replace />;
+}
+
 /** /settings/mailboxes → Connectors, with ?gmail=… / ?outlook=… intact. */
 function LegacyMailboxesRedirect() {
   const location = useLocation();
@@ -306,12 +312,12 @@ function App() {
             <Route path="/applications/:id" element={<ApplicationDetailPage />} />
             <Route path="/companies" element={<Companies />} />
             {/* Pre-2026-09 URLs (bookmarks, tour, old links). */}
-            <Route path="/kanban" element={<Navigate to="/applications/board" replace />} />
+            <Route path="/kanban" element={<RedirectKeepingSearch to="/applications/board" />} />
             <Route path="/jobs" element={<FeatureRoute flag="feature_job_search"><JobSearch /></FeatureRoute>} />
             <Route path="/resumes" element={<Resumes />} />
             <Route path="/contacts" element={<Contacts />} />
             <Route path="/deadlines" element={<Deadlines />} />
-            <Route path="/calendar" element={<Navigate to="/applications/calendar" replace />} />
+            <Route path="/calendar" element={<RedirectKeepingSearch to="/applications/calendar" />} />
             <Route path="/import-export" element={<FeatureRoute flag="feature_csv_import_export"><ImportExport /></FeatureRoute>} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/email-review" element={<EmailScanReview />} />

@@ -2,7 +2,7 @@ import Papa from "papaparse";
 import type { Application, Stage } from "../types";
 import { dayOf, formatDay } from "./dates.ts";
 
-const STAGES: Stage[] = ["Applied", "OA", "Interview", "Offer", "Rejected"];
+const STAGES: Stage[] = ["Drafting", "Applied", "OA", "Interview", "Offer", "Rejected"];
 
 export interface CSVRow {
   company: string;

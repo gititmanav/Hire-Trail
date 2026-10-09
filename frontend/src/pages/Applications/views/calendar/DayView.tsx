@@ -164,7 +164,7 @@ function DayRow({ event, today, app, logoUrl, onOpen, actions, onOpenApplication
         </span>
       )}
       {isDeadline && !event.ghost && (
-        <span data-row-action className="shrink-0 flex items-center gap-0.5 opacity-0 group-hover/row:opacity-100 group-focus-within/row:opacity-100 transition-opacity [@media(pointer:coarse)]:opacity-100">
+        <span data-row-action className="shrink-0 flex items-center gap-0.5 opacity-0 group-hover/row:opacity-100 group-focus-within/row:opacity-100 transition-opacity [@media(hover:none)]:opacity-100">
           <Tooltip label="Mark complete">
             <button type="button" aria-label={`Mark ${event.title} complete`} onClick={() => actions.complete(event)} className="w-7 h-7 grid place-items-center rounded-md text-muted-foreground hover:text-foreground hover:bg-control focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <Check size={15} strokeWidth={1.8} aria-hidden />

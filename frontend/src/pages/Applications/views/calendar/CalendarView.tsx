@@ -132,6 +132,12 @@ export default function CalendarView() {
   /* ─── Data ─── */
   // The Day view loads its whole week (the phone's week strip, instant day paging).
   const range = visibleRange(scale === "day" ? "week" : scale, anchor, weekStart);
+  // The focused day lives on the page on screen — after a ?d= link, Back or a
+  // scale change it may not, and then neither the keyboard nor "c" has a day.
+  useEffect(() => {
+    if (focusedDay >= range.from && focusedDay <= range.to) return;
+    setFocusedDay(today >= range.from && today <= range.to ? today : anchor);
+  }, [focusedDay, range.from, range.to, today, anchor]);
   const params = calendarParams(filters, range.from, range.to);
   const query = useCalendarRange(params);
   const prevRange = visibleRange(scale === "day" ? "week" : scale, shiftAnchor(scale === "day" ? "week" : scale, anchor, -1), weekStart);

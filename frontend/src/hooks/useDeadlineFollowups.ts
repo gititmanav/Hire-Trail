@@ -43,7 +43,7 @@ export function useDeadlineFollowups() {
   const promptAfterStageChange = useCallback(async ({ applicationId, companyName, fromStage, toStage }: PromptArgs): Promise<string | null> => {
     if (!applicationId) return null;
     try {
-      const { data } = await deadlinesAPI.getAll({ applicationId, status: "upcoming", limit: 50 });
+      const { data } = await deadlinesAPI.getAll({ applicationId, status: "upcoming", limit: 50 }, { quiet: true });
       const open = data.filter((d) => !d.completed);
       if (open.length === 0) return null;
 
@@ -63,12 +63,10 @@ export function useDeadlineFollowups() {
         action: {
           label: "Mark done",
           onClick: async () => {
-            try {
-              await Promise.all(ids.map((id) => deadlinesAPI.update(id, { completed: true })));
-              toast.success(`Marked ${ids.length} deadline${ids.length === 1 ? "" : "s"} complete`);
-            } catch {
-              toast.error("Couldn't update deadlines — try the Deadlines page.");
-            }
+            // A failed write is toasted by the API layer — once.
+            await Promise.all(ids.map((id) => deadlinesAPI.update(id, { completed: true })))
+              .then(() => toast.success(`Marked ${ids.length} deadline${ids.length === 1 ? "" : "s"} complete`))
+              .catch(() => undefined);
           },
         },
       });
