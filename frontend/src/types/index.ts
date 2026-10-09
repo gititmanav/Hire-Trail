@@ -55,7 +55,20 @@ export interface Notification {
 }
 export type Stage = "Drafting" | "Applied" | "OA" | "Interview" | "Offer" | "Rejected";
 export type OutreachStatus = "none" | "reached_out" | "referred" | "response_received";
-export type ArchiveReason = "auto_stale" | "rejected" | "manual";
+/** "ghosted": closed as no reply (Sweep) — an outcome of its own, apart from Rejected. */
+export type ArchiveReason = "auto_stale" | "rejected" | "manual" | "ghosted";
+
+/** The person's own median wait for a first reply (GET /applications/insights). */
+export interface ReplyWindow {
+  /** Median days from applying to a first reply. */
+  days: number;
+  /** How many applications it was measured on. */
+  sample: number;
+  /** Too few replies to measure — `days` is the 14-day default. */
+  isDefault: boolean;
+  /** Replies that came after twice the window. */
+  lateReplies: number;
+}
 export type ApplicationSource = "manual" | "extension" | "email";
 
 /** "waiting_assistant": the fit check runs in the person's assistant (MCP). */
