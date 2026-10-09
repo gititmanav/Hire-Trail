@@ -476,6 +476,7 @@ router.put("/profile", ensureAuth, async (req: Request, res: Response, next: Nex
       if (parsed.data.theme !== undefined) $set["preferences.theme"] = parsed.data.theme;
       if (parsed.data.listDesign !== undefined) $set["preferences.listDesign"] = parsed.data.listDesign;
       if (parsed.data.quickLinks !== undefined) $set["preferences.quickLinks"] = parsed.data.quickLinks;
+      if (parsed.data.adminQuickLinks !== undefined) $set["preferences.adminQuickLinks"] = parsed.data.adminQuickLinks;
     }
 
     const updated = await User.findByIdAndUpdate(user._id, { $set }, { new: true, runValidators: true }).lean();

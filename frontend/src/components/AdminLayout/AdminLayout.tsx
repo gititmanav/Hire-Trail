@@ -1,13 +1,19 @@
 /** Admin shell — the same shape as the app's (Layout): sidebar + header form
- *  one backdrop and the main section is a card that scrolls on its own. */
-import { useLayoutEffect, useRef } from "react";
+ *  one backdrop and the main section is a card that scrolls on its own. The
+ *  header carries Admin's search (the app's Spotlight, Admin's scope). */
+import { lazy, Suspense, useLayoutEffect, useRef } from "react";
 import { Outlet, useLocation, useNavigate, useNavigationType } from "react-router-dom";
 import { ChevronDown, User as UserIcon, Settings as SettingsIcon, LogOut } from "lucide-react";
 import AdminSidebar from "./AdminSidebar.tsx";
 import Menu from "../ui/Menu.tsx";
 import { useShellCollapse } from "../../hooks/useShellCollapse.ts";
 import { APP_SCROLL_ID } from "../../utils/scrollRoot.ts";
+import SpotlightIdle from "../Spotlight/SpotlightIdle.tsx";
+import { useBarPlace } from "../Spotlight/useBarPlace.ts";
 import type { User } from "../../types";
+
+// The search (and the motion engine) loads beside the shell, not in it.
+const AdminSpotlight = lazy(() => import("../Spotlight/AdminSpotlight.tsx"));
 
 interface Props { user: User; onLogout: () => void; }
 
@@ -19,6 +25,7 @@ export default function AdminLayout({ user, onLogout }: Props) {
   const location = useLocation();
   const scrollRef = useRef<HTMLElement>(null);
   const initials = user.name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
+  const { rowRef, startRef, endRef, place } = useBarPlace();
 
   // New page → start at the top; back/forward keeps where the user was.
   const navigationType = useNavigationType();
@@ -33,12 +40,19 @@ export default function AdminLayout({ user, onLogout }: Props) {
 
       <div className={`shell-column flex-1 min-w-0 flex flex-col ${collapsed ? "ml-16" : "ml-60"}`}>
         <header className="shrink-0 bg-sidebar">
-          <div className="flex items-center justify-between px-6 py-2.5 gap-2">
-            <div className="shell-header-start flex items-center gap-3">
+          <div ref={rowRef} className="relative flex items-center justify-between px-6 py-2.5 gap-2">
+            <div ref={startRef} className="shell-header-start flex items-center gap-3">
               <span className="text-[15px] font-semibold text-foreground whitespace-nowrap">Admin Panel</span>
               <span className="text-xs bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 px-2 py-0.5 rounded-full font-medium">Admin</span>
             </div>
-            <div className="flex items-center gap-2">
+            {place && (
+              <div className="absolute top-2.5" style={{ left: place.left }}>
+                <Suspense fallback={<SpotlightIdle width={place.width} />}>
+                  <AdminSpotlight width={place.width} panel={place.panel} />
+                </Suspense>
+              </div>
+            )}
+            <div ref={endRef} className="flex items-center gap-2">
               {/* Profile dropdown */}
               <Menu
                 ariaLabel="Account"
@@ -58,7 +72,7 @@ export default function AdminLayout({ user, onLogout }: Props) {
                 trigger={(open) => (
                   <button type="button" aria-label="Account menu" className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-background focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                     <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-semibold shadow-sm">{initials}</div>
-                    <div className="hidden sm:flex flex-col items-start">
+                    <div className="hidden xl:flex flex-col items-start">
                       <span className="text-[13px] font-medium text-foreground leading-tight">{user.name}</span>
                       <span className="text-[11px] text-muted-foreground leading-tight">{user.email}</span>
                     </div>

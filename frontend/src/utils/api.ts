@@ -619,8 +619,8 @@ export const adminAPI = {
   getDashboard: () => api.get<AdminDashboardData>("/admin/dashboard").then((r) => r.data),
 
   // Users
-  getUsers: (params?: { page?: number; limit?: number; search?: string; role?: string; sort?: string; order?: string }) =>
-    api.get<PaginatedResponse<AdminUserDetail>>("/admin/users", { params }).then((r) => r.data),
+  getUsers: (params?: { page?: number; limit?: number; search?: string; role?: string; sort?: string; order?: string }, config?: { quiet?: boolean; signal?: AbortSignal }) =>
+    api.get<PaginatedResponse<AdminUserDetail>>("/admin/users", { params, ...config }).then((r) => r.data),
   getUser: (id: string) => api.get<AdminUserDetail>(`/admin/users/${id}`).then((r) => r.data),
   updateUserRole: (id: string, role: string) => api.put(`/admin/users/${id}/role`, { role }).then((r) => r.data),
   suspendUser: (id: string) => api.put(`/admin/users/${id}/suspend`).then((r) => r.data),
@@ -672,8 +672,8 @@ export const adminAPI = {
   listFeedback: (params?: { page?: number; limit?: number; status?: string; type?: string; severity?: string; search?: string }) =>
     api.get<PaginatedResponse<FeedbackItem>>("/admin/feedback", { params }).then((r) => r.data),
   getFeedback: (id: string) => api.get<FeedbackItem>(`/admin/feedback/${id}`).then((r) => r.data),
-  getFeedbackStats: () =>
-    api.get<{ total: number; open: number; byStatus: Record<string, number>; byType: Record<string, number>; bySeverity: Record<string, number> }>("/admin/feedback/stats").then((r) => r.data),
+  getFeedbackStats: (config?: { quiet?: boolean; signal?: AbortSignal }) =>
+    api.get<{ total: number; open: number; byStatus: Record<string, number>; byType: Record<string, number>; bySeverity: Record<string, number> }>("/admin/feedback/stats", config).then((r) => r.data),
   updateFeedback: (id: string, data: { status?: FeedbackStatus; severity?: FeedbackSeverity; adminNotes?: string }) =>
     api.patch<FeedbackItem>(`/admin/feedback/${id}`, data).then((r) => r.data),
   deleteFeedback: (id: string) => api.delete(`/admin/feedback/${id}`).then((r) => r.data),
@@ -682,8 +682,8 @@ export const adminAPI = {
   listBugReports: (params?: { page?: number; limit?: number; status?: BugReportStatus; source?: BugReportSource; search?: string }) =>
     api.get<PaginatedResponse<BugReport>>("/admin/bugs", { params }).then((r) => r.data),
   getBugReport: (id: string) => api.get<BugReport>(`/admin/bugs/${id}`).then((r) => r.data),
-  getBugReportStats: () =>
-    api.get<{ total: number; open: number; byStatus: Record<string, number>; bySource: Record<string, number> }>("/admin/bugs/stats").then((r) => r.data),
+  getBugReportStats: (config?: { quiet?: boolean; signal?: AbortSignal }) =>
+    api.get<{ total: number; open: number; byStatus: Record<string, number>; bySource: Record<string, number> }>("/admin/bugs/stats", config).then((r) => r.data),
   updateBugReport: (id: string, data: { status?: BugReportStatus; adminNotes?: string }) =>
     api.patch<BugReport>(`/admin/bugs/${id}`, data).then((r) => r.data),
   deleteBugReport: (id: string) => api.delete(`/admin/bugs/${id}`).then((r) => r.data),

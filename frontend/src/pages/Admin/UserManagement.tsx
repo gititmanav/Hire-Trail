@@ -3,7 +3,7 @@
  *  details, their AI (the same dialog Admin → AI opens), admin or not,
  *  suspend, delete. The one role that matters is admin vs user. */
 import { useState, useEffect, useCallback, useRef, useMemo, type ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ChevronDown, Search } from "lucide-react";
 import toast from "../../components/ui/toast.ts";
 import { adminAPI } from "../../utils/api";
@@ -67,6 +67,17 @@ export default function UserManagement() {
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
   const requestRef = useRef(0);
   const { confirm, confirmState, handleConfirm, handleCancel } = useConfirm();
+
+  // A person picked in the header search arrives as ?user=<id>: open their details.
+  const [params, setParams] = useSearchParams();
+  useEffect(() => {
+    const id = params.get("user");
+    if (!id) return;
+    setDetailId(id);
+    const next = new URLSearchParams(params);
+    next.delete("user");
+    setParams(next, { replace: true });
+  }, [params, setParams]);
 
   // Only the latest request lands — a slow answer to an older search can't
   // overwrite a newer one.

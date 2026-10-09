@@ -1,5 +1,5 @@
-/** User preferences (Settings → Personalize) — the theme and the Applications
- *  list style. Saved on the user (`preferences` on /auth/me), so they follow
+/** User preferences (Settings → Personalize) — the theme, the Applications
+ *  list style and the header search's quick links. Saved on the user (`preferences` on /auth/me), so they follow
  *  the person across devices. `normalizePreferences` mirrors the backend's
  *  (backend/src/validators/preferences.ts) — keep the two in step. */
 
@@ -14,7 +14,11 @@ export type QuickLinkId = "ai" | "personalize" | "board" | "list" | "resumes" | 
 export const QUICK_LINK_IDS: readonly QuickLinkId[] = ["ai", "personalize", "board", "list", "resumes", "calendar", "notifications"];
 export const QUICK_LINK_MAX = 3;
 export const DEFAULT_QUICK_LINKS: readonly QuickLinkId[] = ["ai", "notifications", "calendar"];
-export interface Preferences { theme?: ThemePrefs; listDesign?: ListDesign; quickLinks?: QuickLinkId[] }
+/** Admin pages the admin header's search can pin — mirrors the backend's ADMIN_QUICK_LINK_IDS. */
+export type AdminQuickLinkId = "users" | "feedback" | "bugs" | "ai" | "announcements" | "broadcasts" | "notifications" | "connectors" | "settings" | "audit";
+export const ADMIN_QUICK_LINK_IDS: readonly AdminQuickLinkId[] = ["users", "feedback", "bugs", "ai", "announcements", "broadcasts", "notifications", "connectors", "settings", "audit"];
+export const DEFAULT_ADMIN_QUICK_LINKS: readonly AdminQuickLinkId[] = ["users", "feedback", "bugs"];
+export interface Preferences { theme?: ThemePrefs; listDesign?: ListDesign; quickLinks?: QuickLinkId[]; adminQuickLinks?: AdminQuickLinkId[] }
 
 export const DEFAULT_LIST_DESIGN: ListDesign = "classic";
 export const LIST_DESIGNS: readonly ListDesign[] = ["classic", "table"];
@@ -76,6 +80,16 @@ export function normalizeQuickLinks(v: unknown): QuickLinkId[] | undefined {
   return [...new Set(v.filter(isQuickLinkId))].slice(0, QUICK_LINK_MAX);
 }
 
+export function isAdminQuickLinkId(v: unknown): v is AdminQuickLinkId {
+  return typeof v === "string" && (ADMIN_QUICK_LINK_IDS as readonly string[]).includes(v);
+}
+
+/** The admin bar's links: the same rules as `normalizeQuickLinks`. */
+export function normalizeAdminQuickLinks(v: unknown): AdminQuickLinkId[] | undefined {
+  if (!Array.isArray(v)) return undefined;
+  return [...new Set(v.filter(isAdminQuickLinkId))].slice(0, QUICK_LINK_MAX);
+}
+
 export function normalizePreferences(v: unknown): Preferences {
   if (!v || typeof v !== "object") return {};
   const o = v as Record<string, unknown>;
@@ -85,5 +99,7 @@ export function normalizePreferences(v: unknown): Preferences {
   if (isListDesign(o.listDesign)) out.listDesign = o.listDesign;
   const links = normalizeQuickLinks(o.quickLinks);
   if (links) out.quickLinks = links;
+  const adminLinks = normalizeAdminQuickLinks(o.adminQuickLinks);
+  if (adminLinks) out.adminQuickLinks = adminLinks;
   return out;
 }

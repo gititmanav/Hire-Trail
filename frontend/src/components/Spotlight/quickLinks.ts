@@ -1,21 +1,14 @@
-/** The pages the header search can pin as quick links — the circles that bud
- *  off the bar on hover. Up to QUICK_LINK_MAX, chosen in place from the "+"
- *  circle; saved on the account (utils/preferences.ts). */
-import { Bell, CalendarDays, Columns3, FileText, LayoutList, Palette, Sparkles, type LucideIcon } from "lucide-react";
+/** The pages the app's header search can pin as quick links — the circles that
+ *  bud off the bar on hover. Up to QUICK_LINK_MAX, chosen in place from the "+"
+ *  circle; saved on the account (utils/preferences.ts). Admin's are in
+ *  adminScope.ts. */
+import { Bell, CalendarDays, Columns3, FileText, LayoutList, Palette, Sparkles } from "lucide-react";
 
 import type { QuickLinkId } from "../../utils/preferences.ts";
-
-export interface QuickLink {
-  id: QuickLinkId;
-  label: string;
-  path: string;
-  Icon: LucideIcon;
-  /** A feature flag the page lives behind. */
-  flag?: string;
-}
+import type { QuickLink } from "./scope.ts";
 
 /** Catalogue order (the editor's grid). */
-export const QUICK_LINKS: QuickLink[] = [
+export const QUICK_LINKS: (QuickLink & { id: QuickLinkId })[] = [
   { id: "ai", label: "AI", path: "/settings/ai", Icon: Sparkles },
   { id: "notifications", label: "Notifications", path: "/notifications", Icon: Bell },
   { id: "calendar", label: "Calendar", path: "/applications/calendar", Icon: CalendarDays },
@@ -24,9 +17,3 @@ export const QUICK_LINKS: QuickLink[] = [
   { id: "resumes", label: "Resumes", path: "/resumes", Icon: FileText },
   { id: "personalize", label: "Personalize", path: "/settings/personalize", Icon: Palette },
 ];
-
-const BY_ID = new Map(QUICK_LINKS.map((l) => [l.id, l]));
-
-export function quickLink(id: QuickLinkId): QuickLink {
-  return BY_ID.get(id)!;
-}

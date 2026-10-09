@@ -16,7 +16,10 @@
  *             drag a page onto the bar or off it, or click to add / remove
  *
  *  Geometry is the reference's, scaled to a 36px pill (66 → 36): circles
- *  inset 1px, 9px apart, the dock filling exactly what the pill gives up. */
+ *  inset 1px, 9px apart, the dock filling exactly what the pill gives up.
+ *
+ *  The same bar serves the app and Admin; a `scope` (scope.ts) says what it
+ *  finds and which pages it can pin. */
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence, animate, motion, useMotionValue, useReducedMotion, type Transition } from "motion/react";
@@ -24,12 +27,10 @@ import { Check, ChevronRight, Minus, Plus, Search } from "lucide-react";
 
 import { isInsideLayerAbove, isTopLayer, popLayer, pushLayer } from "../ui/layers.ts";
 import { useFeatureFlags } from "../../hooks/useFeatureFlags.tsx";
-import { useUnreadNotifications } from "../../hooks/useUnreadNotifications.ts";
-import { QUICK_LINK_MAX, type QuickLinkId } from "../../utils/preferences.ts";
-import { QUICK_LINKS, quickLink } from "./quickLinks.ts";
-import { useQuickLinks } from "./useQuickLinks.ts";
-import { PAGES, rankResults, useSearchRecords, type SearchResult } from "./searchIndex.ts";
+import { QUICK_LINK_MAX } from "../../utils/preferences.ts";
+import { rankResults, type SearchResult } from "./searchIndex.ts";
 import { BAR_H, DOCK_MIN_WIDTH } from "./geometry.ts";
+import type { QuickLink, SpotlightScope } from "./scope.ts";
 
 /* ─── Geometry (CSS px) ─── */
 const H = BAR_H;            // the pill
@@ -50,27 +51,31 @@ const SHAPE: Transition = { type: "spring", stiffness: 460, damping: 34, mass: 0
 const LIFT: Transition = { type: "spring", stiffness: 520, damping: 32 };
 
 type DragFrom = "dock" | "catalog";
-interface DragView { id: QuickLinkId; from: DragFrom; overDock: boolean; insert: number; overCatalog: boolean; landing: boolean }
+interface DragView { id: string; from: DragFrom; overDock: boolean; insert: number; overCatalog: boolean; landing: boolean }
 
-export default function Spotlight({ width, panel }: {
+export default function Spotlight({ width, panel, scope }: {
   /** The bar's width (the header measures what's free). */
   width: number;
   /** The results panel's left edge and width, relative to the bar — wider than
    *  the bar on phones, where it spans the screen. */
   panel: { x: number; width: number };
+  /** What this bar finds and pins — constant for a mounted bar. */
+  scope: SpotlightScope;
 }) {
   const uid = useId().replace(/:/g, "");
   const navigate = useNavigate();
   const location = useLocation();
   const reduced = useReducedMotion();
   const { isEnabled } = useFeatureFlags();
-  const { links, available, setLinks } = useQuickLinks();
-  const unread = useUnreadNotifications();
+  const { links, available, setLinks } = scope.useLinks();
+  const badges = scope.useBadges();
+  const linkById = useMemo(() => new Map(scope.catalog.map((l) => [l.id, l])), [scope.catalog]);
+  const quickLink = (id: string): QuickLink => linkById.get(id)!;
 
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
-  const tileRefs = useRef(new Map<QuickLinkId, HTMLElement>());
+  const tileRefs = useRef(new Map<string, HTMLElement>());
 
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
@@ -91,8 +96,8 @@ export default function Spotlight({ width, panel }: {
   const spring = (t: Transition): Transition => (reduced ? { duration: 0 } : t);
 
   /* ─── Results ─── */
-  const records = useSearchRecords(used);
-  const pages = useMemo(() => PAGES.filter((p) => !p.flag || isEnabled(p.flag)), [isEnabled]);
+  const records = scope.useRecords(used, q);
+  const pages = useMemo(() => scope.pages.filter((p) => !p.flag || isEnabled(p.flag)), [scope.pages, isEnabled]);
   const results = useMemo(() => rankResults(q, [...pages, ...(records.data ?? [])]), [q, pages, records.data]);
   const searching = records.isPending && used;
   const rowCount = Math.min(MAX_ROWS, Math.max(1, results.length + (searching ? 1 : 0)));
@@ -100,7 +105,7 @@ export default function Spotlight({ width, panel }: {
   useEffect(() => setActive(0), [q]);
 
   /* ─── The dock, as drawn: the saved links, or a drag's preview ─── */
-  const dockIds = useMemo<{ id: QuickLinkId; ghost: boolean }[]>(() => {
+  const dockIds = useMemo<{ id: string; ghost: boolean }[]>(() => {
     const plain = links.map((id) => ({ id, ghost: false }));
     if (!drag || drag.landing) return plain;
     const base = drag.from === "dock" ? links.filter((id) => id !== drag.id) : [...links];
@@ -223,7 +228,7 @@ export default function Spotlight({ width, panel }: {
 
   /* ─── Edit: add, remove, and the "full" shake ─── */
   const say = (s: string) => { setNotice(""); requestAnimationFrame(() => setNotice(s)); };
-  const add = (id: QuickLinkId) => {
+  const add = (id: string) => {
     if (links.includes(id)) return;
     if (links.length >= QUICK_LINK_MAX) {
       setShake((k) => k + 1);
@@ -233,11 +238,11 @@ export default function Spotlight({ width, panel }: {
     setLinks([...links, id]);
     say(`${quickLink(id).label} added to the bar.`);
   };
-  const remove = (id: QuickLinkId) => {
+  const remove = (id: string) => {
     setLinks(links.filter((x) => x !== id));
     say(`${quickLink(id).label} taken off the bar.`);
   };
-  const nudge = (id: QuickLinkId, by: -1 | 1) => {
+  const nudge = (id: string, by: -1 | 1) => {
     const i = links.indexOf(id);
     const j = i + by;
     if (i < 0 || j < 0 || j >= links.length) return;
@@ -249,13 +254,13 @@ export default function Spotlight({ width, panel }: {
   /* ─── Drag between the bar and the catalogue (pointer events) ─── */
   const fx = useMotionValue(0);
   const fy = useMotionValue(0);
-  const press = useRef<{ id: QuickLinkId; from: DragFrom; pointerId: number; sx: number; sy: number; ox: number; oy: number; active: boolean } | null>(null);
+  const press = useRef<{ id: string; from: DragFrom; pointerId: number; sx: number; sy: number; ox: number; oy: number; active: boolean } | null>(null);
   const justDragged = useRef(false);
   const dragRef = useRef<DragView | null>(null);
   dragRef.current = drag;
 
   /** Where a dock slot or a catalogue tile sits, in bar coordinates. */
-  const originOf = (id: QuickLinkId, from: DragFrom): { x: number; y: number } => {
+  const originOf = (id: string, from: DragFrom): { x: number; y: number } => {
     if (from === "dock") {
       const i = links.indexOf(id);
       return { x: slotX(Math.max(0, i)) - 2, y: INSET - 2 };
@@ -266,7 +271,7 @@ export default function Spotlight({ width, panel }: {
     return { x: tile.left - root.left - 2 + (tile.width - 40) / 2, y: tile.top - root.top - 2 + (tile.height - 40) / 2 };
   };
 
-  const startPress = (e: ReactPointerEvent, id: QuickLinkId, from: DragFrom) => {
+  const startPress = (e: ReactPointerEvent, id: string, from: DragFrom) => {
     if (!editing || e.button !== 0) return;
     if ((e.target as HTMLElement).closest("[data-no-drag]")) return;
     const o = originOf(id, from);
@@ -332,7 +337,7 @@ export default function Spotlight({ width, panel }: {
       if (d?.overDock) {
         const base = p.from === "dock" ? links.filter((id) => id !== p.id) : [...links];
         const at = Math.max(0, Math.min(d.insert, base.length));
-        let next: QuickLinkId[];
+        let next: string[];
         if (p.from === "catalog" && base.length >= QUICK_LINK_MAX) {
           const swap = Math.min(at, base.length - 1);
           next = [...base]; next[swap] = p.id;
@@ -435,7 +440,7 @@ export default function Spotlight({ width, panel }: {
           ref={inputRef}
           type="text"
           role="combobox"
-          aria-label="Search HireTrail"
+          aria-label={scope.label}
           aria-expanded={resultsOpen}
           aria-controls={`${uid}-list`}
           aria-activedescendant={resultsOpen && results[active] ? `${uid}-row-${active}` : undefined}
@@ -498,7 +503,7 @@ export default function Spotlight({ width, panel }: {
                 >
                   <Link
                     to={l.path}
-                    aria-label={editing ? `${l.label} — drag to move, or off the bar` : s.id === "notifications" && unread > 0 ? `${l.label}, ${unread} unread` : l.label}
+                    aria-label={editing ? `${l.label} — drag to move, or off the bar` : badges[s.id] ? `${l.label}, ${badges[s.id]}` : l.label}
                     tabIndex={dockOpen ? 0 : -1}
                     draggable={false}
                     onClick={(e) => { if (editing || justDragged.current) e.preventDefault(); }}
@@ -515,7 +520,7 @@ export default function Spotlight({ width, panel }: {
                     className={`pointer-events-auto relative grid h-full w-full place-items-center rounded-full text-muted-foreground transition-colors duration-150 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${editing ? "cursor-grab touch-none active:cursor-grabbing" : ""} ${location.pathname === l.path ? "text-foreground" : ""}`}
                   >
                     <l.Icon size={16} strokeWidth={1.8} aria-hidden />
-                    {s.id === "notifications" && unread > 0 && !editing && (
+                    {badges[s.id] && !editing && (
                       <span className="absolute right-[7px] top-[7px] h-[7px] w-[7px] rounded-full bg-primary ring-2 ring-popover" aria-hidden />
                     )}
                   </Link>
@@ -617,7 +622,7 @@ export default function Spotlight({ width, panel }: {
           {searching && (
             <div className="flex items-center gap-3 px-2.5 text-[12.5px] text-muted-foreground" style={{ height: ROW }}>
               <span className="h-4 w-4 shrink-0 rounded-full bg-control animate-pulse motion-reduce:animate-none" aria-hidden />
-              Searching your records…
+              {scope.searchingText}
             </div>
           )}
           {!searching && results.length === 0 && (
@@ -656,7 +661,7 @@ export default function Spotlight({ width, panel }: {
               </button>
             </div>
             <div className="grid grid-cols-4 px-2 pb-2.5">
-              {QUICK_LINKS.filter((l) => available(l.id)).map((l) => {
+              {scope.catalog.filter((l) => available(l.id)).map((l) => {
                 const inBar = links.includes(l.id);
                 const lifted = drag?.id === l.id;
                 return (

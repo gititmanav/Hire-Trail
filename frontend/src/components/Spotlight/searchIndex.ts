@@ -12,7 +12,7 @@ import {
 import { applicationsAPI, companiesAPI, contactsAPI, deadlinesAPI } from "../../utils/api.ts";
 import { dayOf, formatDay } from "../../utils/dates.ts";
 
-export type ResultKind = "page" | "application" | "company" | "contact" | "deadline";
+export type ResultKind = "page" | "application" | "company" | "contact" | "deadline" | "person";
 
 export interface SearchResult {
   kind: ResultKind;
@@ -26,7 +26,7 @@ export interface SearchResult {
   flag?: string;
 }
 
-const page = (id: string, title: string, route: string, Icon: LucideIcon, keywords = "", flag?: string): SearchResult =>
+export const page = (id: string, title: string, route: string, Icon: LucideIcon, keywords = "", flag?: string): SearchResult =>
   ({ kind: "page", id: `page:${id}`, title, subtitle: "Go to page", route, Icon, keywords, flag });
 
 export const PAGES: SearchResult[] = [

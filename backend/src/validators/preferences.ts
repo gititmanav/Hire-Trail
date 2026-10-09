@@ -1,5 +1,5 @@
 /** User preferences (Settings → Personalize): the theme, the Applications
- *  list style, and the header search's quick links. Writes are validated strictly (the client always sends
+ *  list style, and the header search's quick links (the app's, and Admin's). Writes are validated strictly (the client always sends
  *  normalized prefs); reads go through `normalizePreferences`, which coerces
  *  anything stored — legacy, partial, or malformed — into valid prefs. The
  *  frontend has the same rules in `utils/preferences.ts`; keep them in step. */
@@ -13,12 +13,15 @@ export type ListDesign = (typeof LIST_DESIGNS)[number];
 export const QUICK_LINK_IDS = ["ai", "personalize", "board", "list", "resumes", "calendar", "notifications"] as const;
 export type QuickLinkId = (typeof QUICK_LINK_IDS)[number];
 export const QUICK_LINK_MAX = 3;
+/** Admin pages the admin header's search can pin (same limit). */
+export const ADMIN_QUICK_LINK_IDS = ["users", "feedback", "bugs", "ai", "announcements", "broadcasts", "notifications", "connectors", "settings", "audit"] as const;
+export type AdminQuickLinkId = (typeof ADMIN_QUICK_LINK_IDS)[number];
 
 /** CIELCH [L 0–100, C ≥ 0, H degrees] — Linear's theme copy format. */
 export type Lch = [number, number, number];
 export interface CustomTheme { base: Lch; accent: Lch; contrast: number }
 export interface ThemePrefs { mode: ThemeMode; custom?: CustomTheme }
-export interface Preferences { theme?: ThemePrefs; listDesign?: ListDesign; quickLinks?: QuickLinkId[] }
+export interface Preferences { theme?: ThemePrefs; listDesign?: ListDesign; quickLinks?: QuickLinkId[]; adminQuickLinks?: AdminQuickLinkId[] }
 
 const lch = z.tuple([
   z.number().finite().min(0).max(100),
@@ -42,6 +45,8 @@ export const preferencesPatchSchema = z.object({
   theme: themePrefs.optional(),
   listDesign: z.enum(LIST_DESIGNS).optional(),
   quickLinks: z.array(z.enum(QUICK_LINK_IDS)).max(QUICK_LINK_MAX)
+    .refine((ids) => new Set(ids).size === ids.length, "Each quick link once").optional(),
+  adminQuickLinks: z.array(z.enum(ADMIN_QUICK_LINK_IDS)).max(QUICK_LINK_MAX)
     .refine((ids) => new Set(ids).size === ids.length, "Each quick link once").optional(),
 }).strict().refine((p) => JSON.stringify(p).length <= 2000, "Preferences are too large");
 
@@ -95,6 +100,10 @@ export function normalizePreferences(v: unknown): Preferences {
   // An empty list is a choice (every link removed); absent means the defaults.
   if (Array.isArray(o.quickLinks)) {
     out.quickLinks = [...new Set(o.quickLinks.filter((id): id is QuickLinkId => (QUICK_LINK_IDS as readonly string[]).includes(id as string)))]
+      .slice(0, QUICK_LINK_MAX);
+  }
+  if (Array.isArray(o.adminQuickLinks)) {
+    out.adminQuickLinks = [...new Set(o.adminQuickLinks.filter((id): id is AdminQuickLinkId => (ADMIN_QUICK_LINK_IDS as readonly string[]).includes(id as string)))]
       .slice(0, QUICK_LINK_MAX);
   }
   return out;
