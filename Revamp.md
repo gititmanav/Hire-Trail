@@ -625,3 +625,28 @@ Owner (screenshots, Sora vs ours): lines showed under the HireTrail mark at the 
 - **`ADMIN_EMAILS`** grants admin to whoever registers a listed address, without email verification — recommend Google-verified sign-ins only.
 - **Dev backend:** a failed first Mongo connect exits the process, and `tsx watch` doesn't restart it — the cause of the owner's "can't log in, status 500" on 2026-10-08. A dev-only retry is proposed.
 - Left as they were (owner dropped the page work): the audit log's end date still excludes that day; announcements still can't be scheduled; admin notification delete is still a hard delete; broadcast previews render raw HTML in the admin page.
+
+## 2026-10-08 — Applications: Ledger · Trail · Desk
+
+### Decided (owner)
+- **Three list designs, the person's choice** (Personalize → Ledger · Trail · Desk, saved on the account as `listDesign`; old `classic` / `table` read as Ledger). The concept doc was `design/applications-redesign.html` (not committed). The Classic list and its awkward pipeline panel are gone; the Table became the Ledger.
+- **Desk:** the application is never a separate page — an Expand button lets the pane take the page and turns into Shrink; the open application is in the URL so a refresh lands on it.
+- Fix every item of the audit's bug, debt and backend lists (BUILD_JOURNAL "2026-10-08 (night)").
+- No motion may blip or jump — things glide.
+- **The peek hangs from its row** (owner screenshot: "looking awkward … attach it to the row above it, slide open from that row, its top corners curve into the row's bottom corners"). Then: "do this kind of stuff throughout — where needed".
+- **The Desk pane's hero is role + company only** — stage, dates and the rest are already in the rail on the right.
+
+### Built
+- **What a row says** is the stage's question, from one tested module (`data/focus.ts`): Offer → the decision date; Interview → the next round or how long it's been quiet; OA → its due date; Applied → follow-up / thank-you dates, else sent N days ago against *your* reply window (the server measures how long your replies took); Drafting → what's missing. Overdue reads in red with how late; deadlines overdue for more than two weeks stop driving the row (they're abandoned, not urgent).
+- **Momentum groups** — In motion (something dated soon or overdue), Waiting, Drafts, Closed — beside the stage groups; the smart order inside each.
+- **Ledger:** the Table with a "Next" column, the trail column, optional columns that fit by width in your order, two-line rows on narrow widths, and the peek: one row opened in place, attached to it as one shape (the row rounds off, the panel shares its fill, inverse fillets inset by the two radii so the curves meet as one S). The peek shows the next step's actions only (the row already says the step), fit, people at the company, notes.
+- **Trail:** every application as a line through time against a sticky axis, today and the future marked, three zooms that glide. On phones the next step moves to the end of the name line and today/the future are drawn per row so nothing runs through a name.
+- **Desk:** a list well beside the whole application. The selected row is the pane's tab — the pane's surface running into the pane with the same fillets, gliding from row to row as J/K move. Expand/Shrink is a view transition (the list slides, the pane grows); Back = Shrink. One pane at a time below 900px.
+- **Sweep:** the applications quiet past your reply window, one at a time with one key each (follow up · wait · ghosted · rejected), undoable.
+- **Board:** role-first cards with the focus line and trail, Rejected folded into a rail you can still drop on, no "stuck" banner or guessed ghost cards.
+- **Craft passes (owner's "throughout"):** no panel repeats what its row says ("Fit check" / "Fit checked" → the counts; the peek's step text); add-date buttons name the date ("Add the decision date"); the Desk list's right column has one edge; the people list sits level with its neighbours; phone headers keep the controls on one row (the search fills what's left).
+
+### Noted, not changed
+- **The landing's replicas** of the Board card and the phone list (`story/BoardScreen.tsx`, `story/mobile/screens.tsx`) still show the old card — update them before `master` goes to `main` (CLAUDE.md: the story's window is a replica of real UI).
+- **Next step vs the rail's Deadlines** in the detail both show the top deadline (the card acts on it, the rail lists all). Owner call whether the rail should skip the one the card shows.
+- **The 1,000-application cap** on the loaded list stays (the Ledger/Trail/Desk say so and point to filters); export pages through everything.

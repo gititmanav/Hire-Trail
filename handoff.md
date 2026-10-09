@@ -1,8 +1,15 @@
 # handoff.md — for the next session
 
-_Last updated: 2026-10-08 (work from 2026-10-06, night) — one page header everywhere, the assistant connect card, Contacts / Deadlines on phones, the board drag fix — all on `master`, pushed (6c1ea6e … ef2635d). Before that: the header search, the radius scale, the dialog system, the AI revamp._
+_Last updated: 2026-10-08 (night) — the Applications redesign (Ledger · Trail · Desk, Sweep, the Board, the audit's bugs), **uncommitted** on `master`'s working tree. Before that: Admin hardening + Admin's search (local, not pushed), one page header everywhere, the assistant connect card._
 
 ## Current state
+
+**On `master`, pushed — 2026-10-08 (night), the Applications redesign** (232a906 … 6d2e7c4; per-slice typechecks not run, the tip passed every gate) (BUILD_JOURNAL "2026-10-08 (night)", Revamp.md "2026-10-08 — Applications: Ledger · Trail · Desk"). Gates green at the end of the session (backend `tsc --noEmit`, frontend `tsc -b` + build, focus/dates/calendarGrid 24/24 in four zones, theme 8/8). Check first:
+1. ~~Commit in slices~~ — done: backend (batch / insights / sweep endpoints, company-link fix, calendar search, indexes, analytics route removed) → the model + shared parts (`focus.ts`, queries, RowBits, NextStep, TrailLine, detail) → Ledger → Trail → Desk → Board + Sweep → shell bits (fillHeight, Popover tooltip, PageSearch on phones) → docs. The admin session's doc edits (BUILD_JOURNAL / Revamp / handoff) sit in the same files — commit them with their own slice. **Restore `.claude/launch.json`** first (`git checkout -- .claude/launch.json` — it carries temporary `backend-5051` / `frontend-5051` entries). `design/applications-redesign.html` is the concept doc, untracked — keep or delete.
+2. **Atlas, after deploy, by hand:** drop `userId_1`, `stage_1`, `source_1`, `companyId_1`, `tailorSessionId_1`, and the old `userId_1_archived_1_createdAt_-1` once `{userId, archived, createdAt, _id}` has built.
+3. **The landing's replicas** still show the old Board card and phone list (`pages/Landing/story/BoardScreen.tsx`, `story/mobile/screens.tsx`) — update before `master` → `main`.
+4. **Owner hand-check in a visible browser** (headless frames only so far): the peek sliding out of its row, the Desk tab gliding on J/K, Expand ⇄ Shrink + Back, Trail zooms, Sweep keys + ⌘Z, the Board's Rejected rail; Safari + Firefox (view transitions, `color-mix`); a real phone (Trail, phone headers); reduced motion.
+5. **Owner call:** the detail's Next step card and the rail's Deadlines both show the top deadline — keep, or have the rail skip it.
 
 - **On `main` (deployed):** the prod-500 fix (5b66f07). Nothing from the revamp is on prod.
 - **On `master` (pushed to `origin/master`, not merged to `main`):** the Applications revamp, the card shell / dropdowns / motion, Personalize + Custom themes, the charcoal default, the new landing, the sign-in sheet, the dark public pages, the first-paint split (BUILD_JOURNAL "2026-09-25 (later)"), the phone/tablet landing (BUILD_JOURNAL "2026-09-25 (evening)"), and the chapter hand-offs (BUILD_JOURNAL "2026-09-25 (night)").
@@ -23,7 +30,7 @@ _Last updated: 2026-10-08 (work from 2026-10-06, night) — one page header ever
 **On `master` (local, NOT pushed), 2026-10-08 — Admin hardening + Admin's own search, 2 slices:** admin security (5cac40e), Admin's Spotlight (4c0c942) — BUILD_JOURNAL "2026-10-08", Revamp.md "2026-10-08 — Admin: hardening + Admin's own search". Built in a worktree (branch `admin-hardening`), fast-forwarded into `master`; the worktree and branch are removed. `docs(claude)` (49853e8) adds the rules to CLAUDE.md. The parked branch `admin-revamp` (shell merge + admin settings + a component kit) is **not for merge** — the owner dropped that direction; delete it when convenient.
 
 **Open from the 2026-10-08 admin session — check first:**
-1. **Push** `master` (5cac40e, 4c0c942) when the uncommitted doc edits beside them are settled.
+1. ~~Push~~ — pushed with the redesign.
 2. ~~**The dev backend died when Mongo wasn't reachable at boot**~~ — fixed (c63c4a6, owner-approved): in development `config/db.ts` retries (1/2/4/8 s, then every 15 s) with a plain log line; production still exits. That was the owner's "can't log in, status 500" on 2026-10-08 (`ECONNRESET` at 7:09 PM; `tsx watch` only restarted it at 7:45 on a file change). Verified with a Mongo arriving 30 s late (two retries, then connected) and the production path (one attempt, exit 1).
 3. **Admin search in a visible browser** (owner): hover the bar in Admin → Users · Feedback · Bug Reports dock (a dot on Feedback / Bug Reports while something's open), ⌘K, type a name → people + pages, pick a person → their details on Users, "+" → edit/drag links (saved on the account).
 4. **CSRF beyond Admin** (owner call): the same-site guard covers admin writes only. The session cookie is SameSite=None in prod, so every cookie-authenticated POST in the app is forgeable from another site the same way; `middleware/sameSite.ts` is ready to mount on all of `/api` (check the extension's Bearer calls and OAuth callbacks first).
@@ -57,7 +64,7 @@ _Last updated: 2026-10-08 (work from 2026-10-06, night) — one page header ever
 
 ## Immediate next step
 
-**Next session, in order:** the "Open from that session" checks above → the owner's radius-scale call (keep / go further / revert) → the queued per-feature model switching (below, "Queued earlier") → the dialog and header follow-ups. Older owner hand-checks follow.
+**Next session, in order:** the redesign's "Check first" list at the top → the "Open from that session" checks above → the owner's radius-scale call (keep / go further / revert) → the queued per-feature model switching (below, "Queued earlier") → the dialog and header follow-ups. Older owner hand-checks follow.
 
 0. **Owner hand-check of the calendar** in a visible browser (the pane was hidden, so no real frames were seen): drag a deadline between days in Month and Week (feel, the grab cursor, the target tint), the paging slide (‹ › and ← →), the day peek opening over its cell, hover cards, the title's mini calendar (days → months → years), real keyboard shortcuts (← → T D W M, `c`, and arrows/PageUp/PageDown/Enter inside the grid), and a window resize re-measuring how many chips fit.
 

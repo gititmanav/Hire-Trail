@@ -4,6 +4,34 @@ Append a dated entry every session: decisions, what was built, what was verified
 
 ---
 
+## 2026-10-08 (night) — Applications redesign: Ledger · Trail · Desk, Sweep, the Board; the audit's bugs
+
+Owner: "all 3 of them … give all the 3 options to the user, switch from Personalize"; Desk with Expand ⇄ Shrink and the application in the URL; the current Table becomes the Ledger; fix the audit's bugs, debt and backend list; no blip or flicker anywhere. Mid-build: the Ledger peek must hang from its row ("its top corners curve into the row's bottom corners"), then "this kind of stuff throughout, where needed"; the Desk pane's hero = role + company only. Decisions: **Revamp.md → "2026-10-08 — Applications: Ledger · Trail · Desk"**. Committed in slices (dd3ad3e … this docs commit) and pushed to `origin/master`.
+
+### Built
+- **The model:** `data/focus.ts` (pure, `focus.test.ts`) — each stage's question ("Decide by Thu, Nov 5", "Thank-you overdue" / "14d late · Thu, Sep 24", "Silent 41d" / "past your reply window", "Needs job description"), the reply window from the server, momentum groups (In motion · Waiting · Drafts · Closed), the smart order, history steps for legacy shapes, `trailShape`. Stale overdue (> 14 days) doesn't drive a row.
+- **Ledger** (`views/ledger/`, was `views/table`): role + "Next" always, optional columns by container width in the person's order, group by stage · momentum · company · none, order smart · applied · fit · company, Rejected/Closed folded by default, two-line rows below 620px, Space = peek. The **peek** (`LedgerPeek`) hangs from its row as one shape (App.css "The Ledger's peek"): next-step actions only (the row says the step), fit, people at the company, notes, Edit · Tailor · Open.
+- **Trail** (`views/trail/`): every application as a line through time — sticky axis (sent per week, months, Mondays, Today), 1M · 3M · 6M, paging `[` `]` `t`, a shared hover card; zooms glide via `--t0`/`--span`. Phones: the name line carries the next step; today + the future are painted per row.
+- **Desk** (`views/desk/`): list beside the whole application; `?app=` / `&full=1`; Expand ⇄ Shrink as a view transition; J/K with neighbours prefetched; one pane below 900px. The list is a well; the selected row is the pane's tab (glides, `motion` layoutId); scrollbar on the left so the tab reaches the pane.
+- **Application detail** (`detail/ApplicationDetail` + `useDetailActions`): one view for the page and the Desk — hero role + company (stage comes up only when the rail stacks below), Next step card (Mark done with Undo, Reschedule, "Add the decision date" etc., Mark as applied, Mark ghosted), fit, JD, notes, tailoring; rail with open deadlines (overdue included) and an Archived/Closed row.
+- **Sweep** (`sweep/SweepModal`, lazy): applications quiet past the reply window, one at a time — F follow up · W wait · G ghosted · R rejected, skip, ⌘Z; header button with the count.
+- **Board** rewritten: neutral columns, role-first cards (focus + trail), Rejected as a rail that opens into a column, sideways scroll below 1040px; no stuck banner, ghost cards or local stage colours.
+- **Bugs fixed (the audit's ten):** calendar search narrowed only deadlines (`$and`); editing re-linked the old company (form no longer sends `companyId`, the server relinks only on a name change); Tailor dropped filters; calendar Filters showed "· 0" (server `stageCounts`); Install extension → the store; touch reach (peek toggle + calendar "+" under `hover: none`); company grouping over one page (Ledger groups everything loaded); empty Archived copy + Clear filters; Board reject through the shared mutation; calendar double-click inside a hover card, `c` after Back/`?d=`.
+- **Backend:** `POST /applications/batch`, `GET /applications/insights` (reply window, stage counts), the sweep queue, `applicationDate` on create, ghosted archive reason, delete removes deadlines / contact links / orphaned tailoring sessions, import validated, list index `{userId, archived, createdAt, _id}` (others trimmed), `routes/analytics.ts` removed.
+- **Shell:** `useFillHeight`, tooltip popovers off the layer stack, Button `xs`, `DeadlineFormModal initialType`, `PageSearch` fills its row on phones, `utils/links.ts CHROME_STORE_URL`, `fields=summary` on every list read that lacked it.
+- **Deleted:** ClassicList, ApplicationRow, AppFieldGrid, AppFitPanel, PipelinePulse, SkeletonRows, CompanyGroupHeader, StageChip (+ their CSS).
+
+### Verified (HOW)
+- Gates: backend `tsc --noEmit` 0; frontend `tsc -b` 0; `npm run build` green (TrailView, DeskView, SweepModal in their own chunks); `focus` + dates + calendarGrid 24/24 in Kolkata, Los Angeles, Auckland, UTC; theme 8/8.
+- Headless Chrome over CDP (scratch `app.mjs`, local demo account, 650 apps), light + dark, 1440 / 1024 / 390, no console errors: Ledger peek joins zoomed 12× (continuous S-curves both sides, both themes), content on the role text's edge; Desk tab edge = pane edge (585px) with real scrollbars on, mid-glide frame caught between rows, curves clear at a section's end; `?app=` / `&full=1` survive refresh, Enter expands, Escape shrinks, single pane at 1024; Trail at 390 (labels on the name line, nothing crosses a name, 16px gutters); phone headers on Applications / Contacts / Companies / Deadlines; Sweep G then ⌘Z.
+- **Not verified:** real frame timing in a visible window (headless only), a real phone, Safari / Firefox (view transitions and `color-mix` fall back but weren't seen), reduced motion beyond reading the code, touch drag on the Board.
+
+### Sharp edges
+- The capture script launched Chrome with `--hide-scrollbars`, which hid the Desk's 6px scrollbar gutter (`::-webkit-scrollbar` makes classic scrollbars). Run with real scrollbars when an edge must meet another.
+- A JSX comment placed before a component's root element inside `return (` is a second root — put it above the `return`.
+
+---
+
 ## 2026-10-08 — Admin: forged-request guard, demo + last-admin protection, safe search; Admin's own Spotlight
 
 Owner: the admin audit's security fixes, all of them; the header search customised for Admin. The rest of the planned admin revamp (one shell for app + Admin, admin personal settings, page-body rebuilds) was **dropped by the owner** — Admin keeps the design the AI session built. Decisions: **Revamp.md → "2026-10-08 — Admin: hardening + Admin's own search"**. Worked in a worktree (`.claude/worktrees/admin-hardening`) beside an idle session's uncommitted docs; fast-forwarded into `master`, not pushed.
