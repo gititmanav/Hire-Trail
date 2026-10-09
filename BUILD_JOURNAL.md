@@ -4,10 +4,33 @@ Append a dated entry every session: decisions, what was built, what was verified
 
 ---
 
+## 2026-10-08 — Admin: forged-request guard, demo + last-admin protection, safe search; Admin's own Spotlight
+
+Owner: the admin audit's security fixes, all of them; the header search customised for Admin. The rest of the planned admin revamp (one shell for app + Admin, admin personal settings, page-body rebuilds) was **dropped by the owner** — Admin keeps the design the AI session built. Decisions: **Revamp.md → "2026-10-08 — Admin: hardening + Admin's own search"**. Worked in a worktree (`.claude/worktrees/admin-hardening`) beside an idle session's uncommitted docs; fast-forwarded into `master`, not pushed.
+
+### Built
+- **Security (5cac40e):** `middleware/sameSite.ts` on the admin router (writes need `Sec-Fetch-Site: same-origin` or an `Origin` on `config/origins.ts`, now shared with CORS; requests without browser headers pass); `services/maintenance.ts mayUseDuringMaintenance` (admins + `ADMIN_EMAILS` + the bypass email) at every existing-account sign-in path, the API gate and MCP; `assertMayChange` in admin users (the demo account can't be promoted / suspended / deleted; never the last working admin); `utils/csv.ts` for the users export; `searchRegex` in Feedback, Bug reports, Users, Connectors; Notifications / Audit log filters take known values only; audit dates must parse; users sort is an allow-list.
+- **Admin's Spotlight (4c0c942):** `Spotlight` takes a `scope` (`scope.ts`): `appScope` (unchanged behaviour) and `adminScope` — Admin's pages (+ AI rules / spend, account settings, personalize), people by name or email searched on the server (debounced 200 ms, `limit 8`), Admin's quick links (default Users · Feedback · Bug Reports) saved as `preferences.adminQuickLinks` (validated both sides), dots on Feedback / Bug Reports while something is open. `useBarPlace` moved to `Spotlight/`; `AppSpotlight` / `AdminSpotlight` are the lazy entries; Users opens `?user=<id>` as that person's details; the admin avatar's name shows from xl (room for the bar).
+- Already fixed on `master` before this session (verified, not redone): user detail no longer returns encrypted tokens (an allow-list); the API maintenance gate let admins through (sign-in didn't).
+
+### Verified (HOW)
+- Gates: backend `tsc --noEmit` 0; frontend `tsc -b` 0; `npm run build` green (shell `index` 326.2 KB; `AppSpotlight` 1.15 KB, `AdminSpotlight` 4.8 KB; Spotlight + motion in a shared lazy chunk — the shell has no motion code).
+- **31/31 scripted checks against a test backend (:5052, local DB):** cross-site POST (Origin + Sec-Fetch cross-site) → 403; foreign Origin alone → 403; same-origin, the allowed app origin and header-less requests reach the route (400 = validation); GETs not blocked; demo promote / suspend / soft / hard delete → 403; `?search=(`, `?search=a&search=b`, `?search[$ne]=x`, `?type[$ne]=x`, `?action[$ne]=x`, `?startDate[$gt]=x`, `?page=abc`, `?sort=password` → 200 and the operator type filter ignored (same total as unfiltered); a throwaway user named `=HYPERLINK("http://x","y"), "z"` exports as `"'=HYPERLINK(""http://x"",""y""), ""z"""` then hard-deleted; maintenance on → `admin@hiretrail.local` (not in `ADMIN_EMAILS`) signs in, `dev@hiretrail.local` gets 503, the admin switches it off. DB afterwards: maintenance false, throwaway user gone.
+- **Browser (dev, `admin.localhost:5177` → :5052):** the bar centred in Admin's header; hover → the dock (Users · Feedback · Bug Reports with a dot · +); "de" → Demo User, Dev Tester (server) then pages; Enter on Dev Tester → `/admin/users?user=…` → details dialog, the URL cleans itself; "+" → Admin's 10-page catalogue; swap Feedback for AI → `/auth/me` `adminQuickLinks: ["users","bugs","ai"]`; dark theme; 1024 and 820 wide (search only, fills the gap). App regression on `user.localhost:5177` as the dev user: dock AI · Notifications (unread dot) · Calendar, hover peek, "acme" → the Acme application. The admin test account restored afterwards (light, default links).
+- NOT verified: real frame timing of the admin bar in a visible window (the motion is the app's, unchanged); drag-and-drop of admin links with a real mouse (clicks only); a real phone; the same-site guard in production's cross-site deployment (reasoned: the prod app origin is on the allow-list).
+
+### Sharp edges
+- **The dev backend stayed dead after a failed first Mongo connect** (`config/db.ts` exited; `tsx watch` waits for a file change) — logins then 500'd through the Vite proxy with no server message. Fixed the same day (c63c4a6): development retries until Mongo answers; production still exits. Testing a retry needs a Mongo that appears *after* the driver's 10 s server-selection window (a relay on a spare port), or the first attempt simply waits it out.
+- `.claude/launch.json` is tracked: a temporary preview entry must be restored (`git checkout -- .claude/launch.json`) or it shows up in everyone's status.
+- zsh expands a bare `=====` (`=cmd` expansion) — quote separators in shell output.
+
+---
+
 ## 2026-10-06 (night, last) — Contacts / Deadlines on phones; the board stops flickering
 
 - **Phones:** contact cards and deadline rows lay out by their own width (App.css "Contact cards" / "Deadline rows", container queries): narrow → the details drop into a footer (contacts) or under the title (deadlines), the hover-only tools fold into an always-visible "⋯" menu; hover-only tools also show under `@media (hover: none)`. One shared `ui/Pagination` (was three copies) goes ‹ Page 3 of 11 › when narrow. Verified at 375px (no horizontal scroll, was 386px wide) and 1440 (unchanged).
 - **Board flicker (owner recording):** two root causes — the hover preview moved the card into the target column, then `stageOf` read the card under the pointer by its stored stage and moved it back (oscillation); and columns were sortable, so dnd-kit displaced the other cards on top of the moved preview (Acme pushed out of its column). Now cards are `useDraggable`, columns `useDroppable`, nothing moves until the drop: the held card stays dimmed, the target shows a card-sized slot, a move skips the fly-back drop animation. Verified with real pointer events (slot steady in the right column every step; drop lands). The owner's recording was the old bundle — reload picks up the fix.
+- **Committed + pushed** in 5 slices (6c1ea6e … ef2635d). Tip gates green before the commit; the per-slice worktree typecheck was cancelled before the push. **Not verified:** the board in a real browser after a reload (owner), a possible DragOverlay offset seen once in a headless frame, assistant step 3 from a real Claude Code session, a real phone.
 
 ---
 

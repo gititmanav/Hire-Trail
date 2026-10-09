@@ -595,3 +595,33 @@ Owner (screenshots, Sora vs ours): lines showed under the HireTrail mark at the 
 - **It tells the truth about Claude Code:** `claude mcp add` only saves the setting, so step 2 says Claude Code connects when a session starts (or `claude mcp list` checks now); after 40 s without a hello it explains what `claude mcp list` should show and what Failed means. Starter prompts to copy for step 3.
 - **Connection rows** show state: a green dot + "Connected", the client in words ("Claude Code 2.1.280" from "claude-code 2.1.280"), last use, last four.
 
+## 2026-10-06 — Phones (Contacts, Deadlines) and the board drag
+
+### Decided (owner)
+- Fix the Contacts cards and the Deadlines rows at phone width (they squeezed their text; the pager ran off the screen).
+- "The kanban cards flicker a lot when I move a card from one column to another" (screenshot, then a recording).
+
+### Built
+- **Rows by their own width** (container queries, like the Classic rows): a narrow contact card puts strength / last contact / follow-up in a footer under the name; a narrow deadline row puts the due date under the text and drops the company mark (the text names it). The hover-only tools fold into one always-visible "⋯" `Menu` on narrow rows, and show without hover on touch screens (`@media (hover: none)`) — before, a phone couldn't reach Edit / Delete at all.
+- **One pager:** `ui/Pagination` replaces three copies (Classic list, Contacts, Deadlines); narrower than its full set it becomes ‹ Page 3 of 11 ›.
+- **Board drag:** cards are dnd-kit draggables and columns drop zones — no sortable lists. Root causes of the flicker: the hover preview moved the card into the target column, then the card under the pointer was read by its stored stage and the preview moved it back (oscillation); and sortable columns displaced the other cards on top of the moved preview (a card ended up below its column). Now nothing moves until the drop: the held card stays dimmed, the target column shows a card-sized slot (fades in), and a move skips the fly-back drop animation (a drop in place still animates home). Arrow-key dragging still works (`sortableKeyboardCoordinates` reads any droppables).
+
+## 2026-10-08 — Admin: hardening + Admin's own search
+
+### Decided (owner)
+- The admin audit (2026-10-05, this session's earlier pass) proposed one shell for app + Admin, admin personal settings in the app's Settings, and rebuilding the bodies of the admin pages the AI session had only given headers. **All dropped** — Admin keeps the AI session's design (its layout, header, Connectors, pages) as it is.
+- **Yes to every security fix** from the audit that `master` hadn't already made.
+- **The header search, customised for Admin** — Admin's own pages, people, quick links.
+
+### Built
+- **Forged requests:** admin writes from another site are refused (`middleware/sameSite.ts` — the browser's `Sec-Fetch-Site`, else the `Origin` against the app's origins). The session cookie is SameSite=None in production, so before this a page anywhere could submit a form as the signed-in admin (e.g. email every user).
+- **Maintenance:** one rule, `mayUseDuringMaintenance` — every admin account plus `ADMIN_EMAILS` and the bypass email — at every sign-in path for an existing account (local, Google web, the extension's token routes, Google-extension), the API gate and MCP. The gate already let admins through; signing in didn't, so an admin outside `ADMIN_EMAILS` who was signed out couldn't get back to the switch.
+- **Accounts no admin may change:** the shared demo account (promoting it would hand every visitor admin — its password is public) can't be promoted, suspended or deleted; the last working admin can't be demoted, suspended or deleted (today the self-guards already make this hard to reach; it closes the race of two admins demoting each other).
+- **Input:** Feedback / Bug reports searched with raw `$regex` — now `searchRegex`, like Users and Connectors (whose repeated `?search=` crashed); Notifications and Audit-log filters accept known values only (`?type[$ne]=` was an operator); audit dates must parse; users sort is an allow-list (it accepted `password`). The users CSV export quotes every cell and neutralises formulas.
+- **Admin's search:** the same Spotlight with Admin's scope — its pages (plus "AI rules", "AI spend", account settings, personalize), people by name or email searched on the server as you type (any account, not one loaded page; a person opens their details on Users), Admin's quick links (Users · Feedback · Bug Reports by default, from a catalogue of Admin's pages, saved on the account as `adminQuickLinks`), and a dot on Feedback / Bug Reports while something is open there.
+
+### Noted, not changed (owner call)
+- **CSRF in the rest of the app:** the same exposure exists for every cookie-authenticated write outside Admin; the guard is ready to mount on all of `/api` once the extension and OAuth paths are checked.
+- **`ADMIN_EMAILS`** grants admin to whoever registers a listed address, without email verification — recommend Google-verified sign-ins only.
+- **Dev backend:** a failed first Mongo connect exits the process, and `tsx watch` doesn't restart it — the cause of the owner's "can't log in, status 500" on 2026-10-08. A dev-only retry is proposed.
+- Left as they were (owner dropped the page work): the audit log's end date still excludes that day; announcements still can't be scheduled; admin notification delete is still a hard delete; broadcast previews render raw HTML in the admin page.

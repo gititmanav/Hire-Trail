@@ -1,6 +1,6 @@
 # handoff.md — for the next session
 
-_Last updated: 2026-10-06 — the header search (Spotlight), the radius scale, and the dialog system (plain fields, every overlay on `ui/Modal` / `ui/Drawer`) — on `master`, pushed. Before that: the AI revamp, the toast system and the map reset._
+_Last updated: 2026-10-08 (work from 2026-10-06, night) — one page header everywhere, the assistant connect card, Contacts / Deadlines on phones, the board drag fix — all on `master`, pushed (6c1ea6e … ef2635d). Before that: the header search, the radius scale, the dialog system, the AI revamp._
 
 ## Current state
 
@@ -18,9 +18,22 @@ _Last updated: 2026-10-06 — the header search (Spotlight), the radius scale, a
 
 **Dialog follow-ups (small, not started):** page controls still on `.input-premium` (Admin → Bug reports search, the Broadcasts composer, the Companies search) → `ui/Input`; the Import dialog's dropzone is a clickable `<div>` keyboard users can't reach; when a dialog swaps steps (Import, the scan wizard) the focused button disappears and focus drops to the page — move it to the new step's first control; `WidgetPicker/AdminWidgetPicker.tsx` is imported nowhere (delete, or wire it if Admin's dashboard should have one).
 
-**Uncommitted on master's working tree (2026-10-06, later):** one page sub-header everywhere — `ui/PageHeader` + `PageBody` + `PageSearch` / `HeaderIconButton` / `CreateButton`, `ui/FiltersPopover`, `Select` action rows, `Layout` without the 1200px cap; every app page and six admin pages on it; Contacts search/status and Companies stage/sort moved to the server — BUILD_JOURNAL "2026-10-06 (late night)", Revamp.md "2026-10-06 — One page header, everywhere". Checked in headless frames only (1920 / 1440 / 375, light + dark).
+**On `master` (pushed, 2026-10-06 night), in 5 slices:** server-side Contacts search/status + Companies stage/sort (6c1ea6e), the assistant connect card (51e5d4e), one page header everywhere + Contacts/Deadlines on phones + `ui/Pagination` (b77a1ce), the board drag fix (deab85b), docs (ef2635d) — BUILD_JOURNAL "2026-10-06 (late night)", "(late night, later)", "(night, last)"; Revamp.md "One page header, everywhere", "Watching the assistant connect", "Phones and the board drag". The tip passed `tsc -b`, `npm run build` and backend `tsc --noEmit` before committing; **the per-slice worktree typecheck was not run this time** (cancelled before the push) — slices 6c1ea6e and 51e5d4e are self-contained, b77a1ce leaves BoardView at its old (compiling) version.
 
-**Also uncommitted (2026-10-06, later):** the assistant connect card — Settings → AI → Your assistant walks copy → "Claude Code said hello" → first request, live (BUILD_JOURNAL "Assistant connect: watch it connect").
+**On `master` (local, NOT pushed), 2026-10-08 — Admin hardening + Admin's own search, 2 slices:** admin security (5cac40e), Admin's Spotlight (4c0c942) — BUILD_JOURNAL "2026-10-08", Revamp.md "2026-10-08 — Admin: hardening + Admin's own search". Built in a worktree (branch `admin-hardening`), fast-forwarded into `master`; the worktree and branch are removed. `docs(claude)` (49853e8) adds the rules to CLAUDE.md. The parked branch `admin-revamp` (shell merge + admin settings + a component kit) is **not for merge** — the owner dropped that direction; delete it when convenient.
+
+**Open from the 2026-10-08 admin session — check first:**
+1. **Push** `master` (5cac40e, 4c0c942) when the uncommitted doc edits beside them are settled.
+2. ~~**The dev backend died when Mongo wasn't reachable at boot**~~ — fixed (c63c4a6, owner-approved): in development `config/db.ts` retries (1/2/4/8 s, then every 15 s) with a plain log line; production still exits. That was the owner's "can't log in, status 500" on 2026-10-08 (`ECONNRESET` at 7:09 PM; `tsx watch` only restarted it at 7:45 on a file change). Verified with a Mongo arriving 30 s late (two retries, then connected) and the production path (one attempt, exit 1).
+3. **Admin search in a visible browser** (owner): hover the bar in Admin → Users · Feedback · Bug Reports dock (a dot on Feedback / Bug Reports while something's open), ⌘K, type a name → people + pages, pick a person → their details on Users, "+" → edit/drag links (saved on the account).
+4. **CSRF beyond Admin** (owner call): the same-site guard covers admin writes only. The session cookie is SameSite=None in prod, so every cookie-authenticated POST in the app is forgeable from another site the same way; `middleware/sameSite.ts` is ready to mount on all of `/api` (check the extension's Bearer calls and OAuth callbacks first).
+5. **`ADMIN_EMAILS`** (owner call): registering with a listed address makes the account an admin with no email verification (`routes/auth.ts` register + `/me` re-promote). Recommend granting it only to Google-verified sign-ins.
+
+**Open from that session — check first:**
+1. **Board flicker — owner to confirm after a reload.** The owner's recording (9:05) was the old bundle (the fixed build landed 9:04 and the tab wasn't reloaded). After ⌘R: the held card stays dimmed in place, the target column shows a card-sized slot, no counts move until the drop. If it still flickers, get a new recording.
+2. **Possible DragOverlay offset** — in one headless test frame the floating card was drawn ~200px below the pointer. Not reproduced or explained (could be the scripted pointer path). Check in a real browser: the overlay should sit under the cursor where you grabbed it.
+3. **Assistant connect step 3 with a real Claude Code session** — simulated with the same `tools/call` request; ask Claude Code "Say hi to HireTrail" with the card open and watch "First request: who you are" land. The owner's own token (••••HBR8, local DB) already shows Connected.
+4. **Real phone** — Contacts cards (footer row + "⋯" menu) and Deadlines rows (due under the title) were checked at 375px emulated only; also touch: hover-only tools now show under `@media (hover: none)`.
 
 **Follow-ups from the header work (not started):** Companies refetches resumes/contacts/deadlines/apps on every search keystroke (only the company list depends on it); the application detail page's loading skeleton has no header (a jump when it loads).
 
@@ -43,6 +56,8 @@ _Last updated: 2026-10-06 — the header search (Spotlight), the radius scale, a
 - `docker-compose.yml`'s `full` profile still passes `AI_GATEWAY_API_KEY` / `GOOGLE_GENERATIVE_AI_API_KEY` (no longer read — harmless; tooling, left for you).
 
 ## Immediate next step
+
+**Next session, in order:** the "Open from that session" checks above → the owner's radius-scale call (keep / go further / revert) → the queued per-feature model switching (below, "Queued earlier") → the dialog and header follow-ups. Older owner hand-checks follow.
 
 0. **Owner hand-check of the calendar** in a visible browser (the pane was hidden, so no real frames were seen): drag a deadline between days in Month and Week (feel, the grab cursor, the target tint), the paging slide (‹ › and ← →), the day peek opening over its cell, hover cards, the title's mini calendar (days → months → years), real keyboard shortcuts (← → T D W M, `c`, and arrows/PageUp/PageDown/Enter inside the grid), and a window resize re-measuring how many chips fit.
 
