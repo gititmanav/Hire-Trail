@@ -19,6 +19,7 @@ import { ensureClipboardNudge } from "../services/migrations/seedClipboardNudge.
 import {
   getMaintenanceMode,
   isMaintenanceBypassEmail,
+  mayUseDuringMaintenance,
   MAINTENANCE_AUTH_MESSAGE,
 } from "../services/maintenance.js";
 
@@ -245,7 +246,7 @@ router.post(
       if (user.suspended) {
         return res.status(403).json({ error: "Account suspended" });
       }
-      if ((await getMaintenanceMode()) && !isMaintenanceBypassEmail(user.email)) {
+      if ((await getMaintenanceMode()) && !mayUseDuringMaintenance(user)) {
         return res.status(503).json({ error: MAINTENANCE_AUTH_MESSAGE, code: "MAINTENANCE" });
       }
       await cancelScheduledDeletion(user).catch(() => false);
@@ -279,7 +280,7 @@ router.post(
         const doc = await User.findById(user._id).lean();
         if (!doc) throw new AppError("Not found", 404);
         if (doc.suspended) return res.status(403).json({ error: "Account suspended" });
-        if ((await getMaintenanceMode()) && !isMaintenanceBypassEmail(doc.email)) {
+        if ((await getMaintenanceMode()) && !mayUseDuringMaintenance(doc)) {
           return res.status(503).json({ error: MAINTENANCE_AUTH_MESSAGE, code: "MAINTENANCE" });
         }
 
@@ -320,7 +321,7 @@ router.post(
       const doc = await User.findById(userId).lean();
       if (!doc) throw new AppError("User not found", 404);
       if (doc.suspended) return res.status(403).json({ error: "Account suspended" });
-      if ((await getMaintenanceMode()) && !isMaintenanceBypassEmail(doc.email)) {
+      if ((await getMaintenanceMode()) && !mayUseDuringMaintenance(doc)) {
         return res.status(503).json({ error: MAINTENANCE_AUTH_MESSAGE, code: "MAINTENANCE" });
       }
 
@@ -365,13 +366,13 @@ router.post(
       let user = await User.findOne({ googleId: profile.id });
 
       if (user) {
-        if (maintenance && !isMaintenanceBypassEmail(user.email)) {
+        if (maintenance && !mayUseDuringMaintenance(user)) {
           return res.status(503).json({ error: MAINTENANCE_AUTH_MESSAGE, code: "MAINTENANCE" });
         }
       } else {
         user = await User.findOne({ email: emailLower });
         if (user) {
-          if (maintenance && !isMaintenanceBypassEmail(user.email)) {
+          if (maintenance && !mayUseDuringMaintenance(user)) {
             return res.status(503).json({ error: MAINTENANCE_AUTH_MESSAGE, code: "MAINTENANCE" });
           }
           user.googleId = profile.id;

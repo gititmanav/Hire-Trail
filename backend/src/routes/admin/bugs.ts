@@ -18,6 +18,7 @@ import {
 } from "../../models/BugReport.js";
 import { NotFoundError } from "../../errors/AppError.js";
 import { logAudit, getClientInfo } from "../../utils/auditLog.js";
+import { searchRegex } from "../../utils/regex.js";
 
 const router = Router();
 
@@ -28,23 +29,18 @@ const updateSchema = z.object({
 
 router.get("/", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const page = Math.max(1, parseInt((req.query.page as string) || "1", 10));
-    const limit = Math.min(100, Math.max(1, parseInt((req.query.limit as string) || "25", 10)));
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 25));
     const skip = (page - 1) * limit;
     const q: Record<string, unknown> = {};
 
     const status = req.query.status as string | undefined;
     const source = req.query.source as string | undefined;
-    const search = req.query.search as string | undefined;
+    const regex = searchRegex(req.query.search);
 
     if (status && (BUG_REPORT_STATUSES as readonly string[]).includes(status)) q.status = status;
     if (source && (BUG_REPORT_SOURCES as readonly string[]).includes(source)) q.source = source;
-    if (search?.trim()) {
-      q.$or = [
-        { errorMessage: { $regex: search, $options: "i" } },
-        { route: { $regex: search, $options: "i" } },
-      ];
-    }
+    if (regex) q.$or = [{ errorMessage: regex }, { route: regex }];
 
     const [data, total] = await Promise.all([
       BugReport.find(q)

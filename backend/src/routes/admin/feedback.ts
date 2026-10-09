@@ -19,6 +19,7 @@ import {
 } from "../../models/Feedback.js";
 import { NotFoundError } from "../../errors/AppError.js";
 import { logAudit, getClientInfo } from "../../utils/auditLog.js";
+import { searchRegex } from "../../utils/regex.js";
 
 const router = Router();
 
@@ -30,26 +31,20 @@ const updateSchema = z.object({
 
 router.get("/", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const page = Math.max(1, parseInt((req.query.page as string) || "1", 10));
-    const limit = Math.min(100, Math.max(1, parseInt((req.query.limit as string) || "25", 10)));
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 25));
     const skip = (page - 1) * limit;
     const q: Record<string, unknown> = {};
 
     const status = req.query.status as string | undefined;
     const type = req.query.type as string | undefined;
     const severity = req.query.severity as string | undefined;
-    const search = req.query.search as string | undefined;
+    const regex = searchRegex(req.query.search);
 
     if (status && (FEEDBACK_STATUSES as readonly string[]).includes(status)) q.status = status;
     if (type && (FEEDBACK_TYPES as readonly string[]).includes(type)) q.type = type;
     if (severity && (FEEDBACK_SEVERITIES as readonly string[]).includes(severity)) q.severity = severity;
-    if (search?.trim()) {
-      q.$or = [
-        { title: { $regex: search, $options: "i" } },
-        { message: { $regex: search, $options: "i" } },
-        { userEmail: { $regex: search, $options: "i" } },
-      ];
-    }
+    if (regex) q.$or = [{ title: regex }, { message: regex }, { userEmail: regex }];
 
     const [data, total] = await Promise.all([
       Feedback.find(q).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),

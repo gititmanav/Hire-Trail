@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { ensureAdmin } from "../middleware/auth.js";
+import { requireSameSite } from "../middleware/sameSite.js";
 import dashboardRoutes from "./admin/dashboard.js";
 import usersRoutes from "./admin/users.js";
 import settingsRoutes from "./admin/settings.js";
@@ -15,8 +16,9 @@ import aiAdminRoutes from "./admin/ai.js";
 
 const router = Router();
 
-// All admin routes require admin role
+// All admin routes require admin role, and refuse writes forged from another site.
 router.use(ensureAdmin);
+router.use(requireSameSite);
 
 // Sub-routers
 router.use("/dashboard", dashboardRoutes);

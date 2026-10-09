@@ -1,8 +1,15 @@
 import { Router, Request, Response, NextFunction } from "express";
-import { AuditLog } from "../../models/AuditLog.js";
+import { AuditLog, AUDIT_ACTIONS, RESOURCE_TYPES } from "../../models/AuditLog.js";
 import mongoose from "mongoose";
 
 const router = Router();
+
+/** A date from the query string, or null — never an object or an Invalid Date. */
+function dateParam(value: unknown): Date | null {
+  if (typeof value !== "string" || !value) return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
 
 /** GET / — paginated, filterable audit logs */
 router.get("/", async (req: Request, res: Response, next: NextFunction) => {
@@ -12,15 +19,18 @@ router.get("/", async (req: Request, res: Response, next: NextFunction) => {
     const { action, resourceType, userId, startDate, endDate } = req.query;
 
     const filter: Record<string, unknown> = {};
-    if (action) filter.action = action;
-    if (resourceType) filter.resourceType = resourceType;
+    // Known values only — a raw query value could be an operator object (?action[$ne]=).
+    if ((AUDIT_ACTIONS as readonly unknown[]).includes(action)) filter.action = action;
+    if ((RESOURCE_TYPES as readonly unknown[]).includes(resourceType)) filter.resourceType = resourceType;
     if (userId && mongoose.isValidObjectId(userId as string)) {
       filter.userId = new mongoose.Types.ObjectId(userId as string);
     }
-    if (startDate || endDate) {
+    const start = dateParam(startDate);
+    const end = dateParam(endDate);
+    if (start || end) {
       filter.timestamp = {};
-      if (startDate) (filter.timestamp as Record<string, unknown>).$gte = new Date(startDate as string);
-      if (endDate) (filter.timestamp as Record<string, unknown>).$lte = new Date(endDate as string);
+      if (start) (filter.timestamp as Record<string, unknown>).$gte = start;
+      if (end) (filter.timestamp as Record<string, unknown>).$lte = end;
     }
 
     const [data, total] = await Promise.all([

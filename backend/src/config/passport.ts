@@ -11,6 +11,7 @@ import { isAdminEmail } from "../utils/admin.js";
 import {
   getMaintenanceMode,
   isMaintenanceBypassEmail,
+  mayUseDuringMaintenance,
   MAINTENANCE_AUTH_MESSAGE,
 } from "../services/maintenance.js";
 
@@ -54,7 +55,7 @@ export function configurePassport(): void {
             return done(null, false, { message: "Incorrect password" });
           }
 
-          if ((await getMaintenanceMode()) && !isMaintenanceBypassEmail(user.email)) {
+          if ((await getMaintenanceMode()) && !mayUseDuringMaintenance(user)) {
             return done(null, false, { message: MAINTENANCE_AUTH_MESSAGE });
           }
 
@@ -82,7 +83,7 @@ export function configurePassport(): void {
             // Check if Google account already linked
             const existingUser = await User.findOne({ googleId: profile.id });
             if (existingUser) {
-              if (maintenance && !isMaintenanceBypassEmail(existingUser.email)) {
+              if (maintenance && !mayUseDuringMaintenance(existingUser)) {
                 return done(null, false, { message: MAINTENANCE_AUTH_MESSAGE });
               }
               return done(null, existingUser);
@@ -94,7 +95,7 @@ export function configurePassport(): void {
             });
 
             if (emailUser) {
-              if (maintenance && !isMaintenanceBypassEmail(emailUser.email)) {
+              if (maintenance && !mayUseDuringMaintenance(emailUser)) {
                 return done(null, false, { message: MAINTENANCE_AUTH_MESSAGE });
               }
               emailUser.googleId = profile.id;

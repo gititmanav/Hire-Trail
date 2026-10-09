@@ -19,7 +19,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 
 import { User } from "../models/User.js";
 import { getAiSettings } from "../services/ai/settings.js";
-import { getMaintenanceMode, isMaintenanceBypassEmail, MAINTENANCE_AUTH_MESSAGE } from "../services/maintenance.js";
+import { getMaintenanceMode, mayUseDuringMaintenance, MAINTENANCE_AUTH_MESSAGE } from "../services/maintenance.js";
 import { buildMcpServer } from "../services/mcp/server.js";
 import { chargeRate, noteFirstTool, touchToken, verifyToken } from "../services/mcp/tokens.js";
 import type { AiUser } from "../services/ai/gateway.js";
@@ -71,7 +71,7 @@ router.post("/", async (req: Request, res: Response) => {
     const user = await User.findById(token.userId).select("name email role suspended aiOverride").lean();
     if (!user || user.suspended) return rpcError(res, 403, "This HireTrail account can't be used right now.");
     if (user.email === DEMO_EMAIL) return rpcError(res, 403, "The demo account can't connect an assistant. Create a free account to use it.");
-    if (user.role !== "admin" && !isMaintenanceBypassEmail(user.email) && (await getMaintenanceMode())) {
+    if (!mayUseDuringMaintenance(user) && (await getMaintenanceMode())) {
       return rpcError(res, 503, MAINTENANCE_AUTH_MESSAGE);
     }
 

@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { tryGetAuthedUser } from "./auth.js";
-import { getMaintenanceMode, isMaintenanceBypassEmail, MAINTENANCE_AUTH_MESSAGE } from "../services/maintenance.js";
+import { getMaintenanceMode, mayUseDuringMaintenance, MAINTENANCE_AUTH_MESSAGE } from "../services/maintenance.js";
 
 function allowUnauthenticatedDuringMaintenance(req: Request): boolean {
   const path = req.originalUrl.split("?")[0];
@@ -30,7 +30,7 @@ export async function rejectMaintenanceForNonBypass(
       return next();
     }
     // Admins (by role or by ADMIN_EMAILS) and the bypass email keep working.
-    if (user.role === "admin" || isMaintenanceBypassEmail(user.email)) {
+    if (mayUseDuringMaintenance(user)) {
       return next();
     }
     res.status(503).json({

@@ -23,6 +23,13 @@ export function isMaintenanceBypassEmail(email?: string | null): boolean {
   return email.trim().toLowerCase() === bypass;
 }
 
+/** Who may use HireTrail while maintenance is on: every admin account, plus
+ *  the emails above. Every sign-in path and the API gate ask this one rule,
+ *  so an admin can always sign in and reach the switch that turns it off. */
+export function mayUseDuringMaintenance(user: { role?: string | null; email?: string | null }): boolean {
+  return user.role === "admin" || isMaintenanceBypassEmail(user.email);
+}
+
 export async function getMaintenanceMode(): Promise<boolean> {
   const now = Date.now();
   if (cache && now - cache.at < CACHE_MS) return cache.value;

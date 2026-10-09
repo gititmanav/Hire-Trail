@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from "express";
-import { escapeRegex } from "../../utils/regex.js";
+import { searchRegex } from "../../utils/regex.js";
 import { User } from "../../models/User.js";
 import { EmailScanJob } from "../../models/EmailScanJob.js";
 import { EmailScanCandidate } from "../../models/EmailScanCandidate.js";
@@ -27,7 +27,7 @@ function parseProvider(value: unknown): Provider | "all" {
 router.get("/users", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { page, limit, skip } = getPagination(req.query as Record<string, unknown>);
-    const search = (req.query.search as string) || "";
+    const regex = searchRegex(req.query.search);
     const provider = parseProvider(req.query.provider);
 
     const filter: Record<string, unknown> = {};
@@ -35,8 +35,7 @@ router.get("/users", async (req: Request, res: Response, next: NextFunction) => 
     else if (provider === "outlook") filter.outlookConnected = true;
     else filter.$or = [{ gmailConnected: true }, { outlookConnected: true }];
 
-    if (search) {
-      const regex = new RegExp(escapeRegex(search), "i");
+    if (regex) {
       const searchClause = [{ name: regex }, { email: regex }, { gmailEmail: regex }, { outlookEmail: regex }];
       if (filter.$or) {
         const base = filter.$or as Record<string, unknown>[];

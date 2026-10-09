@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from "express";
-import { Notification } from "../../models/Notification.js";
+import { Notification, NOTIFICATION_TYPES } from "../../models/Notification.js";
+import { searchRegex } from "../../utils/regex.js";
 import { getUser } from "../../middleware/auth.js";
 import { logAudit, getClientInfo } from "../../utils/auditLog.js";
 import { NotFoundError } from "../../errors/AppError.js";
@@ -16,7 +17,7 @@ function getPagination(query: Record<string, unknown>) {
 router.get("/", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { page, limit, skip } = getPagination(req.query as Record<string, unknown>);
-    const search = (req.query.search as string) || "";
+    const regex = searchRegex(req.query.search);
     const type = req.query.type as string;
     const read = req.query.read as string;
 
@@ -24,11 +25,9 @@ router.get("/", async (req: Request, res: Response, next: NextFunction) => {
     const resolved = req.query.resolved as string;
 
     const filter: Record<string, unknown> = {};
-    if (search) {
-      const regex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
-      filter.$or = [{ title: regex }, { message: regex }];
-    }
-    if (type) filter.type = type;
+    if (regex) filter.$or = [{ title: regex }, { message: regex }];
+    // Only a known type — a raw query value could be an operator object (?type[$ne]=).
+    if ((NOTIFICATION_TYPES as readonly string[]).includes(type)) filter.type = type;
     if (read === "true") filter.read = true;
     else if (read === "false") filter.read = false;
     if (source === "gmail" || source === "outlook") filter.source = source;

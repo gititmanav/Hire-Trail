@@ -11,29 +11,45 @@ import { TailorSession } from "../../models/TailorSession.js";
 import { AiKey } from "../../models/AiKey.js";
 import { getUser } from "../../middleware/auth.js";
 import { purgeUser } from "../../services/account/deletion.js";
-import { escapeRegex } from "../../utils/regex.js";
+import { searchRegex } from "../../utils/regex.js";
+import { toCsv } from "../../utils/csv.js";
 import { logAudit, getClientInfo } from "../../utils/auditLog.js";
 import { validate } from "../../middleware/validate.js";
 import { userRoleSchema } from "../../validators/admin.js";
 import { ForbiddenError, NotFoundError } from "../../errors/AppError.js";
+import type { IUser } from "../../models/User.js";
 
 const router = Router();
+
+const DEMO_EMAIL = "demo@hiretrail.com";
+const SORTABLE = new Set(["createdAt", "updatedAt", "name", "email", "role"]);
+
+/** What no admin may do to an account, whoever asks: change the shared demo
+ *  account (every visitor signs into it — promoting it would hand anyone admin),
+ *  or take away the last working admin. `removesAdmin` = demoting, suspending
+ *  or deleting an admin. */
+async function assertMayChange(target: IUser, removesAdmin: boolean): Promise<void> {
+  if (target.email === DEMO_EMAIL) {
+    throw new ForbiddenError("The demo account is shared by every visitor, so it can't be changed here.");
+  }
+  if (removesAdmin && target.role === "admin") {
+    const others = await User.countDocuments({ role: "admin", _id: { $ne: target._id }, suspended: { $ne: true } });
+    if (others === 0) throw new ForbiddenError("HireTrail needs at least one working admin. Make someone else an admin first.");
+  }
+}
 
 /** GET / — paginated user list with search and filters */
 router.get("/", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const page = Math.max(1, Number(req.query.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 25));
-    const search = (req.query.search as string) || "";
+    const regex = searchRegex(req.query.search);
     const roleFilter = req.query.role as string;
-    const sortField = (req.query.sort as string) || "createdAt";
+    const sortField = SORTABLE.has(req.query.sort as string) ? (req.query.sort as string) : "createdAt";
     const sortOrder = req.query.order === "asc" ? 1 : -1;
 
     const filter: Record<string, unknown> = {};
-    if (search) {
-      const regex = new RegExp(escapeRegex(search), "i");
-      filter.$or = [{ name: regex }, { email: regex }];
-    }
+    if (regex) filter.$or = [{ name: regex }, { email: regex }];
     if (roleFilter && ["user", "admin"].includes(roleFilter)) {
       filter.role = roleFilter;
     }
@@ -114,14 +130,14 @@ router.get("/export", async (_req: Request, res: Response, next: NextFunction) =
       .sort({ createdAt: -1 })
       .lean();
 
-    const header = "Name,Email,Role,Suspended,Deleted,Joined\n";
-    const rows = users.map((u) =>
-      `"${u.name}","${u.email}","${u.role}",${u.suspended},${u.deleted},"${u.createdAt.toISOString()}"`
-    ).join("\n");
+    const csv = toCsv([
+      ["Name", "Email", "Role", "Suspended", "Deleted", "Joined"],
+      ...users.map((u) => [u.name, u.email, u.role, Boolean(u.suspended), Boolean(u.deleted), u.createdAt]),
+    ]);
 
-    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader("Content-Disposition", "attachment; filename=users-export.csv");
-    res.send(header + rows);
+    res.send(csv);
   } catch (err) {
     next(err);
   }
@@ -170,6 +186,7 @@ router.put("/:id/role", validate(userRoleSchema), async (req: Request, res: Resp
 
     const user = await User.findById(req.params.id).setOptions({ includeDeleted: true });
     if (!user) throw new NotFoundError("User");
+    await assertMayChange(user, req.body.role !== "admin");
 
     const oldRole = user.role;
     user.role = req.body.role;
@@ -198,6 +215,7 @@ router.put("/:id/suspend", async (req: Request, res: Response, next: NextFunctio
 
     const user = await User.findById(req.params.id);
     if (!user) throw new NotFoundError("User");
+    await assertMayChange(user, true);
 
     user.suspended = true;
     user.suspendedAt = new Date();
@@ -221,6 +239,7 @@ router.put("/:id/unsuspend", async (req: Request, res: Response, next: NextFunct
     const admin = getUser(req);
     const user = await User.findById(req.params.id);
     if (!user) throw new NotFoundError("User");
+    await assertMayChange(user, false);
 
     user.suspended = false;
     user.suspendedAt = null;
@@ -248,6 +267,7 @@ router.delete("/:id", async (req: Request, res: Response, next: NextFunction) =>
 
     const user = await User.findById(req.params.id);
     if (!user) throw new NotFoundError("User");
+    await assertMayChange(user, true);
 
     user.deleted = true;
     user.deletedAt = new Date();
@@ -275,6 +295,7 @@ router.delete("/:id/hard", async (req: Request, res: Response, next: NextFunctio
 
     const user = await User.findById(req.params.id).setOptions({ includeDeleted: true });
     if (!user) throw new NotFoundError("User");
+    await assertMayChange(user, true);
 
     // The same complete erase as a self-service deletion: tracker, files,
     // profile, AI keys and usage, assistant tokens, inbox scans, sessions, and

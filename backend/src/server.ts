@@ -19,6 +19,7 @@ import { dirname, extname, join } from "path";
 import { env } from "./config/env.js";
 import { connectDB } from "./config/db.js";
 import { configurePassport } from "./config/passport.js";
+import { ALLOWED_ORIGINS } from "./config/origins.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { apiLimiter } from "./middleware/rateLimiter.js";
 import { rejectMaintenanceForNonBypass } from "./middleware/maintenanceMode.js";
@@ -58,12 +59,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const app = express();
-
-const ALLOWED_ORIGINS = [
-  env.CLIENT_URL,
-  "https://hiretrail.manavkaneria.me",
-  "http://localhost:5173",
-];
 
 app.use(
   cors({
