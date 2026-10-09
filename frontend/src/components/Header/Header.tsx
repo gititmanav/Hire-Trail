@@ -15,6 +15,7 @@ import { useBarPlace } from "../Spotlight/useBarPlace.ts";
 const Spotlight = lazy(() => import("../Spotlight/AppSpotlight.tsx"));
 import { useAnnouncements } from "../Announcements/AnnouncementsProvider.tsx";
 import type { User } from "../../types";
+import { CHROME_STORE_URL } from "../../utils/links.ts";
 
 const EXT_DISMISSED_KEY = "hiretrail-ext-banner-dismissed";
 
@@ -56,7 +57,7 @@ export default function Header({ user, onLogout, onMobileMenuToggle }: Props) {
             </button>
           )}
           <a
-            href="https://chromewebstore.google.com/detail/cgibkejpkbfhkcdjlnkgebdnacpfonhl"
+            href={CHROME_STORE_URL}
             target="_blank"
             rel="noopener noreferrer"
             onClick={handleExtDownload}

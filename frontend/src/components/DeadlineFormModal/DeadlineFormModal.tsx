@@ -27,7 +27,7 @@ export function DeadlineTypeIcon({ type, size = 14, className }: { type: string;
   return <Calendar {...props} />;
 }
 
-export default function DeadlineFormModal({ deadline: dl, applications: apps, onSave, onClose, initialDueDate = "", initialApplicationId = "" }: {
+export default function DeadlineFormModal({ deadline: dl, applications: apps, onSave, onClose, initialDueDate = "", initialApplicationId = "", initialType = "" }: {
   deadline: Deadline | null;
   applications: Application[];
   onSave: (d: DeadlineFormData) => Promise<void>;
@@ -35,10 +35,12 @@ export default function DeadlineFormModal({ deadline: dl, applications: apps, on
   /** New deadlines: the day to start on (the calendar's hovered or focused day). */
   initialDueDate?: string;
   initialApplicationId?: string;
+  /** New deadlines: the type to start on (an application's next step — "Interview prep"). */
+  initialType?: string;
 }) {
   const [form, setForm] = useState<DeadlineFormData>({
     applicationId: dl?.applicationId || initialApplicationId,
-    type: dl?.type || "",
+    type: dl?.type || initialType,
     dueDate: dl ? dayOf(dl.dueDate) : initialDueDate,
     notes: dl?.notes || "",
     recurrenceDays: dl?.recurrenceDays || 0,

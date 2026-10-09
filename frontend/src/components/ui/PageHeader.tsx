@@ -13,6 +13,7 @@
  *  (ui/FiltersPopover, "f"), small HeaderIconButtons, CreateButton ("c"). */
 import { forwardRef, ReactNode, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type ButtonHTMLAttributes } from "react";
 import { Search, SquarePen, X } from "lucide-react";
+import { useMediaQuery } from "../../hooks/useMediaQuery.ts";
 import Tooltip from "./Tooltip.tsx";
 
 export default function PageHeader({ title, meta, actions, titleAs: TitleTag = "h1" }: {
@@ -51,7 +52,7 @@ export default function PageHeader({ title, meta, actions, titleAs: TitleTag = "
           <TitleTag className="text-base font-semibold text-foreground truncate">{title}</TitleTag>
           {meta && <span className="text-[13px] text-muted-foreground tabular-nums whitespace-nowrap">{meta}</span>}
         </div>
-        {actions && <div className="ml-auto flex items-center gap-1.5 flex-wrap justify-end">{actions}</div>}
+        {actions && <div className="ml-auto max-sm:flex-auto flex items-center gap-1.5 flex-wrap justify-end">{actions}</div>}
       </div>
     </div>
   );
@@ -69,11 +70,13 @@ export function PageBody({ size = "xl", className = "", children }: { size?: key
 export interface PageSearchHandle { focus: () => void }
 
 /** The header's search box: debounced, "/" to focus (the page binds it),
- *  Escape clears and blurs. */
+ *  Escape clears and blurs. On a phone it fills what its row leaves (the
+ *  controls keep one row) and drops the "/" hint — there's no keyboard. */
 export const PageSearch = forwardRef<PageSearchHandle, { value: string; onChange: (v: string) => void; placeholder: string; ariaLabel: string }>(
   function PageSearch({ value, onChange, placeholder, ariaLabel }, ref) {
     const [draft, setDraft] = useState(value);
     const inputRef = useRef<HTMLInputElement>(null);
+    const phone = useMediaQuery("(max-width: 639px)");
     useImperativeHandle(ref, () => ({ focus: () => inputRef.current?.focus() }), []);
 
     // Follow external changes (back/forward, "Clear filters") when not typing.
@@ -88,8 +91,10 @@ export const PageSearch = forwardRef<PageSearchHandle, { value: string; onChange
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [draft]);
 
+    // Phones: a 104px basis decides whether the controls share the title's
+    // line or take their own; then the search grows into what's left.
     return (
-      <div className="relative">
+      <div className="relative max-sm:w-[104px] max-sm:min-w-[72px] max-sm:grow">
         <Search size={14} strokeWidth={2} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" aria-hidden />
         <input
           ref={inputRef}
@@ -104,9 +109,9 @@ export const PageSearch = forwardRef<PageSearchHandle, { value: string; onChange
               inputRef.current?.blur();
             }
           }}
-          placeholder={placeholder}
+          placeholder={phone ? "Search" : placeholder}
           aria-label={ariaLabel}
-          className="h-8 w-44 focus:w-60 sm:w-52 sm:focus:w-64 pl-8 pr-7 text-[13px] bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground/70 transition-[width,box-shadow] duration-200 focus:outline-none focus:ring-2 focus:ring-ring/25 focus:border-ring [&::-webkit-search-cancel-button]:hidden"
+          className="h-8 w-full sm:w-52 sm:focus:w-64 pl-8 pr-7 text-[13px] text-ellipsis bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground/70 transition-[width,box-shadow] duration-200 focus:outline-none focus:ring-2 focus:ring-ring/25 focus:border-ring [&::-webkit-search-cancel-button]:hidden"
         />
         {draft ? (
           <button
@@ -118,7 +123,7 @@ export const PageSearch = forwardRef<PageSearchHandle, { value: string; onChange
             <X size={12} strokeWidth={2.5} aria-hidden />
           </button>
         ) : (
-          <kbd className="absolute right-2 top-1/2 -translate-y-1/2 text-[10.5px] font-mono text-muted-foreground/70 pointer-events-none">/</kbd>
+          <kbd className="max-sm:hidden absolute right-2 top-1/2 -translate-y-1/2 text-[10.5px] font-mono text-muted-foreground/70 pointer-events-none">/</kbd>
         )}
       </div>
     );

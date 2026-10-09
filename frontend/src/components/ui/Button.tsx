@@ -13,17 +13,18 @@ const VARIANTS: Record<Variant, string> = {
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant;
-  size?: "sm" | "md";
+  /** xs — a row's inline actions (a list peek, a pane card). */
+  size?: "xs" | "sm" | "md";
   loading?: boolean;
   children: ReactNode;
 }
 
 /** The button look, for an element that has to be something else — a link
  *  that downloads or opens a new tab. */
-export function buttonClass(variant: Variant = "secondary", size: "sm" | "md" = "md"): string {
-  return `relative inline-flex items-center justify-center gap-1.5 font-medium rounded-lg transition-colors select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed ${
-    size === "sm" ? "h-8 px-3 text-[13px]" : "h-9 px-4 text-sm"
-  } ${VARIANTS[variant]}`;
+const SIZES = { xs: "h-7 px-2.5 text-[12.5px] rounded-md", sm: "h-8 px-3 text-[13px] rounded-lg", md: "h-9 px-4 text-sm rounded-lg" } as const;
+
+export function buttonClass(variant: Variant = "secondary", size: keyof typeof SIZES = "md"): string {
+  return `relative inline-flex items-center justify-center gap-1.5 font-medium transition-colors select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed ${SIZES[size]} ${VARIANTS[variant]}`;
 }
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(

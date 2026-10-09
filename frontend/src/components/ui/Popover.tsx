@@ -114,9 +114,12 @@ export default function Popover({
   }, [open, mounted, anchorRef, align, offset, matchAnchorWidth, maxHeightCap]);
 
   // Dismissal + layer + focus, only while open (a closing panel is inert).
+  // A tooltip (a hover card) is information, not a layer: it never takes the
+  // keyboard, so page shortcuts (J/K) keep working while one is showing.
   useEffect(() => {
     if (!open) return;
-    const layer = pushLayer("popover", () => panelRef.current);
+    const tooltip = role === "tooltip";
+    const layer = tooltip ? null : pushLayer("popover", () => panelRef.current);
     const restore = document.activeElement as HTMLElement | null;
     if (autoFocus) requestAnimationFrame(() => (initialFocusRef?.current ?? panelRef.current)?.focus({ preventScroll: true }));
 
@@ -127,18 +130,20 @@ export default function Popover({
       if (panelRef.current?.contains(t) || anchorRef.current?.contains(t)) return;
       // A click inside a layer opened on top of this one (a Select's list
       // inside the Filters panel) belongs to that layer.
-      if (isInsideLayerAbove(layer, t)) return;
+      if (layer && isInsideLayerAbove(layer, t)) return;
       onOpenChange(false);
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape" || !isTopLayer(layer)) return;
+      if (e.key !== "Escape") return;
+      if (!layer) { onOpenChange(false); return; }
+      if (!isTopLayer(layer)) return;
       e.stopPropagation();
       onOpenChange(false);
       if (panelRef.current?.contains(document.activeElement) || autoFocus) anchorRef.current?.focus({ preventScroll: true });
     };
     const onScroll = (e: Event) => {
       const t = e.target as Node;
-      if (panelRef.current?.contains(t) || isInsideLayerAbove(layer, t)) return;
+      if (panelRef.current?.contains(t) || (layer && isInsideLayerAbove(layer, t))) return;
       onOpenChange(false);
     };
     const onResize = () => onOpenChange(false);
@@ -147,7 +152,7 @@ export default function Popover({
     document.addEventListener("scroll", onScroll, true);
     window.addEventListener("resize", onResize);
     return () => {
-      popLayer(layer);
+      if (layer) popLayer(layer);
       document.removeEventListener("click", onClick, true);
       document.removeEventListener("keydown", onKey, true);
       document.removeEventListener("scroll", onScroll, true);

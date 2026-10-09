@@ -2,7 +2,7 @@
 export { default as BrandMark } from "../../components/BrandMark/BrandMark.tsx";
 
 export const GITHUB_URL = "https://github.com/gititmanav/Hire-Trail";
-export const CHROME_STORE_URL = "https://chromewebstore.google.com/detail/cgibkejpkbfhkcdjlnkgebdnacpfonhl";
+export { CHROME_STORE_URL } from "../../utils/links.ts";
 export const LINKEDIN_URL = "https://www.linkedin.com/in/manavkaneria";
 export const CONTACT_EMAIL = "manavkaneria@gmail.com";
 
