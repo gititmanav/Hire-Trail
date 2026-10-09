@@ -126,9 +126,11 @@ export async function buildCalendar(
 
   const open = { userId, completed: false };
   const [records, deadlineDocs] = await Promise.all([
+    // $and, not a spread: the filters' own $or (the search) must survive the
+    // range's. Every in-range record matches the filters — the deadline loop
+    // below trusts that.
     Application.find({
-      ...appMatch,
-      $or: [{ applicationDate: { $gte: lo, $lt: hi } }, { "stageHistory.date": { $gte: lo, $lt: hi } }],
+      $and: [appMatch, { $or: [{ applicationDate: { $gte: lo, $lt: hi } }, { "stageHistory.date": { $gte: lo, $lt: hi } }] }],
     }).select(APP_FIELDS).lean<AppDoc[]>(),
     // In range ∪ overdue ∪ recurring sources — one query. Newest first, so a
     // pathological backlog of ancient open deadlines is what the cap drops.

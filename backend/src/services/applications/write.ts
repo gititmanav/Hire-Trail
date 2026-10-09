@@ -124,10 +124,18 @@ export async function updateApplication(
     existing.stage = data.stage;
   }
   if (data.company !== undefined) {
-    existing.company = data.company;
-    // Re-link the shared company when the name changes (same job-board guard as create).
-    const company = await linkCompany(data.company, data.jobUrl ?? existing.jobUrl, userId, "");
-    existing.companyId = company._id;
+    // The name owns the link: the edit form echoes the companyId it loaded,
+    // which would undo a relink, so an incoming companyId is ignored here.
+    // Only a new name — or a legacy doc that was never linked — needs one
+    // (same job-board guard as create).
+    const name = data.company.trim();
+    if (name !== existing.company || !existing.companyId) {
+      existing.company = name;
+      const company = await linkCompany(name, data.jobUrl ?? existing.jobUrl, userId, "");
+      existing.companyId = company._id;
+    }
+  } else if (data.companyId !== undefined) {
+    existing.companyId = data.companyId as never;
   }
   if (data.role !== undefined) existing.role = data.role;
   if (data.jobUrl !== undefined) existing.jobUrl = data.jobUrl;
@@ -141,7 +149,6 @@ export async function updateApplication(
   if (data.jobType !== undefined) existing.jobType = data.jobType;
   if (data.notes !== undefined) existing.notes = data.notes;
   if (data.resumeId !== undefined) existing.resumeId = data.resumeId as never;
-  if (data.companyId !== undefined) existing.companyId = data.companyId as never;
   if (data.contactId !== undefined) existing.contactId = data.contactId as never;
   if (data.outreachStatus !== undefined) existing.outreachStatus = data.outreachStatus;
   if (data.archived !== undefined) existing.archived = data.archived;
