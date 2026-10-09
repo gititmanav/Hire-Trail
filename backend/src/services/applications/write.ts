@@ -6,14 +6,24 @@
  */
 import mongoose from "mongoose";
 
-import { Application, type IApplication } from "../../models/Application.js";
+import { Application, type ArchiveReason, type IApplication } from "../../models/Application.js";
 import { Company } from "../../models/Company.js";
+import { Contact } from "../../models/Contact.js";
+import { Deadline } from "../../models/Deadline.js";
+import { Resume } from "../../models/Resume.js";
+import { ResumeDocument } from "../../models/ResumeDocument.js";
+import { TailorSession } from "../../models/TailorSession.js";
 import { User } from "../../models/User.js";
 import { AppError, NotFoundError } from "../../errors/AppError.js";
 import { ensureCompanyLogo } from "../../routes/companies.js";
 import { extractDomainFromUrl, isJobBoardDomain } from "../../utils/companyDomain.js";
 import { enrichNewApplication, willReadPosting } from "../ai/features/postingRead.js";
-import type { CreateApplicationInput, UpdateApplicationInput } from "../../validators/applications.js";
+import {
+  importRowSchema,
+  type CreateApplicationInput,
+  type ImportRow,
+  type UpdateApplicationInput,
+} from "../../validators/applications.js";
 
 const DEMO_EMAIL = "demo@hiretrail.com";
 
@@ -87,10 +97,14 @@ export async function createApplication(userId: mongoose.Types.ObjectId, input: 
 
   // The demo account never reaches the AI pipeline (its fit checks are seeded).
   const isDemoUser = (await User.findById(userId).select("email").lean())?.email === DEMO_EMAIL;
+  // A backdated application's history starts on its applied day, too.
+  const { applicationDate, ...fields } = input;
+  const appliedAt = applicationDate ? parseApplicationDate(applicationDate) : null;
   // Seed "processing" when the posting read will run, so the create response
   // already carries it and the client shows "Reading this posting…" at once.
   const app = await Application.create({
-    ...input,
+    ...fields,
+    ...(appliedAt && { applicationDate: appliedAt, stageHistory: [{ stage: fields.stage, date: appliedAt }] }),
     notes: input.source === "extension" && input.notes ? stripLegacyTagNotes(input.notes) : input.notes,
     userId,
     companyId,
@@ -156,4 +170,122 @@ export async function updateApplication(
   if (data.archivedReason !== undefined) existing.archivedReason = data.archivedReason;
   await existing.save();
   return existing;
+}
+
+/** What archiving sets — the single route and the batch alike. */
+export function archivedFields(reason: ArchiveReason) {
+  return { archived: true, archivedAt: new Date(), archivedReason: reason };
+}
+
+export const UNARCHIVED_FIELDS = { archived: false, archivedAt: null, archivedReason: null };
+
+/**
+ * Delete applications and what hangs off them: their deadlines, their links
+ * on contacts, and their fit checks. Resumes are never touched — a tailored
+ * variant is the person's own document — and a fit check a resume still
+ * points at stays as that resume's (unlinked from the application). Returns
+ * how many applications were deleted.
+ */
+export async function deleteApplications(userId: mongoose.Types.ObjectId, ids: mongoose.Types.ObjectId[]): Promise<number> {
+  const owned = (await Application.find({ _id: { $in: ids }, userId }).select("_id").lean()).map((a) => a._id);
+  if (!owned.length) return 0;
+  const { deletedCount } = await Application.deleteMany({ _id: { $in: owned }, userId });
+
+  const sessionIds = (await TailorSession.find({ userId, applicationId: { $in: owned } }).select("_id").lean()).map((s) => s._id);
+  const [byResume, byDocument] = sessionIds.length
+    ? await Promise.all([
+        Resume.distinct("tailorSessionId", { userId, tailorSessionId: { $in: sessionIds } }),
+        ResumeDocument.distinct("tailorSessionId", { userId, tailorSessionId: { $in: sessionIds } }),
+      ])
+    : [[], []];
+  const kept = new Set([...byResume, ...byDocument].map(String));
+  await Promise.all([
+    Deadline.deleteMany({ userId, applicationId: { $in: owned } }),
+    Contact.updateMany({ userId, applicationIds: { $in: owned } }, { $pull: { applicationIds: { $in: owned } } }),
+    TailorSession.deleteMany({ userId, _id: { $in: sessionIds.filter((id) => !kept.has(String(id))) } }),
+    // A kept one becomes the resume's alone, like a Studio analysis.
+    TailorSession.updateMany({ userId, _id: { $in: [...kept] } }, { $set: { applicationId: null } }),
+  ]);
+  return deletedCount;
+}
+
+/** A spreadsheet date. A plain day — "2025-03-15", "3/15/2025", "Mar 15,
+ *  2025" — is stored as UTC midnight, like a picked day; a timestamp is a
+ *  moment. The engine reads a plain day as local midnight, so its local
+ *  date is the day that was written. */
+function parseImportDate(value: string): Date | null {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value) || /\d:\d{2}/.test(value)) return parseApplicationDate(value);
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? null : new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+}
+
+export interface ImportResult {
+  count: number;
+  /** Rows whose job URL is already tracked, or repeats earlier in the file. */
+  duplicates: number;
+  /** One line per row that couldn't be read ("Row 3: Company is required"). */
+  errors: string[];
+}
+
+/**
+ * The CSV import. Each row is read on its own — a bad one is skipped with a
+ * reason, never a failed file — and a job URL that's already tracked is
+ * skipped as `createApplication` refuses it. Companies link through the same
+ * shared directory, once per name. Rows carry no posting, so there's no AI
+ * pass; company logos load on demand (POST /companies/:id/logo).
+ */
+export async function importApplications(userId: mongoose.Types.ObjectId, rows: unknown[]): Promise<ImportResult> {
+  const errors: string[] = [];
+  const valid: Array<ImportRow & { appliedAt: Date }> = [];
+  rows.forEach((row, i) => {
+    const parsed = importRowSchema.safeParse(row);
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0];
+      errors.push(`Row ${i + 1}: ${issue.path.length ? `${issue.path.join(".")} — ` : ""}${issue.message}`);
+      return;
+    }
+    const appliedAt = parsed.data.applicationDate ? parseImportDate(parsed.data.applicationDate) : new Date();
+    if (!appliedAt) {
+      errors.push(`Row ${i + 1}: "${parsed.data.applicationDate}" isn't a date`);
+      return;
+    }
+    valid.push({ ...parsed.data, appliedAt });
+  });
+
+  const urls = [...new Set(valid.map((r) => r.jobUrl).filter(Boolean))];
+  const tracked = new Set(
+    urls.length ? (await Application.find({ userId, jobUrl: { $in: urls } }).select("jobUrl").lean()).map((a) => a.jobUrl) : [],
+  );
+  const fresh = valid.filter((r) => {
+    if (!r.jobUrl) return true;
+    if (tracked.has(r.jobUrl)) return false;
+    tracked.add(r.jobUrl);
+    return true;
+  });
+
+  // The directory matches names case-insensitively — one link per name.
+  const firstByName = new Map<string, ImportRow>();
+  for (const r of fresh) if (!firstByName.has(r.company.toLowerCase())) firstByName.set(r.company.toLowerCase(), r);
+  const companyIds = new Map(
+    await Promise.all([...firstByName].map(async ([key, r]) => {
+      const company = await linkCompany(r.company, r.jobUrl, userId, companyWebsiteFromJobUrl(r.jobUrl));
+      return [key, company._id] as const;
+    })),
+  );
+
+  if (fresh.length) {
+    await Application.insertMany(fresh.map((r) => ({
+      userId,
+      company: r.company,
+      companyId: companyIds.get(r.company.toLowerCase()) ?? null,
+      role: r.role,
+      jobUrl: r.jobUrl,
+      applicationDate: r.appliedAt,
+      stage: r.stage,
+      stageHistory: [{ stage: r.stage, date: r.appliedAt }],
+      notes: r.notes,
+      resumeId: null,
+    })));
+  }
+  return { count: fresh.length, duplicates: valid.length - fresh.length, errors };
 }

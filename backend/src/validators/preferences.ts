@@ -7,7 +7,7 @@ import { z } from "zod";
 
 export const THEME_MODES = ["system", "light", "dark", "custom"] as const;
 export type ThemeMode = (typeof THEME_MODES)[number];
-export const LIST_DESIGNS = ["classic", "table"] as const;
+export const LIST_DESIGNS = ["classic", "table", "ledger", "trail", "desk"] as const;
 export type ListDesign = (typeof LIST_DESIGNS)[number];
 /** Pages the header search can pin as quick links (at most QUICK_LINK_MAX). */
 export const QUICK_LINK_IDS = ["ai", "personalize", "board", "list", "resumes", "calendar", "notifications"] as const;

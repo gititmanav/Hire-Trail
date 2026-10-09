@@ -24,7 +24,8 @@ import type { Request } from "express";
 import { Types } from "mongoose";
 import { Application, STAGES, type Stage } from "../../models/Application.js";
 import { Deadline } from "../../models/Deadline.js";
-import { listFilters, loadFitSummaries } from "../../routes/applications.js";
+import { listFilters } from "../../routes/applications.js";
+import { loadFitSummaries } from "../applications/summary.js";
 import { searchRegex } from "../../utils/regex.js";
 import { dayIn, diffDays, todayIn, utcDay } from "./days.js";
 

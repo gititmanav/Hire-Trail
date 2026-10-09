@@ -1,74 +1,36 @@
 import { Router, Request, Response, NextFunction } from "express";
-import { Types, type PipelineStage } from "mongoose";
+import mongoose, { Types } from "mongoose";
 import { Application, APPLICATION_SOURCES, STAGES } from "../models/Application.js";
 import { searchRegex } from "../utils/regex.js";
 import { ensureAuth, getUser } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
-import { createApplicationSchema, updateApplicationSchema } from "../validators/applications.js";
+import {
+  archiveApplicationSchema,
+  batchApplicationsSchema,
+  createApplicationSchema,
+  importApplicationsSchema,
+  updateApplicationSchema,
+} from "../validators/applications.js";
 import { NotFoundError, ValidationError } from "../errors/AppError.js";
-import { createApplication, updateApplication, DuplicateApplicationError } from "../services/applications/write.js";
+import {
+  archivedFields,
+  createApplication,
+  deleteApplications,
+  DuplicateApplicationError,
+  importApplications,
+  UNARCHIVED_FIELDS,
+  updateApplication,
+} from "../services/applications/write.js";
+import { batchApplications } from "../services/applications/batch.js";
+import { loadInsights, loadSweep } from "../services/applications/insights.js";
+import { SUMMARY_STAGES, withFit } from "../services/applications/summary.js";
 import { startFitCheckForApplication } from "../services/ai/features/fitCheck.js";
 import { reviveAiJobs } from "../services/ai/jobs.js";
 import type { AiUser } from "../services/ai/gateway.js";
 import { blockDemoUser } from "../middleware/blockDemoUser.js";
 import { User } from "../models/User.js";
 import { MasterProfile } from "../models/MasterProfile.js";
-import { TailorSession } from "../models/TailorSession.js";
 import { Resume } from "../models/Resume.js";
-
-/** Thin summary of a TailorSession for inlining into Application list/get responses. */
-export interface AppFitSummary {
-  sessionId: string;
-  status: "processing" | "succeeded" | "failed" | "deferred" | "waiting_assistant";
-  /** The one match score, 0–10 (null until computed). */
-  score: number | null;
-  /** Omitted in list (`fields=summary`) responses — no list surface renders it. */
-  summary?: string;
-  matchedCount: number;
-  missingCount: number;
-  /** First few matched skills — surfaced by the Application row AI panel as
-   *  a checkmark list. Capped server-side so the response stays small. */
-  topMatched: string[];
-  errorMessage?: string;
-  /** "ai_<reason>" behind a failure, and the lane it ran in. */
-  errorCode?: string;
-  errorLane?: string;
-}
-
-/** Resolve `fit` summaries for a list of applications in one bulk Mongo query.
- *  Returns a map keyed by application id (string). Apps with no tailorSessionId
- *  or a missing session are simply absent from the map (frontend renders the
- *  "no fit yet" state). */
-export async function loadFitSummaries(
-  apps: Array<{ _id: unknown; tailorSessionId: unknown }>,
-  { withSummary = true }: { withSummary?: boolean } = {},
-): Promise<Map<string, AppFitSummary>> {
-  const sessionIds = apps.map((a) => a.tailorSessionId).filter(Boolean);
-  if (sessionIds.length === 0) return new Map();
-  const sessions = await TailorSession.find({ _id: { $in: sessionIds } })
-    .select("_id status matchScore summary matchedSkills missingSkills errorMessage errorCode errorLane")
-    .lean();
-  const byId = new Map(sessions.map((s) => [String(s._id), s]));
-  const out = new Map<string, AppFitSummary>();
-  for (const a of apps) {
-    if (!a.tailorSessionId) continue;
-    const s = byId.get(String(a.tailorSessionId));
-    if (!s) continue;
-    out.set(String(a._id), {
-      sessionId: String(s._id),
-      status: s.status,
-      score: typeof s.matchScore === "number" ? s.matchScore : null,
-      ...(withSummary && { summary: s.summary || "" }),
-      matchedCount: Array.isArray(s.matchedSkills) ? s.matchedSkills.length : 0,
-      missingCount: Array.isArray(s.missingSkills) ? s.missingSkills.length : 0,
-      topMatched: Array.isArray(s.matchedSkills) ? s.matchedSkills.slice(0, 3) : [],
-      errorMessage: s.errorMessage || undefined,
-      errorCode: s.errorCode || undefined,
-      errorLane: s.errorLane || undefined,
-    });
-  }
-  return out;
-}
 
 const router = Router();
 router.use(ensureAuth);
@@ -131,14 +93,7 @@ router.get("/", async (req: Request, res: Response, next: NextFunction) => {
       ? req.query.stage
       : null;
     const pageMatch = stage ? { stage } : {};
-
-    const summaryStages: PipelineStage.FacetPipelineStage[] = req.query.fields === "summary"
-      ? [
-          { $addFields: { hasJobDescription: { $gt: [{ $strLenCP: { $trim: { input: { $ifNull: ["$jobDescription", ""] } } } }, 0] } } },
-          // userId is always the requester; updatedAt/__v are never rendered.
-          { $project: { jobDescription: 0, userId: 0, updatedAt: 0, __v: 0 } },
-        ]
-      : [];
+    const summary = req.query.fields === "summary";
 
     const [[facet], tabAgg] = await Promise.all([
       Application.aggregate<{
@@ -147,16 +102,19 @@ router.get("/", async (req: Request, res: Response, next: NextFunction) => {
         stageCounts: { _id: string; n: number }[];
       }>([
         { $match: base },
+        // Sorted before the facet: a sub-pipeline can't use an index, so a
+        // $sort inside it sorted every full document in memory. Out here the
+        // match + sort run as one indexed query; the facets keep the order.
+        { $sort: sort },
         {
           $facet: {
             stageCounts: [{ $group: { _id: "$stage", n: { $sum: 1 } } }],
             total: [{ $match: pageMatch }, { $count: "n" }],
             data: [
               { $match: pageMatch },
-              { $sort: sort },
               { $skip: (page - 1) * limit },
               { $limit: limit },
-              ...summaryStages,
+              ...(summary ? SUMMARY_STAGES : []),
             ],
           },
         },
@@ -175,9 +133,7 @@ router.get("/", async (req: Request, res: Response, next: NextFunction) => {
       archived: tabAgg.find((t) => t._id === true)?.n ?? 0,
     };
 
-    const apps = facet?.data ?? [];
-    const fitMap = await loadFitSummaries(apps, { withSummary: req.query.fields !== "summary" });
-    const enriched = apps.map((a) => ({ ...a, fit: fitMap.get(String(a._id)) || null }));
+    const enriched = await withFit(facet?.data ?? [], { withSummary: !summary });
     // The list is what polls while AI work is in flight — pick up stalled jobs.
     if (enriched.some((a) => (a as { aiExtractionStatus?: string }).aiExtractionStatus === "processing" || a.fit?.status === "processing")) {
       await reviveAiJobs(user._id as Types.ObjectId);
@@ -211,16 +167,44 @@ router.get("/filter-options", async (req: Request, res: Response, next: NextFunc
   } catch (err) { next(err); }
 });
 
+/** The reply window, and how many applications the sweep would offer →
+ *  { replyWindow: { days, sample, isDefault, lateReplies }, sweepCount }
+ *  (services/applications/insights.ts). */
+router.get("/insights", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = getUser(req);
+    res.json(await loadInsights(user._id as Types.ObjectId));
+  } catch (err) { next(err); }
+});
+
+/** Open applications gone quiet past twice the reply window, longest idle
+ *  first (at most 300), in the list's `fields=summary` shape →
+ *  { data, replyWindow }. */
+router.get("/sweep", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = getUser(req);
+    res.json(await loadSweep(user._id as Types.ObjectId));
+  } catch (err) { next(err); }
+});
+
+/** One action over many applications: archive · unarchive · delete · stage ·
+ *  undoStage. Registered before the `/:id` routes. → { matched, modified } */
+router.post("/batch", validate(batchApplicationsSchema), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = getUser(req);
+    res.json(await batchApplications(user._id as Types.ObjectId, req.body));
+  } catch (err) { next(err); }
+});
+
 // GET one
 router.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = getUser(req);
-    const app = await Application.findOne({ _id: req.params.id, userId: user._id }).lean();
-    if (!app) throw new NotFoundError("Application");
-    const fitMap = await loadFitSummaries([app]);
-    const fit = fitMap.get(String(app._id)) || null;
-    if (app.aiExtractionStatus === "processing" || fit?.status === "processing") await reviveAiJobs(user._id as Types.ObjectId);
-    res.json({ ...app, fit });
+    const found = await Application.findOne({ _id: req.params.id, userId: user._id }).lean();
+    if (!found) throw new NotFoundError("Application");
+    const [app] = await withFit([found]);
+    if (app.aiExtractionStatus === "processing" || app.fit?.status === "processing") await reviveAiJobs(user._id as Types.ObjectId);
+    res.json(app);
   } catch (err) { next(err); }
 });
 
@@ -296,23 +280,19 @@ router.post("/:id/tailor-resume", blockDemoUser, async (req: Request, res: Respo
   } catch (err) { next(err); }
 });
 
-// POST bulk import
-router.post("/bulk", async (req: Request, res: Response, next: NextFunction) => {
+/** CSV import (up to 500 rows). Bad rows and already-tracked job URLs are
+ *  skipped and counted; only a file with nothing usable is an error. */
+router.post("/bulk", validate(importApplicationsSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = getUser(req);
-    const { applications } = req.body;
-    if (!Array.isArray(applications) || applications.length === 0) throw new ValidationError("applications must be a non-empty array");
-    if (applications.length > 500) throw new ValidationError("Maximum 500 applications per import");
-
-    const VALID_STAGES = ["Applied", "OA", "Interview", "Offer", "Rejected"];
-    const docs = applications.map((app: any) => {
-      if (!app.company || !app.role) throw new ValidationError("Missing company or role");
-      const stage = VALID_STAGES.includes(app.stage) ? app.stage : "Applied";
-      const appDate = app.applicationDate ? new Date(app.applicationDate) : new Date();
-      return { userId: user._id, company: app.company.trim(), role: app.role.trim(), jobUrl: app.jobUrl?.trim() || "", applicationDate: appDate, stage, stageHistory: [{ stage, date: appDate }], notes: app.notes?.trim() || "", resumeId: null };
-    });
-    const result = await Application.insertMany(docs);
-    res.status(201).json({ message: `Successfully imported ${result.length} applications`, count: result.length });
+    const result = await importApplications(user._id as Types.ObjectId, req.body.applications);
+    if (!result.count && !result.duplicates) throw new ValidationError(`Nothing could be imported — ${result.errors[0]}`);
+    const skipped = [
+      result.duplicates && `${result.duplicates} already tracked`,
+      result.errors.length && `${result.errors.length} skipped`,
+    ].filter(Boolean);
+    const message = `Imported ${result.count} application${result.count === 1 ? "" : "s"}${skipped.length ? ` · ${skipped.join(" · ")}` : ""}`;
+    res.status(result.count ? 201 : 200).json({ message, ...result });
   } catch (err) { next(err); }
 });
 
@@ -324,14 +304,13 @@ router.put("/:id", validate(updateApplicationSchema), async (req: Request, res: 
   } catch (err) { next(err); }
 });
 
-// PUT archive
-router.put("/:id/archive", async (req: Request, res: Response, next: NextFunction) => {
+// PUT archive — { reason?: "manual" | "rejected" | "auto_stale" | "ghosted" }
+router.put("/:id/archive", validate(archiveApplicationSchema), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = getUser(req);
-    const reason = req.body?.reason || "manual";
     const app = await Application.findOneAndUpdate(
       { _id: req.params.id, userId: user._id },
-      { $set: { archived: true, archivedAt: new Date(), archivedReason: reason } },
+      { $set: archivedFields(req.body.reason) },
       { new: true }
     );
     if (!app) throw new NotFoundError("Application");
@@ -345,7 +324,7 @@ router.put("/:id/unarchive", async (req: Request, res: Response, next: NextFunct
     const user = getUser(req);
     const app = await Application.findOneAndUpdate(
       { _id: req.params.id, userId: user._id },
-      { $set: { archived: false, archivedAt: null, archivedReason: null } },
+      { $set: UNARCHIVED_FIELDS },
       { new: true }
     );
     if (!app) throw new NotFoundError("Application");
@@ -353,12 +332,14 @@ router.put("/:id/unarchive", async (req: Request, res: Response, next: NextFunct
   } catch (err) { next(err); }
 });
 
-// DELETE
+// DELETE — with its deadlines, contact links and fit checks (never resumes).
 router.delete("/:id", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = getUser(req);
-    const result = await Application.findOneAndDelete({ _id: req.params.id, userId: user._id });
-    if (!result) throw new NotFoundError("Application");
+    const id = String(req.params.id);
+    if (!mongoose.isValidObjectId(id)) throw new NotFoundError("Application");
+    const deleted = await deleteApplications(user._id as Types.ObjectId, [new Types.ObjectId(id)]);
+    if (!deleted) throw new NotFoundError("Application");
     res.json({ message: "Application deleted" });
   } catch (err) { next(err); }
 });

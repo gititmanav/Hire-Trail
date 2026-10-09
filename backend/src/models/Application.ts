@@ -9,16 +9,6 @@ export const STAGES = [
   "Rejected",
 ] as const;
 
-/** Stages that count toward the conversion funnel. "Drafting" is excluded — it's a
- *  pre-submission state (user is tailoring a resume but hasn't applied yet). */
-export const FUNNEL_STAGES = [
-  "Applied",
-  "OA",
-  "Interview",
-  "Offer",
-  "Rejected",
-] as const;
-
 export const OUTREACH_STATUSES = [
   "none",
   "reached_out",
@@ -28,10 +18,13 @@ export const OUTREACH_STATUSES = [
 
 export type OutreachStatus = (typeof OUTREACH_STATUSES)[number];
 
+/** "ghosted": archived from the sweep — no reply long past the person's usual
+ *  reply window (GET /applications/sweep). */
 export const ARCHIVE_REASONS = [
   "auto_stale",
   "rejected",
   "manual",
+  "ghosted",
 ] as const;
 
 export type ArchiveReason = (typeof ARCHIVE_REASONS)[number];
@@ -107,7 +100,6 @@ const applicationSchema = new Schema<IApplication>(
       type: Schema.Types.ObjectId,
       ref: "User",
       required: true,
-      index: true,
     },
     company: {
       type: String,
@@ -134,7 +126,6 @@ const applicationSchema = new Schema<IApplication>(
       type: String,
       enum: STAGES,
       default: "Applied",
-      index: true,
     },
     stageHistory: {
       type: [stageEntrySchema],
@@ -169,7 +160,6 @@ const applicationSchema = new Schema<IApplication>(
       type: Schema.Types.ObjectId,
       ref: "Company",
       default: null,
-      index: true,
     },
     resumeId: {
       type: Schema.Types.ObjectId,
@@ -180,7 +170,6 @@ const applicationSchema = new Schema<IApplication>(
       type: Schema.Types.ObjectId,
       ref: "TailorSession",
       default: null,
-      index: true,
     },
     contactId: {
       type: Schema.Types.ObjectId,
@@ -209,7 +198,6 @@ const applicationSchema = new Schema<IApplication>(
       type: String,
       enum: APPLICATION_SOURCES,
       default: "manual",
-      index: true,
     },
     aiExtractionStatus: {
       type: String,
@@ -232,15 +220,20 @@ const applicationSchema = new Schema<IApplication>(
   { timestamps: true }
 );
 
-// Compound indexes for common queries
+// Compound indexes for common queries. Reads filter by userId first, so a
+// single-field index (userId, stage, source, companyId, tailorSessionId — all
+// removed 2026-10; drop them in Atlas by hand) only cost writes.
 applicationSchema.index({ userId: 1, stage: 1 });
 applicationSchema.index({ userId: 1, applicationDate: -1 });
 // Calendar: applications that entered a stage inside a date range.
 applicationSchema.index({ userId: 1, "stageHistory.date": 1 });
 applicationSchema.index({ userId: 1, resumeId: 1 });
 // Serves the list's default query (tab + newest first) straight from the index;
-// its {userId, archived} prefix also covers every tab-only lookup.
-applicationSchema.index({ userId: 1, archived: 1, createdAt: -1 });
+// its {userId, archived} prefix also covers every tab-only lookup. `_id` is the
+// list's sort tiebreak — without it the index can't give the order, and every
+// matched document is sorted in memory. Replaces {userId, archived, createdAt}
+// (a prefix of this one; drop that in Atlas by hand once this has built).
+applicationSchema.index({ userId: 1, archived: 1, createdAt: -1, _id: -1 });
 applicationSchema.index({ userId: 1, companyId: 1 });
 applicationSchema.index({ userId: 1, jobUrl: 1 });
 

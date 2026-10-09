@@ -1,6 +1,7 @@
 /** User document: local password and/or Google OAuth; password hash stripped in `toJSON`. */
 import mongoose, { Schema, Document } from "mongoose";
 import bcrypt from "bcrypt";
+import { LIST_DESIGNS } from "../validators/preferences.js";
 
 /** Default instruction for the "prompt" clipboard format. Kept in sync with the
  *  extension's fallback so a user who never customizes it still gets a useful prompt. */
@@ -155,7 +156,7 @@ const userSchema = new Schema<IUser>(
         {
           // Shape enforced by validators/preferences.ts on write.
           theme: { type: Schema.Types.Mixed },
-          listDesign: { type: String, enum: ["classic", "table"] },
+          listDesign: { type: String, enum: LIST_DESIGNS },
           // undefined = the defaults; [] = every link removed (see validators/preferences.ts).
           quickLinks: { type: [String], default: undefined },
           adminQuickLinks: { type: [String], default: undefined },
