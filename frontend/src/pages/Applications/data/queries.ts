@@ -1,22 +1,26 @@
-/** Query + mutation hooks for the Applications surfaces (List, Board, detail).
+/** Query + mutation hooks for the Applications surfaces (Ledger, Trail, Desk,
+ *  Board, the application page).
  *
  *  Key design:
- *    ["applications", "list", "page", params, page]  classic paginated list
- *    ["applications", "list", "all", params]         every match (table + board share it)
+ *    ["applications", "list", "page", params, page]  one page (exports, small lists)
+ *    ["applications", "list", "all", params]         every match (every view shares it)
  *    ["applications", "detail", id]                  one full application
  *    ["applications", "filter-options", status]      Filters menu choices
+ *    ["applications", "insights"]                    reply window + Sweep count
+ *    ["applications", "sweep"]                       Sweep's queue
  *
  *  Mutations patch every cached copy optimistically (the UI moves the instant
- *  you act), roll back on error, and revalidate on settle — so the server stays
- *  the source of truth without the user ever waiting on it.
- */
+ *  you act), roll back on error, and revalidate once the LAST pending write
+ *  settles — revalidating after the first of two quick moves would repaint
+ *  the second one back to where it was. */
 import { useMutation, useQuery, useQueryClient, keepPreviousData, type QueryClient } from "@tanstack/react-query";
 import toast from "../../../components/ui/toast.ts";
 import {
   applicationsAPI, contactsAPI, deadlinesAPI, resumesAPI, companiesAPI,
-  type ApplicationListParams, type ApplicationListResponse,
+  type ApplicationBatchAction, type ApplicationListParams, type ApplicationListResponse,
 } from "../../../utils/api.ts";
-import type { Application, ApplicationFormData, Stage } from "../../../types";
+import { DEFAULT_REPLY_WINDOW } from "./focus.ts";
+import type { Application, ApplicationFormData, ArchiveReason, ReplyWindow, Stage } from "../../../types";
 
 export const appKeys = {
   all: ["applications"] as const,
@@ -25,7 +29,15 @@ export const appKeys = {
   everything: (params: ApplicationListParams) => [...appKeys.lists(), "all", params] as const,
   detail: (id: string) => [...appKeys.all, "detail", id] as const,
   filterOptions: (status: "true" | "false") => [...appKeys.all, "filter-options", status] as const,
+  insights: () => [...appKeys.all, "insights"] as const,
+  sweep: () => [...appKeys.all, "sweep"] as const,
 };
+
+/** Every application write carries this key, so a settle can tell whether it's the last one. */
+const WRITE_KEY = ["applications", "write"] as const;
+
+/** The server's cap on one list request. */
+export const LIST_CAP = 1000;
 
 /** Poll while the AI is extracting a posting or analysing fit, so rows update
  *  live and stop polling the moment nothing is in flight. */
@@ -33,24 +45,13 @@ function aiInFlight(apps: Application[] | undefined): boolean {
   return !!apps?.some((a) => a.aiExtractionStatus === "processing" || a.fit?.status === "processing");
 }
 
-export function useApplicationsPage(params: ApplicationListParams, page: number, { enabled = true } = {}) {
-  return useQuery({
-    enabled,
-    queryKey: appKeys.page(params, page),
-    queryFn: ({ signal }) => applicationsAPI.getAll({ ...params, page, limit: 25 }, { quiet: true, signal }),
-    placeholderData: keepPreviousData,
-    refetchInterval: (q) => (aiInFlight(q.state.data?.data) ? 4000 : false),
-    meta: { errorMessage: "Couldn't load your applications. Please try again." },
-  });
-}
-
-/** Every application matching the filters (stage excluded — Board columns and
- *  table groups show all stages). 1000 is the server cap. */
+/** Every application matching the filters (stage excluded — groups, columns
+ *  and sections show all stages and count them). 1000 is the server cap. */
 export function useAllApplications(params: ApplicationListParams, { enabled = true } = {}) {
   return useQuery({
     enabled,
     queryKey: appKeys.everything({ ...params, stage: undefined }),
-    queryFn: ({ signal }) => applicationsAPI.getAll({ ...params, stage: undefined, page: 1, limit: 1000 }, { quiet: true, signal }),
+    queryFn: ({ signal }) => applicationsAPI.getAll({ ...params, stage: undefined, page: 1, limit: LIST_CAP }, { quiet: true, signal }),
     placeholderData: keepPreviousData,
     refetchInterval: (q) => (aiInFlight(q.state.data?.data) ? 4000 : false),
     meta: { errorMessage: "Couldn't load your applications. Please try again." },
@@ -74,11 +75,12 @@ export function useApplication(id: string | undefined) {
   });
 }
 
-export function useApplicationDeadlines(id: string | undefined) {
-  return useQuery({
-    queryKey: ["deadlines", "application", id],
-    queryFn: () => deadlinesAPI.getAll({ applicationId: id, status: "upcoming", limit: 50 }).then((r) => r.data),
-    enabled: !!id,
+/** Warm an application's full document (the Desk's neighbours, a hovered row). */
+export function prefetchApplication(qc: QueryClient, id: string) {
+  void qc.prefetchQuery({
+    queryKey: appKeys.detail(id),
+    queryFn: ({ signal }) => applicationsAPI.getOne(id, { quiet: true, signal }),
+    staleTime: 30_000,
   });
 }
 
@@ -90,19 +92,55 @@ export function useFilterOptions(status: "true" | "false") {
   });
 }
 
+/** The person's reply window (falls back to the 14-day default until it loads). */
+export function useInsights() {
+  return useQuery({
+    queryKey: appKeys.insights(),
+    queryFn: ({ signal }) => applicationsAPI.insights({ quiet: true, signal }),
+    staleTime: 60_000,
+    meta: { silent: true },
+  });
+}
+export function useReplyWindow(): ReplyWindow {
+  return useInsights().data?.replyWindow ?? DEFAULT_REPLY_WINDOW;
+}
+
+export function useSweepQueue(enabled: boolean) {
+  return useQuery({
+    queryKey: appKeys.sweep(),
+    queryFn: ({ signal }) => applicationsAPI.sweep({ quiet: true, signal }),
+    enabled,
+    staleTime: 0,
+    meta: { errorMessage: "Couldn't load your quiet applications. Please try again." },
+  });
+}
+
 /* ─── Shared entity lists (resumes, contacts, deadlines, companies) ─── */
 
 export function useResumes() {
-  return useQuery({ queryKey: ["resumes"], queryFn: () => resumesAPI.getAll(), staleTime: 60_000 });
+  return useQuery({ queryKey: ["resumes"], queryFn: ({ signal }) => resumesAPI.getAll({ quiet: true, signal }), staleTime: 60_000 });
 }
 export function useContacts() {
-  return useQuery({ queryKey: ["contacts", "all"], queryFn: () => contactsAPI.getAll({ limit: 500 }).then((r) => r.data), staleTime: 60_000 });
+  return useQuery({
+    queryKey: ["contacts", "all"],
+    queryFn: ({ signal }) => contactsAPI.getAll({ limit: 1000 }, { quiet: true, signal }).then((r) => r.data),
+    staleTime: 60_000,
+  });
 }
-export function useUpcomingDeadlines() {
-  return useQuery({ queryKey: ["deadlines", "upcoming"], queryFn: () => deadlinesAPI.getAll({ limit: 500, status: "upcoming" }).then((r) => r.data) });
+/** Every open deadline, overdue included — what each application's next step is read from. */
+export function useOpenDeadlines() {
+  return useQuery({
+    queryKey: ["deadlines", "active"],
+    queryFn: ({ signal }) => deadlinesAPI.getAll({ limit: 2000, status: "active" }, { quiet: true, signal }).then((r) => r.data),
+    staleTime: 30_000,
+  });
 }
 export function useCompanies() {
-  return useQuery({ queryKey: ["companies", "all"], queryFn: () => companiesAPI.getAll({ limit: 500 }).then((r) => r.data), staleTime: 5 * 60_000 });
+  return useQuery({
+    queryKey: ["companies", "all"],
+    queryFn: ({ signal }) => companiesAPI.getAll({ limit: 500 }, { quiet: true, signal }).then((r) => r.data),
+    staleTime: 5 * 60_000,
+  });
 }
 
 /* ─── Cache helpers ─── */
@@ -117,23 +155,23 @@ function findInLists(qc: QueryClient, id: string): Application | undefined {
 
 type Snapshot = Array<[readonly unknown[], unknown]>;
 
-function snapshot(qc: QueryClient, id?: string): Snapshot {
+function snapshot(qc: QueryClient, ids: string[] = []): Snapshot {
   const snap: Snapshot = qc.getQueriesData({ queryKey: appKeys.lists() });
-  if (id) snap.push([appKeys.detail(id), qc.getQueryData(appKeys.detail(id))]);
+  for (const id of ids) snap.push([appKeys.detail(id), qc.getQueryData(appKeys.detail(id))]);
   return snap;
 }
 function restore(qc: QueryClient, snap: Snapshot) {
   for (const [key, data] of snap) qc.setQueryData(key, data);
 }
 
-/** Apply `patch` to one application everywhere it's cached. Stage changes also
- *  move the per-stage counts so chips and group headers stay consistent. */
-function patchEverywhere(qc: QueryClient, id: string, patch: (a: Application) => Application) {
+/** Apply `patch` to applications everywhere they're cached. Stage changes also
+ *  move the per-stage counts so group headers and columns stay consistent. */
+function patchEverywhere(qc: QueryClient, ids: Set<string>, patch: (a: Application) => Application) {
   qc.setQueriesData<ApplicationListResponse>({ queryKey: appKeys.lists() }, (old) => {
     if (!old) return old;
     let counts = old.stageCounts;
     const data = old.data.map((a) => {
-      if (a._id !== id) return a;
+      if (!ids.has(a._id)) return a;
       const next = patch(a);
       if (counts && next.stage !== a.stage) {
         counts = { ...counts, [a.stage]: Math.max(0, (counts[a.stage] ?? 1) - 1), [next.stage]: (counts[next.stage] ?? 0) + 1 };
@@ -142,7 +180,7 @@ function patchEverywhere(qc: QueryClient, id: string, patch: (a: Application) =>
     });
     return { ...old, data, stageCounts: counts };
   });
-  qc.setQueryData<Application>(appKeys.detail(id), (old) => (old ? patch(old) : old));
+  for (const id of ids) qc.setQueryData<Application>(appKeys.detail(id), (old) => (old ? patch(old) : old));
 }
 
 function removeEverywhere(qc: QueryClient, ids: Set<string>) {
@@ -161,8 +199,13 @@ function removeEverywhere(qc: QueryClient, ids: Set<string>) {
   });
 }
 
-function invalidateApps(qc: QueryClient) {
-  return qc.invalidateQueries({ queryKey: appKeys.all });
+/** Revalidate after the last pending write — and everything that shows
+ *  applications too (the calendar's records, its Dashboard card). */
+function settle(qc: QueryClient, { deadlines = false } = {}) {
+  if (qc.isMutating({ mutationKey: WRITE_KEY }) > 1) return;
+  void qc.invalidateQueries({ queryKey: appKeys.all });
+  void qc.invalidateQueries({ queryKey: ["calendar"] });
+  if (deadlines) void qc.invalidateQueries({ queryKey: ["deadlines"] });
 }
 
 /* ─── Mutations ─── */
@@ -170,13 +213,14 @@ function invalidateApps(qc: QueryClient) {
 export function useStageMutation(opts: { onMoved?: (app: Application, from: Stage, to: Stage) => void } = {}) {
   const qc = useQueryClient();
   return useMutation({
+    mutationKey: WRITE_KEY,
     mutationFn: ({ id, stage }: { id: string; stage: Stage; from: Stage; app: Application }) =>
       applicationsAPI.update(id, { stage }),
     onMutate: async ({ id, stage }) => {
       await qc.cancelQueries({ queryKey: appKeys.all });
-      const snap = snapshot(qc, id);
+      const snap = snapshot(qc, [id]);
       const now = new Date().toISOString();
-      patchEverywhere(qc, id, (a) => ({ ...a, stage, stageHistory: [...(a.stageHistory ?? []), { stage, date: now }] }));
+      patchEverywhere(qc, new Set([id]), (a) => ({ ...a, stage, stageHistory: [...(a.stageHistory ?? []), { stage, date: now }] }));
       return { snap };
     },
     // The API interceptor already toasts the server's reason; just roll back.
@@ -185,53 +229,66 @@ export function useStageMutation(opts: { onMoved?: (app: Application, from: Stag
       toast.success(`Moved to ${stage}`, { id: `stage:${app._id}` });
       opts.onMoved?.(app, from, stage);
     },
-    onSettled: () => invalidateApps(qc),
+    onSettled: () => settle(qc),
   });
 }
 
 export function useSaveApplication() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }: { id: string | null; data: Partial<ApplicationFormData> & { jobDescription?: string; archivedReason?: string } }) =>
+    mutationKey: WRITE_KEY,
+    mutationFn: ({ id, data }: { id: string | null; data: Partial<ApplicationFormData> & { jobDescription?: string; applicationDate?: string } }) =>
       id ? applicationsAPI.update(id, data) : applicationsAPI.create(data as ApplicationFormData),
     onSuccess: (saved) => {
       qc.setQueryData(appKeys.detail(saved._id), (old: Application | undefined) => (old ? { ...old, ...saved } : saved));
     },
-    onSettled: () => invalidateApps(qc),
+    onSettled: () => settle(qc),
   });
 }
 
-export function useArchiveMutation() {
+/** Many applications in one request. Archive / unarchive / delete leave the
+ *  visible lists at once; a stage move repaints in place. */
+export function useBatchMutation() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ ids, archived }: { ids: string[]; archived: boolean }) => {
-      await Promise.all(ids.map((id) => (archived ? applicationsAPI.archive(id, "manual") : applicationsAPI.unarchive(id))));
-    },
-    onMutate: async ({ ids }) => {
-      await qc.cancelQueries({ queryKey: appKeys.lists() });
-      const snap = snapshot(qc);
-      // Leaving the current tab either way — drop from the visible lists now.
-      removeEverywhere(qc, new Set(ids));
+    mutationKey: WRITE_KEY,
+    mutationFn: ({ ids, body }: { ids: string[]; body: ApplicationBatchAction }) => applicationsAPI.batch(ids, body),
+    onMutate: async ({ ids, body }) => {
+      await qc.cancelQueries({ queryKey: appKeys.all });
+      const snap = snapshot(qc, ids);
+      const set = new Set(ids);
+      if (body.action === "stage") {
+        const now = new Date().toISOString();
+        patchEverywhere(qc, set, (a) => (a.stage === body.stage ? a : { ...a, stage: body.stage, stageHistory: [...(a.stageHistory ?? []), { stage: body.stage, date: now }] }));
+      } else if (body.action !== "undoStage") {
+        // Leaving the current tab (or the account) either way.
+        removeEverywhere(qc, set);
+      }
       return { snap };
     },
     onError: (_e, _v, ctx) => { if (ctx) restore(qc, ctx.snap); },
-    onSettled: () => invalidateApps(qc),
+    onSettled: (_d, _e, { body }) => settle(qc, { deadlines: body.action === "delete" }),
   });
+}
+
+/** Archive (or restore) — one request however many. */
+export function useArchiveMutation() {
+  const batch = useBatchMutation();
+  return {
+    ...batch,
+    mutate: (
+      { ids, archived, reason = "manual" }: { ids: string[]; archived: boolean; reason?: ArchiveReason },
+      opts?: { onSuccess?: () => void },
+    ) => batch.mutate({ ids, body: archived ? { action: "archive", reason } : { action: "unarchive" } }, opts),
+  };
 }
 
 export function useDeleteMutation() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (ids: string[]) => { await Promise.all(ids.map((id) => applicationsAPI.delete(id))); },
-    onMutate: async (ids) => {
-      await qc.cancelQueries({ queryKey: appKeys.lists() });
-      const snap = snapshot(qc);
-      removeEverywhere(qc, new Set(ids));
-      return { snap };
-    },
-    onError: (_e, _v, ctx) => { if (ctx) restore(qc, ctx.snap); },
-    onSettled: () => invalidateApps(qc),
-  });
+  const batch = useBatchMutation();
+  return {
+    ...batch,
+    mutate: (ids: string[], opts?: { onSuccess?: () => void }) => batch.mutate({ ids, body: { action: "delete" } }, opts),
+  };
 }
 
 export function useReanalyzeMutation() {
@@ -239,8 +296,8 @@ export function useReanalyzeMutation() {
   return useMutation({
     mutationFn: (id: string) => applicationsAPI.reanalyze(id),
     onMutate: async (id) => {
-      const snap = snapshot(qc, id);
-      patchEverywhere(qc, id, (a) => ({
+      const snap = snapshot(qc, [id]);
+      patchEverywhere(qc, new Set([id]), (a) => ({
         ...a,
         fit: { sessionId: a.fit?.sessionId ?? "", status: "processing", score: null, matchedCount: 0, missingCount: 0, topMatched: [] },
       }));

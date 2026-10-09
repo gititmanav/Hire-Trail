@@ -8,7 +8,9 @@ export type ThemeMode = "system" | "light" | "dark" | "custom";
 export type Lch = [number, number, number];
 export interface CustomTheme { base: Lch; accent: Lch; contrast: number }
 export interface ThemePrefs { mode: ThemeMode; custom?: CustomTheme }
-export type ListDesign = "classic" | "table";
+/** How the List view reads: Ledger (a stage-aware table), Trail (a timeline),
+ *  Desk (the list beside the application). */
+export type ListDesign = "ledger" | "trail" | "desk";
 /** Pages the header search can pin as quick links — mirrors the backend's QUICK_LINK_IDS. */
 export type QuickLinkId = "ai" | "personalize" | "board" | "list" | "resumes" | "calendar" | "notifications";
 export const QUICK_LINK_IDS: readonly QuickLinkId[] = ["ai", "personalize", "board", "list", "resumes", "calendar", "notifications"];
@@ -20,8 +22,8 @@ export const ADMIN_QUICK_LINK_IDS: readonly AdminQuickLinkId[] = ["users", "feed
 export const DEFAULT_ADMIN_QUICK_LINKS: readonly AdminQuickLinkId[] = ["users", "feedback", "bugs"];
 export interface Preferences { theme?: ThemePrefs; listDesign?: ListDesign; quickLinks?: QuickLinkId[]; adminQuickLinks?: AdminQuickLinkId[] }
 
-export const DEFAULT_LIST_DESIGN: ListDesign = "classic";
-export const LIST_DESIGNS: readonly ListDesign[] = ["classic", "table"];
+export const DEFAULT_LIST_DESIGN: ListDesign = "ledger";
+export const LIST_DESIGNS: readonly ListDesign[] = ["ledger", "trail", "desk"];
 const THEME_MODES: readonly ThemeMode[] = ["system", "light", "dark", "custom"];
 
 /** Theme ids the old preset registry stored, which were dark. */
@@ -69,6 +71,13 @@ export function isListDesign(v: unknown): v is ListDesign {
   return typeof v === "string" && (LIST_DESIGNS as readonly string[]).includes(v);
 }
 
+/** A stored list design, made current: Classic and Table (before 2026-10-08)
+ *  both became Ledger — the Table grown up. Anything else is "not set". */
+export function normalizeListDesign(v: unknown): ListDesign | undefined {
+  if (v === "classic" || v === "table") return "ledger";
+  return isListDesign(v) ? v : undefined;
+}
+
 export function isQuickLinkId(v: unknown): v is QuickLinkId {
   return typeof v === "string" && (QUICK_LINK_IDS as readonly string[]).includes(v);
 }
@@ -96,7 +105,8 @@ export function normalizePreferences(v: unknown): Preferences {
   const out: Preferences = {};
   const theme = normalizeThemePrefs(o.theme);
   if (theme) out.theme = theme;
-  if (isListDesign(o.listDesign)) out.listDesign = o.listDesign;
+  const listDesign = normalizeListDesign(o.listDesign);
+  if (listDesign) out.listDesign = listDesign;
   const links = normalizeQuickLinks(o.quickLinks);
   if (links) out.quickLinks = links;
   const adminLinks = normalizeAdminQuickLinks(o.adminQuickLinks);

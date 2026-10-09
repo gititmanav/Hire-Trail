@@ -1,7 +1,7 @@
 /** App shell: sidebar + header form one backdrop; the main section is a card
  *  on it that scrolls on its own (the header and sidebar never move). Pages
  *  are fluid or max-width by route. */
-import { useState, useEffect, useLayoutEffect, useRef } from "react";
+import { useCallback, useState, useEffect, useLayoutEffect, useRef } from "react";
 import { Outlet, useLocation, useNavigationType } from "react-router-dom";
 import Sidebar from "../Sidebar/Sidebar.tsx";
 import Header from "../Header/Header.tsx";
@@ -10,6 +10,7 @@ import AnnouncementBanner from "../Announcements/AnnouncementBanner.tsx";
 import { APP_SCROLL_ID } from "../../utils/scrollRoot.ts";
 import { useShellCollapse } from "../../hooks/useShellCollapse.ts";
 import { rememberAppPath } from "../../utils/returnPath.ts";
+import { FillHeightContext } from "./fillHeight.ts";
 import type { User } from "../../types";
 
 interface Props { user: User; onLogout: () => Promise<void>; }
@@ -25,8 +26,11 @@ export default function Layout({ user, onLogout }: Props) {
   // Applications views or stepping J/K through applications must not reset
   // the page or flash the fade.
   const sectionKey = location.pathname.split("/")[1] ?? "";
-  // Views that own their height (the calendar fills the card; the card never scrolls).
-  const fillHeight = location.pathname.startsWith("/applications/calendar");
+  // Views that own their height (the calendar, the Desk) claim it — the card
+  // becomes a flex column and never scrolls (components/Layout/fillHeight).
+  const [fillClaims, setFillClaims] = useState(0);
+  const claimFill = useCallback((delta: 1 | -1) => setFillClaims((n) => Math.max(0, n + delta)), []);
+  const fillHeight = fillClaims > 0;
 
   // Close mobile sidebar on route change
   useEffect(() => { setMobileOpen(false); }, [location.pathname]);
@@ -85,7 +89,9 @@ export default function Layout({ user, onLogout }: Props) {
           {/* Every page gets the whole card: its PageHeader spans it, and the page
               caps only its body (ui/PageHeader PageBody). */}
           <div key={sectionKey} className={`p-4 md:p-6 fade-up ${fillHeight ? "w-full flex-1 min-h-0 flex flex-col" : ""}`}>
-            <Outlet />
+            <FillHeightContext.Provider value={claimFill}>
+              <Outlet />
+            </FillHeightContext.Provider>
           </div>
         </main>
       </div>

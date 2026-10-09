@@ -3,6 +3,7 @@
  *  (the exact view + filters). Session-scoped — a fresh tab starts clean. */
 
 import { appScrollRoot } from "../../../utils/scrollRoot.ts";
+import type { ListDesign } from "../../../utils/preferences.ts";
 
 const KEY = "hiretrail-apps-detail-nav";
 const SCROLL_PREFIX = "hiretrail-apps-scroll:";
@@ -40,4 +41,13 @@ export function takeListScroll(url: string): number | null {
   } catch {
     return null;
   }
+}
+
+/** Where an application opens: its own page (Ledger, Trail, Board, Calendar),
+ *  or — for Desk readers — the Desk with it open beside the list, filters kept. */
+export function applicationHref(id: string, design: ListDesign, filterSearch = ""): string {
+  if (design !== "desk") return `/applications/${id}`;
+  const params = new URLSearchParams(filterSearch);
+  params.set("app", id);
+  return `/applications?${params}`;
 }

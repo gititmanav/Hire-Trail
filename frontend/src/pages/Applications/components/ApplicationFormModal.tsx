@@ -1,14 +1,19 @@
 /** Create / edit an application. Shared by the Applications views and the
  *  application detail page. Sora's composer: the role as the headline, the
- *  company and the link under it, then the details as chips (stage, resume,
- *  location, salary, type), notes as plain text, and the job description —
- *  the input the AI fit check needs — one chip away. */
+ *  company and the link under it, then the details as chips (stage, applied
+ *  date, resume, location, salary, type), notes as plain text, and the job
+ *  description — the input the AI fit check needs — one chip away.
+ *
+ *  The company LINK is the server's to decide from the name (it relinks when
+ *  the name changes), so the form never sends a companyId. */
 import { FormEvent, useState } from "react";
 import { Briefcase, DollarSign, FileText, Link2, MapPin, Plus } from "lucide-react";
 import toast from "../../../components/ui/toast.ts";
 import { useQueryClient } from "@tanstack/react-query";
 import { resumesAPI } from "../../../utils/api.ts";
 import { STAGES, STAGE_STRIPE_CLASS } from "../../../utils/stageStyles.ts";
+import { dayOf, todayYmd } from "../../../utils/dates.ts";
+import DateInput from "../../../components/ui/DateInput.tsx";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "../../../components/ui/Modal.tsx";
 import { Input, Textarea } from "../../../components/ui/Field.tsx";
 import Select from "../../../components/ui/Select.tsx";
@@ -19,16 +24,17 @@ import ResumeModal from "../../../components/ResumeModal/ResumeModal.tsx";
 import { useResumes, useSaveApplication } from "../data/queries.ts";
 import type { Application, ApplicationFormData, Stage } from "../../../types";
 
-type FormState = ApplicationFormData & { jobDescription: string };
+type FormState = Omit<ApplicationFormData, "companyId"> & { jobDescription: string; applicationDate: string };
 
 function initialForm(app: Application | null): FormState {
   return {
     company: app?.company || "", role: app?.role || "", jobUrl: app?.jobUrl || "",
     stage: app?.stage || "Applied", notes: app?.notes || "",
-    resumeId: app?.resumeId || "", companyId: app?.companyId || "",
+    resumeId: app?.resumeId || "",
     contactId: app?.contactId || "", outreachStatus: app?.outreachStatus || "none",
     location: app?.location || "", salary: app?.salary || "", jobType: app?.jobType || "",
     jobDescription: app?.jobDescription || "",
+    applicationDate: (app ? dayOf(app.applicationDate) : "") || todayYmd(),
   };
 }
 
@@ -49,10 +55,17 @@ export default function ApplicationFormModal({ app, onClose, onSaved }: {
   const submit = (e: FormEvent) => {
     e.preventDefault();
     // Unchanged JD isn't re-sent: an edit opened from a list row (summary
-    // payload, no JD loaded) must never blank the stored description.
-    const { jobDescription, ...rest } = form;
+    // payload, no JD loaded) must never blank the stored description. The
+    // applied day is sent only when it's set by hand (a create backdated, or
+    // an edit that changed it) — an untouched one keeps the stored moment.
+    const { jobDescription, applicationDate, ...rest } = form;
     const jdChanged = jobDescription !== (app?.jobDescription || "");
-    const payload = jdChanged ? { ...rest, jobDescription } : rest;
+    const dateChanged = applicationDate !== ((app ? dayOf(app.applicationDate) : "") || todayYmd());
+    const payload = {
+      ...rest,
+      ...(jdChanged ? { jobDescription } : {}),
+      ...(dateChanged && rest.stage !== "Drafting" ? { applicationDate } : {}),
+    };
     save.mutate(
       { id: app?._id ?? null, data: payload },
       {
@@ -108,6 +121,9 @@ export default function ApplicationFormModal({ app, onClose, onSaved }: {
                 ariaLabel="Stage"
                 options={STAGES.map((st) => ({ value: st, label: st, icon: <span className={`w-2 h-2 rounded-full ${STAGE_STRIPE_CLASS[st]}`} /> }))}
               />
+              {form.stage !== "Drafting" && (
+                <DateInput value={form.applicationDate} onChange={(v) => u("applicationDate", v || todayYmd())} ariaLabel="Applied on" placeholder="Applied on" />
+              )}
               <Select
                 value={form.resumeId || ""}
                 onChange={(v) => u("resumeId", v)}

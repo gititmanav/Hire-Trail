@@ -1,37 +1,44 @@
-/** Behaviour shared by both list designs (Classic cards, full-width table):
- *  opening a row, company logos, keyboard focus + selection, bulk actions. */
+/** Behaviour every list shares (Ledger, Trail, Desk, Board): opening an
+ *  application, company logos, keyboard focus + selection, bulk actions. */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import toast from "../../../components/ui/toast.ts";
+import toast, { toastWithUndo } from "../../../components/ui/toast.ts";
 import { companiesAPI } from "../../../utils/api.ts";
 import { usePageShortcuts } from "../../../hooks/usePageShortcuts.ts";
 import { useConfirm } from "../../../hooks/useConfirm.ts";
+import { useListDesign } from "../../../hooks/useListDesign.ts";
 import ConfirmModal from "../../../components/ConfirmModal/ConfirmModal.tsx";
 import BulkActionBar from "../components/BulkActionBar.tsx";
-import { rememberDetailNav, saveListScroll, takeListScroll } from "../data/navigation.ts";
+import { applicationHref, rememberDetailNav, saveListScroll, takeListScroll } from "../data/navigation.ts";
+import { useApplicationFilters } from "../data/filters.ts";
 import { appScrollRoot } from "../../../utils/scrollRoot.ts";
 import { useArchiveMutation, useCompanies, useDeleteMutation } from "../data/queries.ts";
 import type { Application, Company } from "../../../types";
 
 /* ─── Opening an application ─── */
 
-/** Opens /applications/:id, remembering the visible order (J/K on the detail
- *  page) and this view's URL + scroll (Back lands exactly where you were).
+/** Opens an application, remembering the visible order (J/K on the
+ *  application page) and this view's URL + scroll (Back lands exactly where
+ *  you were). Desk readers get the Desk with it open instead of a page.
  *  Cmd/Ctrl-click opens a new tab, like a link. */
 export function useOpenApplication(orderedIds: string[]) {
   const navigate = useNavigate();
   const location = useLocation();
+  const [design] = useListDesign();
+  const { filterSearch } = useApplicationFilters();
   const backTo = location.pathname + location.search;
   return useCallback((app: Pick<Application, "_id">, e?: { metaKey?: boolean; ctrlKey?: boolean }) => {
+    const href = applicationHref(app._id, design, filterSearch);
     if (e?.metaKey || e?.ctrlKey) {
-      window.open(`/applications/${app._id}`, "_blank", "noopener");
+      window.open(href, "_blank", "noopener");
       return;
     }
+    if (design === "desk") { navigate(href); return; }
     rememberDetailNav({ ids: orderedIds, backTo });
     saveListScroll(backTo);
-    navigate(`/applications/${app._id}`, { state: { fromList: true } });
-  }, [navigate, orderedIds, backTo]);
+    navigate(href, { state: { fromList: true } });
+  }, [navigate, orderedIds, backTo, design, filterSearch]);
 }
 
 /** Restore this view's scroll position once its rows are on screen. */
@@ -58,7 +65,7 @@ export function useCompanyResolver(apps: Application[]) {
   const { data: companies = [] } = useCompanies();
   const byId = useMemo(() => new Map(companies.map((c) => [c._id, c])), [companies]);
   const byName = useMemo(() => new Map(companies.map((c) => [c.name.toLowerCase(), c])), [companies]);
-  const resolve = useCallback((app: Application): Company | undefined =>
+  const resolve = useCallback((app: Pick<Application, "companyId" | "company">): Company | undefined =>
     (app.companyId ? byId.get(app.companyId) : undefined) ?? byName.get(app.company.toLowerCase()),
   [byId, byName]);
 
@@ -80,11 +87,13 @@ export function useCompanyResolver(apps: Application[]) {
 
 /* ─── Focus, selection, bulk actions ─── */
 
-export function useListBehavior({ apps, archived, onOpen, onEdit }: {
+export function useListBehavior({ apps, archived, onOpen, onEdit, extraShortcuts }: {
   apps: Application[];
   archived: boolean;
   onOpen: (app: Application) => void;
   onEdit: (app: Application) => void;
+  /** View-specific keys acting on the focused row (Ledger's Space → peek). */
+  extraShortcuts?: Record<string, (app: Application) => void>;
 }) {
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -107,20 +116,23 @@ export function useListBehavior({ apps, archived, onOpen, onEdit }: {
     return next;
   }), []);
   const clear = useCallback(() => setSelected(new Set()), []);
+  const selectAll = useCallback(() => setSelected(new Set(apps.map((a) => a._id))), [apps]);
   /** Pointer and keyboard share one cursor, so J/K carry on from the row under
    *  the pointer. A row the pointer has left stops being current: the
    *  highlight, and what Enter / E / X act on, leave with it. */
   const leaveRow = useCallback((idx: number) => setFocusedIndex((i) => (i === idx ? -1 : i)), []);
 
+  const focusedApp = apps[focusedIndex];
   usePageShortcuts({
     j: () => setFocusedIndex((i) => Math.min(apps.length - 1, i + 1)),
     ArrowDown: () => { if (focusedIndex < 0) return false; setFocusedIndex((i) => Math.min(apps.length - 1, i + 1)); },
     k: () => setFocusedIndex((i) => Math.max(0, i - 1)),
     ArrowUp: () => { if (focusedIndex < 0) return false; setFocusedIndex((i) => Math.max(0, i - 1)); },
-    Enter: () => { const a = apps[focusedIndex]; if (!a) return false; onOpen(a); },
-    e: () => { const a = apps[focusedIndex]; if (!a) return false; onEdit(a); },
-    x: () => { const a = apps[focusedIndex]; if (!a) return false; toggle(a._id); },
+    Enter: () => { if (!focusedApp) return false; onOpen(focusedApp); },
+    e: () => { if (!focusedApp) return false; onEdit(focusedApp); },
+    x: () => { if (!focusedApp) return false; toggle(focusedApp._id); },
     Escape: () => { if (selected.size === 0) return false; clear(); },
+    ...Object.fromEntries(Object.entries(extraShortcuts ?? {}).map(([key, fn]) => [key, () => { if (!focusedApp) return false; fn(focusedApp); }])),
   });
 
   // Keep the keyboard-focused row in view. A group that is animating shut
@@ -134,33 +146,39 @@ export function useListBehavior({ apps, archived, onOpen, onEdit }: {
   const n = ids.length;
   const plural = `${n} application${n === 1 ? "" : "s"}`;
 
-  const bulkArchive = async () => {
-    const ok = await confirm(`Archive ${plural}? You can restore them from Archived anytime.`, { title: "Archive selected?", confirmLabel: "Archive", danger: false });
-    if (!ok) return;
-    archive.mutate({ ids, archived: true }, { onSuccess: () => toast.success(`Archived ${plural}`) });
+  const bulkArchive = () => {
+    const batch = [...ids];
+    archive.mutate({ ids: batch, archived: true }, {
+      onSuccess: () => toastWithUndo(`Archived ${plural}`, () => archive.mutate({ ids: batch, archived: false })),
+    });
     clear();
   };
   const bulkUnarchive = () => {
-    archive.mutate({ ids, archived: false }, { onSuccess: () => toast.success(`Restored ${plural}`) });
+    const batch = [...ids];
+    archive.mutate({ ids: batch, archived: false }, {
+      onSuccess: () => toastWithUndo(`Restored ${plural}`, () => archive.mutate({ ids: batch, archived: true })),
+    });
     clear();
   };
   const bulkDelete = async () => {
-    const ok = await confirm(`Permanently delete ${plural}? This can't be undone.`, { title: "Delete selected?", confirmLabel: "Delete" });
+    const ok = await confirm(`Permanently delete ${plural}, with their deadlines and fit checks? This can't be undone.`, { title: "Delete selected?", confirmLabel: "Delete" });
     if (!ok) return;
     remove.mutate(ids, { onSuccess: () => toast.success(`Deleted ${plural}`) });
     clear();
   };
-  const deleteOne = async (app: Application) => {
-    const ok = await confirm("This application will be permanently deleted.", { title: `Delete ${app.role}?`, confirmLabel: "Delete" });
-    if (!ok) return;
-    remove.mutate([app._id], { onSuccess: () => toast.success("Application deleted") });
-  };
 
   const overlays = (
     <>
-      {n > 0 && (
-        <BulkActionBar count={n} archived={archived} onArchive={bulkArchive} onUnarchive={bulkUnarchive} onDelete={bulkDelete} onClear={clear} />
-      )}
+      <BulkActionBar
+        count={n}
+        total={apps.length}
+        archived={archived}
+        onSelectAll={selectAll}
+        onArchive={bulkArchive}
+        onUnarchive={bulkUnarchive}
+        onDelete={() => void bulkDelete()}
+        onClear={clear}
+      />
       {confirmState.open && (
         <ConfirmModal
           title={confirmState.title}
@@ -174,5 +192,5 @@ export function useListBehavior({ apps, archived, onOpen, onEdit }: {
     </>
   );
 
-  return { focusedIndex, setFocusedIndex, leaveRow, selected, toggle, clear, deleteOne, overlays };
+  return { focusedIndex, setFocusedIndex, leaveRow, selected, toggle, clear, selectAll, overlays };
 }

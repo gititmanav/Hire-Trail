@@ -1,108 +1,66 @@
 /**
- * Rich empty state for the Applications list. Two flavors:
- *   - "welcome": user has zero applications total — show the funnel + 3
- *     quick-start CTAs (add manually, install the extension, import CSV).
- *   - "filtered": user has applications, but current filters return nothing —
- *     suggest clearing the filter.
- *
- * Inline SVG, no asset dependencies — survives a clean-room install.
+ * Empty states for the Applications views:
+ *   - "welcome": no applications at all — three ways to add the first one.
+ *   - "filtered": applications exist, the search/filters match none.
+ *   - "archived": nothing has been archived yet.
  */
-
-import { Search, Plus, Puzzle, Upload } from "lucide-react";
-import { cssPalette } from "../../../utils/palette.ts";
+import { Archive, Plus, Puzzle, Search, Upload } from "lucide-react";
+import Button, { buttonClass } from "../../../components/ui/Button.tsx";
+import { CHROME_STORE_URL } from "../../../utils/links.ts";
 
 interface Props {
-  mode: "welcome" | "filtered";
+  mode: "welcome" | "filtered" | "archived";
   onAddManually: () => void;
   onImport: () => void;
-  onClearFilters?: () => void;
-  extensionUrl?: string;
+  /** Back to every active application: search, filters and the Archived tab cleared. */
+  onClearFilters: () => void;
 }
 
-export default function EmptyState({ mode, onAddManually, onImport, onClearFilters, extensionUrl = "/" }: Props) {
+function Quiet({ icon, title, body, action }: { icon: React.ReactNode; title: string; body: string; action: React.ReactNode }) {
+  return (
+    <div className="mx-auto max-w-sm text-center py-16">
+      <div className="mx-auto mb-4 w-11 h-11 rounded-full bg-control flex items-center justify-center text-muted-foreground" aria-hidden>{icon}</div>
+      <h3 className="text-[15px] font-semibold text-foreground">{title}</h3>
+      <p className="mt-1 text-[13.5px] text-muted-foreground leading-relaxed">{body}</p>
+      <div className="mt-5 flex justify-center">{action}</div>
+    </div>
+  );
+}
+
+export default function EmptyState({ mode, onAddManually, onImport, onClearFilters }: Props) {
   if (mode === "filtered") {
     return (
-      <div className="card-premium card-no-lift p-10 text-center mt-4">
-        <div className="mx-auto mb-4 w-12 h-12 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
-          <Search size={20} strokeWidth={1.8} aria-hidden />
-        </div>
-        <h3 className="text-base font-semibold text-foreground mb-1">No matches for these filters</h3>
-        <p className="text-sm text-muted-foreground mb-4">Try clearing your search or stage filter.</p>
-        {onClearFilters && (
-          <button onClick={onClearFilters} className="btn-secondary">Clear filters</button>
-        )}
-      </div>
+      <Quiet
+        icon={<Search size={18} strokeWidth={1.8} />}
+        title="Nothing matches"
+        body="No application fits this search and these filters."
+        action={<Button size="sm" onClick={onClearFilters}>Clear search and filters</Button>}
+      />
     );
   }
-
+  if (mode === "archived") {
+    return (
+      <Quiet
+        icon={<Archive size={18} strokeWidth={1.8} />}
+        title="Nothing archived"
+        body="Applications you archive — or close as ghosted — rest here, out of the way. Restore any of them anytime."
+        action={<Button size="sm" onClick={onClearFilters}>Back to active</Button>}
+      />
+    );
+  }
   return (
-    <div className="card-premium card-no-lift p-8 mt-4 fade-up overflow-hidden">
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_220px] gap-6 items-center">
-        <div>
-          <span className="inline-block text-[11px] font-semibold uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded-full mb-3">
-            Welcome to HireTrail
-          </span>
-          <h2 className="text-xl font-bold text-foreground tracking-tight mb-1.5">
-            Let's track your first application
-          </h2>
-          <p className="text-sm text-muted-foreground max-w-md mb-5 leading-relaxed">
-            Add a job manually, or save the back-and-forth — install the browser extension and one click captures the JD from LinkedIn, Indeed, Greenhouse, Lever, Glassdoor and Workday.
-          </p>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={onAddManually}
-              className="btn-accent"
-            >
-              <Plus size={14} strokeWidth={2} aria-hidden />
-              Add application
-            </button>
-            <a
-              href={extensionUrl}
-              className="btn-secondary"
-              target={extensionUrl.startsWith("http") ? "_blank" : undefined}
-              rel={extensionUrl.startsWith("http") ? "noopener noreferrer" : undefined}
-            >
-              <Puzzle size={14} strokeWidth={1.8} aria-hidden />
-              Install extension
-            </a>
-            <button
-              type="button"
-              onClick={onImport}
-              className="btn-secondary"
-            >
-              <Upload size={14} strokeWidth={1.8} aria-hidden />
-              Import CSV
-            </button>
-          </div>
-        </div>
-
-        {/* Decorative funnel illustration */}
-        <div className="hidden md:flex justify-center">
-          <svg width="200" height="160" viewBox="0 0 200 160" fill="none" aria-hidden>
-            <defs>
-              <linearGradient id="funnelGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" style={{ stopColor: cssPalette("blue-500") }} stopOpacity="0.15" />
-                <stop offset="100%" style={{ stopColor: cssPalette("blue-500") }} stopOpacity="0" />
-              </linearGradient>
-            </defs>
-            {/* Funnel bands */}
-            <rect x="20" y="20" width="160" height="22" rx="4" style={{ fill: cssPalette("slate-400") }} opacity="0.18" />
-            <rect x="38" y="50" width="124" height="22" rx="4" style={{ fill: cssPalette("blue-500") }} opacity="0.25" />
-            <rect x="58" y="80" width="84"  height="22" rx="4" style={{ fill: cssPalette("amber-500") }} opacity="0.25" />
-            <rect x="76" y="110" width="48" height="22" rx="4" style={{ fill: cssPalette("violet-500") }} opacity="0.30" />
-            {/* Apex offer band */}
-            <rect x="88" y="140" width="24" height="14" rx="3" style={{ fill: cssPalette("emerald-500") }} opacity="0.45" />
-            {/* Stage dots on the right */}
-            <circle cx="195" cy="31" r="3" style={{ fill: cssPalette("slate-400") }} />
-            <circle cx="195" cy="61" r="3" style={{ fill: cssPalette("blue-500") }} />
-            <circle cx="195" cy="91" r="3" style={{ fill: cssPalette("amber-500") }} />
-            <circle cx="195" cy="121" r="3" style={{ fill: cssPalette("violet-500") }} />
-            <circle cx="195" cy="147" r="3" style={{ fill: cssPalette("emerald-500") }} />
-            {/* Ambient glow */}
-            <rect x="0" y="0" width="200" height="160" fill="url(#funnelGrad)" />
-          </svg>
-        </div>
+    <div className="mx-auto max-w-lg text-center py-16">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Welcome to HireTrail</p>
+      <h2 className="mt-3 text-[22px] font-semibold tracking-tight text-foreground">Track your first application</h2>
+      <p className="mt-2 text-[14px] text-muted-foreground leading-relaxed">
+        Add one by hand, or install the browser extension — one click saves the job and its description from LinkedIn, Indeed, Greenhouse, Lever, Glassdoor and Workday.
+      </p>
+      <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+        <Button variant="primary" size="sm" onClick={onAddManually}><Plus size={14} strokeWidth={2} aria-hidden />Add application</Button>
+        <a href={CHROME_STORE_URL} target="_blank" rel="noopener noreferrer" className={buttonClass("secondary", "sm")}>
+          <Puzzle size={14} strokeWidth={1.8} aria-hidden />Install the extension
+        </a>
+        <Button size="sm" onClick={onImport}><Upload size={14} strokeWidth={1.8} aria-hidden />Import CSV</Button>
       </div>
     </div>
   );

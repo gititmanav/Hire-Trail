@@ -1,7 +1,7 @@
 /** Display → Columns (Table design only): a dropdown of the optional columns.
  *  Each row is a drag handle (reorder), the column's name and a checkbox
  *  (show / hide). The order is also what fits first on a narrow screen
- *  (views/table/columns.ts). Reordering works from the keyboard too: focus a
+ *  (views/ledger/columns.ts). Reordering works from the keyboard too: focus a
  *  handle, Space to lift, arrows to move, Space to drop, Escape to cancel. */
 import { useRef, useState } from "react";
 import { ChevronDown, GripVertical } from "lucide-react";

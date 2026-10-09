@@ -368,8 +368,6 @@ html.vt-shell::view-transition-new(shell-main) {
 
 /* Per-row stagger on Applications list reflow. Capped to the first ~12 rows
  *  so a 200-app list doesn't take 5 seconds to materialize. */
-@keyframes app-row-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-.app-row-stagger { animation: app-row-in 220ms cubic-bezier(0.16, 1, 0.3, 1) both; }
 
 /* The header search (components/Spotlight). The liquid layer is shapes under
  * an SVG goo filter; this gives its silhouette a hairline and a soft lift (a
@@ -398,28 +396,241 @@ html.vt-shell::view-transition-new(shell-main) {
   .spotlight-jiggle { animation: none; }
 }
 
-/* Classic application rows (ApplicationRow + SkeletonRows). A row lays out by
- * the list's width, not the viewport's — the sidebar decides how much room it
- * gets. Wide: one line (logo · content · actions · stage · fit). Narrower: the
- * stage and fit panels drop into a two-up footer under the logo + content.
- * The field grid picks its columns from the content's own width. These own
- * the row's wrap, the panels' widths and borders — no Tailwind utility on
- * the same elements sets them. */
-.app-rows { container: app-rows / inline-size; }
-.app-row { flex-wrap: wrap; }
-.app-row-body { container: app-row-body / inline-size; }
-.app-row-side { display: flex; flex-basis: 100%; border-top-width: 1px; }
-.app-row-side > * { flex: 1 1 0%; min-width: 0; }
-.app-field-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-@container app-row-body (min-width: 360px) {
-  .app-field-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+/* Trails (pages/Applications/components/TrailLine). A trail's geometry is
+ * two numbers: --t0, the window's first day relative to today, and --span,
+ * its length in days. Everything inside places itself with calc(), so the
+ * Trail view zooms and pans every line by transitioning the two registered
+ * properties (.trail-zoom) — one style change, no React render per frame.
+ * Small trails (Ledger, Board, Desk) get a fixed window inline. */
+@property --t0 { syntax: "<number>"; inherits: true; initial-value: -70; }
+@property --span { syntax: "<number>"; inherits: true; initial-value: 70; }
+.trail { position: relative; overflow: clip; }
+.trail-sm { height: 14px; --trail-w: 2px; --dot: 5px; }
+.trail-lg { height: 100%; --trail-w: 2.5px; --dot: 7px; overflow: visible; }
+.trail-track { position: absolute; inset: 0 4px 0 0; }
+.trail-lg .trail-track { inset: 0; }
+.trail-base { position: absolute; left: 0; right: 4px; top: 50%; height: 1px; background: hsl(var(--border)); }
+.trail-seg, .trail-link {
+  position: absolute; top: 50%;
+  left: calc((var(--a) - var(--t0)) / var(--span) * 100%);
+  width: calc((var(--b) - var(--a)) / var(--span) * 100%);
 }
-@container app-rows (min-width: 960px) {
-  .app-row { flex-wrap: nowrap; }
-  .app-row-side { flex-basis: auto; border-top-width: 0; }
-  .app-row-side > :first-child { flex: 0 0 220px; border-left-width: 1px; }
-  .app-row-side > :last-child { flex: 0 0 200px; }
+.trail-seg { height: var(--trail-w); min-width: var(--trail-w); transform: translateY(-50%); border-radius: 999px; }
+.trail-link { height: 0; border-top: 1px dashed hsl(var(--foreground) / 0.28); }
+.trail-dot, .trail-cross, .trail-diamond, .trail-label {
+  position: absolute; top: 50%;
+  left: calc((var(--at) - var(--t0)) / var(--span) * 100%);
 }
+.trail-dot { width: var(--dot); height: var(--dot); border-radius: 999px; background: var(--c); transform: translate(-50%, -50%); }
+.trail-lg .trail-dot { box-shadow: 0 0 0 1.5px hsl(var(--background)); }
+.trail-dot-hollow { background: hsl(var(--background)); box-shadow: inset 0 0 0 1.5px var(--c); }
+.trail-lg .trail-dot-hollow { box-shadow: inset 0 0 0 1.5px var(--c), 0 0 0 1.5px hsl(var(--background)); }
+.trail-lg .trail-dot-end { --dot: 9px; }
+.trail-cross { width: 9px; height: 9px; transform: translate(-50%, -50%); }
+.trail-cross::before, .trail-cross::after {
+  content: ""; position: absolute; left: 50%; top: 50%; width: 10px; height: 1.75px; border-radius: 1px;
+  background: var(--c); transform: translate(-50%, -50%) rotate(45deg);
+}
+.trail-cross::after { transform: translate(-50%, -50%) rotate(-45deg); }
+.trail-sm .trail-cross { width: 7px; height: 7px; }
+.trail-sm .trail-cross::before, .trail-sm .trail-cross::after { width: 8px; height: 1.5px; }
+.trail-diamond {
+  width: 7px; height: 7px; border-radius: 1.5px; transform: translate(-50%, -50%) rotate(45deg);
+  border: 1.5px solid hsl(var(--foreground) / 0.7); background: hsl(var(--background));
+}
+.trail-lg .trail-diamond { width: 8px; height: 8px; }
+.trail-diamond.is-overdue { border-color: rgb(var(--palette-red-500)); background: rgb(var(--palette-red-500)); }
+.trail-label { transform: translate(10px, -50%); font-size: 11.5px; font-weight: 500; line-height: 1; white-space: nowrap; color: hsl(var(--muted-foreground)); }
+.trail-label.is-overdue { color: rgb(var(--palette-red-600)); }
+.dark .trail-label.is-overdue { color: rgb(var(--palette-red-400)); }
+.trail-zoom { transition: --t0 380ms var(--ease-out), --span 380ms var(--ease-out); }
+@media (prefers-reduced-motion: reduce) {
+  .trail-zoom { transition: none; }
+}
+
+/* The Trail view (pages/Applications/views/trail). Rows are two columns —
+ * the application, then its timeline; the axis, the gridlines and the bars
+ * place themselves with the same --t0/--span calc() as the trails, so a zoom
+ * or a page glides everything together. Narrow lists keep a slimmer name
+ * column. Labels that would collide with "Today" at this zoom fade out. */
+.trail-view { container: trail-view / inline-size; }
+.trail-view .trail-row { grid-template-columns: 300px minmax(0, 1fr); }
+.trail-grid-overlay { position: absolute; top: 0; bottom: 0; left: 300px; right: 0; overflow: clip; pointer-events: none; }
+.trail-row.is-data { height: 34px; content-visibility: auto; contain-intrinsic-size: auto 34px; }
+@container trail-view (max-width: 760px) {
+  .trail-view .trail-row { grid-template-columns: 168px minmax(0, 1fr); }
+  .trail-grid-overlay { left: 168px; }
+}
+/* Phones: the name sits over a full-width line, like the Ledger's folded rows. */
+/* Phones: the name sits on its own line above the timeline, with the next
+ * step at its end (.trail-next — no room for a label right of today), and
+ * today + the future are painted into each row's timeline band rather than
+ * one overlay down the list, so they never run through a name. */
+.trail-next { display: none; }
+@container trail-view (max-width: 560px) {
+  .trail-view .trail-row { grid-template-columns: minmax(0, 1fr); }
+  .trail-row.is-data { height: 52px; grid-template-rows: 26px 20px; align-content: center; contain-intrinsic-size: auto 52px; }
+  .trail-row.is-data .trail-time {
+    --today: calc((0 - var(--t0)) / var(--span) * (100cqw - 24px));
+    height: 20px;
+    margin: 0 12px;
+    background:
+      linear-gradient(hsl(var(--foreground) / 0.45) 0 0) var(--today) 0 / 1px 100% no-repeat,
+      repeating-linear-gradient(135deg, hsl(var(--foreground) / 0.035) 0 6px, transparent 6px 12px) var(--today) 0 / 100% 100% no-repeat;
+  }
+  .trail-next { display: inline; }
+  .trail-row.is-data .trail-label { display: none; }
+  .trail-axis-labels { display: none; }
+  .trail-axis .trail-clip { margin: 0 12px; }
+  .trail-grid-overlay { display: none; }
+}
+.trail-clip { overflow: clip; }
+.trail-gridline, .trail-today-line, .trail-month, .trail-weekday, .trail-today-pill {
+  position: absolute;
+  left: calc((var(--at) - var(--t0)) / var(--span) * 100%);
+}
+.trail-week-bar, .trail-future {
+  position: absolute;
+  left: calc((var(--a) - var(--t0)) / var(--span) * 100%);
+  width: calc((var(--b) - var(--a)) / var(--span) * 100%);
+}
+.trail-gridline { top: 0; bottom: 0; width: 1px; background: hsl(var(--border) / 0.55); }
+.trail-today-line { top: 0; bottom: 0; width: 1px; background: hsl(var(--foreground) / 0.45); }
+.trail-future { top: 0; bottom: 0; background: repeating-linear-gradient(135deg, hsl(var(--foreground) / 0.035) 0 6px, transparent 6px 12px); }
+.trail-week-bar { bottom: 32px; border-radius: 3px 3px 1px 1px; background: hsl(var(--foreground) / 0.13); margin-left: 2px; max-width: calc((var(--b) - var(--a)) / var(--span) * 100% - 4px); }
+.trail-week-count { position: absolute; bottom: 100%; left: 0; right: 0; padding-bottom: 1px; text-align: center; font-size: 9.5px; line-height: 11px; color: hsl(var(--muted-foreground)); font-variant-numeric: tabular-nums; }
+.trail-month {
+  top: 36px; transform: translateX(5px); white-space: nowrap;
+  font-size: 10.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; line-height: 12px;
+  color: hsl(var(--muted-foreground)); transition: opacity 180ms var(--ease-out);
+}
+.trail-month::before { content: ""; position: absolute; left: -5px; top: -3px; height: 31px; width: 1px; background: hsl(var(--border)); }
+.trail-weekday { top: 50px; transform: translateX(-50%); font-size: 10px; line-height: 12px; color: hsl(var(--muted-foreground) / 0.85); font-variant-numeric: tabular-nums; transition: opacity 180ms var(--ease-out); }
+.trail-week-count { transition: opacity 180ms var(--ease-out); }
+.trail-month.is-hidden, .trail-weekday.is-hidden, .trail-week-count.is-hidden { opacity: 0; }
+.trail-today-pill {
+  top: 33px; transform: translateX(-50%); z-index: 1; height: 16px; padding: 0 6px; border-radius: 999px;
+  background: hsl(var(--foreground)); color: hsl(var(--background)); font-size: 10px; font-weight: 600; line-height: 16px; white-space: nowrap;
+}
+.trail-today-pill::after { content: ""; position: absolute; left: 50%; top: 100%; height: 15px; width: 1px; background: hsl(var(--foreground) / 0.45); }
+
+/* The Ledger's peek hangs from its row as one shape: the open row rounds off,
+ * the panel shares its fill, and the panel's top corners curve out into the
+ * row's bottom corners (inverse fillets) — the row opening downward. The
+ * panel is inset by the row's radius + the fillet's, so each fillet flows
+ * straight into the row's corner: one S-curve, no flat step between them.
+ * Its content starts on the role text's edge (72px into a row: 12 padding ·
+ * 16 checkbox · 10 · 24 logo · 10 — LedgerPeek's pl-12). Collapse grows it
+ * out of the row; its content settles in after. It lays out by its own
+ * width: three sections side by side when there's room (next step · fit ·
+ * people), else stacked. */
+.ledger { --peek-fill: hsl(var(--control) / 0.7); --peek-r: 12px; }
+.ledger-row { transition: background-color 150ms ease, border-radius 220ms var(--ease-out); }
+.ledger-row.is-open { background: var(--peek-fill); border-radius: var(--peek-r); }
+.ledger-peek {
+  container: ledger-peek / inline-size;
+  position: relative;
+  margin: 0 calc(var(--peek-r) * 2) 10px;
+  background: var(--peek-fill);
+  border-radius: 0 0 14px 14px;
+}
+.ledger-peek::before, .ledger-peek::after { content: ""; position: absolute; top: 0; width: var(--peek-r); height: var(--peek-r); }
+.ledger-peek::before { right: 100%; background: radial-gradient(circle at 0 100%, transparent calc(var(--peek-r) - 0.5px), var(--peek-fill) var(--peek-r)); }
+.ledger-peek::after { left: 100%; background: radial-gradient(circle at 100% 100%, transparent calc(var(--peek-r) - 0.5px), var(--peek-fill) var(--peek-r)); }
+@keyframes ledger-peek-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+.ledger-peek-in { animation: ledger-peek-in 260ms var(--ease-out) 40ms both; }
+@media (prefers-reduced-motion: reduce) {
+  .ledger-row { transition: none; }
+  .ledger-peek-in { animation: none; }
+}
+.ledger-peek-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px 28px; }
+@container ledger-peek (min-width: 620px) {
+  .ledger-peek-grid { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr); }
+}
+
+/* Application detail (pages/Applications/detail/ApplicationDetail) — the same
+ * view on its page and in the Desk's pane, so it lays out by its own width:
+ * the properties rail beside the main column when there's room, under it
+ * when there isn't. */
+.app-detail { container: app-detail / inline-size; }
+.app-detail-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; align-items: start; }
+.app-detail-stage { display: flex; }
+@container app-detail (min-width: 760px) {
+  .app-detail-grid { grid-template-columns: minmax(0, 1fr) 272px; }
+  .app-detail-stage { display: none; }
+}
+@container app-detail (min-width: 1000px) {
+  .app-detail-grid { grid-template-columns: minmax(0, 1fr) 320px; }
+}
+
+/* Desk (pages/Applications/views/desk). Expand / Shrink — and, single-pane,
+ * opening an application over the list — are view transitions (html.vt-desk;
+ * the names exist only while one runs): the list slides out to the left (or
+ * back in); the pane's box eases to its new size while its old and new
+ * pictures crossfade at their natural size, pinned top-left — clipped by the
+ * moving edge, never stretched. A newly chosen application eases in. */
+html.vt-desk .desk-list { view-transition-name: desk-list; }
+html.vt-desk .desk-pane { view-transition-name: desk-pane; }
+html.vt-desk::view-transition-old(root),
+html.vt-desk::view-transition-new(root) { animation: none; }
+html.vt-desk::view-transition-group(desk-list),
+html.vt-desk::view-transition-group(desk-pane) {
+  animation-duration: 320ms;
+  animation-timing-function: var(--ease-out);
+  overflow: clip;
+}
+html.vt-desk::view-transition-old(desk-list),
+html.vt-desk::view-transition-new(desk-list),
+html.vt-desk::view-transition-old(desk-pane),
+html.vt-desk::view-transition-new(desk-pane) {
+  inset: 0 auto auto 0;
+  width: auto;
+  height: auto;
+  object-fit: none;
+  object-position: 0 0;
+  animation-duration: 320ms;
+  animation-timing-function: var(--ease-out);
+}
+html.vt-desk::view-transition-old(desk-list):only-child { animation-name: desk-list-out; }
+html.vt-desk::view-transition-new(desk-list):only-child { animation-name: desk-list-in; }
+html.vt-desk::view-transition-new(desk-pane):only-child { animation-name: desk-pane-enter; }
+html.vt-desk::view-transition-old(desk-pane):only-child { animation-name: desk-pane-leave; }
+@keyframes desk-list-out { to { opacity: 0; transform: translateX(-28px); } }
+@keyframes desk-list-in { from { opacity: 0; transform: translateX(-28px); } }
+@keyframes desk-pane-enter { from { opacity: 0; transform: translateX(28px); } }
+@keyframes desk-pane-leave { to { opacity: 0; transform: translateX(28px); } }
+@keyframes desk-pane-in { from { opacity: 0.35; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+.desk-pane-in { animation: desk-pane-in 200ms var(--ease-out) both; }
+@media (prefers-reduced-motion: reduce) {
+  .desk-pane-in { animation: none; }
+}
+
+/* The Desk's list, side by side with the pane, is a well a step back toward
+ * the shell's backdrop; the open application's row is its tab — the pane's
+ * own surface, running out to the pane with inverse fillets above and below
+ * (the curve the Ledger's peek makes), so row and pane read as one sheet.
+ * The tab is one shared element (motion layoutId) and glides as J/K move
+ * the selection. Its scrollbar sits on the left (direction: rtl on the
+ * scroller only), keeping the right edge free for the tab to reach the pane.
+ * One pane at a time (narrow), the list is the page and the tab is a plain
+ * rounded fill. */
+.desk { --desk-well: color-mix(in srgb, hsl(var(--sidebar)) 70%, hsl(var(--background))); --tab-r: 10px; }
+.desk-list-head { background: hsl(var(--background)); }
+.desk-item:not([aria-selected="true"]):hover { background-color: hsl(var(--control) / 0.6); }
+.desk-tab { position: absolute; inset: 0; z-index: -1; border-radius: 0.625rem; background: hsl(var(--control) / 0.7); pointer-events: none; }
+.desk-list.is-split { background: var(--desk-well); direction: rtl; }
+.desk-list.is-split > * { direction: ltr; }
+.desk-list.is-split .desk-list-head { background: var(--desk-well); }
+.desk-list.is-split .desk-item:not([aria-selected="true"]):hover { background-color: hsl(var(--background) / 0.55); }
+.desk-list.is-split .desk-tab {
+  right: -0.5rem; /* through the listbox's px-2, to the pane */
+  border-radius: var(--tab-r) 0 0 var(--tab-r);
+  background: hsl(var(--background));
+}
+.desk-list.is-split .desk-tab::before,
+.desk-list.is-split .desk-tab::after { content: ""; position: absolute; right: 0; width: var(--tab-r); height: var(--tab-r); }
+.desk-list.is-split .desk-tab::before { bottom: 100%; background: radial-gradient(circle at 0 0, transparent calc(var(--tab-r) - 0.5px), hsl(var(--background)) var(--tab-r)); }
+.desk-list.is-split .desk-tab::after { top: 100%; background: radial-gradient(circle at 0 100%, transparent calc(var(--tab-r) - 0.5px), hsl(var(--background)) var(--tab-r)); }
 
 /* Pagination (ui/Pagination). Lays out by its own width: the full set
  * (Previous · five numbers · Next) once it fits, else ‹ Page 3 of 11 ›. */
@@ -481,9 +692,6 @@ html.vt-shell::view-transition-new(shell-main) {
   .deadline-row-tools { display: flex; }
   .deadline-row-more { display: none; }
 }
-@media (prefers-reduced-motion: reduce) {
-  .app-row-stagger { animation: none; }
-}
 
 /* Kanban card enter animation. Plays whenever a card mounts in a column —
  *  i.e. initial page load, AND when a stage change (drag-drop or row action)
@@ -499,21 +707,18 @@ html.vt-shell::view-transition-new(shell-main) {
   .kanban-card-enter, .kanban-drop-slot { animation: none; }
 }
 
-/* Kanban predicted-destination "ghost" card. Hatched diagonal stripes signal
- *  that this is a *prediction*, not a real card — it disappears once the
- *  source application actually moves stages. Stays muted enough to never
- *  compete with real cards in the same column. */
-.kanban-card-ghost {
-  opacity: 0.55;
-  background-image: repeating-linear-gradient(
-    135deg,
-    transparent 0,
-    transparent 6px,
-    hsl(var(--muted-foreground) / 0.18) 6px,
-    hsl(var(--muted-foreground) / 0.18) 7px
-  );
+/* The Board (pages/Applications/views/BoardView). Columns share the width
+ * when it fits; narrower boards keep 264px columns and scroll sideways.
+ * Rejected rests as a 44px rail and glides open into a column (flex-grow and
+ * flex-basis interpolate, so the other columns ease aside). */
+.board-col { flex: 1 1 0px; }
+.board[data-fits="false"] .board-col { flex: 0 0 264px; }
+.board-rejected { flex: 0 0 44px; min-height: 180px; transition: flex-grow 280ms var(--ease-out), flex-basis 280ms var(--ease-out); }
+.board-rejected.is-open { flex: 1 1 0px; }
+.board[data-fits="false"] .board-rejected.is-open { flex: 0 0 264px; }
+@media (prefers-reduced-motion: reduce) {
+  .board-rejected { transition: none; }
 }
-.kanban-card-ghost:hover { opacity: 0.85; }
 .animate-slide-in-right { animation: slide-in-right 0.24s cubic-bezier(0.16, 1, 0.3, 1); }
 @keyframes slide-in-right { from { transform: translateX(100%); } to { transform: translateX(0); } }
 .line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }

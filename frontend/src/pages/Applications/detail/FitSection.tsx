@@ -132,11 +132,15 @@ export default function FitSection({ app, onAnalyze, analyzing, onTailor }: {
                 </HoverCard>
               </div>
             ) : (
-              <p className="text-[14px] font-semibold text-foreground">Fit checked</p>
+              // A check from before the 0–10 score: the counts are the result
+              // (the card's title already says it's the fit check).
+              <p className="text-[14px] font-semibold text-foreground tabular-nums">{fit.matchedCount} matched · {fit.missingCount} missing</p>
             )}
-            <p className="text-[12.5px] text-muted-foreground tabular-nums mt-1">
-              {fit.matchedCount} matched · {fit.missingCount} missing
-            </p>
+            {score !== null && band && (
+              <p className="text-[12.5px] text-muted-foreground tabular-nums mt-1">
+                {fit.matchedCount} matched · {fit.missingCount} missing
+              </p>
+            )}
           </div>
           {/* Re-running needs the JD; old checks can outlive a missing one. */}
           {hasJd && <Button size="sm" variant="ghost" onClick={onAnalyze} aria-label="Check fit again"><RotateCcw size={13} strokeWidth={2} aria-hidden />Re-run</Button>}

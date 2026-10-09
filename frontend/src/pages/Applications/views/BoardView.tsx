@@ -1,20 +1,22 @@
 /**
  * Board view — stage columns with @dnd-kit drag and drop.
  *
- * Reads the same "all applications" cache as the table list (switching List ⇄
- * Board is instant) with filters from the page header. Moves are optimistic
- * through useMoveStage: the card lands the instant you drop it; a failed save
- * snaps it back with a toast. Clicking a card opens its application page.
+ * Reads the same "all applications" cache as every list (switching views is
+ * instant) with filters from the page header. Columns are neutral — colour is
+ * the stage's dot, nothing more — and cards read like the lists do: the role,
+ * the company and its fit, then what the application is waiting on
+ * (data/focus.ts) over its ten-week trail. Rejected rests as a slim rail you
+ * can still drop onto; open it and it glides out into a full column.
  *
  * Drag: cards are draggables and columns are drop zones — nothing in the
  * columns moves while you drag (a column's order is the data's, so there's
  * nothing to sort). The card you hold stays dimmed in place, the target
- * column lights up with a card-sized slot, and the drop is the only change.
- * (Sortable columns moved the card into the target on hover; the moved card
- * then sat under the pointer and pointed the hover back at its old column,
- * so it flickered between the two.)
+ * column shows a card-sized slot, and the drop is the only change. Moves are
+ * optimistic through useMoveStage; a failed save snaps the card back.
+ *
+ * Wide boards fit the width; narrower ones scroll sideways with fixed columns.
  */
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   DndContext, DragOverlay, DragStartEvent, DragEndEvent,
   PointerSensor, KeyboardSensor, useSensor, useSensors, pointerWithin, rectIntersection, useDraggable, useDroppable,
@@ -22,204 +24,179 @@ import {
 } from "@dnd-kit/core";
 // Arrow keys jump between drop zones (it reads any droppables, not only sortables).
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import toast from "../../../components/ui/toast.ts";
-import { AlertTriangle, ChevronRight, FileText, MapPin, X } from "lucide-react";
-import { SkeletonCard } from "../../../components/Skeleton/Skeleton.tsx";
-import ConfirmModal from "../../../components/ConfirmModal/ConfirmModal.tsx";
-import { useConfirm } from "../../../hooks/useConfirm.ts";
-import { applicationsAPI } from "../../../utils/api.ts";
-import { computeAppHealth, HEALTH_DOT_CLASS } from "../../../utils/applicationHealth.ts";
-import { STAGE_STRIPE_CLASS } from "../../../utils/stageStyles.ts";
-import { dwellAverages, currentStageDwell } from "../../../utils/stageStats.ts";
+import { ChevronsLeftRight, Sparkles } from "lucide-react";
+import CompanyLogo from "../../../components/CompanyLogo/CompanyLogo.tsx";
+import Tooltip from "../../../components/ui/Tooltip.tsx";
+import { usePersistentState, isBoolean } from "../../../hooks/usePersistentState.ts";
+import { STAGES, STAGE_STRIPE_CLASS } from "../../../utils/stageStyles.ts";
+import { dwellAverages } from "../../../utils/stageStats.ts";
+import { todayYmd } from "../../../utils/dates.ts";
+import TrailLine from "../components/TrailLine.tsx";
+import { FitCell } from "../components/RowBits.tsx";
+import { TONE_CLASS } from "../components/tone.ts";
 import { useApplicationsShell } from "../ApplicationsLayout.tsx";
 import { useApplicationFilters, toListParams } from "../data/filters.ts";
-import { useAllApplications, useArchiveMutation, useResumes } from "../data/queries.ts";
+import { LIST_CAP, useAllApplications, useOpenDeadlines, useReplyWindow } from "../data/queries.ts";
 import { useMoveStage } from "../data/useMoveStage.ts";
-import { useOpenApplication } from "./shared.tsx";
-import { useQueryClient } from "@tanstack/react-query";
-import type { Application, Stage } from "../../../types";
-import { dayOf, formatDay } from "../../../utils/dates.ts";
+import { nextDeadlines, rowFocus, sortApplications, trailShape, type ReplyWindow } from "../data/focus.ts";
+import { useCompanyResolver, useOpenApplication } from "./shared.tsx";
+import { SkeletonCard } from "../../../components/Skeleton/Skeleton.tsx";
+import type { Application, Company, Deadline, Stage } from "../../../types";
 
-const STAGES: Stage[] = ["Drafting", "Applied", "OA", "Interview", "Offer", "Rejected"];
-
-/** Column surface tints. Dots come from the shared STAGE_STRIPE_CLASS so a
- *  stage reads the same colour on every surface. */
-const COLUMN: Record<Stage, { head: string; border: string; body: string }> = {
-  Drafting: { head: "bg-slate-50 dark:bg-slate-800/30", border: "border-slate-200/60 dark:border-slate-700/50", body: "bg-slate-50/40 dark:bg-slate-900/20" },
-  Applied: { head: "bg-blue-50 dark:bg-blue-900/20", border: "border-blue-200/60 dark:border-blue-800/40", body: "bg-blue-50/30 dark:bg-blue-950/20" },
-  OA: { head: "bg-amber-50 dark:bg-amber-900/20", border: "border-amber-200/60 dark:border-amber-800/40", body: "bg-amber-50/30 dark:bg-amber-950/20" },
-  Interview: { head: "bg-purple-50 dark:bg-purple-900/20", border: "border-purple-200/60 dark:border-purple-800/40", body: "bg-purple-50/30 dark:bg-purple-950/20" },
-  Offer: { head: "bg-emerald-50 dark:bg-emerald-900/20", border: "border-emerald-200/60 dark:border-emerald-800/40", body: "bg-emerald-50/30 dark:bg-emerald-950/20" },
-  Rejected: { head: "bg-red-50 dark:bg-red-900/20", border: "border-red-200/60 dark:border-red-800/40", body: "bg-red-50/30 dark:bg-red-950/20" },
-};
-const fmt = (d: string) => formatDay(dayOf(d), { month: "short", day: "numeric" }, "en-US");
-
-const STUCK_DAYS = 30;
-const STUCK_MIN = 3;
-const GHOST_CAP = 3;
-const GHOST_THRESHOLDS: Partial<Record<Stage, number>> = { Applied: 45, OA: 21, Interview: 30 };
+const OPEN_STAGES = STAGES.filter((s) => s !== "Rejected");
+const TRAIL_WINDOW: [number, number] = [-70, 0];
+/** Below this the board scrolls sideways with fixed-width columns. */
+const FIT_FROM = 1040;
 
 /* ─── Card ─── */
 
-const BoardCard = memo(function BoardCard({ app, resumeName, isDragging, onTailor }: {
-  app: Application; resumeName?: string; isDragging?: boolean; onTailor?: (id: string) => void;
-}) {
-  const health = computeAppHealth(app);
-  const isDrafting = app.stage === "Drafting" && !!app.tailorSessionId;
+interface CardProps {
+  app: Application;
+  company?: Company;
+  next?: Deadline;
+  rw: ReplyWindow;
+  today: string;
+  lifted?: boolean;
+  onTailor?: (id: string) => void;
+}
+
+const BoardCard = memo(function BoardCard({ app, company, next, rw, today, lifted, onTailor }: CardProps) {
+  const focus = rowFocus(app, next, rw, today);
+  const shape = useMemo(() => trailShape(app, next, rw, today), [app, next, rw, today]);
   return (
-    <div className={`card-premium p-3 min-w-0 overflow-hidden relative ${isDragging ? "!shadow-lg ring-2 ring-ring/20 scale-[1.02]" : ""}`}>
-      <div aria-hidden className={`absolute left-0 top-0 bottom-0 w-[3px] ${STAGE_STRIPE_CLASS[app.stage]}`} />
-      <div className="flex items-start justify-between gap-2 mb-0.5">
-        <h4 className="text-[13px] font-semibold text-foreground truncate min-w-0">{app.company}</h4>
-        <span className="inline-flex items-center gap-1 shrink-0 text-[10px] text-muted-foreground tabular-nums" title={health.longLabel} aria-label={health.longLabel}>
-          <span className={`w-1.5 h-1.5 rounded-full ${HEALTH_DOT_CLASS[health.tone]}`} aria-hidden />
-          {health.shortLabel}
-        </span>
+    <div className={`rounded-xl border border-border bg-card px-3 pt-2.5 pb-2.5 min-w-0 transition-shadow ${lifted ? "shadow-floating ring-1 ring-border" : "shadow-panel"}`}>
+      <p className="text-[13px] font-medium text-foreground leading-snug line-clamp-2">{app.role}</p>
+      <div className="mt-1 flex items-center gap-1.5 min-w-0">
+        <CompanyLogo name={app.company} logoUrl={company?.logoUrl} size="2xs" />
+        <span className="text-[12px] text-muted-foreground truncate">{app.company}</span>
+        <span className="ml-auto shrink-0"><FitCell fit={app.fit} bare /></span>
       </div>
-      <p className="text-xs text-muted-foreground mb-1.5 truncate">{app.role}</p>
-      <div className="flex flex-wrap gap-1 mb-1.5 min-w-0">
-        {app.location?.trim() && (
-          <span className="inline-flex items-center gap-0.5 max-w-full text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-muted/80 text-secondary-foreground border border-border/60 truncate" title={app.location}>
-            <MapPin size={9} strokeWidth={2} className="shrink-0 opacity-70" aria-hidden />
-            <span className="truncate">{app.location}</span>
-          </span>
-        )}
-        {resumeName && (
-          <span className="inline-flex items-center gap-0.5 max-w-full text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-muted text-foreground border border-border truncate" title={resumeName}>
-            <FileText size={9} strokeWidth={1.5} className="shrink-0" aria-hidden />
-            <span className="truncate">{resumeName}</span>
-          </span>
-        )}
-      </div>
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-[11px] text-muted-foreground">{fmt(app.applicationDate)}</span>
-        {isDrafting && onTailor && (
-          <button
-            type="button"
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => { e.stopPropagation(); onTailor(app._id); }}
-            className="text-[10px] font-medium text-primary hover:underline shrink-0"
-          >
-            Open in Tailor →
-          </button>
-        )}
-      </div>
+      <p className={`mt-2 text-[12px] font-medium truncate ${TONE_CLASS[focus.tone]}`}>{focus.short}</p>
+      {app.stage !== "Drafting" && <TrailLine shape={shape} window={TRAIL_WINDOW} className="mt-1.5" />}
+      {app.stage === "Drafting" && app.tailorSessionId && onTailor && (
+        <button
+          type="button"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => { e.stopPropagation(); onTailor(app._id); }}
+          className="mt-2 inline-flex items-center gap-1 text-[12px] font-medium text-foreground/80 hover:text-foreground rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <Sparkles size={12} strokeWidth={2} aria-hidden />Open in Tailor
+        </button>
+      )}
     </div>
   );
 });
 
-function DraggableCard({ app, resumeName, onOpen, onTailor }: {
-  app: Application; resumeName?: string; onOpen: (app: Application, e: React.MouseEvent) => void; onTailor: (id: string) => void;
-}) {
+function DraggableCard({ onOpen, ...card }: CardProps & { onOpen: (app: Application, e: React.MouseEvent) => void }) {
   // No transform: the DragOverlay is what moves; this one stays put, dimmed.
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: app._id, data: { app } });
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: card.app._id, data: { app: card.app } });
   return (
     <div
       ref={setNodeRef}
-      style={{ opacity: isDragging ? 0.3 : 1, contentVisibility: isDragging ? "visible" : "auto", containIntrinsicSize: "auto 140px" }}
+      style={{ opacity: isDragging ? 0.35 : 1, contentVisibility: isDragging ? "visible" : "auto", containIntrinsicSize: "auto 112px" }}
       {...attributes}
       {...listeners}
       // The pointer sensor needs 8px of travel before a drag starts, so a
       // plain click falls through to here and opens the application.
-      onClick={(e) => onOpen(app, e)}
+      onClick={(e) => onOpen(card.app, e)}
       onKeyDown={(e) => {
         listeners?.onKeyDown?.(e);
-        if (e.key === "Enter" && !e.defaultPrevented) onOpen(app, e as unknown as React.MouseEvent);
+        if (e.key === "Enter" && !e.defaultPrevented) onOpen(card.app, e as unknown as React.MouseEvent);
       }}
-      aria-label={`${app.role} at ${app.company}, ${app.stage}`}
-      className="cursor-grab active:cursor-grabbing rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      aria-label={`${card.app.role} at ${card.app.company}, ${card.app.stage}`}
+      className="cursor-grab active:cursor-grabbing rounded-xl transition-opacity duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <div className="kanban-card-enter">
-        <BoardCard app={app} resumeName={resumeName} onTailor={onTailor} />
+        <BoardCard {...card} />
       </div>
     </div>
   );
 }
 
-const GhostCard = memo(function GhostCard({ app, fromStage, onOpen }: { app: Application; fromStage: Stage; onOpen: (app: Application, e: React.MouseEvent) => void }) {
-  return (
-    <button
-      type="button"
-      onClick={(e) => onOpen(app, e)}
-      className="kanban-card-ghost card-premium p-2.5 min-w-0 w-full overflow-hidden border-dashed text-left transition-opacity"
-      title={`Likely to land here — stuck in ${fromStage} longer than usual.`}
-    >
-      <div className="flex items-center gap-2 min-w-0">
-        <ChevronRight size={11} strokeWidth={2} aria-hidden className="text-muted-foreground shrink-0" />
-        <span className="text-[12px] font-medium text-foreground/80 truncate flex-1">{app.company}</span>
-      </div>
-      <p className="text-[10.5px] text-muted-foreground italic mt-0.5 truncate">Likely · from {fromStage}</p>
-    </button>
-  );
-});
-
 /* ─── Column ─── */
 
-function Column({ stage, apps, resumeById, dwell, ghosts, terminal, onOpen, onTailor }: {
-  stage: Stage;
-  apps: Application[];
-  resumeById: Map<string, string>;
-  dwell: { avgDays: number | null; sampleSize: number };
-  ghosts: { app: Application; fromStage: Stage }[];
-  terminal?: { value: "Offer" | "Rejected"; onChange: (s: "Offer" | "Rejected") => void; counts: Record<"Offer" | "Rejected", number> };
-  onOpen: (app: Application, e: React.MouseEvent) => void;
-  onTailor: (id: string) => void;
-}) {
-  const c = COLUMN[stage];
+function useDropSlot(stage: Stage) {
   const { setNodeRef, isOver, active } = useDroppable({ id: `column-${stage}`, data: { stage } });
   // Where the held card would land: a card-sized slot, in any column but its own.
   const held = active?.data.current?.app as Application | undefined;
-  const slot = isOver && held && held.stage !== stage ? active?.rect.current.initial?.height ?? 120 : 0;
+  const slot = isOver && held && held.stage !== stage ? active?.rect.current.initial?.height ?? 112 : 0;
+  return { setNodeRef, slot, dragging: !!held };
+}
+
+function ColumnHeader({ stage, count, avg, trailing }: { stage: Stage; count: number; avg: number | null; trailing?: React.ReactNode }) {
   return (
-    <div className="flex flex-col min-w-0">
-      <div className={`flex flex-col gap-0.5 px-3 py-2 rounded-t-xl ${c.head} min-w-0`}>
-        <div className="flex items-center gap-2 min-w-0">
-          <span className={`w-2.5 h-2.5 rounded-full ${STAGE_STRIPE_CLASS[stage]} shrink-0`} aria-hidden />
-          {terminal ? (
-            /* The terminal slot hosts Offer or Rejected so the grid stays 5-wide. */
-            <div role="group" aria-label="Show Offer or Rejected" className="inline-flex items-center rounded-lg border border-border bg-card/80 overflow-hidden shrink-0">
-              {(["Offer", "Rejected"] as const).map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => terminal.onChange(s)}
-                  aria-pressed={terminal.value === s}
-                  className={`inline-flex items-center gap-1 px-2 py-0.5 text-[12px] font-semibold transition-colors ${terminal.value === s ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                >
-                  <span className={`w-1.5 h-1.5 rounded-full ${STAGE_STRIPE_CLASS[s]}`} aria-hidden />
-                  {s}
-                  <span className="text-[10px] tabular-nums opacity-70">{terminal.counts[s]}</span>
-                </button>
-              ))}
-            </div>
-          ) : (
-            <>
-              <span className="text-[13px] font-semibold text-foreground truncate">{stage}</span>
-              <span className="text-[11px] text-muted-foreground ml-auto bg-paper/70 dark:bg-scrim/25 px-2 py-0.5 rounded-full font-semibold tabular-nums shrink-0">{apps.length}</span>
-            </>
-          )}
+    <div className="flex items-center gap-2 h-8 px-1 mb-1.5 min-w-0">
+      <span className={`w-2 h-2 rounded-full shrink-0 ${STAGE_STRIPE_CLASS[stage]}`} aria-hidden />
+      <span className="text-[13px] font-semibold text-foreground truncate">{stage}</span>
+      <span className="text-[12px] text-muted-foreground tabular-nums">{count}</span>
+      {avg != null && (
+        <Tooltip label={`On average, applications spend ${avg} day${avg === 1 ? "" : "s"} in ${stage}`}>
+          <span className="ml-auto text-[11.5px] text-muted-foreground/80 tabular-nums whitespace-nowrap">avg {avg}d</span>
+        </Tooltip>
+      )}
+      {trailing}
+    </div>
+  );
+}
+
+function Column({ stage, apps, avg, render }: { stage: Stage; apps: Application[]; avg: number | null; render: (a: Application) => React.ReactNode }) {
+  const { setNodeRef, slot } = useDropSlot(stage);
+  return (
+    <div className="board-col flex flex-col min-w-0">
+      <ColumnHeader stage={stage} count={apps.length} avg={avg} />
+      <div
+        ref={setNodeRef}
+        className={`flex-1 min-h-[140px] p-1.5 rounded-xl space-y-2 transition-colors duration-150 ${slot ? "bg-control/80" : "bg-muted/60 dark:bg-card/40"}`}
+      >
+        {slot > 0 && <div aria-hidden className="kanban-drop-slot rounded-xl border-2 border-dashed border-foreground/15" style={{ height: slot }} />}
+        {apps.map(render)}
+        {apps.length === 0 && !slot && <div className="flex items-center justify-center h-20 text-[12px] text-muted-foreground/80">Drop here</div>}
+      </div>
+    </div>
+  );
+}
+
+/** Rejected: a slim rail you can drop onto; open, a full column. The width
+ *  glides (flex-grow / flex-basis), the content crossfades. */
+function RejectedColumn({ apps, open, onToggle, render }: { apps: Application[]; open: boolean; onToggle: () => void; render: (a: Application) => React.ReactNode }) {
+  const { setNodeRef, slot, dragging } = useDropSlot("Rejected");
+  return (
+    <div className={`board-rejected ${open ? "is-open" : ""} relative flex flex-col min-w-0`}>
+      {/* Rail */}
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        aria-label={`Rejected, ${apps.length}. ${open ? "Fold the column" : "Open the column"}`}
+        className={`board-rail absolute inset-0 flex flex-col items-center gap-2 pt-2.5 rounded-xl transition-[opacity,background-color] duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+          open ? "opacity-0 pointer-events-none" : `opacity-100 ${slot ? "bg-control/80" : dragging ? "bg-muted" : "bg-muted/60 hover:bg-muted dark:bg-card/40"}`
+        }`}
+        tabIndex={open ? -1 : 0}
+      >
+        <span className={`w-2 h-2 rounded-full ${STAGE_STRIPE_CLASS.Rejected}`} aria-hidden />
+        <span className="[writing-mode:vertical-rl] text-[12.5px] font-semibold text-muted-foreground">Rejected · {apps.length}</span>
+      </button>
+      {/* Column */}
+      <div className={`flex flex-col min-w-0 flex-1 transition-opacity duration-200 ${open ? "opacity-100 delay-75" : "opacity-0 pointer-events-none"}`} aria-hidden={!open}>
+        <ColumnHeader
+          stage="Rejected"
+          count={apps.length}
+          avg={null}
+          trailing={
+            <Tooltip label="Fold into a rail">
+              <button type="button" onClick={onToggle} tabIndex={open ? 0 : -1} aria-label="Fold the Rejected column" className="ml-auto w-6 h-6 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-control focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <ChevronsLeftRight size={13} strokeWidth={2} aria-hidden />
+              </button>
+            </Tooltip>
+          }
+        />
+        <div className={`flex-1 min-h-[140px] p-1.5 rounded-xl space-y-2 ${slot ? "bg-control/80" : "bg-muted/60 dark:bg-card/40"}`}>
+          {slot > 0 && <div aria-hidden className="kanban-drop-slot rounded-xl border-2 border-dashed border-foreground/15" style={{ height: slot }} />}
+          {open && apps.map(render)}
         </div>
-        <p
-          className="text-[10.5px] text-muted-foreground/80 tabular-nums truncate ml-[18px]"
-          title={dwell.sampleSize > 0 ? `Average across ${dwell.sampleSize} move${dwell.sampleSize === 1 ? "" : "s"} out of ${stage}` : "No moves out of this stage yet"}
-        >
-          {dwell.avgDays != null ? `Avg ${dwell.avgDays}d in ${stage}` : "Not enough history"}
-        </p>
       </div>
-      <div ref={setNodeRef} className={`flex-1 p-2 rounded-b-xl border-2 border-dashed ${c.border} ${c.body} min-h-[120px] min-w-0 space-y-2 transition-colors ${slot ? "!border-foreground/25 !bg-muted/40" : ""}`}>
-        {slot > 0 && <div aria-hidden className="kanban-drop-slot rounded-xl border-2 border-dashed border-foreground/15 bg-background/60" style={{ height: slot }} />}
-        {apps.map((app) => (
-          <DraggableCard key={app._id} app={app} resumeName={app.resumeId ? resumeById.get(app.resumeId) : undefined} onOpen={onOpen} onTailor={onTailor} />
-        ))}
-        {ghosts.length > 0 && (
-          <div className="pt-2 mt-2 border-t border-dashed border-border/60 space-y-2" role="region" aria-label={`${ghosts.length} likely ${stage}`}>
-            {ghosts.map((g) => <GhostCard key={`ghost-${g.app._id}`} app={g.app} fromStage={g.fromStage} onOpen={onOpen} />)}
-          </div>
-        )}
-        {apps.length === 0 && ghosts.length === 0 && !slot && (
-          <div className="flex items-center justify-center h-16 text-xs text-muted-foreground">Drop here</div>
-        )}
-      </div>
+      {/* One drop zone for both looks. */}
+      <div ref={setNodeRef} className="absolute inset-0 pointer-events-none" aria-hidden />
     </div>
   );
 }
@@ -231,51 +208,42 @@ export default function BoardView() {
   const { filters } = useApplicationFilters();
   const params = useMemo(() => toListParams(filters), [filters]);
   const { data, isPending } = useAllApplications(params);
-  const { data: resumes = [] } = useResumes();
+  const { data: deadlines = [] } = useOpenDeadlines();
+  const rw = useReplyWindow();
   const moveStage = useMoveStage();
-  const archive = useArchiveMutation();
-  const qc = useQueryClient();
-  const { confirm, confirmState, handleConfirm, handleCancel } = useConfirm();
-
-  const [terminalStage, setTerminalStage] = useState<"Offer" | "Rejected">("Offer");
-  const [suggestionDismissed, setSuggestionDismissed] = useState(false);
-  const [bulkBusy, setBulkBusy] = useState(false);
+  const today = todayYmd();
+  const next = useMemo(() => nextDeadlines(deadlines, today), [deadlines, today]);
+  const [rejectedOpen, setRejectedOpen] = usePersistentState<boolean>("hiretrail-board-rejected-open", false, isBoolean);
   const [activeApp, setActiveApp] = useState<Application | null>(null);
   /** Dropped into another column: the card appears there, so the overlay
    *  mustn't fly back to where it started. A drop in place animates home. */
   const [landed, setLanded] = useState(false);
 
-  const apps = data?.data ?? [];
-  const resumeById = useMemo(() => new Map(resumes.map((r) => [r._id, r.name])), [resumes]);
-  const visibleStages = useMemo<Stage[]>(() => ["Drafting", "Applied", "OA", "Interview", terminalStage], [terminalStage]);
-
+  const apps = useMemo(() => data?.data ?? [], [data]);
   const grouped = useMemo(() => {
-    const g: Record<Stage, Application[]> = { Drafting: [], Applied: [], OA: [], Interview: [], Offer: [], Rejected: [] };
+    const g = Object.fromEntries(STAGES.map((s) => [s, [] as Application[]])) as Record<Stage, Application[]>;
     for (const a of apps) g[a.stage]?.push(a);
+    for (const s of STAGES) g[s] = sortApplications(g[s], "smart", next, today);
     return g;
-  }, [apps]);
+  }, [apps, next, today]);
 
-  // Board order (column by column) is what the detail page's J/K walks.
-  const orderedIds = useMemo(() => visibleStages.flatMap((s) => grouped[s].map((a) => a._id)), [visibleStages, grouped]);
+  // Board order (column by column) is what the application page's J/K walks.
+  const orderedIds = useMemo(() => [...OPEN_STAGES, ...(rejectedOpen ? ["Rejected" as Stage] : [])].flatMap((s) => grouped[s].map((a) => a._id)), [grouped, rejectedOpen]);
   const open = useOpenApplication(orderedIds);
-
+  const resolveCompany = useCompanyResolver(apps);
   const dwell = useMemo(() => dwellAverages(apps), [apps]);
 
-  const stuckApplied = useMemo(() => {
-    const now = new Date();
-    return apps.filter((a) => a.stage === "Applied" && currentStageDwell(a, now) > STUCK_DAYS);
-  }, [apps]);
-  const showStuck = !suggestionDismissed && filters.status === "active" && stuckApplied.length >= STUCK_MIN;
-
-  const ghostMap = useMemo(() => {
-    const now = new Date();
-    const candidates = apps
-      .map((a) => ({ app: a, fromStage: a.stage, dwell: currentStageDwell(a, now), threshold: GHOST_THRESHOLDS[a.stage] }))
-      .filter((c) => c.threshold != null && c.dwell > c.threshold)
-      .sort((x, y) => y.dwell - x.dwell)
-      .slice(0, GHOST_CAP);
-    return { Rejected: candidates.map(({ app, fromStage }) => ({ app, fromStage })) } as Partial<Record<Stage, { app: Application; fromStage: Stage }[]>>;
-  }, [apps]);
+  /* Fit the width, or scroll sideways — by the board's own width. */
+  const boardRef = useRef<HTMLDivElement>(null);
+  const [fits, setFits] = useState(true);
+  useLayoutEffect(() => {
+    const el = boardRef.current;
+    if (!el) return;
+    setFits(el.clientWidth >= FIT_FROM);
+    const ro = new ResizeObserver(([e]) => setFits((prev) => (prev === e.contentRect.width >= FIT_FROM ? prev : !prev)));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   /* ─── Drag and drop ─── */
   const sensors = useSensors(
@@ -286,18 +254,16 @@ export default function BoardView() {
       keyboardCodes: { start: ["Space"], cancel: ["Escape"], end: ["Space", "Enter"] },
     }),
   );
-  // pointerWithin first so EMPTY columns are valid targets; fall back to rect
-  // intersection when the pointer is between droppables.
+  // pointerWithin first so EMPTY columns (and the rail) are valid targets;
+  // fall back to rect intersection when the pointer is between droppables.
   const collisionDetection = useCallback<CollisionDetection>((args) => {
     const hits = pointerWithin(args);
     return hits.length > 0 ? hits : rectIntersection(args);
   }, []);
-
   const onDragStart = useCallback((e: DragStartEvent) => {
     setActiveApp((e.active.data.current?.app as Application | undefined) ?? null);
     setLanded(false);
   }, []);
-
   const onDragEnd = useCallback((e: DragEndEvent) => {
     const app = activeApp;
     const target = (e.over?.data.current?.stage as Stage | undefined) ?? null;
@@ -305,95 +271,37 @@ export default function BoardView() {
     setActiveApp(null);
     if (app && target) moveStage(app, target);
   }, [activeApp, moveStage]);
+  const onDragCancel = useCallback(() => { setActiveApp(null); setLanded(false); }, []);
 
-  const onDragCancel = useCallback(() => {
-    setActiveApp(null);
-    setLanded(false);
-  }, []);
-
-  /* ─── Stale cleanup ─── */
-  const bulkArchiveStuck = async () => {
-    const n = stuckApplied.length;
-    const ok = await confirm(`Archive ${n} application${n === 1 ? "" : "s"} stuck in Applied for more than ${STUCK_DAYS} days? You can restore them anytime.`, { title: "Archive stale applications?", confirmLabel: "Archive all", danger: false });
-    if (!ok) return;
-    archive.mutate({ ids: stuckApplied.map((a) => a._id), archived: true }, { onSuccess: () => toast.success(`Archived ${n} application${n === 1 ? "" : "s"}`) });
-  };
-  const bulkRejectStuck = async () => {
-    const n = stuckApplied.length;
-    const ok = await confirm(`Mark ${n} application${n === 1 ? "" : "s"} as Rejected? They'll count toward your response rate.`, { title: "Mark as Rejected?", confirmLabel: "Mark as Rejected", danger: false });
-    if (!ok) return;
-    setBulkBusy(true);
-    try {
-      await Promise.all(stuckApplied.map((a) => applicationsAPI.update(a._id, { stage: "Rejected" })));
-      toast.success(`Marked ${n} as Rejected`);
-    } catch {
-      toast.error("Some applications couldn't be updated. Please try again.");
-    } finally {
-      setBulkBusy(false);
-      void qc.invalidateQueries({ queryKey: ["applications"] });
-    }
-  };
-
-  if (isPending) {
-    return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-        {visibleStages.map((s) => <div key={s} className="min-w-0 space-y-2"><SkeletonCard /><SkeletonCard /></div>)}
-      </div>
-    );
-  }
+  const card = (a: Application) => (
+    <DraggableCard key={a._id} app={a} company={resolveCompany(a)} next={next.get(a._id)} rw={rw} today={today} onOpen={open} onTailor={shell.openTailor} />
+  );
 
   return (
-    <div>
-      {showStuck && (
-        <div className="mb-4 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-2 min-w-0">
-            <AlertTriangle size={16} strokeWidth={1.8} className="text-amber-700 dark:text-amber-300 shrink-0" aria-hidden />
-            <p className="text-sm text-amber-800 dark:text-amber-100">
-              <span className="font-semibold">{stuckApplied.length} application{stuckApplied.length === 1 ? "" : "s"}</span> stuck in Applied for more than {STUCK_DAYS} days. Clean up or move them along?
-            </p>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <button type="button" disabled={bulkBusy} onClick={bulkRejectStuck}
-              className="px-3 py-1 text-xs font-medium rounded-lg border border-amber-400 dark:border-amber-600 text-amber-800 dark:text-amber-100 hover:bg-amber-100 dark:hover:bg-amber-800/40 disabled:opacity-50">
-              Mark as Rejected
-            </button>
-            <button type="button" disabled={bulkBusy || archive.isPending} onClick={bulkArchiveStuck}
-              className="px-3 py-1 text-xs font-medium rounded-lg bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50">
-              {bulkBusy ? "Working…" : "Archive all"}
-            </button>
-            <button type="button" onClick={() => setSuggestionDismissed(true)} aria-label="Dismiss suggestion"
-              className="w-7 h-7 inline-flex items-center justify-center rounded-md text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-800/40">
-              <X size={14} strokeWidth={2} aria-hidden />
-            </button>
-          </div>
-        </div>
-      )}
-
-      <DndContext sensors={sensors} collisionDetection={collisionDetection} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={onDragCancel}>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 pb-4">
-          {visibleStages.map((s) => (
-            <Column
-              key={s}
-              stage={s}
-              apps={grouped[s]}
-              resumeById={resumeById}
-              dwell={dwell[s]}
-              ghosts={ghostMap[s] ?? []}
-              onOpen={open}
-              onTailor={shell.openTailor}
-              terminal={s === terminalStage
-                ? { value: terminalStage, onChange: setTerminalStage, counts: { Offer: grouped.Offer.length, Rejected: grouped.Rejected.length } }
-                : undefined}
-            />
+    <div ref={boardRef}>
+      {isPending ? (
+        <div className="board flex gap-3" data-fits={fits}>
+          {STAGES.map((s) => (
+            <div key={s} className={s === "Rejected" ? "board-rejected" : "board-col min-w-0 space-y-2 pt-9"}>
+              {s !== "Rejected" && <><SkeletonCard /><SkeletonCard /></>}
+            </div>
           ))}
         </div>
-        <DragOverlay dropAnimation={landed ? null : { duration: 200, easing: "cubic-bezier(0.16, 1, 0.3, 1)" }}>
-          {activeApp && <BoardCard app={activeApp} resumeName={activeApp.resumeId ? resumeById.get(activeApp.resumeId) : undefined} isDragging />}
-        </DragOverlay>
-      </DndContext>
-
-      {confirmState.open && (
-        <ConfirmModal title={confirmState.title} message={confirmState.message} confirmLabel={confirmState.confirmLabel} danger={confirmState.danger} onConfirm={handleConfirm} onCancel={handleCancel} />
+      ) : (
+        <DndContext sensors={sensors} collisionDetection={collisionDetection} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={onDragCancel}>
+          <div className={`board flex gap-3 pb-4 ${fits ? "" : "overflow-x-auto scroll-quiet -mx-4 md:-mx-6 px-4 md:px-6"}`} data-fits={fits}>
+            {OPEN_STAGES.map((s) => (
+              <Column key={s} stage={s} apps={grouped[s]} avg={dwell[s]?.avgDays ?? null} render={card} />
+            ))}
+            <RejectedColumn apps={grouped.Rejected} open={rejectedOpen} onToggle={() => setRejectedOpen(!rejectedOpen)} render={card} />
+          </div>
+          <DragOverlay dropAnimation={landed ? null : { duration: 200, easing: "cubic-bezier(0.16, 1, 0.3, 1)" }}>
+            {activeApp && <BoardCard app={activeApp} company={resolveCompany(activeApp)} next={next.get(activeApp._id)} rw={rw} today={today} lifted />}
+          </DragOverlay>
+        </DndContext>
+      )}
+      {data && data.data.length >= LIST_CAP && (
+        <p className="mt-1 text-[12.5px] text-muted-foreground">Showing your {LIST_CAP.toLocaleString()} most recent applications. Narrow the filters to reach older ones.</p>
       )}
     </div>
   );

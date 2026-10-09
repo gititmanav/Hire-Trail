@@ -2,27 +2,31 @@
  * Applications — one page, three views (List · Board · Calendar).
  *
  * This shell owns everything the views share: the page header (search, view
- * switcher, Filters, create), the URL-backed filters, display preferences,
- * page shortcuts, the create/edit dialog, the tailoring drawer, and the
- * deep links other surfaces rely on:
+ * switcher, Sweep, Filters, create), the URL-backed filters, display
+ * preferences, page shortcuts, the create/edit dialog, the tailoring drawer,
+ * and the deep links other surfaces rely on:
  *   ?new=1              open the create dialog (global "n a" shortcut)
- *   ?focus=<id>         → /applications/<id> (search, notifications, board ghosts)
+ *   ?focus=<id>         → the application (search, notifications)
  *   ?tailor=<id>        open the tailoring drawer (extension, Drafting chips)
  *   ?tailorSession=<id> resolve the session's application, then open the drawer
  *   ?stage=<Stage>      the stage filter itself (dashboard funnel)
+ *   ?app=<id>[&full=1]  the Desk's open application (and whether it fills the page)
  *
- *  The list style (Classic | Table) is a Personalize preference (useListDesign). */
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+ * The List view reads one of three ways — Ledger, Trail or Desk — a
+ * Personalize preference (useListDesign).
+ */
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Outlet, useLocation, useNavigate, useOutletContext, useSearchParams } from "react-router-dom";
+import { Hourglass } from "lucide-react";
 import toast from "../../components/ui/toast.ts";
 import { applicationsAPI, tailorAPI } from "../../utils/api.ts";
 import { exportToCSV } from "../../utils/csv.ts";
 import { useFeatureFlags } from "../../hooks/useFeatureFlags.tsx";
 import { usePageShortcuts } from "../../hooks/usePageShortcuts.ts";
-import { usePersistentState, oneOf, isBoolean } from "../../hooks/usePersistentState.ts";
-import PageHeader, { CreateButton, PageBody, PageSearch, type PageSearchHandle } from "../../components/ui/PageHeader.tsx";
+import { usePersistentState, oneOf } from "../../hooks/usePersistentState.ts";
+import PageHeader, { CreateButton, HeaderIconButton, PageSearch, type PageSearchHandle } from "../../components/ui/PageHeader.tsx";
 import SegmentedControl from "../../components/ui/SegmentedControl.tsx";
-import Toggle from "../../components/ui/Toggle.tsx";
+import { useFillHeight } from "../../components/Layout/fillHeight.ts";
 import { ViewSwitcher, VIEWS, type ViewKey } from "./components/HeaderControls.tsx";
 import { useListDesign } from "../../hooks/useListDesign.ts";
 import type { ListDesign } from "../../utils/preferences.ts";
@@ -34,22 +38,31 @@ import ApplicationTailorDrawer from "./ApplicationTailorDrawer.tsx";
 import ImportModal from "../../components/ImportModal/ImportModal.tsx";
 import { useQueryClient } from "@tanstack/react-query";
 import { useApplicationFilters, toListParams, filtersChanged } from "./data/filters.ts";
-import { useAllApplications, useApplicationsPage, useFilterOptions, useResumes } from "./data/queries.ts";
-import { DEFAULT_COLUMN_ORDER, OPTIONAL_COLUMNS, isColumnOrder, type ColumnId, type TableGrouping } from "./views/table/columns.ts";
-import ColumnsMenu from "./views/table/ColumnsMenu.tsx";
+import { appKeys, LIST_CAP, useAllApplications, useFilterOptions, useInsights, useResumes } from "./data/queries.ts";
+import { applicationHref } from "./data/navigation.ts";
+import type { RowOrder } from "./data/focus.ts";
+import { DEFAULT_COLUMN_ORDER, OPTIONAL_COLUMNS, isColumnOrder, type ColumnId } from "./views/ledger/columns.ts";
+import ColumnsMenu from "./views/ledger/ColumnsMenu.tsx";
 import type { Application } from "../../types";
 import { DEFAULT_SHOW, isCalendarShow, type CalendarShow } from "./views/calendar/data.ts";
 
-export type Density = "comfortable" | "compact";
+// Sweep is a dialog with its own motion — it loads when first opened.
+const SweepModal = lazy(() => import("./sweep/SweepModal.tsx"));
+
+/** Ledger groups. */
+export type LedgerGrouping = "stage" | "momentum" | "company" | "none";
+/** Trail and Desk sections. */
+export type TimeGrouping = "momentum" | "stage";
 
 export interface ApplicationsShell {
   design: ListDesign;
-  density: Density;
-  groupByCompany: boolean;
-  tableGrouping: TableGrouping;
+  ledgerGrouping: LedgerGrouping;
+  ledgerOrder: RowOrder;
   hiddenColumns: ColumnId[];
-  /** Table: the optional columns' order (also their fit priority). */
+  /** Ledger: the optional columns' order (also their fit priority). */
   columnOrder: ColumnId[];
+  trailGrouping: TimeGrouping;
+  deskGrouping: TimeGrouping;
   openCreate: () => void;
   openEdit: (app: Application) => void;
   openTailor: (applicationId: string) => void;
@@ -71,31 +84,37 @@ function viewFromPath(pathname: string): ViewKey {
   return "list";
 }
 
+const LEDGER_GROUPINGS = ["stage", "momentum", "company", "none"] as const;
+const TIME_GROUPINGS = ["momentum", "stage"] as const;
+const ROW_ORDERS = ["smart", "applied", "fit", "company"] as const;
+
 export default function ApplicationsLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { isEnabled } = useFeatureFlags();
-  const { filters, page, setFilters, resetFilters, filterSearch } = useApplicationFilters();
+  const { filters, setFilters, resetFilters, filterSearch } = useApplicationFilters();
   const view = viewFromPath(location.pathname);
-
-  /* ─── Preferences ─── */
   const [design] = useListDesign();
-  const [density, setDensity] = usePersistentState<Density>("hiretrail-apps-density", "comfortable", oneOf(["comfortable", "compact"] as const));
-  const [groupByCompany, setGroupByCompany] = usePersistentState<boolean>("hiretrail-apps-group-by-company-v2", false, isBoolean);
-  const [tableGrouping, setTableGrouping] = usePersistentState<TableGrouping>("hiretrail-apps-table-grouping", "stage", oneOf(["stage", "company", "none"] as const));
+
+  /* ─── Preferences (this device) ─── */
+  const [ledgerGrouping, setLedgerGrouping] = usePersistentState<LedgerGrouping>("hiretrail-apps-table-grouping", "stage", oneOf(LEDGER_GROUPINGS));
+  const [ledgerOrder, setLedgerOrder] = usePersistentState<RowOrder>("hiretrail-apps-ledger-order", "smart", oneOf(ROW_ORDERS));
   const [columnOrder, setColumnOrder] = usePersistentState<ColumnId[]>("hiretrail-apps-table-column-order", DEFAULT_COLUMN_ORDER, isColumnOrder);
-  const [calendarShow, setCalendarShow] = usePersistentState<CalendarShow>("hiretrail-cal-show", DEFAULT_SHOW, isCalendarShow);
   const [hiddenColumns, setHiddenColumns] = usePersistentState<ColumnId[]>(
     "hiretrail-apps-table-hidden-columns", [],
     (v): v is ColumnId[] => Array.isArray(v) && v.every((c) => OPTIONAL_COLUMNS.some((o) => o.id === c)),
   );
+  const [trailGrouping, setTrailGrouping] = usePersistentState<TimeGrouping>("hiretrail-apps-trail-grouping", "momentum", oneOf(TIME_GROUPINGS));
+  const [deskGrouping, setDeskGrouping] = usePersistentState<TimeGrouping>("hiretrail-apps-desk-grouping", "momentum", oneOf(TIME_GROUPINGS));
+  const [calendarShow, setCalendarShow] = usePersistentState<CalendarShow>("hiretrail-cal-show", DEFAULT_SHOW, isCalendarShow);
 
   /* ─── Dialogs ─── */
   const [editing, setEditing] = useState<Application | null | undefined>(undefined); // undefined = closed, null = create
   const [tailorAppId, setTailorAppId] = useState<string | null>(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [sweepOpen, setSweepOpen] = useState(false);
   const qc = useQueryClient();
   const [filtersOpen, setFiltersOpen] = useState(false);
   const searchRef = useRef<PageSearchHandle>(null);
@@ -113,27 +132,23 @@ export default function ApplicationsLayout() {
     else openCreate();
   }, [view, openCreate]);
 
-  /* ─── Data for the header + Filters panel (shares the active view's cache) ─── */
+  /* ─── Data for the header + Filters panel (the views share this cache) ─── */
   const listParams = useMemo(() => toListParams(filters), [filters]);
-  const usesPaged = view === "list" && design === "classic";
-  const paged = useApplicationsPage(listParams, page, { enabled: usesPaged });
-  const all = useAllApplications(listParams, { enabled: !usesPaged && view !== "calendar" });
-  const source = usesPaged ? paged.data : all.data;
+  const all = useAllApplications(listParams, { enabled: view !== "calendar" });
   const { data: filterOptions } = useFilterOptions(filters.status === "archived" ? "true" : "false");
   const { data: resumes = [] } = useResumes();
-
-  const tabCounts = source?.tabCounts;
-  const stageCounts = useMemo(() => {
-    if (usesPaged) return paged.data?.stageCounts;
-    // The "all" list is fetched without the stage filter; count client-side.
-    const counts: Record<string, number> = {};
-    for (const a of all.data?.data ?? []) counts[a.stage] = (counts[a.stage] ?? 0) + 1;
-    return counts;
-  }, [usesPaged, paged.data, all.data]);
+  const { data: insights } = useInsights();
+  const tabCounts = all.data?.tabCounts;
+  // The server counts every match (not just the 1,000 a list carries).
+  const stageCounts = all.data?.stageCounts;
 
   const meta = view === "calendar" || !tabCounts
     ? undefined
     : filters.status === "archived" ? `${tabCounts.archived} archived` : `${tabCounts.active} active`;
+
+  /* ─── Height: the calendar and the Desk own theirs ─── */
+  const fills = view === "calendar" || (view === "list" && design === "desk");
+  useFillHeight(fills);
 
   /* ─── Deep links ─── */
   useEffect(() => {
@@ -146,17 +161,17 @@ export default function ApplicationsLayout() {
     if (tailor) setTailorAppId(tailor);
     const session = take("tailorSession");
     if (session) {
-      tailorAPI.get(session)
+      tailorAPI.get(session, { quiet: true })
         .then((s) => { if (s?.applicationId) setTailorAppId(s.applicationId); })
         .catch(() => toast.error("That tailoring session no longer exists."));
     }
     const focus = take("focus");
     if (focus) {
-      navigate(`/applications/${focus}`, { replace: true });
+      navigate(applicationHref(focus, design, filterSearch), { replace: true });
       return;
     }
     if (changed) setSearchParams(next, { replace: true });
-  }, [searchParams, setSearchParams, navigate]);
+  }, [searchParams, setSearchParams, navigate, design, filterSearch]);
 
   /* ─── Page shortcuts ─── */
   const views = VIEWS.filter((v) => v.key !== "board" || isEnabled("feature_kanban"));
@@ -167,33 +182,47 @@ export default function ApplicationsLayout() {
     ...Object.fromEntries(views.map((v) => [v.shortcut, () => navigate({ pathname: v.path, search: filterSearch })])),
   });
 
-  /* ─── Export (exactly what's filtered) ─── */
+  /* ─── Export: everything that matches, a page of 1,000 at a time ─── */
   const handleExport = async () => {
     const id = toast.loading("Preparing export…");
     try {
-      const res = await applicationsAPI.getAll({ ...listParams, page: 1, limit: 1000 });
-      exportToCSV(res.data);
-      toast.success(`Exported ${res.data.length} application${res.data.length === 1 ? "" : "s"}`, { id });
+      const rows: Application[] = [];
+      for (let page = 1; ; page++) {
+        const res = await applicationsAPI.getAll({ ...listParams, page, limit: LIST_CAP }, { quiet: true });
+        rows.push(...res.data);
+        if (page >= res.pagination.pages || res.data.length === 0) break;
+      }
+      exportToCSV(rows);
+      toast.success(`Exported ${rows.length.toLocaleString()} application${rows.length === 1 ? "" : "s"}`, { id });
     } catch {
       toast.error("Export failed. Please try again.", { id });
     }
   };
 
   /* ─── Reset: every filter + the current view's display options ─── */
+  const listView = view === "list";
   const displayChanged =
     view === "calendar" ? !(calendarShow.deadline && calendarShow.applied && calendarShow.stage)
-    : view === "list" && design === "classic" ? density !== "comfortable" || groupByCompany
-    : view === "list" ? tableGrouping !== "stage" || hiddenColumns.length > 0 || columnOrder.join() !== DEFAULT_COLUMN_ORDER.join()
+    : listView && design === "ledger" ? ledgerGrouping !== "stage" || ledgerOrder !== "smart" || hiddenColumns.length > 0 || columnOrder.join() !== DEFAULT_COLUMN_ORDER.join()
+    : listView && design === "trail" ? trailGrouping !== "momentum"
+    : listView && design === "desk" ? deskGrouping !== "momentum"
     : false;
   const canReset = filtersChanged(filters) || displayChanged;
   const resetAll = () => {
     resetFilters();
     if (view === "calendar") setCalendarShow(DEFAULT_SHOW);
-    else if (view === "list" && design === "classic") { setDensity("comfortable"); setGroupByCompany(false); }
-    else if (view === "list") { setTableGrouping("stage"); setHiddenColumns([]); setColumnOrder(DEFAULT_COLUMN_ORDER); }
+    else if (listView && design === "ledger") { setLedgerGrouping("stage"); setLedgerOrder("smart"); setHiddenColumns([]); setColumnOrder(DEFAULT_COLUMN_ORDER); }
+    else if (listView && design === "trail") setTrailGrouping("momentum");
+    else if (listView && design === "desk") setDeskGrouping("momentum");
   };
 
   /* ─── Display options per view ─── */
+  const timeGroupingRow = (value: TimeGrouping, onChange: (g: TimeGrouping) => void) => (
+    <FilterRow label="Group">
+      <SegmentedControl<TimeGrouping> ariaLabel="Group by" size="sm" value={value} onChange={onChange}
+        segments={[{ value: "momentum", label: "Momentum" }, { value: "stage", label: "Stage" }]} />
+    </FilterRow>
+  );
   let display: React.ReactNode = null;
   if (view === "calendar") {
     const kinds: { key: keyof CalendarShow; label: string }[] = [
@@ -222,47 +251,38 @@ export default function ApplicationsLayout() {
         </div>
       </div>
     );
-  } else if (view === "list" && design === "classic") {
-    display = (
-      <>
-        <FilterRow label="Density">
-          <SegmentedControl<Density> ariaLabel="Density" size="sm" value={density} onChange={setDensity}
-            segments={[{ value: "comfortable", label: "Comfortable" }, { value: "compact", label: "Compact" }]} />
-        </FilterRow>
-        <FilterRow label="Group by company">
-          <Toggle label="Group by company" checked={groupByCompany} onChange={setGroupByCompany} />
-        </FilterRow>
-      </>
-    );
-  } else if (view === "list") {
+  } else if (listView && design === "ledger") {
     display = (
       <>
         <FilterRow label="Group">
-          <SegmentedControl<TableGrouping> ariaLabel="Group by" size="sm" value={tableGrouping} onChange={setTableGrouping}
-            segments={[{ value: "stage", label: "Stage" }, { value: "company", label: "Company" }, { value: "none", label: "None" }]} />
+          <SegmentedControl<LedgerGrouping> ariaLabel="Group by" size="sm" value={ledgerGrouping} onChange={setLedgerGrouping}
+            segments={[{ value: "stage", label: "Stage" }, { value: "momentum", label: "Momentum" }, { value: "company", label: "Company" }, { value: "none", label: "None" }]} />
+        </FilterRow>
+        <FilterRow label="Order">
+          <SegmentedControl<RowOrder> ariaLabel="Order rows by" size="sm" value={ledgerOrder} onChange={setLedgerOrder}
+            segments={[{ value: "smart", label: "Next up" }, { value: "applied", label: "Applied" }, { value: "fit", label: "Fit" }, { value: "company", label: "A–Z" }]} />
         </FilterRow>
         <FilterRow label="Columns">
           <ColumnsMenu order={columnOrder} hidden={hiddenColumns} onOrderChange={setColumnOrder} onHiddenChange={setHiddenColumns} />
         </FilterRow>
       </>
     );
+  } else if (listView && design === "trail") {
+    display = timeGroupingRow(trailGrouping, setTrailGrouping);
+  } else if (listView && design === "desk") {
+    display = timeGroupingRow(deskGrouping, setDeskGrouping);
   }
 
   const context: ApplicationsShell = {
-    design, density, groupByCompany, tableGrouping, hiddenColumns, columnOrder,
+    design, ledgerGrouping, ledgerOrder, hiddenColumns, columnOrder, trailGrouping, deskGrouping,
     openCreate, openEdit, openTailor, openShortcuts, openImport,
     calendarShow, registerCalendarCreate,
   };
 
-  // Classic keeps its original 1200px column (under a header that spans the
-  // card); every other view uses the width.
-  const constrained = view === "list" && design === "classic";
-
-  // The calendar owns its height: the page never scrolls, the grid fills the card.
-  const rootClass = view === "calendar" ? "flex-1 min-h-[560px] flex flex-col" : "";
+  const sweepCount = insights?.sweepCount ?? 0;
 
   return (
-    <div className={rootClass}>
+    <div className={fills ? "flex-1 min-h-[560px] flex flex-col" : ""}>
       <PageHeader
         title="Applications"
         meta={meta}
@@ -270,6 +290,16 @@ export default function ApplicationsLayout() {
           <>
             <PageSearch ref={searchRef} value={filters.q} onChange={(q) => setFilters({ q })} placeholder="Search company or role" ariaLabel="Search applications" />
             <ViewSwitcher views={views} search={filterSearch} />
+            {sweepCount > 0 && (
+              <HeaderIconButton
+                label={`${sweepCount} quiet past your reply window — sweep them`}
+                onClick={() => setSweepOpen(true)}
+                className="!w-auto px-2 gap-1.5"
+              >
+                <Hourglass size={14} strokeWidth={1.9} aria-hidden />
+                <span className="text-[12.5px] font-semibold tabular-nums text-foreground">{sweepCount > 99 ? "99+" : sweepCount}</span>
+              </HeaderIconButton>
+            )}
             <FiltersMenu
               open={filtersOpen}
               onOpenChange={setFiltersOpen}
@@ -291,18 +321,23 @@ export default function ApplicationsLayout() {
         }
       />
 
-      {/* Board/Calendar are their own chunks — keep the header on screen while
-          one loads, with a quiet view-shaped placeholder. */}
-      <Suspense fallback={<div className={`${view === "calendar" ? "flex-1" : "h-[60vh]"} rounded-xl border border-border bg-card/60 animate-pulse`} aria-label="Loading view" />}>
-        {constrained ? <PageBody><Outlet context={context} /></PageBody> : <Outlet context={context} />}
+      {/* Board/Calendar/Trail/Desk are their own chunks — keep the header on
+          screen while one loads, with a quiet view-shaped placeholder. */}
+      <Suspense fallback={<div className={`${fills ? "flex-1" : "h-[60vh]"} rounded-xl bg-muted/50 animate-pulse`} aria-label="Loading view" />}>
+        <Outlet context={context} />
       </Suspense>
 
       {editing !== undefined && (
         <ApplicationFormModal app={editing} onClose={() => setEditing(undefined)} />
       )}
       {tailorAppId && <ApplicationTailorDrawer applicationId={tailorAppId} onClose={() => setTailorAppId(null)} />}
-      {shortcutsOpen && <ShortcutsModal onClose={() => setShortcutsOpen(false)} />}
-      {importOpen && <ImportModal onClose={() => setImportOpen(false)} onImported={() => void qc.invalidateQueries({ queryKey: ["applications"] })} />}
+      {shortcutsOpen && <ShortcutsModal design={design} onClose={() => setShortcutsOpen(false)} />}
+      {importOpen && <ImportModal onClose={() => setImportOpen(false)} onImported={() => void qc.invalidateQueries({ queryKey: appKeys.all })} />}
+      {sweepOpen && (
+        <Suspense fallback={null}>
+          <SweepModal onClose={() => setSweepOpen(false)} />
+        </Suspense>
+      )}
     </div>
   );
 }

@@ -5,7 +5,7 @@ import { Link } from "react-router-dom";
 import { ExternalLink, FileText } from "lucide-react";
 import { STAGE_STRIPE_CLASS } from "../../../utils/stageStyles.ts";
 import StageMenu from "../components/StageMenu.tsx";
-import { useApplicationDeadlines, useContacts, useResumes } from "../data/queries.ts";
+import { useContacts, useOpenDeadlines, useResumes } from "../data/queries.ts";
 import type { Application, Resume, Stage } from "../../../types";
 import { dayDate, dayOf, diffDaysYmd, todayYmd } from "../../../utils/dates.ts";
 
@@ -56,7 +56,13 @@ export default function DetailRail({ app, onMove, onPreviewResume }: {
 }) {
   const { data: resumes = [] } = useResumes();
   const { data: contacts = [] } = useContacts();
-  const { data: deadlines = [], isPending: deadlinesPending } = useApplicationDeadlines(app._id);
+  // Every open deadline of this application — overdue ones too, so the rail
+  // and the next step never disagree. Read from the cache the rows share.
+  const { data: open = [], isPending: deadlinesPending } = useOpenDeadlines();
+  const deadlines = useMemo(
+    () => open.filter((d) => d.applicationId === app._id && !d.completed).sort((a, b) => (dayOf(a.dueDate) < dayOf(b.dueDate) ? -1 : 1)),
+    [open, app._id],
+  );
 
   const resume = resumes.find((r) => r._id === app.resumeId);
   const contact = contacts.find((c) => c._id === app.contactId);
@@ -80,6 +86,7 @@ export default function DetailRail({ app, onMove, onPreviewResume }: {
       <Card title="Details">
         <dl className="space-y-0.5">
           <Prop label="Stage"><StageMenu app={app} onMove={onMove} /></Prop>
+          {app.archived && <Prop label="Status">{app.archivedReason === "ghosted" ? "Closed · no reply" : "Archived"}</Prop>}
           <Prop label="Applied">{fmtDate(app.applicationDate)}</Prop>
           <Prop label="Source">{SOURCE_LABEL[app.source ?? "manual"] ?? "Added manually"}</Prop>
           <Prop label="Location">{app.location?.trim() || <Empty />}</Prop>
@@ -108,11 +115,11 @@ export default function DetailRail({ app, onMove, onPreviewResume }: {
         </dl>
       </Card>
 
-      <Card title="Upcoming deadlines" action={<Link to="/deadlines" className="text-[12px] font-medium text-muted-foreground hover:text-foreground">Manage</Link>}>
+      <Card title="Deadlines" action={<Link to="/deadlines" className="text-[12px] font-medium text-muted-foreground hover:text-foreground">Manage</Link>}>
         {deadlinesPending ? (
           <div className="space-y-2" aria-hidden><div className="h-4 w-3/4 rounded bg-muted animate-pulse" /><div className="h-4 w-1/2 rounded bg-muted animate-pulse" /></div>
         ) : deadlines.length === 0 ? (
-          <p className="text-[13px] text-muted-foreground">Nothing due for this application.</p>
+          <p className="text-[13px] text-muted-foreground">Nothing open for this application.</p>
         ) : (
           <ul className="space-y-2">
             {deadlines.map((d) => {

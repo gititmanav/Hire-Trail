@@ -1,13 +1,13 @@
 /** Settings → Personalize: how HireTrail looks (System / Light / Dark / a
  *  Custom theme built from three inputs) and how the Applications list reads
- *  (Classic | Table). */
+ *  (Ledger | Trail | Desk). */
 import { CSSProperties, KeyboardEvent, ReactNode, useContext, useEffect, useRef, useState } from "react";
 import toast, { toastWithUndo } from "../../../components/ui/toast.ts";
 import { Check, ClipboardPaste, Copy, Monitor, Moon, Palette, RotateCcw, Sun, type LucideIcon } from "lucide-react";
 import { ThemeContext, ThemeControlsContext } from "../../../hooks/useTheme.tsx";
 import { useListDesign } from "../../../hooks/useListDesign.ts";
 import { useDemoGate } from "../../../hooks/useDemoGate.tsx";
-import type { CustomTheme, ListDesign, ThemeMode } from "../../../utils/preferences.ts";
+import { LIST_DESIGNS, type CustomTheme, type ListDesign, type ThemeMode } from "../../../utils/preferences.ts";
 import { hexToLch, lchToHex, seedCustomTheme, themeFromClipboard, themeToClipboard } from "../../../utils/theme.ts";
 import { generated } from "../../../utils/themeDom.ts";
 import ColorPicker, { normalizeHex } from "../../../components/ui/ColorPicker.tsx";
@@ -230,43 +230,87 @@ function ImportThemeModal({ onClose, onApply }: { onClose: () => void; onApply: 
 
 /* ─── Applications list ─── */
 
-function ClassicPreview() {
-  return (
-    <div className="h-full flex flex-col gap-1.5 p-2.5">
-      {[0, 1, 2].map((i) => (
-        <div key={i} className="flex-1 flex items-center gap-1.5 px-2 rounded-md bg-card border border-border">
-          <span className="w-3 h-3 rounded bg-muted-foreground/25 shrink-0" />
-          <span className="h-1.5 rounded-full bg-muted-foreground/30" style={{ width: `${38 - i * 6}%` }} />
-          <span className="ml-auto h-2.5 w-7 rounded-full bg-primary/20" />
-        </div>
-      ))}
-    </div>
-  );
-}
+/** Stage dots in the previews — the same 500 shades the app uses. */
+const DOT = { applied: "bg-blue-500", oa: "bg-amber-500", interview: "bg-purple-500", offer: "bg-emerald-500" };
 
-function TablePreview() {
+function LedgerPreview() {
   return (
     <div className="h-full flex flex-col p-2.5">
-      <div className="h-3.5 rounded-[2px] bg-sidebar border-y border-border/60 flex items-center gap-1 px-1.5">
-        <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+      <div className="h-3.5 rounded-[2px] bg-sidebar border-y border-border/60 flex items-center gap-1 px-1.5 shrink-0">
+        <span className={`w-1.5 h-1.5 rounded-full ${DOT.interview}`} />
         <span className="h-1 w-8 rounded-full bg-muted-foreground/40" />
       </div>
       {[0, 1, 2, 3].map((i) => (
-        <div key={i} className="flex-1 flex items-center gap-2 px-1.5">
-          <span className="h-1.5 rounded-full bg-muted-foreground/30" style={{ width: `${30 - (i % 2) * 6}%` }} />
-          <span className="h-2 w-6 rounded-full bg-primary/20" />
-          <span className="h-1.5 w-5 rounded-full bg-muted-foreground/20" />
-          <span className="ml-auto h-1.5 w-8 rounded-full bg-muted-foreground/20" />
+        <div key={i} className="flex-1 flex items-center gap-1.5 px-1">
+          <span className="w-2.5 h-2.5 rounded-[3px] bg-muted-foreground/20 shrink-0" />
+          <span className="h-1.5 rounded-full bg-muted-foreground/30" style={{ width: `${28 - (i % 2) * 6}%` }} />
+          <span className={`h-1.5 w-9 rounded-full ${i === 1 ? "bg-amber-500/60" : "bg-foreground/25"}`} />
+          <span className="ml-auto flex items-center gap-0.5 w-12">
+            <span className="h-[2px] flex-1 rounded-full bg-blue-500/80" />
+            <span className={`h-[2px] w-4 rounded-full ${i % 2 ? DOT.oa : DOT.interview}`} />
+            <span className={`w-1 h-1 rounded-full ${i % 2 ? DOT.oa : DOT.interview}`} />
+          </span>
         </div>
       ))}
     </div>
   );
 }
 
-const LIST_OPTIONS: readonly ListDesign[] = ["classic", "table"];
+function TrailPreview() {
+  const lines: { from: number; parts: [string, number][]; fade?: boolean; next?: boolean }[] = [
+    { from: 10, parts: [[DOT.applied, 30], [DOT.interview, 30], [DOT.offer, 8]], next: true },
+    { from: 36, parts: [[DOT.applied, 20], [DOT.oa, 22]], next: true },
+    { from: 22, parts: [[DOT.applied, 56]], fade: true },
+    { from: 50, parts: [[DOT.applied, 28]] },
+  ];
+  return (
+    <div className="relative h-full flex flex-col justify-center gap-3 px-2.5 py-3">
+      <span className="absolute top-2 bottom-2 left-[80%] w-px bg-foreground/40" />
+      <span className="absolute top-2 bottom-2 left-[80%] right-2 bg-[repeating-linear-gradient(135deg,hsl(var(--foreground)/0.05)_0_3px,transparent_3px_6px)]" />
+      {lines.map((l, i) => (
+        <div key={i} className="relative h-1.5">
+          <div className="absolute inset-y-0 flex items-center" style={{ left: `${l.from}%`, right: "20%" }}>
+            {l.parts.map(([c, w], j) => (
+              <span key={j} className={`h-[2px] rounded-full ${c} ${l.fade ? "[mask-image:linear-gradient(90deg,#000_35%,transparent)]" : ""}`} style={{ width: `${(w / (80 - l.from)) * 100}%` }} />
+            ))}
+            {!l.fade && <span className={`w-1.5 h-1.5 rounded-full shrink-0 -ml-0.5 ${l.parts[l.parts.length - 1][0]}`} />}
+          </div>
+          {l.next && <span className="absolute top-1/2 w-1.5 h-1.5 -translate-y-1/2 rotate-45 border border-foreground/60 bg-background" style={{ left: `${86 + i * 3}%` }} />}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function DeskPreview() {
+  return (
+    <div className="h-full flex">
+      <div className="w-[38%] border-r border-border p-1.5 space-y-1">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className={`h-[17px] rounded-[4px] flex items-center gap-1 px-1 ${i === 1 ? "bg-card shadow-pill" : ""}`}>
+            <span className="w-2 h-2 rounded-[2px] bg-muted-foreground/20 shrink-0" />
+            <span className="h-1 rounded-full bg-muted-foreground/35" style={{ width: `${46 - i * 6}%` }} />
+          </div>
+        ))}
+      </div>
+      <div className="flex-1 p-2 space-y-1.5">
+        <div className="flex items-center gap-1.5">
+          <span className="w-3.5 h-3.5 rounded-[3px] bg-muted-foreground/20" />
+          <span className="h-1.5 w-16 rounded-full bg-foreground/40" />
+        </div>
+        <span className={`block h-2 w-10 rounded-full ${DOT.interview} opacity-30`} />
+        <div className="h-5 rounded-[4px] border border-border bg-card" />
+        <span className="block h-1 w-[85%] rounded-full bg-muted-foreground/20" />
+        <span className="block h-1 w-[70%] rounded-full bg-muted-foreground/20" />
+      </div>
+    </div>
+  );
+}
+
 const LIST_META: Record<ListDesign, { label: string; description: string; preview: ReactNode }> = {
-  classic: { label: "Classic", description: "Roomy cards with every detail at a glance, a page at a time.", preview: <ClassicPreview /> },
-  table: { label: "Table", description: "One row per application, grouped by stage — columns fill your screen.", preview: <TablePreview /> },
+  ledger: { label: "Ledger", description: "A row each, grouped by stage — what every application is waiting on, at a glance.", preview: <LedgerPreview /> },
+  trail: { label: "Trail", description: "Time across the page — each application a line that reaches today, or goes quiet.", preview: <TrailPreview /> },
+  desk: { label: "Desk", description: "Your list beside the application you're on. J and K walk through them.", preview: <DeskPreview /> },
 };
 
 /* ─── Page ─── */
@@ -357,7 +401,7 @@ export default function PersonalizeSettings() {
         title="Applications list"
         description={`How the List view shows your applications. ${savedWhere}`}
       >
-        <ChoiceGroup label="Applications list style" value={listDesign} options={LIST_OPTIONS} onChange={setListDesign} className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-3xl">
+        <ChoiceGroup label="Applications list style" value={listDesign} options={LIST_DESIGNS} onChange={setListDesign} className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-3xl">
           {(option, selected) => {
             const meta = LIST_META[option];
             return (

@@ -10,14 +10,14 @@ import { reportClientBug } from "./bugReporter.ts";
 import { aiErrorFixableInSettings } from "./aiErrors.ts";
 import { appNavigate } from "./appNavigate.ts";
 import type {
-  User, Application, Resume, Contact, Deadline, AnalyticsData,
+  User, Application, Resume, Contact, Deadline,
   ApplicationFormData, ContactFormData, DeadlineFormData, PaginatedResponse,
   Company, CompanyDetail, CompanyFormData,
   AdminDashboardData, AdminUserDetail, AuditLog,
   Announcement, SystemSetting, SeedResult, Notification,
   AdminNotificationItem, AdminNotificationStats,
   AdminMailboxUser, AdminMailboxStats, MailboxProvider,
-  BroadcastEmailItem, BroadcastRecipientType, MailerStatus, Stage, ContactOutreachStatus,
+  BroadcastEmailItem, BroadcastRecipientType, MailerStatus, Stage, ContactOutreachStatus, ArchiveReason, ReplyWindow,
 } from "../types";
 import type { Preferences } from "./preferences.ts";
 import type { CalendarEvent } from "./calendarGrid.ts";
@@ -141,6 +141,18 @@ export interface ApplicationListResponse extends PaginatedResponse<Application> 
   tabCounts?: { active: number; archived: number };
 }
 
+/** What applications measure about the person (GET /applications/insights). */
+export interface ApplicationInsights {
+  replyWindow: ReplyWindow;
+  /** Applications past twice the reply window with nothing dated ahead. */
+  sweepCount: number;
+}
+
+export type ApplicationBatchAction =
+  | { action: "archive"; reason?: ArchiveReason }
+  | { action: "unarchive" | "delete" | "undoStage" }
+  | { action: "stage"; stage: Stage };
+
 export interface ApplicationFilterOptions {
   companies: string[];
   sources: string[];
@@ -155,7 +167,7 @@ export const applicationsAPI = {
     api.get<ApplicationFilterOptions>("/applications/filter-options", { params: { archived }, ...config }).then((r) => r.data),
   getOne: (id: string, config?: { quiet?: boolean; signal?: AbortSignal }) =>
     api.get<Application>(`/applications/${id}`, config).then((r) => r.data),
-  create: (data: ApplicationFormData) => api.post<Application>("/applications", data).then((r) => r.data),
+  create: (data: ApplicationFormData & { applicationDate?: string }) => api.post<Application>("/applications", data).then((r) => r.data),
   update: (id: string, data: Partial<ApplicationFormData & { applicationDate?: string; archived?: boolean; archivedAt?: string | null; archivedReason?: string | null }>) =>
     api.put<Application>(`/applications/${id}`, data).then((r) => r.data),
   delete: (id: string) => api.delete(`/applications/${id}`).then((r) => r.data),
@@ -168,8 +180,17 @@ export const applicationsAPI = {
    *  Each application tailors its own document (never clobbers the primary). */
   tailorResume: (id: string) =>
     api.post<{ resumeId: string }>(`/applications/${id}/tailor-resume`).then((r) => r.data),
-  archive: (id: string, reason?: string) => api.put<Application>(`/applications/${id}/archive`, { reason }).then((r) => r.data),
+  archive: (id: string, reason?: ArchiveReason) => api.put<Application>(`/applications/${id}/archive`, { reason }).then((r) => r.data),
   unarchive: (id: string) => api.put<Application>(`/applications/${id}/unarchive`).then((r) => r.data),
+  /** One request for many applications: archive / unarchive / delete / move
+   *  stage, or undo a stage move made moments ago (pops it from the history). */
+  batch: (ids: string[], body: ApplicationBatchAction) =>
+    api.post<{ matched: number; modified: number }>("/applications/batch", { ids, ...body }).then((r) => r.data),
+  insights: (config?: { quiet?: boolean; signal?: AbortSignal }) =>
+    api.get<ApplicationInsights>("/applications/insights", config).then((r) => r.data),
+  /** Applications past twice the reply window with nothing dated ahead, longest-silent first. */
+  sweep: (config?: { quiet?: boolean; signal?: AbortSignal }) =>
+    api.get<{ data: Application[]; replyWindow: ReplyWindow }>("/applications/sweep", config).then((r) => r.data),
 };
 
 /* ─── Calendar (GET /api/calendar) ─── */
@@ -215,7 +236,7 @@ export const calendarAPI = {
 };
 
 export const resumesAPI = {
-  getAll: () => api.get<Resume[]>("/resumes").then((r) => r.data),
+  getAll: (config?: { quiet?: boolean; signal?: AbortSignal }) => api.get<Resume[]>("/resumes", config).then((r) => r.data),
   getOne: (id: string) => api.get<Resume>(`/resumes/${id}`).then((r) => r.data),
   create: (data: { name: string; targetRole: string; fileName: string; tags?: string[]; file?: File | null }) => {
     const formData = new FormData();
@@ -278,13 +299,13 @@ export const deadlinesAPI = {
     /** Filter to deadlines linked to a specific application. Used by the
      *  Phase-3 "auto-complete on stage change" prompt. */
     applicationId?: string;
-  }) =>
+  }, config?: { quiet?: boolean; signal?: AbortSignal }) =>
     api
       .get<
         PaginatedResponse<Deadline> & {
           counts?: { upcoming: number; overdue: number; completed: number };
         }
-      >("/deadlines", { params })
+      >("/deadlines", { params, ...config })
       .then((r) => r.data),
 
   /** Fetches every deadline page (API sorts by due date; calendar needs the full set). */
@@ -437,10 +458,6 @@ export const notificationsAPI = {
   remove: (id: string) => api.delete<{ message: string }>(`/notifications/${id}`).then((r) => r.data),
 };
 
-export const analyticsAPI = {
-  get: () => api.get<AnalyticsData>("/analytics").then((r) => r.data),
-};
-
 export const settingsAPI = {
   getMaintenanceStatus: () => api.get<{ maintenanceMode: boolean }>("/settings/maintenance-status").then((r) => r.data),
   getFeatureFlags: () => api.get<{ flags: Record<string, boolean> }>("/settings/features").then((r) => r.data),
@@ -527,7 +544,7 @@ export const tailorAPI = {
   list: (limit = 30) => api.get<TailorSession[]>("/tailor/sessions", { params: { limit } }).then((r) => r.data),
   listForApplication: (applicationId: string, limit = 30) =>
     api.get<TailorSession[]>("/tailor/sessions", { params: { limit, applicationId } }).then((r) => r.data),
-  get: (id: string) => api.get<TailorSession>(`/tailor/sessions/${id}`).then((r) => r.data),
+  get: (id: string, config?: { quiet?: boolean; signal?: AbortSignal }) => api.get<TailorSession>(`/tailor/sessions/${id}`, config).then((r) => r.data),
   setDecision: (sessionId: string, index: number, decision: TailorDecision) =>
     api.patch<TailorSession>(`/tailor/sessions/${sessionId}/suggestions/${index}`, { decision }).then((r) => r.data),
   linkApplication: (sessionId: string, applicationId: string) =>
