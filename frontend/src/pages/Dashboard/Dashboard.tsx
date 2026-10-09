@@ -85,7 +85,7 @@ export default function Dashboard() {
   const loadData = useCallback(async () => {
     try {
       const [ap, r, ct] = await Promise.all([
-        applicationsAPI.getAll({ limit: 1000, sort: "createdAt", order: "desc", archived: "all" }),
+        applicationsAPI.getAll({ limit: 1000, sort: "createdAt", order: "desc", archived: "all", fields: "summary" }),
         resumesAPI.getAll(),
         contactsAPI.getAll({ limit: 100 }),
       ]);

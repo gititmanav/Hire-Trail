@@ -55,7 +55,7 @@ async function loadRecords({ signal }: { signal: AbortSignal }): Promise<SearchR
   const quiet = { quiet: true, signal };
   const none = { data: [] as never[] };
   const [apps, companies, contacts, deadlines] = await Promise.all([
-    applicationsAPI.getAll({ limit: 500 }, quiet).catch(() => none),
+    applicationsAPI.getAll({ limit: 500, fields: "summary" }, quiet).catch(() => none),
     companiesAPI.getAll({ limit: 500 }, quiet).catch(() => none),
     contactsAPI.getAll({ limit: 500 }, quiet).catch(() => none),
     deadlinesAPI.getAllAggregated({ status: "all" }, quiet).catch(() => []),

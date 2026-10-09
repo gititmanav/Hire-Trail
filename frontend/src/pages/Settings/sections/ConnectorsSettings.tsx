@@ -49,7 +49,7 @@ function ReportRejectionModal({ onClose }: { onClose: () => void }) {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const res = await applicationsAPI.getAll({ search: company, limit: 100 });
+      const res = await applicationsAPI.getAll({ search: company, limit: 100, fields: "summary" });
       const match = res.data.find((a) => a.company.toLowerCase() === company.toLowerCase() && a.stage !== "Rejected");
       if (!match) {
         toast.error("No active application at that company.");

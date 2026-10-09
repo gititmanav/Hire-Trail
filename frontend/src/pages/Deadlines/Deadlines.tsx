@@ -65,7 +65,7 @@ export default function Deadlines() {
     try {
       const [d, a] = await Promise.all([
         deadlinesAPI.getAll({ page, limit: 20, status: filter }),
-        applicationsAPI.getAll({ limit: 999 }),
+        applicationsAPI.getAll({ limit: 999, fields: "summary" }),
       ]);
       setDeadlines(d.data);
       setPag(d.pagination);

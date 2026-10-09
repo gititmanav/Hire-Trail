@@ -293,7 +293,7 @@ export default function Companies() {
         resumesAPI.getAll(),
         contactsAPI.getAll({ limit: 500 }),
         deadlinesAPI.getAll({ limit: 500, status: "upcoming" }),
-        applicationsAPI.getAll({ limit: 1000, archived: "all" }),
+        applicationsAPI.getAll({ limit: 1000, archived: "all", fields: "summary" }),
       ]);
       setCompanies(c.data); setPag(c.pagination); setResumes(r); setContacts(ct.data); setDeadlines(dl.data); setAllApps(ap.data);
       if (c.stageCounts) setStageCounts(c.stageCounts);

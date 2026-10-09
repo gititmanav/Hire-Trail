@@ -24,7 +24,7 @@ function ExportSection() {
     setExporting(true);
     try {
       if (type === "applications") {
-        const res = await applicationsAPI.getAll({ limit: 999 });
+        const res = await applicationsAPI.getAll({ limit: 999, fields: "summary" });
         let data = res.data;
         // Days compare as YYYY-MM-DD strings (utils/dates.ts).
         if (dateFrom) data = data.filter((a) => dayOf(a.applicationDate) >= dateFrom);
